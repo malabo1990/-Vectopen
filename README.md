@@ -54,20 +54,16 @@ See our [contribution guidelines](CONTRIBUTING.md) for more details.
 
 ## Support the Project
 
-Vectopen is free and open-source, but its development and maintenance rely on community support. If you’d like to contribute to improving features, software maintenance, or web infrastructure, please consider making a **donation**: [link to donation page](#) (placeholder, replace with the actual link). Every contribution counts!
+Vectopen is free and open-source, but its development and maintenance rely on community support. If you’d like to contribute to improving features, software maintenance, or web infrastructure, please consider making a donation: [Donate to Vectopen](https://www.example.com/donate) (placeholder, replace with the actual donation page link). Every contribution counts!
 
-## Community
+## Community and Contact
 
-Join our **Telegram** channel to share ideas and constructive feedback: [link to Telegram channel](#) (placeholder, replace with the actual link).
+Join our community to share ideas, provide constructive feedback, or get in touch:
+
+- **Telegram**: Join our channel at [t.me/vectopen](https://t.me/vectopen).
 
 ## License
 
 Vectopen is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute the software under the terms of the license.
-
-## Contact
-
-- **Website**:None.
-- **Email**: support@vectopen.org
-- **Community**: Join our [Telegram] (t.me/vectopen).
 
 Thank you for contributing to Vectopen! 🎨
