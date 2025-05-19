@@ -1,6 +1,6 @@
 # Vectopen
 
-![Vectopen Logo](path/to/logo.png) <!-- Replace with the actual logo path -->
+![Vectopen Logo](logo_vectopen.svg) <!-- Replace with the actual logo path -->
 
 Vectopen is an open-source vector graphics editor built with **Godot Engine**. Designed for designers, developers, and creatives, Vectopen provides a lightweight, intuitive, and cross-platform solution (Windows, macOS, iOS, Android, and HTML5) for creating and editing vector graphics, such as illustrations, logos, and icons. It aims to be a competitive alternative to tools like **Adobe Illustrator** and **Affinity Designer**, focusing on accessibility, performance, and minimalist design.
 
