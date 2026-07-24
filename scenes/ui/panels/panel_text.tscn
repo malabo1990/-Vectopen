@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://panel_text"]
+
+[ext_resource type="Texture2D" uid="uid://fmckbmymo1rm" path="res://icon/UI/text-square.svg" id="1_icon"]
+[ext_resource type="Texture2D" uid="uid://cxludb2vushl4" path="res://icon/UI/TEXTO-PARRAFO.svg" id="2_icon"]
+[ext_resource type="Script" path="res://scenes/ui/tool_button.gd" id="3_script"]
+
+[sub_resource type="StyleBoxFlat" id="sb_panel"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.180392)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="sb_button"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="text" type="PanelContainer"]
+visible = false
+layout_mode = 0
+offset_left = -177.0
+offset_top = 205.0
+offset_right = -24.0
+offset_bottom = 290.0
+theme_override_styles/panel = SubResource("sb_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+vertical = true
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Text"
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/BoxContainer"]
+layout_mode = 2
+columns = 7
+
+[node name="Button" type="Button" parent="MarginContainer/BoxContainer/GridContainer"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("1_icon")
+expand_icon = true
+script = ExtResource("3_script")
+tool_script_path = "res://script_gdscript/tools/TextTool.gd"
+create_at_center_method = "create_text_at_center"
+
+[node name="Button2" type="Button" parent="MarginContainer/BoxContainer/GridContainer"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("2_icon")
+expand_icon = true
+script = ExtResource("3_script")
+tool_script_path = "res://script_gdscript/tools/ParagraphTool.gd"
+create_at_center_method = "create_paragraph_at_center"

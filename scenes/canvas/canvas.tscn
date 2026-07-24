@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://dq780ohbvwe87"]
+
+[ext_resource type="Script" uid="uid://ctg3mf1e4gaj1" path="res://scripts/canvas/canvas.gd" id="1_75aqd"]
+[ext_resource type="Script" uid="uid://bt2fxaodqe4vj" path="res://script_gdscript/tools/MoveTool.gd" id="2_1ckkv"]
+[ext_resource type="Script" uid="uid://civi4cgkcrhyg" path="res://scripts/canvas/artboard.gd" id="2_pfdkn"]
+[ext_resource type="Script" uid="uid://3beecpkwdsrg" path="res://script_gdscript/canvas/canvas_layer.gd" id="3_k4n84"]
+[ext_resource type="Script" uid="uid://yuqdbfr6ukb8" path="res://script_gdscript/tools/brushtool.gd" id="3_yqq0e"]
+[ext_resource type="Script" uid="uid://d3e8m8x2cyvk1" path="res://scripts/RectangleTool.gd" id="4_d444h"]
+[ext_resource type="Script" uid="uid://dnlwijfetwfue" path="res://script_gdscript/tools/PenTool.gd" id="5_n4sms"]
+[ext_resource type="PackedScene" uid="uid://bmh6ie1y00dvs" path="res://scenes/ui/main.tscn" id="7_1ckkv"]
+[ext_resource type="Script" uid="uid://cxmeq11efwq7b" path="res://scenes/canvas/canvas_overlay_controller.gd" id="8_d444h"]
+[ext_resource type="Script" uid="uid://5br6orey0uhx" path="res://scenes/canvas/artboard_manager.gd" id="10_yqq0e"]
+[ext_resource type="Script" path="res://script_gdscript/tools/CircleTool.gd" id="11_circle"]
+[ext_resource type="Script" path="res://script_gdscript/tools/TriangleTool.gd" id="12_tri"]
+[ext_resource type="Script" path="res://script_gdscript/tools/PentagonTool.gd" id="13_pent"]
+[ext_resource type="Script" path="res://script_gdscript/tools/Star4Tool.gd" id="14_s4"]
+[ext_resource type="Script" path="res://script_gdscript/tools/Star5Tool.gd" id="15_s5"]
+[ext_resource type="Script" path="res://script_gdscript/tools/WaterDropTool.gd" id="16_wd"]
+[ext_resource type="Script" path="res://script_gdscript/tools/beziertool.gd" id="17_bz"]
+[ext_resource type="Script" path="res://script_gdscript/tools/TextTool.gd" id="18_text"]
+[ext_resource type="Script" path="res://script_gdscript/tools/ParagraphTool.gd" id="19_para"]
+
+[node name="CanvasRoot" type="Node2D" unique_id=1785420769 node_paths=PackedStringArray("camera", "artboards_container") groups=["_vectopen_canvas"]]
+script = ExtResource("1_75aqd")
+camera = NodePath("Camera2D")
+artboards_container = NodePath("ArtboardsContainer")
+MoveTool_Script = ExtResource("2_1ckkv")
+BrushTool_Script = ExtResource("3_yqq0e")
+RectangleTool_Script = ExtResource("4_d444h")
+PenTool_Script = ExtResource("5_n4sms")
+CircleTool_Script = ExtResource("11_circle")
+TriangleTool_Script = ExtResource("12_tri")
+BezierTool_Script = ExtResource("17_bz")
+PentagonTool_Script = ExtResource("13_pent")
+Star4Tool_Script = ExtResource("14_s4")
+Star5Tool_Script = ExtResource("15_s5")
+WaterDropTool_Script = ExtResource("16_wd")
+TextTool_Script = ExtResource("18_text")
+ParagraphTool_Script = ExtResource("19_para")
+metadata/_edit_horizontal_guides_ = [1079.0]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2136984096]
+process_mode = 3
+script = ExtResource("3_k4n84")
+
+[node name="main" parent="CanvasLayer" unique_id=1932901795 instance=ExtResource("7_1ckkv")]
+mouse_filter = 2
+
+[node name="ArtboardsContainer" type="Node2D" parent="." unique_id=2141048037]
+script = ExtResource("8_d444h")
+
+[node name="Artboard" type="Node2D" parent="ArtboardsContainer" unique_id=775332752]
+script = ExtResource("2_pfdkn")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=460175322]
+visible = false
+
+[node name="Background" type="Node2D" parent="." unique_id=1459288826]
+
+[node name="manager_script" type="Node2D" parent="." unique_id=1468653365]
+script = ExtResource("10_yqq0e")

@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://panel_selector"]
+
+[sub_resource type="StyleBoxFlat" id="sb_panel"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.180392)
+shadow_size = 10
+
+[node name="Selector" type="PanelContainer"]
+visible = false
+layout_mode = 0
+offset_left = -180.0
+offset_top = 5.0
+offset_right = -27.0
+offset_bottom = 90.0
+theme_override_styles/panel = SubResource("sb_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+vertical = true
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Selector"
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/BoxContainer"]
+layout_mode = 2
+columns = 7
+
+[node name="Polygon2D" type="Polygon2D" parent="."]
+position = Vector2(62, 94)
+rotation = -0.51991
+polygon = PackedVector2Array(99, 5, 115, 4, 107, -8)

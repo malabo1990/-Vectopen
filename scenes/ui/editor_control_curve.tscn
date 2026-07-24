@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://yurqyirbqywv"]
+
+[ext_resource type="Script" uid="uid://cbxy6ho38db7t" path="res://scripts/EditorCurve.gd" id="1_ng2mf"]
+[ext_resource type="Resource" uid="uid://wf60griu1h6c" path="res://Data/CurveResource.tres" id="2_cg4tp"]
+
+[node name="EditorControlCurve" type="BoxContainer" unique_id=679954280]
+script = ExtResource("1_ng2mf")
+bg_color = Color(1, 1, 1, 1)
+bg_draw_border = null
+grid_enable = null
+grid_color = Color(0.8125, 0.8125, 0.8125, 1)
+grid_thickness = null
+grid_divisions = null
+curve_main_color = Color(0, 0, 0, 1)
+curve_thickness = null
+node_default_color = Color(0.01985294, 0.421875, 0, 1)
+node_selected_color = Color(0, 0, 0, 1)
+handle_line_color = Color(0, 0.40234375, 0.077095814, 1)
+handle_point_color = null
+handle_point_radius = null
+btn_bg_normal = Color(1, 1, 1, 1)
+btn_bg_active = Color(0.82421875, 0.82421875, 0.82421875, 1)
+btn_text_normal = null
+btn_text_active = null
+btn_font_size = null
+curve_data = ExtResource("2_cg4tp")

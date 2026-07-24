@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "godot-mcp",
+    "godot-mcp-ls"
+  ]
+}

@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bfr7c44tm1acr"]
+
+[ext_resource type="Script" uid="uid://cf4voomo5sgcd" path="res://scripts/control_gradient.gd" id="1_w4gr8"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_leyds"]
+bg_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_njakn"]
+bg_color = Color(0.890625, 0.890625, 0.890625, 1)
+
+[node name="gradient" type="PanelContainer" unique_id=1233818797 node_paths=PackedStringArray("color_rect", "btn_add", "btn_remove", "color_picker")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_leyds")
+script = ExtResource("1_w4gr8")
+color_rect = NodePath("BoxContainer/ColorRect")
+btn_add = NodePath("BoxContainer/HBoxContainer/add")
+btn_remove = NodePath("BoxContainer/HBoxContainer/remove")
+color_picker = NodePath("BoxContainer/HBoxContainer/ColorPickerButton")
+
+[node name="BoxContainer" type="BoxContainer" parent="." unique_id=849258829]
+layout_mode = 2
+vertical = true
+
+[node name="ColorRect" type="ColorRect" parent="BoxContainer" unique_id=1483288297]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+color = Color(1, 0.193948, 0.644478, 1)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="BoxContainer" unique_id=417619517]
+layout_mode = 2
+
+[node name="remove" type="Button" parent="BoxContainer/HBoxContainer" unique_id=1923607088]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_njakn")
+text = "-"
+
+[node name="add" type="Button" parent="BoxContainer/HBoxContainer" unique_id=1529708382]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_njakn")
+text = "+"
+
+[node name="ColorPickerButton" type="ColorPickerButton" parent="BoxContainer/HBoxContainer" unique_id=1626090876]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+
+[node name="HSlider" type="HSlider" parent="BoxContainer" unique_id=1673047775]
+layout_mode = 2

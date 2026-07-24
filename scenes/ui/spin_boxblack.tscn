@@ -1,0 +1,230 @@
+[gd_scene format=3 uid="uid://c0qra2jlwad0n"]
+
+[ext_resource type="Script" uid="uid://cla812rjm3ta2" path="res://scripts/systemProgressbar.gd" id="1_ue663"]
+[ext_resource type="Texture2D" uid="uid://c80wp8ki0swiv" path="res://icon/UI/repeat.svg" id="2_fgy3k"]
+[ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="3_gob3m"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://scripts/btn_toogle.gd" id="4_ggyju"]
+[ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://scripts/Numeros_calculadora.gd" id="5_xoyel"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f5lw3"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.578125, 0.578125, 0.578125, 1)
+corner_radius_top_left = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_07q4e"]
+bg_color = Color(0, 0.5, 0.062030435, 1)
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.578125, 0.578125, 0.578125, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lxwt0"]
+bg_color = Color(0, 0, 0, 0)
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.578125, 0.578125, 0.578125, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_klxro"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.578125, 0.578125, 0.578125, 1)
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_roj2h"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_83acj"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dxsvy"]
+bg_color = Color(0, 0, 0, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="Control" type="Control" unique_id=1888442830]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BoxContainer" type="BoxContainer" parent="." unique_id=1109138249]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 0
+offset_right = 118.0
+offset_bottom = 31.0
+theme_override_constants/separation = 0
+
+[node name="Button" type="Button" parent="BoxContainer" unique_id=604363991 node_paths=PackedStringArray("progress_bar", "boton_aumentar", "boton_reducir", "boton_reset", "area_drag", "calculadora")]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_f5lw3")
+text = "<"
+script = ExtResource("1_ue663")
+progress_bar = NodePath("../ProgressBar")
+boton_aumentar = NodePath("../Button2")
+boton_reducir = NodePath(".")
+boton_reset = NodePath("../Button3")
+area_drag = NodePath("../ProgressBar")
+calculadora = NodePath("../Button4/PanelContainer/MarginContainer/BoxContainer/BoxContainer/LineEdit")
+
+[node name="ProgressBar" type="ProgressBar" parent="BoxContainer" unique_id=1669426658]
+custom_minimum_size = Vector2(70, 24)
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_styles/fill = SubResource("StyleBoxFlat_07q4e")
+value = 40.0
+
+[node name="LineEdit" type="LineEdit" parent="BoxContainer/ProgressBar" unique_id=878352685]
+visible = false
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_lxwt0")
+
+[node name="Button2" type="Button" parent="BoxContainer" unique_id=928866455]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_klxro")
+text = ">"
+
+[node name="VSeparator" type="VSeparator" parent="BoxContainer" unique_id=784479776]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Button3" type="Button" parent="BoxContainer" unique_id=1125354085]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_roj2h")
+theme_override_styles/focus = SubResource("StyleBoxFlat_83acj")
+icon = ExtResource("2_fgy3k")
+expand_icon = true
+
+[node name="Button4" type="Button" parent="BoxContainer" unique_id=1172924420]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_roj2h")
+theme_override_styles/focus = SubResource("StyleBoxFlat_83acj")
+icon = ExtResource("3_gob3m")
+expand_icon = true
+
+[node name="PanelContainer" type="PanelContainer" parent="BoxContainer/Button4" unique_id=1641846807]
+visible = false
+light_mask = 4
+z_index = 3
+layout_mode = 0
+offset_left = -150.0
+offset_top = -204.0
+offset_right = -26.0
+offset_bottom = -9.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_dxsvy")
+script = ExtResource("4_ggyju")
+target_node_path = NodePath(".")
+button_toggle_path = NodePath("..")
+
+[node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Button4/PanelContainer" unique_id=1435496843]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Button4/PanelContainer/MarginContainer" unique_id=1644639532 node_paths=PackedStringArray("lista_botones_numeros", "lineedit_entrada", "lineedit_salida", "boton_borrar", "boton_punto", "barra_progreso")]
+layout_mode = 2
+vertical = true
+script = ExtResource("5_xoyel")
+lista_botones_numeros = [NodePath("GridContainer/0"), NodePath("GridContainer/Button"), NodePath("GridContainer/Button2"), NodePath("GridContainer/Button3"), NodePath("GridContainer/Button4"), NodePath("GridContainer/Button5"), NodePath("GridContainer/Button6"), NodePath("GridContainer/Button7"), NodePath("GridContainer/Button8"), NodePath("GridContainer/Button9")]
+lineedit_entrada = NodePath("BoxContainer/LineEdit")
+lineedit_salida = NodePath("../../../../ProgressBar/LineEdit")
+boton_borrar = NodePath("GridContainer/Button12")
+boton_punto = NodePath("GridContainer/Button10")
+barra_progreso = NodePath("../../../../ProgressBar")
+
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer" unique_id=1702278342]
+layout_mode = 2
+
+[node name="LineEdit" type="LineEdit" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/BoxContainer" unique_id=1340793748]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+theme_override_colors/font_selected_color = Color(1, 1, 1, 1)
+alignment = 1
+
+[node name="GridContainer" type="GridContainer" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer" unique_id=1999939648]
+layout_mode = 2
+columns = 3
+
+[node name="Button" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=1339585599]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "1"
+
+[node name="Button2" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=678067525]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "2"
+
+[node name="Button3" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=5944983]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "3"
+
+[node name="Button4" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=241592223]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "4"
+
+[node name="Button5" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=1992631475]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "5"
+
+[node name="Button6" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=179033434]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "6"
+
+[node name="Button7" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=840192479]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "7"
+
+[node name="Button8" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=2084136487]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "8"
+
+[node name="Button9" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=394425583]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "9"
+
+[node name="Button10" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=893600829]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "."
+
+[node name="0" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=2038855491]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "0"
+
+[node name="Button12" type="Button" parent="BoxContainer/Button4/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=587802208]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "<"

@@ -1,0 +1,319 @@
+﻿[gd_scene format=3 uid="uid://bwfvuaxaip16m"]
+
+[ext_resource type="Script" uid="uid://dcel1g67431r7" path="res://script_gdscript/system/ImportExportManager.gd" id="1_3goxh"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="1_8k6w1"]
+[ext_resource type="Script" uid="uid://c00oeeuccp45" path="res://Scene/control_raiz.gd" id="3_lwi2q"]
+[ext_resource type="Script" uid="uid://de0j0x5q70tda" path="res://Scene/explotar_archivos.gd" id="3_oqeks"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e4rlv"]
+bg_color = Color(1, 1, 1, 1)
+shadow_color = Color(0, 0, 0, 0.3137255)
+shadow_size = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_debnt"]
+bg_color = Color(1, 0, 0, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h3dyp"]
+bg_color = Color(0.890625, 0.890625, 0.890625, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l4thb"]
+bg_color = Color(0.92578125, 0.92578125, 0.92578125, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_npura"]
+bg_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8qr3o"]
+bg_color = Color(1, 1, 1, 1)
+
+[node name="Panel_manager" type="Panel" unique_id=758353070]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -343.0
+grow_horizontal = 2
+grow_vertical = 0
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_e4rlv")
+script = ExtResource("1_3goxh")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=186443432]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="QuickActionMenu" type="HBoxContainer" parent="HBoxContainer" unique_id=117354869]
+custom_minimum_size = Vector2(130, 0)
+layout_mode = 2
+
+[node name="ButtonsVBox" type="VBoxContainer" parent="HBoxContainer/QuickActionMenu" unique_id=1602545796]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="BtnNuevo" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=328469264]
+layout_mode = 2
+text = "New"
+
+[node name="BtnReciente" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=559384842]
+layout_mode = 2
+text = "Recent"
+
+[node name="BtnArchivos" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=409311692]
+layout_mode = 2
+text = "Files"
+
+[node name="BtnRecuperar" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=1581669432]
+layout_mode = 2
+text = "Recover"
+
+[node name="BtnClose" type="Button" parent="HBoxContainer/QuickActionMenu" unique_id=1720302683]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_debnt")
+text = " X "
+
+[node name="FileFlowLayout" type="HBoxContainer" parent="HBoxContainer" unique_id=679995410]
+layout_mode = 2
+
+[node name="FileLibraryPanel" type="PanelContainer" parent="HBoxContainer/FileFlowLayout" unique_id=374963603]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel" unique_id=1488887158]
+layout_mode = 2
+
+[node name="SearchBar" type="LineEdit" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=2054770853]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=379551797]
+layout_mode = 2
+
+[node name="detalles" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/HBoxContainer" unique_id=763435211]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+text = "Details"
+
+[node name="icono" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/HBoxContainer" unique_id=1692739685]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+text = "Icon"
+
+[node name="RecentFilesTree" type="Tree" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=1826160510]
+custom_minimum_size = Vector2(200, 300)
+layout_mode = 2
+
+[node name="ExportPanel" type="PanelContainer" parent="HBoxContainer/FileFlowLayout" unique_id=76099097]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel" unique_id=883541166]
+layout_mode = 2
+
+[node name="NameHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=693544754]
+layout_mode = 2
+
+[node name="LabelName" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/NameHBox" unique_id=1944820760]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Name"
+
+[node name="LineEditName" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/NameHBox" unique_id=1269849784]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+
+[node name="FormatGrid" type="GridContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=171379713]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 5
+
+[node name="BtnSVG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=511341676]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SVG"
+
+[node name="BtnPNG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=1477510374]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PNG"
+
+[node name="BtnJPEG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=874865214]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "JPEG"
+
+[node name="BtnJPEGXL" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=20776636]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "JPEG XL"
+
+[node name="BtnWEBP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=187018220]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "WEBP"
+
+[node name="BtnEPS" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=193765399]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "EPS"
+
+[node name="BtnPDF" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=368739874]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PDF"
+
+[node name="BtnTSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=1250316258]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "TSCN"
+
+[node name="BtnSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=447877649]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SCN"
+
+[node name="BtnVOP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=979324392]
+layout_mode = 2
+
+layout_mode = 2
+
+[node name="SearchBar" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=258683848]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "VOP"
+
+[node name="FolderPathHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="LabelFolder" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+layout_mode = 2
+text = "Folder:"
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+
+[node name="PathLineEdit" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "C:/Users/..."
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+
+[node name="BtnBrowse" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+layout_mode = 2
+text = "Browse"
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+
+[node name="CantidadHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1181542724]
+layout_mode = 2
+
+[node name="LabelCantidad" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/CantidadHBox" unique_id=1963388738]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Quantity"
+
+[node name="SpinBoxCantidad" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/CantidadHBox" unique_id=584699499 instance=ExtResource("1_8k6w1")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ResolucionHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=423163966]
+layout_mode = 2
+
+[node name="LabelResolucion" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/ResolucionHBox" unique_id=241955445]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Resolution"
+
+[node name="SpinBoxResolucion" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/ResolucionHBox" unique_id=1739575074 instance=ExtResource("1_8k6w1")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MesaTrabajoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1797579336]
+layout_mode = 2
+
+[node name="LabelMesa" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/MesaTrabajoHBox" unique_id=1043570755]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Work Table"
+
+[node name="SpinBoxMesa" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/MesaTrabajoHBox" unique_id=1504588259 instance=ExtResource("1_8k6w1")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FormatoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1177397413]
+layout_mode = 2
+
+[node name="LabelFormato" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatoHBox" unique_id=1892486725]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Format"
+
+[node name="SpinBoxFormato" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatoHBox" unique_id=1028201588 instance=ExtResource("1_8k6w1")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FileDialog" type="FileDialog" parent="HBoxContainer/FileFlowLayout" unique_id=628975106]
+access = 1
+
+[node name="explotar" type="PanelContainer" parent="HBoxContainer" unique_id=308221281 node_paths=PackedStringArray("search_bar", "file_tree", "btn_details", "btn_icons")]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_npura")
+script = ExtResource("3_lwi2q")
+search_bar = NodePath("MarginContainer/VBoxContainer/HBoxContainer/LineEdit")
+file_tree = NodePath("MarginContainer/VBoxContainer/Tree")
+btn_details = NodePath("MarginContainer/VBoxContainer/HBoxContainer/detalles")
+btn_icons = NodePath("MarginContainer/VBoxContainer/HBoxContainer/icono")
+
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/explotar" unique_id=1273841237]
+layout_mode = 2
+theme_override_constants/margin_top = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/explotar/MarginContainer" unique_id=1574479312]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer" unique_id=181405293]
+layout_mode = 2
+
+[node name="LineEdit" type="LineEdit" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=478018420]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+
+[node name="detalles" type="Button" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=511261482]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+text = "Details"
+
+[node name="icono" type="Button" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=737852889]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+text = "Icon"
+
+[node name="Tree" type="Tree" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer" unique_id=445252542]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_8qr3o")
+script = ExtResource("3_oqeks")
+color_carpeta = Color(0.51171875, 0.2882614, 0, 1)
+color_archivo = Color(0, 0, 0, 1)
+color_texto_detalles = Color(0, 0, 0, 1)

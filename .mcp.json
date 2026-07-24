@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "godot-mcp": {
+      "type": "stdio",
+      "command": "C:\\Users\\User\\AppData\\Roaming\\npm\\godot-mcp-server.cmd"
+    },
+    "godot-mcp-ls": {
+      "type": "stdio",
+      "command": "C:\\Users\\User\\AppData\\Roaming\\npm\\godot-mcp-server.cmd",
+      "env": {
+        "GODOT_MCP_PORT": "6515",
+        "GODOT_MCP_HTTP_PORT": "6516"
+      }
+    }
+  }
+}

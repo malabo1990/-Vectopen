@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CurveResource" format=3 uid="uid://wf60griu1h6c"]
+
+[ext_resource type="Script" uid="uid://y5q4jtwyjl11" path="res://Data/CurveResource.gd" id="1_p7own"]
+
+[resource]
+script = ExtResource("1_p7own")
+points = PackedVector2Array(0, 1, 1, 0)
+handles_in = null
+handles_out = null
+curve_type = 6
+metadata/_custom_type_script = "uid://y5q4jtwyjl11"

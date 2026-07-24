@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://qmw83o8ycngi"]
+
+[ext_resource type="Script" uid="uid://dvs6qbisxc1b3" path="res://tools/tool_wrapper.gd" id="1_lmrjk"]
+
+[node name="BrushTool" type="Node" unique_id=417814500]
+script = ExtResource("1_lmrjk")
+tool_script = null

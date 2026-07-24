@@ -1,0 +1,394 @@
+[gd_scene format=3 uid="uid://qh8goduv5218"]
+
+[ext_resource type="PackedScene" uid="uid://bvydjbxfc4x3g" path="res://scenes/ui/theme_config_panel.tscn" id="1_aamcy"]
+[ext_resource type="Script" uid="uid://c54hkbolx82o6" path="res://script_gdscript/ui/WindowSettings.gd" id="1_g1lqb"]
+[ext_resource type="Script" uid="uid://xejiap5cvu8n" path="res://script_gdscript/ui/SnapSection.gd" id="2_g1lqb"]
+[ext_resource type="Script" uid="uid://cug0v1kqo5od7" path="res://script_gdscript/ui/TabManager.gd" id="3_hf0wq"]
+[ext_resource type="Script" uid="uid://bxn1dmh013bs2" path="res://script_gdscript/ui/PanelVisibility.gd" id="4_hf0wq"]
+[ext_resource type="Script" path="res://script_gdscript/ui/RulerSettings.gd" id="5_hf0wq"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vi5kq"]
+bg_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5mkgo"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="MANAGER WINDWS_REGLA" type="PanelContainer" unique_id=1408537131]
+offset_left = 25.0
+offset_top = 25.0
+offset_right = 340.0
+offset_bottom = 500.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_vi5kq")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1317822517]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer" unique_id=811222959]
+layout_mode = 2
+vertical = true
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer" unique_id=1563472897]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Settings"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="tab" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=1875433887]
+layout_mode = 2
+
+[node name="windows" type="Button" parent="MarginContainer/BoxContainer/tab" unique_id=1944405342]
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+text = "Window"
+
+[node name="reglas" type="Button" parent="MarginContainer/BoxContainer/tab" unique_id=552188043]
+layout_mode = 2
+toggle_mode = true
+text = "Rulers"
+
+[node name="Tema" type="Button" parent="MarginContainer/BoxContainer/tab" unique_id=968677304]
+layout_mode = 2
+size_flags_horizontal = 0
+toggle_mode = true
+text = "Theme"
+
+[node name="snap" type="Button" parent="MarginContainer/BoxContainer/tab" unique_id=158242289]
+layout_mode = 2
+toggle_mode = true
+text = "Snap"
+
+[node name="Paneles" type="Button" parent="MarginContainer/BoxContainer/tab" unique_id=1821506075]
+layout_mode = 2
+toggle_mode = true
+text = "Panels"
+
+[node name="Container" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=1800235059]
+layout_mode = 2
+vertical = true
+
+[node name="wkindwos" type="BoxContainer" parent="MarginContainer/BoxContainer/Container" unique_id=2132059977]
+layout_mode = 2
+vertical = true
+script = ExtResource("1_g1lqb")
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1758924035]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer" unique_id=1149907789]
+layout_mode = 2
+text = "Window Mode"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer" unique_id=1418166382]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer" unique_id=685556558]
+layout_mode = 2
+
+[node name="BoxContainer2" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1718458389]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer2" unique_id=678773741]
+layout_mode = 2
+text = "Fullscreen"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer2" unique_id=206865671]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer2" unique_id=180672296]
+layout_mode = 2
+
+[node name="BoxContainer3" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=433623470]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer3" unique_id=1974284323]
+layout_mode = 2
+text = "Borderless"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer3" unique_id=1113804941]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer3" unique_id=1653323409]
+layout_mode = 2
+
+[node name="BoxContainer4" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1931021906]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer4" unique_id=536714849]
+layout_mode = 2
+text = "Maximize on Start"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer4" unique_id=1853847734]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer4" unique_id=264518305]
+layout_mode = 2
+
+[node name="BoxContainer5" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1591350822]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer5" unique_id=1320947501]
+layout_mode = 2
+text = "Window Size"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer5" unique_id=1609991319]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer5" unique_id=412911690]
+layout_mode = 2
+
+[node name="BoxContainer6" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1758855108]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer6" unique_id=1614602321]
+layout_mode = 2
+text = "Interface Scale"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer6" unique_id=912690111]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer6" unique_id=822410228]
+layout_mode = 2
+
+[node name="BoxContainer8" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=12693]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer8" unique_id=1066818713]
+layout_mode = 2
+text = "Use Desktop Resolution"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer8" unique_id=1330355978]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer8" unique_id=1707555791]
+layout_mode = 2
+
+[node name="BoxContainer9" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=313896530]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer9" unique_id=1095508266]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Custom Resolution"
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer9" unique_id=119319915]
+layout_mode = 2
+
+[node name="BoxContainer10" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/wkindwos" unique_id=1966004470]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer10" unique_id=1203955317]
+layout_mode = 2
+text = "Width × Height"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer10" unique_id=115459262]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/separator = SubResource("StyleBoxFlat_5mkgo")
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/wkindwos/BoxContainer10" unique_id=1461200548]
+layout_mode = 2
+
+[node name="regla" type="BoxContainer" parent="MarginContainer/BoxContainer/Container" unique_id=1470695233]
+visible = false
+layout_mode = 2
+vertical = true
+script = ExtResource("5_hf0wq")
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/regla" unique_id=786368929]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer" unique_id=1501013791]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Horizontal Ruler"
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer" unique_id=1287117198]
+layout_mode = 2
+
+[node name="BoxContainer2" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/regla" unique_id=1584227372]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer2" unique_id=267731259]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Vertical Ruler"
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer2" unique_id=690516870]
+layout_mode = 2
+
+[node name="BoxContainer3" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/regla" unique_id=881042406]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer3" unique_id=97346281]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Show Guides"
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer3" unique_id=428639161]
+layout_mode = 2
+
+[node name="BoxContainer4" type="BoxContainer" parent="MarginContainer/BoxContainer/Container/regla" unique_id=539947963]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer4" unique_id=1395939353]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Snap to Guides"
+
+[node name="CheckButton" type="CheckButton" parent="MarginContainer/BoxContainer/Container/regla/BoxContainer4" unique_id=1040863196]
+layout_mode = 2
+
+[node name="tema" parent="MarginContainer/BoxContainer/Container" unique_id=80100187 instance=ExtResource("1_aamcy")]
+visible = false
+layout_mode = 2
+
+[node name="snap_section" type="BoxContainer" parent="MarginContainer/BoxContainer/Container" unique_id=1576169008]
+visible = false
+layout_mode = 2
+vertical = true
+script = ExtResource("2_g1lqb")
+grid_check = NodePath("GridRow/GridCheck")
+grid_size_spin = NodePath("SizeRow/SizeSpin")
+
+[node name="HeaderLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1373442547]
+layout_mode = 2
+text = "Snapping"
+
+[node name="GridRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1960017221]
+layout_mode = 2
+
+[node name="GridLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section/GridRow" unique_id=1961565784]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Grid Snap"
+
+[node name="GridCheck" type="CheckButton" parent="MarginContainer/BoxContainer/Container/snap_section/GridRow" unique_id=24634034]
+layout_mode = 2
+
+[node name="SizeRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=685777917]
+layout_mode = 2
+
+[node name="SizeLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section/SizeRow" unique_id=214539290]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Grid Size"
+
+[node name="SizeSpin" type="SpinBox" parent="MarginContainer/BoxContainer/Container/snap_section/SizeRow" unique_id=862791205]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+value = 10.0
+
+[node name="paneles" type="BoxContainer" parent="MarginContainer/BoxContainer/Container" unique_id=1000097933]
+visible = false
+layout_mode = 2
+vertical = true
+script = ExtResource("4_hf0wq")
+
+[node name="Row0" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/paneles" unique_id=1969546258]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/paneles/Row0" unique_id=897121432]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Effects"
+
+[node name="VSep" type="VSeparator" parent="MarginContainer/BoxContainer/Container/paneles/Row0" unique_id=1621592236]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Check" type="CheckButton" parent="MarginContainer/BoxContainer/Container/paneles/Row0" unique_id=1088725683]
+layout_mode = 2
+
+[node name="Row1" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/paneles" unique_id=1816179109]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/paneles/Row1" unique_id=10833563]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Preview"
+
+[node name="VSep" type="VSeparator" parent="MarginContainer/BoxContainer/Container/paneles/Row1" unique_id=1338844006]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Check" type="CheckButton" parent="MarginContainer/BoxContainer/Container/paneles/Row1" unique_id=1576873647]
+layout_mode = 2
+
+[node name="Row2" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/paneles" unique_id=1669206897]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/paneles/Row2" unique_id=578626192]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Color Selector"
+
+[node name="VSep" type="VSeparator" parent="MarginContainer/BoxContainer/Container/paneles/Row2" unique_id=1899397446]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Check" type="CheckButton" parent="MarginContainer/BoxContainer/Container/paneles/Row2" unique_id=20783743]
+layout_mode = 2
+
+[node name="Row3" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/paneles" unique_id=832310286]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/paneles/Row3" unique_id=625657442]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Export"
+
+[node name="VSep" type="VSeparator" parent="MarginContainer/BoxContainer/Container/paneles/Row3" unique_id=453322886]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Check" type="CheckButton" parent="MarginContainer/BoxContainer/Container/paneles/Row3" unique_id=460359317]
+layout_mode = 2
+
+[node name="Row4" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/paneles" unique_id=1637014626]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Container/paneles/Row4" unique_id=186633750]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Numeric Panel"
+
+[node name="VSep" type="VSeparator" parent="MarginContainer/BoxContainer/Container/paneles/Row4" unique_id=776449607]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Check" type="CheckButton" parent="MarginContainer/BoxContainer/Container/paneles/Row4" unique_id=1068105208]
+layout_mode = 2
+
+[node name="TabManager" type="Node" parent="MarginContainer/BoxContainer" unique_id=663509378]
+script = ExtResource("3_hf0wq")
+control_a = NodePath("../tab")
+control_b = NodePath("../Container")

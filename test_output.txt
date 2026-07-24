@@ -1,0 +1,21 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+DataRepository: Inicializado correctamente
+ToolManager: Inicializado. Herramientas disponibles: ["select", "move", "pen", "bezier", "rectangle", "ellipse", "text", "hand"]
+Vectopen classified: low (gpu= cpu=16 ram=2048MB mobile=false)
+Profile: low | FPS=30 | Scale=0.67 | Shadows=1024 | Particles=150
+[Plugin] Hello Vectopen! Plugin 'hello_world' v1.0.0 loaded.
+JSON loaded successfully
+Aviso en RichTextLabel: Faltan nodos por asignar en el Inspector: RichTextLabel, Slider Line Space, Slider Letter Space, Slider Text Size
+   At: res://script_gdscript/ui/rich_text_label_slider_size.gd:44:_validate_nodes()
+Aviso en BoxContainer: Faltan nodos por asignar en el Inspector: RichTextLabel, Slider Line Space, Slider Letter Space, Slider Text Size
+   At: res://script_gdscript/ui/rich_text_label_slider_size.gd:44:_validate_nodes()
+UI del editor vectorial cargada correctamente
+ArtboardManager: registrado dinámicamente → Artboard
+ArtboardManager: total artboards iniciales = 1
+==================================================
+CANVAS NOTIFICACIÓN: ¡Herramienta Cambiada con Éxito!
+==================================================
+Vectopen stepped UP to: balanced
+Vectopen stepped UP to: high
+Vectopen stepped UP to: ultra

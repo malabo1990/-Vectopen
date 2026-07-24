@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://dymjn3dn3o5j4"]
+
+[ext_resource type="PackedScene" uid="uid://bpwdmjun6eulb" path="res://icon/UI/icon_circle1.tscn" id="1_vumuk"]
+
+[node name="SubViewportContainer" type="SubViewportContainer" unique_id=1780011570]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="icon_circle" parent="." unique_id=15909546 instance=ExtResource("1_vumuk")]

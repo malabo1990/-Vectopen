@@ -1,0 +1,65 @@
+[gd_resource type="Theme" load_steps=7 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_surface"]
+bg_color = Color(0.961, 0.961, 0.961, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hover"]
+bg_color = Color(0.878, 0.878, 0.878, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(0.878, 0.878, 0.878, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+bg_color = Color(0.816, 0.816, 0.816, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
+bg_color = Color(0.941, 0.941, 0.941, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_input"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.8, 0.8, 1)
+
+[resource]
+resource_name = "Vectopen Light"
+Button/normal = SubResource("StyleBoxFlat_btn")
+Button/hover = SubResource("StyleBoxFlat_btn_hover")
+Button/pressed = SubResource("StyleBoxFlat_btn_pressed")
+Button/font_color = Color(0.102, 0.102, 0.102, 1)
+Button/font_hover_color = Color(0.118, 0.4, 0.961, 1)
+Button/font_pressed_color = Color(0.4, 0.4, 0.4, 1)
+Label/font_color = Color(0.102, 0.102, 0.102, 1)
+LineEdit/normal = SubResource("StyleBoxFlat_input")
+LineEdit/focus = SubResource("StyleBoxFlat_input")
+LineEdit/font_color = Color(0.102, 0.102, 0.102, 1)
+LineEdit/font_placeholder_color = Color(0.4, 0.4, 0.4, 1)
+Panel/panel = SubResource("StyleBoxFlat_surface")
+PanelContainer/panel = SubResource("StyleBoxFlat_surface")
+default_font_color = Color(0.102, 0.102, 0.102, 1)

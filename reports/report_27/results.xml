@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites id="2026-07-24" name="report_27" tests="53" failures="0" skipped="0" flaky="0" time="0.000">
+	<testsuite id="0" name="UndoRedoManager_test" package="test/autoloads" timestamp="2026-07-24T16:27:50" hostname="localhost" tests="17" failures="0" errors="0" skipped="0" flaky="0" time="0.213">
+		<testcase name="test_create_action_adds_to_stack" classname="UndoRedoManager_test" time="0.008">
+		</testcase>
+		<testcase name="test_create_action_clears_redo_stack" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+		<testcase name="test_undo_redo_cycle" classname="UndoRedoManager_test" time="0.007">
+		</testcase>
+		<testcase name="test_double_undo_redo" classname="UndoRedoManager_test" time="0.005">
+		</testcase>
+		<testcase name="test_undo_empty_stack" classname="UndoRedoManager_test" time="0.008">
+		</testcase>
+		<testcase name="test_redo_empty_stack" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+		<testcase name="test_version_changed_signal_on_create" classname="UndoRedoManager_test" time="0.008">
+		</testcase>
+		<testcase name="test_version_changed_signal_on_undo" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+		<testcase name="test_version_changed_signal_on_clear" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+		<testcase name="test_get_undo_name_empty" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+		<testcase name="test_get_redo_name_empty" classname="UndoRedoManager_test" time="0.007">
+		</testcase>
+		<testcase name="test_get_redo_name_after_undo" classname="UndoRedoManager_test" time="0.007">
+		</testcase>
+		<testcase name="test_add_do_method_empty_stack" classname="UndoRedoManager_test" time="0.005">
+		</testcase>
+		<testcase name="test_clear_empties_both_stacks" classname="UndoRedoManager_test" time="0.007">
+		</testcase>
+		<testcase name="test_max_history_trims_oldest" classname="UndoRedoManager_test" time="0.005">
+		</testcase>
+		<testcase name="test_invalid_callable_skipped" classname="UndoRedoManager_test" time="0.007">
+		</testcase>
+		<testcase name="test_action_constructor" classname="UndoRedoManager_test" time="0.006">
+		</testcase>
+	</testsuite>
+	<testsuite id="1" name="VectorShape_test" package="test/shapes" timestamp="2026-07-24T16:27:50" hostname="localhost" tests="8" failures="0" errors="0" skipped="0" flaky="0" time="0.113">
+		<testcase name="test_default_properties" classname="VectorShape_test" time="0.007">
+		</testcase>
+		<testcase name="test_set_selected_changes_modulate" classname="VectorShape_test" time="0.006">
+		</testcase>
+		<testcase name="test_get_state_returns_dictionary" classname="VectorShape_test" time="0.007">
+		</testcase>
+		<testcase name="test_serialize_returns_same_as_get_state" classname="VectorShape_test" time="0.006">
+		</testcase>
+		<testcase name="test_to_svg_returns_empty_string" classname="VectorShape_test" time="0.008">
+		</testcase>
+		<testcase name="test_custom_properties" classname="VectorShape_test" time="0.007">
+		</testcase>
+		<testcase name="test_vector_rectangle_extends_shape" classname="VectorShape_test" time="0.007">
+		</testcase>
+		<testcase name="test_vector_circle_extends_shape" classname="VectorShape_test" time="0.008">
+		</testcase>
+	</testsuite>
+	<testsuite id="2" name="ToolBase_test" package="test/tools" timestamp="2026-07-24T16:27:51" hostname="localhost" tests="9" failures="0" errors="0" skipped="0" flaky="0" time="0.118">
+		<testcase name="test_handle_input_returns_false" classname="ToolBase_test" time="0.007">
+		</testcase>
+		<testcase name="test_draw_preview_does_nothing" classname="ToolBase_test" time="0.007">
+		</testcase>
+		<testcase name="test_get_class_name_empty" classname="ToolBase_test" time="0.006">
+		</testcase>
+		<testcase name="test_default_state" classname="ToolBase_test" time="0.006">
+		</testcase>
+		<testcase name="test_default_constants" classname="ToolBase_test" time="0.007">
+		</testcase>
+		<testcase name="test_deactivate_resets_is_drawing" classname="ToolBase_test" time="0.006">
+		</testcase>
+		<testcase name="test_refresh_dependencies_finds_canvas_from_parent" classname="ToolBase_test" time="0.006">
+		</testcase>
+		<testcase name="test_refresh_dependencies_finds_artboard" classname="ToolBase_test" time="0.007">
+		</testcase>
+		<testcase name="test_refresh_dependencies_finds_shape_manager" classname="ToolBase_test" time="0.006">
+		</testcase>
+	</testsuite>
+	<testsuite id="3" name="GestorColor_test" package="test/ui" timestamp="2026-07-24T16:27:51" hostname="localhost" tests="10" failures="0" errors="0" skipped="0" flaky="0" time="0.137">
+		<testcase name="test_ready_configura_slider" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_brillo_50_oscurece_rojo" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_brillo_0_hace_negro" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_brillo_100_devuelve_color_original" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_brillo_no_afecta_alpha" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_brillo_75_escala_valor_hsv" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_establecer_color_cambia_color_rect" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_establecer_color_notifica_senal" classname="GestorColor_test" time="0.008">
+		</testcase>
+		<testcase name="test_obtener_color_devuelve_actual" classname="GestorColor_test" time="0.007">
+		</testcase>
+		<testcase name="test_obtener_color_sin_color_rect_devuelve_blanco" classname="GestorColor_test" time="0.006">
+		</testcase>
+	</testsuite>
+	<testsuite id="4" name="PaletteSaveGrid_test" package="test/ui" timestamp="2026-07-24T16:27:51" hostname="localhost" tests="9" failures="0" errors="0" skipped="0" flaky="0" time="0.168">
+		<testcase name="test_find_add_button_with_button" classname="PaletteSaveGrid_test" time="0.010">
+		</testcase>
+		<testcase name="test_find_add_button_without_button" classname="PaletteSaveGrid_test" time="0.005">
+		</testcase>
+		<testcase name="test_on_add_pressed_appends_color" classname="PaletteSaveGrid_test" time="0.008">
+		</testcase>
+		<testcase name="test_on_add_pressed_persists_to_file" classname="PaletteSaveGrid_test" time="0.024">
+		</testcase>
+		<testcase name="test_refresh_replaces_swatches" classname="PaletteSaveGrid_test" time="0.014">
+		</testcase>
+		<testcase name="test_refresh_creates_swatches" classname="PaletteSaveGrid_test" time="0.014">
+		</testcase>
+		<testcase name="test_load_colors_restores_saved" classname="PaletteSaveGrid_test" time="0.013">
+		</testcase>
+		<testcase name="test_load_colors_empty_file" classname="PaletteSaveGrid_test" time="0.007">
+		</testcase>
+		<testcase name="test_on_swatch_clicked_updates_color_rect" classname="PaletteSaveGrid_test" time="0.008">
+		</testcase>
+	</testsuite>
+</testsuites>

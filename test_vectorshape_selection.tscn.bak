@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b1ox6helm056m"]
+
+[ext_resource type="Script" uid="uid://c1yoriqtv4ypp" path="res://test_vectorshape_selection.gd" id="1_sclej"]
+
+[node name="TestRunner" type="Node" unique_id=1185479763]
+script = ExtResource("1_sclej")

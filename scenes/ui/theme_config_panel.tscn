@@ -1,0 +1,148 @@
+[gd_scene format=3 uid="uid://bvydjbxfc4x3g"]
+
+[ext_resource type="Script" uid="uid://dscuvokd3r7x7" path="res://script_gdscript/ui/ThemeConfigPanel.gd" id="1_3fpar"]
+
+[node name="ThemeConfigPanel" type="PanelContainer" unique_id=80100187]
+script = ExtResource("1_3fpar")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1221835285]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=834140263]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1168370278]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MarginContainer/VBoxContainer/Header" unique_id=1677714878]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Theme Colors"
+
+[node name="ResetAll" type="Button" parent="MarginContainer/VBoxContainer/Header" unique_id=1755285917]
+layout_mode = 2
+text = "Reset All"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer" unique_id=1372837835]
+custom_minimum_size = Vector2(280, 300)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SlotContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer" unique_id=98205441]
+layout_mode = 2
+size_flags_horizontal = 3
+
+; ── Sección Dibujo ──
+[node name="SecDibujo" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1001]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+text = "Drawing"
+
+[node name="RowFill" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1002]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="LblFill" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowFill" unique_id=1003]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Fill Color"
+
+[node name="PickFill" type="ColorPickerButton" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowFill" unique_id=1004]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 24)
+color = Color(0.88, 0.88, 0.88, 1)
+
+[node name="RowStroke" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1005]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="LblStroke" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowStroke" unique_id=1006]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Stroke Color"
+
+[node name="PickStroke" type="ColorPickerButton" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowStroke" unique_id=1007]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 24)
+
+; ── Sección Texto ──
+[node name="SecTexto" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1008]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+text = "Text"
+
+[node name="RowTextColor" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1009]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="LblTextColor" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextColor" unique_id=1010]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Text Color"
+
+[node name="PickTextColor" type="ColorPickerButton" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextColor" unique_id=1011]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 24)
+
+[node name="RowTextSize" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1012]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="LblTextSize" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextSize" unique_id=1013]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Text Size"
+
+[node name="SpinTextSize" type="SpinBox" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextSize" unique_id=1014]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 24)
+min_value = 8.0
+max_value = 300.0
+value = 32.0
+
+; ── Sección Idioma ──
+[node name="SecIdioma" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1015]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+text = "Language"
+
+[node name="RowLang" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1016]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 32)
+
+[node name="LblLang" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowLang" unique_id=1017]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Language"
+
+[node name="OptLang" type="OptionButton" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowLang" unique_id=1018]
+layout_mode = 2
+
+; ── Sección Colores UI ──
+[node name="SecUI" type="Label" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1019]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+text = "UI Colors"
+
+[node name="UIColors" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1020]
+layout_mode = 2
+
+; ── Botones ──
+[node name="BtnApply" type="Button" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1021]
+layout_mode = 2
+text = "Apply to Selection"
+
+[node name="SepTheme" type="HSeparator" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1022]
+layout_mode = 2
+
+[node name="BtnTheme" type="Button" parent="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer" unique_id=1023]
+layout_mode = 2
+text = "Dark / Light Mode"
+
+[connection signal="pressed" from="MarginContainer/VBoxContainer/Header/ResetAll" to="." method="reset_all"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/BtnApply" to="." method="_on_apply_clicked"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/BtnTheme" to="." method="_on_toggle_theme"]

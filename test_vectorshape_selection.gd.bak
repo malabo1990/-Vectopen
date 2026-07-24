@@ -1,0 +1,74 @@
+extends Node
+
+func _ready() -> void:
+	await get_tree().process_frame
+
+	var rect_shape = load("res://script_gdscript/shapes/VectorRectangle.gd").new()
+	rect_shape.size = Vector2(150, 100)
+	rect_shape.position = Vector2(200, 200)
+	add_child(rect_shape)
+	await get_tree().process_frame
+
+	var gp = rect_shape.global_position
+	var es = rect_shape.size
+	var expected = Rect2(gp - es * 0.5, es)
+	print("TEST_RECT: global_pos=", gp, " size=", es)
+	print("TEST_RECT: esperado rect=", expected)
+
+	if "size" in rect_shape:
+		var s: Vector2 = rect_shape.get("size")
+		var actual = Rect2(gp - s * 0.5, s)
+		print("TEST_RECT: actual rect=", actual)
+		var diff = (actual.size - Vector2(150, 100)).length()
+		if diff < 0.01:
+			print("TEST_RECT: ✅ PASÓ - VectorRectangle detectado correctamente")
+		else:
+			print("TEST_RECT: ❌ FALLÓ - diff=", diff)
+	else:
+		print("TEST_RECT: ❌ FALLÓ - 'size' no encontrado en VectorRectangle")
+
+	var circle_shape = load("res://script_gdscript/shapes/VectorCircle.gd").new()
+	circle_shape.size = Vector2(80, 80)
+	circle_shape.position = Vector2(500, 300)
+	add_child(circle_shape)
+	await get_tree().process_frame
+
+	if "size" in circle_shape:
+		var cs = circle_shape.get("size")
+		print("TEST_CIRCLE: size=", cs, " — Circle con 'size' funciona")
+		print("TEST_CIRCLE: ✅ PASÓ")
+	else:
+		print("TEST_CIRCLE: ❌ FALLÓ")
+
+	var poly_shape = load("res://script_gdscript/shapes/VectorPolygon.gd").new()
+	var verts = PackedVector2Array([
+		Vector2(0, -50),
+		Vector2(43, 25),
+		Vector2(-43, 25)
+	])
+	poly_shape.vertices = verts
+	poly_shape.position = Vector2(400, 500)
+	add_child(poly_shape)
+	await get_tree().process_frame
+
+	if "vertices" in poly_shape:
+		var vs: PackedVector2Array = poly_shape.get("vertices")
+		print("TEST_POLY: vertices=", vs, " — Polygon con 'vertices' funciona")
+		var first_gpt = poly_shape.to_global(vs[0])
+		var mn = first_gpt
+		var mx = first_gpt
+		for p in vs:
+			var g_pt = poly_shape.to_global(p)
+			mn.x = min(mn.x, g_pt.x)
+			mn.y = min(mn.y, g_pt.y)
+			mx.x = max(mx.x, g_pt.x)
+			mx.y = max(mx.y, g_pt.y)
+		var actual = Rect2(mn, mx - mn)
+		print("TEST_POLY: bounding rect=", actual)
+		if actual.size.length() > 0:
+			print("TEST_POLY: ✅ PASÓ")
+	else:
+		print("TEST_POLY: ❌ FALLÓ")
+
+	print("=== TEST COMPLETADO ===")
+	queue_free()

@@ -1,0 +1,8 @@
+{
+  "Paste": "Pastes the item from clipboard.",
+  "Copy": "Copies the selected item to clipboard.",
+  "Duplicate": "Creates a copy of the selected item.",
+  "Remove": "Deletes the selected item from the scene.",
+  "name": "Displays or edits the selected item's name.",
+  "Rename": "Allows renaming the selected item."
+}

@@ -1,0 +1,82 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
+[application]
+
+config/name="Vectopen"
+config/version="0.1.1"
+run/main_scene="uid://dq780ohbvwe87"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/image="uid://da0xph4mywp4d"
+config/icon="uid://boh0e23xvob1c"
+vectopen/theme_mode="dark"
+vectopen/locale="es"
+
+[autoload]
+
+GlobalEvents="*uid://bgxjosoy21kf3"
+GlobalUI="*uid://cvriwkp6npig3"
+DataRepository="*uid://bavuvw5qyjw1l"
+ToolManager="*uid://bpvdij2kng30k"
+PerformanceManager="*res://script_gdscript/system/PerformanceManager.gd"
+ThemeManager="*res://script_gdscript/system/ThemeManager.gd"
+ImportExportManager="*res://script_gdscript/system/ImportExportManager.gd"
+ExportCache="*res://autoloads/ExportCache.gd"
+SmartCursor="*res://autoloads/SmartCursor.gd"
+ObjectPool="*res://autoloads/ObjectPool.gd"
+ToolFactory="*res://autoloads/ToolFactory.gd"
+ErrorHandler="*res://autoloads/ErrorHandler.gd"
+LanguageManager="*res://autoloads/LanguageManager.gd"
+VectopenInput="*res://autoloads/VectopenInput.gd"
+SnapManager="*res://autoloads/SnapManager.gd"
+PluginManager="*res://autoloads/PluginManager.gd"
+DrawPreferences="*res://autoloads/DrawPreferences.gd"
+MCPRuntime="*uid://3fh08fg3rlff"
+HistoryManager="*res://autoloads/HistoryManager.gd"
+SaveManager="*res://autoloads/SaveManager.gd"
+RecentFilesManager="*res://autoloads/RecentFilesManager.gd"
+
+[debug]
+
+gdscript/warnings/unused_signal=0
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=2
+window/size/initial_position_type=0
+mouse_cursor/custom_image_hotspot=Vector2(10, 10)
+
+[dotnet]
+
+project/assembly_name="Vectopen"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg", "res://addons/godot_mcp/plugin.cfg")
+
+[input]
+
+ui_reset={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":82,"key_label":0,"unicode":114,"location":0,"echo":false,"script":null)
+]
+}
+
+[rendering]
+
+renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_2d=1

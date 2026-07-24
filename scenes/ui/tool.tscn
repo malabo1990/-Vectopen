@@ -1,0 +1,157 @@
+[gd_scene format=3 uid="uid://bx3q1qnh3ckge"]
+
+[ext_resource type="Script" uid="uid://cbivl20l22dby" path="res://script_gdscript/ui/btn_toggle.gd" id="1_6s70h"]
+[ext_resource type="Texture2D" uid="uid://bhwt1q10wgxq4" path="res://icon/UI/navigation.svg" id="1_av7yx"]
+[ext_resource type="Texture2D" uid="uid://dn7ahdawpmbm4" path="res://icon/UI/navigation_BLACK.svg" id="2_v66jq"]
+[ext_resource type="Script" uid="uid://qqpctupja4mr" path="res://script_gdscript/ui/toolbar.gd" id="3_7glcw"]
+[ext_resource type="Texture2D" uid="uid://bn1pwgywu2l4p" path="res://icon/UI/hexagon-plus.svg" id="4_jm412"]
+[ext_resource type="Texture2D" uid="uid://no6fjyh8bp0a" path="res://icon/UI/media-image.svg" id="6_v66jq"]
+[ext_resource type="Texture2D" uid="uid://fmckbmymo1rm" path="res://icon/UI/text-square.svg" id="11_hj3e3"]
+[ext_resource type="Texture2D" uid="uid://d1y5ehd86cfgw" path="res://icon/UI/folder-tree.svg" id="16_icyih"]
+[ext_resource type="Script" uid="uid://bacv4ltosp2rt" path="res://scenes/ui/tool_button.gd" id="99_new"]
+[ext_resource type="PackedScene" uid="uid://cpju6qjnrmes1" path="res://scenes/ui/panels/panel_polygon.tscn" id="100_panel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_text.tscn" id="101_panel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_selector.tscn" id="102_panel"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_av7yx"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3q3ql"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="Herramientas" type="Control" unique_id=1376235726]
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -135.0
+offset_right = 135.0
+offset_bottom = 65.0
+grow_horizontal = 2
+script = ExtResource("1_6s70h")
+metadata/_edit_vertical_guides_ = [603.0, 991.0]
+metadata/_edit_horizontal_guides_ = [22.0, 214.0, 246.0]
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1008422281]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 48.0
+offset_bottom = 262.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_av7yx")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=370998743]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ToolbarContainer_button_tool" type="BoxContainer" parent="PanelContainer/MarginContainer" unique_id=414177970]
+layout_mode = 2
+vertical = true
+script = ExtResource("3_7glcw")
+
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=271048118]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_3q3ql")
+icon = ExtResource("1_av7yx")
+expand_icon = true
+script = ExtResource("99_new")
+tool_name = "select"
+
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1607829190]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_3q3ql")
+icon = ExtResource("2_v66jq")
+expand_icon = true
+script = ExtResource("99_new")
+tool_name = "move"
+
+[node name="button_toolmover" type="TextureButton" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1306488138]
+visible = false
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+texture_normal = ExtResource("1_av7yx")
+texture_pressed = ExtResource("2_v66jq")
+texture_hover = ExtResource("2_v66jq")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("1_6s70h")
+
+[node name="button_toolbezier" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=194994086]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+script = ExtResource("99_new")
+tool_name = "bezier"
+
+[node name="button_toolbrush" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=950167420]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+script = ExtResource("99_new")
+tool_name = "brush"
+
+[node name="button_toolimage" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=523689234]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+icon = ExtResource("6_v66jq")
+expand_icon = true
+script = ExtResource("99_new")
+tool_name = "select"
+
+[node name="button_toolbshapes" type="TextureButton" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1479071363 node_paths=PackedStringArray("trigger_node", "target_node")]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+texture_normal = ExtResource("4_jm412")
+texture_pressed = ExtResource("4_jm412")
+texture_hover = ExtResource("4_jm412")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("1_6s70h")
+trigger_node = NodePath(".")
+target_node = NodePath("../../../../polygon")
+
+[node name="button_tooltext" type="TextureButton" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=2039157065 node_paths=PackedStringArray("trigger_node", "target_node")]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+texture_normal = ExtResource("11_hj3e3")
+texture_pressed = ExtResource("11_hj3e3")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("1_6s70h")
+trigger_node = NodePath(".")
+target_node = NodePath("../../../../text")
+
+[node name="button_artboard" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=735323681]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+script = ExtResource("99_new")
+tool_name = "hand"
+
+[node name="button_capas" type="TextureButton" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1177450942 node_paths=PackedStringArray("trigger_node", "target_node")]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+texture_normal = ExtResource("16_icyih")
+texture_pressed = ExtResource("16_icyih")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("1_6s70h")
+trigger_node = NodePath(".")
+target_node = NodePath("../../../../Selector")
+
+[node name="polygon" parent="." unique_id=1275479696 instance=ExtResource("100_panel")]
+visible = false
+layout_mode = 0
+offset_left = -325.0
+offset_top = 21.0
+offset_right = -29.0
+offset_bottom = 291.0
+
+[node name="text" parent="." unique_id=829857794 instance=ExtResource("101_panel")]
+
+[node name="Selector" parent="." unique_id=1801291299 instance=ExtResource("102_panel")]

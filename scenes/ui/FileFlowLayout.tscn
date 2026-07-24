@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/FileFlowLayout.gd" id=1]
+
+[node name="FileFlowLayout" type="HBoxContainer"]
+layout_mode = 3
+anchors_preset = 3
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+margin_right = -4.0
+margin_bottom = -4.0
+
+[node name="FileLibraryPanel" type="PanelContainer" parent="."]
+layout_mode = 2
+grow_horizontal = 1
+margin_right = 2.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="FileLibraryPanel"]
+layout_mode = 2
+margin_left = 4.0
+margin_top = 4.0
+margin_right = 4.0
+margin_bottom = 4.0
+
+[node name="SearchBar" type="LineEdit" parent="FileLibraryPanel/VBoxContainer"]
+layout_mode = 2
+grow_horizontal = 1
+placeholder_text = "Search recent files..."
+
+[node name="RecentFilesTree" type="Tree" parent="FileLibraryPanel/VBoxContainer"]
+layout_mode = 2
+grow_horizontal = 1
+grow_vertical = 1
+custom_minimum_size = Vector2(200, 300)
+
+[node name="ExportPanel" type="PanelContainer" parent="."]
+layout_mode = 2
+grow_horizontal = 1
+margin_left = 2.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ExportPanel"]
+layout_mode = 2
+margin_left = 4.0
+margin_top = 4.0
+margin_right = 4.0
+margin_bottom = 4.0
+
+[node name="SearchBar" type="LineEdit" parent="ExportPanel/VBoxContainer"]
+layout_mode = 2
+grow_horizontal = 1
+placeholder_text = "Search exportable elements..."
+
+[node name="FormatSelector" type="OptionButton" parent="ExportPanel/VBoxContainer"]
+layout_mode = 2
+grow_horizontal = 1
+
+[node name="ExportLayersTree" type="Tree" parent="ExportPanel/VBoxContainer"]
+layout_mode = 2
+grow_horizontal = 1
+grow_vertical = 1
+custom_minimum_size = Vector2(200, 300)

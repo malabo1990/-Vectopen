@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://b6ry7m715u20t"]
+
+[node name="input_number" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 17.0
+offset_top = 95.0
+offset_right = 57.0
+offset_bottom = 135.0
+
+[node name="BoxContainer" type="BoxContainer" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="BoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "posicion"
+
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Button" type="Button" parent="BoxContainer/BoxContainer"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = "<"
+
+[node name="LineEdit" type="LineEdit" parent="BoxContainer/BoxContainer"]
+layout_mode = 2
+
+[node name="Button2" type="Button" parent="BoxContainer/BoxContainer"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+text = ">"
+
+[node name="VSlider" type="VSlider" parent="BoxContainer/BoxContainer"]
+layout_mode = 2
+
+[node name="BoxContainer2" type="BoxContainer" parent="BoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="SpinBox" type="SpinBox" parent="BoxContainer/BoxContainer2"]
+layout_mode = 2
+alignment = 1

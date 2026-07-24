@@ -1,0 +1,158 @@
+[gd_scene format=3 uid="uid://blxyl3f2e5udj"]
+
+[ext_resource type="Texture2D" uid="uid://cr7p58fl6pqba" path="res://icon/UI/facebook-tag.svg" id="2_a6a7y"]
+[ext_resource type="Texture2D" uid="uid://boh0e23xvob1c" path="res://icon/logo/logo_vectopen.png" id="2_e3rjr"]
+[ext_resource type="Texture2D" uid="uid://dnojw4dlmu46g" path="res://icon/UI/github-circle.svg" id="3_7fust"]
+[ext_resource type="Texture2D" uid="uid://d1dwds2o6hx00" path="res://icon/UI/telegram-circle.svg" id="4_k05ig"]
+[ext_resource type="Script" uid="uid://5ctshwudhijr" path="res://script_gdscript/utils/click_url_web.gd" id="5_e3rjr"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="6_e3rjr"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h012t"]
+bg_color = Color(0.832031, 0.832031, 0.832031, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7fust"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kaf5k"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_t75d3"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e3rjr"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="Logo" type="Control" unique_id=739486739]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 17.0
+offset_top = 15.0
+offset_right = 52.0
+offset_bottom = 50.0
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1727712686]
+layout_mode = 0
+offset_right = 32.0
+offset_bottom = 32.0
+texture = ExtResource("2_e3rjr")
+expand_mode = 1
+
+[node name="Panel" type="Panel" parent="." unique_id=1326679549]
+visible = false
+layout_mode = 0
+offset_top = 58.0
+offset_right = 221.0
+offset_bottom = 254.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_h012t")
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=476883527]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer" unique_id=1942863098]
+layout_mode = 2
+
+[node name="RichTextLabel" type="RichTextLabel" parent="Panel/MarginContainer/VBoxContainer" unique_id=982375212]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_colors/default_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/normal_font_size = 12
+text = "Vectopen is an open-source vector editor that I’m developing with Godot Engine. Vectopen is entirely yours — you can improve it and build with us."
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1976532468]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/HBoxContainer" unique_id=541511716]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "version:"
+
+[node name="Label2" type="Label" parent="Panel/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1132225758]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "0.1"
+
+[node name="BoxContainer" type="BoxContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=550488944]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/BoxContainer" unique_id=1190285163]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "Founder:"
+
+[node name="Label2" type="Label" parent="Panel/MarginContainer/VBoxContainer/BoxContainer" unique_id=1214587512]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "Casimiro Ondo  "
+
+[node name="BoxContainer2" type="BoxContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1634176215]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/BoxContainer2" unique_id=57107986]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "Developer(s):"
+
+[node name="Label2" type="Label" parent="Panel/MarginContainer/VBoxContainer/BoxContainer2" unique_id=1620953546]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "You? Join us!"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1587215874]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="Panel/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=173087642]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_7fust")
+icon = ExtResource("2_a6a7y")
+expand_icon = true
+
+[node name="Button2" type="Button" parent="Panel/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=331614376]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_7fust")
+icon = ExtResource("3_7fust")
+expand_icon = true
+script = ExtResource("5_e3rjr")
+url = "https://github.com/malabo1990/-Vectopen"
+
+[node name="Button3" type="Button" parent="Panel/MarginContainer/VBoxContainer/HBoxContainer2" unique_id=895484201]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_7fust")
+icon = ExtResource("4_k05ig")
+expand_icon = true
+script = ExtResource("5_e3rjr")
+url = "https://t.me/vectopen"
+
+[node name="Button" type="Button" parent="." unique_id=2001875263 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
+layout_mode = 0
+offset_left = -5.0
+offset_top = -4.0
+offset_right = 37.0
+offset_bottom = 35.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_kaf5k")
+theme_override_styles/hover = SubResource("StyleBoxFlat_t75d3")
+theme_override_styles/focus = SubResource("StyleBoxFlat_e3rjr")
+script = ExtResource("6_e3rjr")
+nodo_disparador = NodePath(".")
+target_nodo = NodePath("../Panel")

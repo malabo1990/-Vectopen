@@ -1,0 +1,47 @@
+extends RefCounted
+
+var min_distance_threshold: float = 2.0
+var rdp_epsilon: float = 1.2
+var catmull_segments: int = 8
+var catmull_live_segments: int = 3
+var max_raw_points_per_stroke: int = 8000
+var enable_bezier_fit_on_commit: bool = false
+
+static func for_preset(preset: String) -> RefCounted:
+	var s := new()
+	s.min_distance_threshold = 2.0
+	s.rdp_epsilon = 1.2
+	s.catmull_segments = 8
+	s.catmull_live_segments = 3
+	s.max_raw_points_per_stroke = 8000
+	s.enable_bezier_fit_on_commit = false
+	match preset:
+		"potato":
+			s.min_distance_threshold = 4.0
+			s.rdp_epsilon = 2.0
+			s.catmull_segments = 4
+			s.catmull_live_segments = 2
+			s.max_raw_points_per_stroke = 2000
+		"low":
+			s.min_distance_threshold = 3.0
+			s.rdp_epsilon = 1.5
+			s.catmull_segments = 6
+			s.catmull_live_segments = 3
+			s.max_raw_points_per_stroke = 4000
+		"high":
+			s.min_distance_threshold = 1.5
+			s.rdp_epsilon = 1.0
+			s.catmull_segments = 10
+			s.catmull_live_segments = 4
+			s.max_raw_points_per_stroke = 15000
+			s.enable_bezier_fit_on_commit = true
+		"ultra":
+			s.min_distance_threshold = 1.5
+			s.rdp_epsilon = 0.8
+			s.catmull_segments = 12
+			s.catmull_live_segments = 4
+			s.max_raw_points_per_stroke = 30000
+			s.enable_bezier_fit_on_commit = true
+		_:
+			push_warning("BrushSettings: unknown preset '%s', using balanced" % preset)
+	return s

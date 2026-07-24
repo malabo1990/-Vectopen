@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites id="2026-07-21" name="report_16" tests="10" failures="3" skipped="0" flaky="0" time="0.000">
+	<testsuite id="0" name="GestorColor_test" package="test/ui" timestamp="2026-07-21T19:17:34" hostname="localhost" tests="10" failures="3" errors="0" skipped="0" flaky="0" time="5.917">
+		<testcase name="test_ready_configura_slider" classname="GestorColor_test" time="0.367">
+		</testcase>
+		<testcase name="test_brillo_50_oscurece_rojo" classname="GestorColor_test" time="0.329">
+		</testcase>
+		<testcase name="test_brillo_0_hace_negro" classname="GestorColor_test" time="0.384">
+		</testcase>
+		<testcase name="test_brillo_100_devuelve_color_original" classname="GestorColor_test" time="0.350">
+			<failure message="FAILED: res://test/ui/GestorColor_test.gd:72" type="FAILURE">
+<![CDATA[
+Expecting:
+ 0.400000
+ but was
+ 0.400000
+	at 'test_brillo_100_devuelve_color_original' in res://test/ui/GestorColor_test.gd:72
+]]>
+			</failure>
+			<failure message="FAILED: res://test/ui/GestorColor_test.gd:73" type="FAILURE">
+<![CDATA[
+Expecting:
+ 0.200000
+ but was
+ 0.200000
+	at 'test_brillo_100_devuelve_color_original' in res://test/ui/GestorColor_test.gd:73
+]]>
+			</failure>
+		</testcase>
+		<testcase name="test_brillo_no_afecta_alpha" classname="GestorColor_test" time="0.634">
+		</testcase>
+		<testcase name="test_brillo_75_escala_valor_hsv" classname="GestorColor_test" time="0.370">
+		</testcase>
+		<testcase name="test_establecer_color_cambia_color_rect" classname="GestorColor_test" time="0.100">
+		</testcase>
+		<testcase name="test_establecer_color_notifica_senal" classname="GestorColor_test" time="0.101">
+			<failure message="FAILED: res://test/ui/GestorColor_test.gd:119" type="FAILURE">
+<![CDATA[
+Expecting: 'true' but is 'false'
+	at 'test_establecer_color_notifica_senal' in res://test/ui/GestorColor_test.gd:119
+]]>
+			</failure>
+		</testcase>
+		<testcase name="test_obtener_color_devuelve_actual" classname="GestorColor_test" time="0.107">
+		</testcase>
+		<testcase name="test_obtener_color_sin_color_rect_devuelve_blanco" classname="GestorColor_test" time="0.185">
+		</testcase>
+	</testsuite>
+</testsuites>

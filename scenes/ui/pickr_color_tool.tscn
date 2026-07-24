@@ -1,0 +1,466 @@
+[gd_scene format=3 uid="uid://prp1f7keamjb"]
+
+[ext_resource type="Script" uid="uid://b345esl2dc7mg" path="res://script_gdscript/ui/line_edit_data_color.gd" id="1_8fblk"]
+[ext_resource type="Script" uid="uid://betd848y1iqfq" path="res://script_gdscript/ui/hsl_colorpickr.gd" id="1_nsy8b"]
+[ext_resource type="Texture2D" uid="uid://be1gd2vvirx6b" path="res://icon/UI/copy.svg" id="1_p78ec"]
+[ext_resource type="Script" uid="uid://lbw8yjwiqj8g" path="res://script_gdscript/ui/managercolor_pickrColor.gd" id="1_r22ju"]
+[ext_resource type="Script" uid="uid://c35s7v5t0gipl" path="res://Scene/ColorPaletteTool.gd" id="2_s0h57"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="3_xpdcy"]
+[ext_resource type="Script" uid="uid://bxg3cc1a4ig4t" path="res://script_gdscript/ui/button_copypaste.gd" id="4_krkro"]
+[ext_resource type="Texture2D" uid="uid://dkkpi0tbh41la" path="res://icon/UI/palette.svg" id="7_t0q1y"]
+[ext_resource type="Script" uid="uid://cg3wt1uxiwwr1" path="res://script_gdscript/ui/PaletteSaveGrid.gd" id="9_xsbdh"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_20pc6"]
+bg_color = Color(0.94921875, 0.94921875, 0.94921875, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_krkro"]
+bg_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xpdcy"]
+bg_color = Color(0.921875, 0.921875, 0.921875, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8fblk"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5vvyt"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_s0h57"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.88671875, 0.88671875, 0.88671875, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_p78ec"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 100
+corner_radius_top_right = 100
+corner_radius_bottom_right = 100
+corner_radius_bottom_left = 100
+shadow_color = Color(0, 0, 0, 0.392157)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_t0q1y"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 100
+corner_radius_top_right = 100
+corner_radius_bottom_right = 100
+corner_radius_bottom_left = 100
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_j4qnp"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+shadow_color = Color(0, 0, 0, 0.172549)
+shadow_size = 10
+shadow_offset = Vector2(0, 5)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_r22ju"]
+bg_color = Color(0.761719, 0.761719, 0.761719, 1)
+corner_radius_top_left = 120
+corner_radius_top_right = 120
+corner_radius_bottom_right = 120
+corner_radius_bottom_left = 120
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_culnu"]
+bg_color = Color(1, 1, 1, 1)
+
+[node name="PanelContainer" type="PanelContainer" unique_id=1111087050 node_paths=PackedStringArray("nodo_color_rect")]
+offset_left = 7.0
+offset_top = 3.0
+offset_right = 204.0
+offset_bottom = 376.0
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_20pc6")
+script = ExtResource("1_r22ju")
+nodo_color_rect = NodePath("MarginContainer/BoxContainer/BoxContainer/ColorRect_fill")
+
+[node name="Control parametros color" type="Control" parent="." unique_id=1762439603]
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="Control parametros color" unique_id=1577625883 node_paths=PackedStringArray("slider_palette_size", "label_palette_count", "container_samples", "nodo_color_rect")]
+layout_mode = 0
+offset_left = -497.0
+offset_right = -37.0
+offset_bottom = 458.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_krkro")
+script = ExtResource("2_s0h57")
+slider_palette_size = NodePath("MarginContainer/BoxContainer/BoxContainer/BoxContainer2/HSlider")
+label_palette_count = NodePath("MarginContainer/BoxContainer/BoxContainer/BoxContainer2/Label2")
+container_samples = NodePath("MarginContainer/BoxContainer/PanelContainer/FlowContainer")
+nodo_color_rect = NodePath("../../MarginContainer/BoxContainer/BoxContainer/ColorRect_fill")
+
+[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel" unique_id=902298038]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer" unique_id=1996496247]
+layout_mode = 2
+alignment = 1
+vertical = true
+
+[node name="Titulo_Colorpallete" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=2029225970]
+layout_mode = 2
+text = "Color Palette"
+horizontal_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=1039148401]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="FlowContainer" type="FlowContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer" unique_id=319239673]
+layout_mode = 2
+
+[node name="ColorRect" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=751304133]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect" unique_id=1953924879]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer" unique_id=167826106]
+layout_mode = 2
+
+[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=1438553150]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 8
+text = "HEX"
+
+[node name="numeros" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=336686691]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 8
+text = "234453"
+
+[node name="ColorRect2" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=812765833]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2" unique_id=952732531]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer" unique_id=1052520726]
+layout_mode = 2
+
+[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2106937800]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 8
+text = "HEX"
+
+[node name="Label" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2114950031]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 8
+text = "234453"
+
+[node name="ColorRect3" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=998091081]
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+color = Color(0, 0, 0, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3" unique_id=353917706]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer" unique_id=919385551]
+layout_mode = 2
+
+[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=2027175994]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 8
+text = "HEX"
+
+[node name="Label" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=1832974163]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 8
+text = "234453"
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=1505895862]
+layout_mode = 2
+vertical = true
+
+[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1847309548]
+layout_mode = 2
+
+[node name="Color" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=195419261]
+layout_mode = 2
+text = "Color:"
+
+[node name="Label2" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1218262012]
+layout_mode = 2
+
+[node name="BoxContainer2" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=488971003]
+layout_mode = 2
+
+[node name="Numero palette" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=381505612]
+layout_mode = 2
+text = "Palette Count"
+
+[node name="HSlider" type="HSlider" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=523960063]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+size_flags_vertical = 1
+
+[node name="Label2" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=1246691864]
+layout_mode = 2
+text = "2"
+
+[node name="Node" type="Node" parent="Control parametros color/Panel/MarginContainer" unique_id=856123940]
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=656170820]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer" unique_id=2059737965]
+layout_mode = 2
+vertical = true
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=161180296]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="ColorRect_fill" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=289654244]
+custom_minimum_size = Vector2(30, 20)
+layout_mode = 2
+
+[node name="ColorRect2_stroke" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1978820660]
+visible = false
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+
+[node name="LineEdit_dataColor" type="LineEdit" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=595257323 node_paths=PackedStringArray("color_rect", "line_edit")]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_xpdcy")
+script = ExtResource("1_8fblk")
+color_rect = NodePath("../ColorRect_fill")
+line_edit = NodePath(".")
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1185809217]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Button" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1645723762 node_paths=PackedStringArray("button_pega", "button_copia", "lineedit")]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_8fblk")
+icon = ExtResource("1_p78ec")
+script = ExtResource("4_krkro")
+button_pega = NodePath("../Button2")
+button_copia = NodePath(".")
+lineedit = NodePath("../LineEdit_dataColor")
+
+[node name="Button2" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1220966854]
+visible = false
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_8fblk")
+icon = ExtResource("1_p78ec")
+
+[node name="BoxContainer2" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=808849073]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+
+[node name="Panel" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2" unique_id=749412172]
+custom_minimum_size = Vector2(1, 250)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_5vvyt")
+
+[node name="Circle_color_opasity" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel" unique_id=1029937430]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 101.0
+offset_top = -50.0
+offset_right = 201.0
+offset_bottom = 50.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_s0h57")
+metadata/_edit_lock_ = true
+
+[node name="VSlider_brillo" type="VSlider" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Circle_color_opasity" unique_id=325700617]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -12.0
+offset_right = 4.0
+grow_horizontal = 0
+grow_vertical = 2
+max_value = 1.0
+step = 0.001
+value = 0.5
+
+[node name="Circle_colorWB" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel" unique_id=2019152166]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -18.0
+offset_top = -50.0
+offset_right = 82.0
+offset_bottom = 50.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_s0h57")
+metadata/_edit_lock_ = true
+
+[node name="VSlider transparente" type="VSlider" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Circle_colorWB" unique_id=495886821]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = -4.0
+offset_right = 12.0
+grow_vertical = 2
+max_value = 1.0
+step = 0.001
+value = 1.0
+
+[node name="Panel" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel" unique_id=306889160]
+layout_mode = 0
+offset_left = -2.0
+offset_top = 27.0
+offset_right = 179.0
+offset_bottom = 208.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_p78ec")
+
+[node name="Panel3" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=1912450663 node_paths=PackedStringArray("color_rect", "line_edit", "light_slider", "alpha_slider")]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -82.50001
+offset_top = -82.5
+offset_right = 105.77835
+offset_bottom = 105.77835
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.876362, 0.876362)
+theme_override_styles/panel = SubResource("StyleBoxFlat_t0q1y")
+script = ExtResource("1_nsy8b")
+color_rect = NodePath("../../../../BoxContainer/ColorRect_fill")
+line_edit = NodePath("../../../../BoxContainer/LineEdit_dataColor")
+light_slider = NodePath("../../Circle_color_opasity/VSlider_brillo")
+alpha_slider = NodePath("../../Circle_colorWB/VSlider transparente")
+
+[node name="Button_add_palleteColor" type="Button" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=2067596415]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -15.0
+offset_top = -9.0
+offset_right = 15.0
+offset_bottom = 22.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_icons/icon = ExtResource("7_t0q1y")
+theme_override_styles/normal = SubResource("StyleBoxFlat_j4qnp")
+theme_override_styles/hover = SubResource("StyleBoxFlat_r22ju")
+icon = ExtResource("7_t0q1y")
+icon_alignment = 1
+script = ExtResource("3_xpdcy")
+
+[node name="save_color" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=1538927672]
+layout_mode = 2
+alignment = 1
+
+[node name="GridContainer_palette_Color" type="GridContainer" parent="MarginContainer/BoxContainer/save_color" unique_id=2009534072]
+layout_mode = 2
+columns = 5
+script = ExtResource("9_xsbdh")
+
+[node name="Button_add" type="Button" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1415294271]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_culnu")
+text = "+"
+
+[node name="ColorRect" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=197415663]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect2" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1617284428]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect3" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1736738938]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect4" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=229553516]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect5" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1142186651]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect6" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=2008231062]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect7" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=626031965]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect8" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1552404994]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ColorRect9" type="ColorRect" parent="MarginContainer/BoxContainer/save_color/GridContainer_palette_Color" unique_id=1606900679]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2

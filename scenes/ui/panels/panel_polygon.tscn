@@ -1,0 +1,194 @@
+[gd_scene format=3 uid="uid://cpju6qjnrmes1"]
+
+[ext_resource type="Texture2D" uid="uid://c5qawe4bhctlv" path="res://icon/UI/pentagon.svg" id="1_icon"]
+[ext_resource type="Texture2D" uid="uid://cf2db08aecx05" path="res://icon/UI/triangle.svg" id="2_icon"]
+[ext_resource type="Texture2D" uid="uid://dxytqscwj8a1i" path="res://icon/UI/star.svg" id="3_icon"]
+[ext_resource type="Texture2D" uid="uid://cff3jndy27bxf" path="res://icon/UI/flare.svg" id="4_icon"]
+[ext_resource type="Texture2D" uid="uid://46tgu3bep6wl" path="res://icon/UI/droplet.svg" id="5_icon"]
+[ext_resource type="Script" uid="uid://bacv4ltosp2rt" path="res://scenes/ui/tool_button.gd" id="6_script"]
+[ext_resource type="Script" uid="uid://bf56ibnu8a4ti" path="res://scenes/ui/iconButton_subviewport_escena.gd" id="7_script"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="8_scene"]
+[ext_resource type="PackedScene" uid="uid://cy3xlb0b22hye" path="res://icon/UI/icon_circle.tscn" id="9_scene"]
+[ext_resource type="PackedScene" uid="uid://8odsivp4eiwn" path="res://icon/UI/icon_cuadrado.tscn" id="10_scene"]
+
+[sub_resource type="StyleBoxFlat" id="sb_panel"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.180392)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="sb_button"]
+bg_color = Color(0.6, 0.6, 0.6, 0)
+
+[node name="polygon" type="PanelContainer" unique_id=1213416957]
+offset_left = -321.0
+offset_top = 59.0
+offset_right = -25.0
+offset_bottom = 329.0
+theme_override_styles/panel = SubResource("sb_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1936499201]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer" unique_id=1840046044]
+layout_mode = 2
+theme_override_constants/separation = 10
+vertical = true
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer" unique_id=1374615723]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Polygon"
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/BoxContainer" unique_id=562321056]
+layout_mode = 2
+columns = 7
+
+[node name="Buttontrangulo" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=805066685]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("2_icon")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "triangle"
+
+[node name="Button_cuadrado" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=1147402398]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "rectangle"
+create_at_center = true
+
+[node name="Node" type="Node" parent="MarginContainer/BoxContainer/GridContainer/Button_cuadrado" unique_id=566175717 node_paths=PackedStringArray("boton_objetivo")]
+script = ExtResource("7_script")
+boton_objetivo = NodePath("..")
+escena_con_viewport = ExtResource("10_scene")
+
+[node name="Button_circulo" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=137440081]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "ellipse"
+create_at_center = true
+
+[node name="Node" type="Node" parent="MarginContainer/BoxContainer/GridContainer/Button_circulo" unique_id=127291587 node_paths=PackedStringArray("boton_objetivo")]
+script = ExtResource("7_script")
+boton_objetivo = NodePath("..")
+escena_con_viewport = ExtResource("9_scene")
+
+[node name="Button_pentagono" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=1190759052]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("1_icon")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "pentagon"
+
+[node name="Button_star" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=2098492922]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("3_icon")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "star5"
+
+[node name="Button_estrella" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=702242156]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("4_icon")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "star4"
+
+[node name="Button_gota" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=839345166]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+theme_override_styles/normal = SubResource("sb_button")
+icon = ExtResource("5_icon")
+expand_icon = true
+script = ExtResource("6_script")
+tool_name = "waterdrop"
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=618251500]
+layout_mode = 2
+vertical = true
+
+[node name="Button" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=460483420]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+text = "Ring"
+
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=616345905]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1315323938]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Size"
+
+[node name="Control" type="Control" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1910822800]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="spin_box" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1521585109 instance=ExtResource("8_scene")]
+layout_mode = 2
+
+[node name="BoxContainer2" type="BoxContainer" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=324284845]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=712915942]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Edge"
+
+[node name="Control" type="Control" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=887894829]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="spin_box" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=361631957 instance=ExtResource("8_scene")]
+layout_mode = 2
+
+[node name="BoxContainer3" type="BoxContainer" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=176509929]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer3" unique_id=1124884896]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Esquina"
+
+[node name="Control" type="Control" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer3" unique_id=824528313]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="spin_box" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer3" unique_id=1417521698 instance=ExtResource("8_scene")]
+layout_mode = 2
+
+[node name="BoxContainer4" type="BoxContainer" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1992061513]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer4" unique_id=553619113]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Size"
+
+[node name="Control" type="Control" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer4" unique_id=631841409]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="spin_box" parent="MarginContainer/BoxContainer/BoxContainer/BoxContainer4" unique_id=1799154116 instance=ExtResource("8_scene")]
+layout_mode = 2

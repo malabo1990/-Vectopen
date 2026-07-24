@@ -1,0 +1,89 @@
+[gd_scene format=3 uid="uid://d02dmpkyfvdp"]
+
+[ext_resource type="Texture2D" uid="uid://inpn7as7kfo8" path="res://icon/mouse/Sin título.png" id="1_7cmbc"]
+[ext_resource type="Script" path="res://script_gdscript/ui/detnerColor_cursor.gd" id="2_3xlpg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f80vi"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.15)
+shadow_size = 8
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 24.0
+offset_bottom = 24.0
+mouse_filter = 2
+texture = ExtResource("1_7cmbc")
+expand_mode = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="." node_paths=PackedStringArray("color_rect", "hex_label", "rgba_label", "panel_container", "texture_rect")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = 10.0
+offset_right = 80.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_f80vi")
+script = ExtResource("2_3xlpg")
+color_rect = NodePath("MarginContainer/HBoxContainer/ColorRect")
+hex_label = NodePath("MarginContainer/HBoxContainer/VBoxContainer/HEX_Value")
+rgba_label = NodePath("MarginContainer/HBoxContainer/VBoxContainer/RGBA_Label")
+panel_container = NodePath(".")
+texture_rect = NodePath("../TextureRect")
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ColorRect" type="ColorRect" parent="PanelContainer/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+color = Color(1, 0, 0.41, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HEX_Label" type="Label" parent="PanelContainer/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "HEX:"
+
+[node name="HEX_Value" type="Label" parent="PanelContainer/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "#000000"
+
+[node name="RGBA_Label" type="Label" parent="PanelContainer/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "RGBA: (0, 0, 0, 255)"
