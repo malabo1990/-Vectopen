@@ -1,17 +1,24 @@
 # Godot 4+ specific ignores
 .godot/
-/android/
+.android/
+android/
+.mono/
 
 # Godot imports
-*.uid
 *.import
 
-# Archivos obsoletos / backups
+# Backup / temp
 *.old
+*.bak
 *.af~lock~
 *.af-backup/
 
-# Entorno
+# Environment
 .DS_Store
 Thumbs.db
 user_data/
+
+# IDE
+.vs/
+*.csproj.user
+*.suo
