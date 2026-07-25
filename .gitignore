@@ -21,6 +21,22 @@ user_data/
 # Build output
 build/
 
+# Test output
+reports/
+test_output.txt
+test_errors.txt
+test_godot_*.txt
+test_run_*.txt
+
+# Prototypes / drafts
+prototipo/
+*.rtf
+
+# Binary design files
+*.af
+*.afdesign
+*.afphoto
+
 # IDE
 .vs/
 *.csproj.user

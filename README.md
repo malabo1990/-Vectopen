@@ -87,8 +87,14 @@ resources/          # Custom Godot Resource definitions
 translations/       # i18n translation files (11 languages)
 test/               # gdUnit4 test suites
 icon/               # Application icons and UI icon library
-docs/en/            # English technical documentation
-docs/es/            # Spanish technical documentation
+docs/en/            # English documentation
+  guides/           #   How-to guides (MCP, rendering, errors, save systems)
+  reports/          #   Technical reports and reviews
+  reference/        #   External references
+docs/es/            # Spanish documentation
+  guides/           #   Guías prácticas
+  reports/          #   Informes técnicos
+  reference/        #   Referencias externas
 ```
 
 ## Technology Stack
