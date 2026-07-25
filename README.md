@@ -37,7 +37,6 @@
 ### Prerequisites
 
 - [Godot Engine 4.7+](https://godotengine.org/download/) (GL Compatibility renderer)
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) (only if building C# components)
 
 ### Run from Source
 
@@ -88,7 +87,8 @@ resources/          # Custom Godot Resource definitions
 translations/       # i18n translation files (11 languages)
 test/               # gdUnit4 test suites
 icon/               # Application icons and UI icon library
-docs/               # Technical documentation and reports
+docs/en/            # English technical documentation
+docs/es/            # Spanish technical documentation
 ```
 
 ## Technology Stack
@@ -96,9 +96,9 @@ docs/               # Technical documentation and reports
 | Component | Technology |
 |-----------|-----------|
 | Engine | Godot 4.7 (GL Compatibility) |
-| Language | GDScript 98%, C# 2% |
+| Language | GDScript |
 | Testing | gdUnit4 (unit tests) |
-| CI/CD | GitHub Actions (Windows, Linux, macOS) |
+| CI/CD | Manual (GitHub Actions workflow planned) |
 | MCP | godot-ai (AI-assisted development) |
 | Format | `.vectopen` (JSON-based project files) |
 

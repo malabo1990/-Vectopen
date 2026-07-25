@@ -18,6 +18,9 @@ android/
 Thumbs.db
 user_data/
 
+# Build output
+build/
+
 # IDE
 .vs/
 *.csproj.user

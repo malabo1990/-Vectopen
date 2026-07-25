@@ -6,8 +6,8 @@
 |--------|-------|
 | **Engine** | Godot 4.7 (mono) |
 | **Renderer** | gl_compatibility (OpenGL 3.3) |
-| **Total scripts** | 130 (128 GDScript + 2 C#) |
-| **Autoloads** | 11 registered |
+| **Total scripts** | GDScript only (no C#) |
+| **Autoloads** | 21 registered |
 | **Tools** | 18 tool scripts + 8 scene-based tools |
 | **Scenes** | ~40 .tscn files |
 | **Lines of code** | Estimated 40,000+ |
@@ -17,12 +17,15 @@
 ## 2. Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     AUTOLOADS (11)                        │
-│  GlobalEvents  DataRepository  ToolManager  SmartCursor  │
-│  ObjectPool  PerformanceManager  ThemeManager            │
-│  ImportExportManager  ExportCache  GlobalUI  MCPRuntime  │
-└──────────┬──────────────────────────────────────────┬────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     AUTOLOADS (21)                                │
+│  GlobalEvents  DataRepository  ToolManager  SmartCursor          │
+│  ObjectPool  PerformanceManager  ThemeManager                    │
+│  ImportExportManager  ExportCache  GlobalUI  MCPRuntime          │
+│  ErrorHandler  LanguageManager  VectopenInput  SnapManager       │
+│  PluginManager  DrawPreferences  ToolFactory                     │
+│  HistoryManager  SaveManager  RecentFilesManager                 │
+└──────────┬──────────────────────────────────────────────────┬────┘
            │ signal bus                │ references
            ▼                          ▼
 ┌──────────────────────┐   ┌──────────────────────────┐
@@ -99,13 +102,14 @@ User Input → Tool (GDScript) → DataRepository (autoload)
 
 **System A: Scene-based tools (via ToolWrapper)**
 ```
-tools/move_tool/move_tool.tscn → ToolWrapper → Tool (RefCounted)
-tools/rectangle_tool/rectangle_tool.tscn → ToolWrapper → RectangleTool (RefCounted)
+tools/move_tool/move_tool.tscn → ToolWrapper → ToolBase (RefCounted)
+tools/rectangle_tool/rectangle_tool.tscn → ToolWrapper → ToolBase (RefCounted)
 ```
 - Tools are `RefCounted`, not `Node` — no lifecycle
 - Wrapped in a `ToolWrapper` (Node) that bridges to the scene tree
 - Activated/deactivated via `activate()`/`deactivate()` methods
 - Input via `handle_input(event)` → returns bool (handled or not)
+- All tools now extend `ToolBase` (in `tools/ToolBase.gd`)
 
 **System B: Direct scripts (registered in ToolManager)**
 ```
@@ -117,7 +121,7 @@ autoloads/ToolManager.gd → _register_tool(name, display_name, scene_path, shor
 
 ### 4.2 Tool interface
 ```
-Tool (RefCounted) / ToolNode (Node)
+ToolBase (RefCounted)
   ├── canvas: Node2D
   ├── _init(p_canvas)
   ├── activate()
@@ -197,6 +201,8 @@ DataRepository (770+ lines) handles: CRUD for artboards/layers/shapes, undo/redo
 - `SessionManager` — auto-save, recovery
 - Keep DataRepository as a facade if needed
 
+**🟡 Partial fix applied:** `HistoryManager`, `SaveManager`, and `RecentFilesManager` were extracted as separate autoloads, reducing DataRepository's scope. Further splitting is still recommended.
+
 ### 7.4 Two parallel tool systems
 Tools are registered in both `ToolManager` (autoload) AND as direct children in `canvas.tscn`. Some tools use the `Tool` (RefCounted) pattern, others use `ToolNode` (Node). This dual system leads to:
 - Duplicate registration logic
@@ -225,8 +231,12 @@ Scripts are spread across:
 
 This fragmentation makes navigation difficult. **Recommendation**: Consolidate to `res://scripts/` with `res://scripts/canvas/`, `res://scripts/tools/`, `res://scripts/ui/`, `res://scripts/system/`.
 
+**✅ Partial fix applied:** The deprecated `res://Scene/` directory (containing old Tool/ToolNode classes) has been removed. All tools now use the `tools/ToolBase.gd` system.
+
 ### 7.8 C# hybrid (unused)
-The project has `Vectopen.csproj` + `Vectopen.sln` + 2 `.cs` files, but all gameplay code is GDScript. The C# project adds build complexity with no benefit currently. Either remove it or migrate critical paths to C# for performance.
+The project had `Vectopen.csproj` + 2 `.cs` files, but all gameplay code was GDScript.
+
+**✅ Resolved:** All C# files and orphan `.uid` references have been removed. The project is now 100% GDScript. This simplifies the build pipeline and removes the .NET SDK dependency.
 
 ### 7.9 Renderer: gl_compatibility
 The project uses `gl_compatibility` which:
@@ -272,7 +282,7 @@ DataRepository has a proper undo/redo stack using `undo_redo` methods with `_do_
 | 🟡 P1 | Split DataRepository into subsystems | 5 days | Testability, maintainability |
 | 🟡 P1 | Switch to forward+ renderer | 10 min | Visual quality, MSAA working |
 | 🟡 P1 | Consolidate project folder structure | 1 day | Developer QoL |
-| 🟢 P2 | Remove C# project or use it fully | 1 day | Build simplicity |
+| 🟢 P2 | Remove C# project or use it fully | ✅ Done | Build simplicity |
 | 🟢 P2 | Parameterize duplicate button scripts | 1 day | 360 lines saved |
 | 🟢 P2 | Add dependency injection for autoloads | 3 days | Testability |
 | 🔵 P3 | GDExtension + Blend2D for vector rendering | 2-4 weeks | Professional quality |
@@ -284,15 +294,15 @@ DataRepository has a proper undo/redo stack using `undo_redo` methods with `_do_
 
 | Category | Count |
 |----------|-------|
-| Autoloads | 11 |
-| Tools (scripts) | 18 |
-| UI scripts | 33 |
+| Autoloads | 21 |
+| Tools (scripts + scenes) | ~25 |
+| UI scripts | ~35 |
 | System scripts | 6 |
-| Utility scripts | 9 |
+| Utility scripts | ~10 |
 | Data resources | 4 |
 | Scene files | ~40 |
 | Draw calls (estimate) | 50-200 |
-| Debugger errors | 2 (both engine, not code) |
+| Debugger errors | 0 (stable) |
 
 ---
 

@@ -20,7 +20,7 @@ First off, thank you for considering contributing to Vectopen! We welcome help f
 
 ## Code of Conduct
 
-This project follows a **be respectful** policy. Harassment, discrimination, or toxic behavior of any kind will not be tolerated.
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Harassment, discrimination, or toxic behavior of any kind will not be tolerated.
 
 ## How Can I Contribute?
 
@@ -67,7 +67,6 @@ This project follows a **be respectful** policy. Harassment, discrimination, or 
 ### Prerequisites
 
 - [Godot Engine 4.7+](https://godotengine.org/download/) with GL Compatibility renderer
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) (optional, for C# components)
 - [gdUnit4](https://github.com/MikeSchulze/gdUnit4) (included as `addons/gdUnit4/`)
 
 ### First Run

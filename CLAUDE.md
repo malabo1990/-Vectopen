@@ -33,6 +33,8 @@
 ## Important Notes
 - Do NOT modify `.tscn` files directly — use godot-mcp scene tools
 - UID files (`*.uid`) are tracked in git (do not delete)
-- The old `Scene/` directory contains deprecated files — avoid using them
 - Use `script_gdscript/` over `scripts/` (latter is legacy)
+- The old `Scene/` directory was removed (code was deprecated)
+- C# support was removed — project is 100% GDScript. No .NET SDK required.
 - Export presets in `export_presets.cfg` (Windows, Linux, macOS, Web)
+- Docs: `docs/en/` (English), `docs/es/` (Spanish)
