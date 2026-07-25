@@ -5,7 +5,7 @@ signal grid_size_changed(size: float)
 
 const CONFIG_PATH := "user://vectopen_snap.cfg"
 
-var grid_enabled: bool = true
+var grid_enabled: bool = false
 var grid_size: float = 10.0
 var snap_to_objects: bool = false
 var snap_to_center: bool = false
@@ -49,7 +49,7 @@ func _load_config() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(CONFIG_PATH) != OK:
 		return
-	grid_enabled = cfg.get_value("snap", "grid_enabled", true)
+	grid_enabled = cfg.get_value("snap", "grid_enabled", false)
 	grid_size = cfg.get_value("snap", "grid_size", 10.0)
 	snap_to_objects = cfg.get_value("snap", "snap_to_objects", false)
 	snap_to_center = cfg.get_value("snap", "snap_to_center", false)

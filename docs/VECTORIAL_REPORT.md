@@ -1,6 +1,6 @@
 # Vectopen — Informe Técnico Final v1.0
 
-> **Versión:** 0.2.0-dev | **Motor:** Godot 4.7 | **Render:** Forward Mobile (Vulkan) | **Tests:** 56/56 PASSED
+> **Versión:** 0.2.0-dev | **Motor:** Godot 4.7 | **Render:** Forward Mobile (Vulkan) | **Tests:** 80/80 PASSED
 
 ---
 
@@ -87,7 +87,8 @@ Extraído como escena independiente. Accesible vía `Button_panelsettings` en `w
 vectopen/
 ├── autoloads/          (16 singletons)
 ├── script_gdscript/
-│   ├── shapes/         VectorShape, VectorRectangle, VectorCircle, VectorPath
+│   ├── core/           DVec2 (coordenadas doc-space de 64 bits)
+│   ├── shapes/         VectorShape, VectorRectangle, VectorCircle, VectorPolygon, VectorPath
 │   ├── tools/          7 tools + MoveTool, BrushTool, PenTool, etc.
 │   ├── ui/             ThemeConfigPanel, RulerSettings, WindowSettings,
 │   │                   SnapSection, PanelVisibility, InputConfigPanel,
@@ -110,16 +111,18 @@ vectopen/
 ## Tests
 
 ```
-56 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 1 orphans
+80 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 1 orphans
 ─────────────────────────────────────────────────────────────
 UndoRedoManager_test.gd     17 tests    ✅
 ToolBase_test.gd             9 tests    ✅
-VectorShape_test.gd          8 tests    ✅
+VectorShape_test.gd         13 tests    ✅
 GestorColor_test.gd         10 tests    ✅
-PaletteSaveGrid_test.gd      9 tests    ✅
-BoundingBox_test.gd          3 tests    ✅
+PaletteSaveGrid_test.gd      9 tests    ✅  (1 orphan preexistente, no relacionado)
+BoundingBox_test.gd          8 tests    ✅
+DVec2_test.gd                11 tests   ✅
+MoveTool_test.gd              3 tests   ✅
 ─────────────────────────────────────────────────────────────
-TOTAL:                      56          ✅ ALL PASSED
+TOTAL:                      80          ✅ ALL PASSED
 ```
 
 ---
@@ -166,5 +169,30 @@ TOTAL:                      56          ✅ ALL PASSED
 
 ---
 
+## Fase 6 — Precisión de Doble Punto Flotante y Edición Numérica
+
+**Motivo:** `Vector2`/`Node2D.position`/`Rect2`/`Transform2D` de Godot usan `real_t` = float de 32 bits (~7 dígitos significativos). `MoveTool` releía y reescribía esa geometría en cada operación de arrastre/resize/rotación, así que el error se acumulaba operación tras operación aunque cada frame individual no lo hiciera. El `float` nativo de GDScript ya es de 64 bits, así que la solución no requirió recompilar Godot con `precision=double`: bastó con dejar de usar `Vector2` como fuente de verdad para las coordenadas del documento.
+
+| Tarea | Archivos clave | Resultado |
+|-------|----------------|-----------|
+| **`DVec2`** — vector 2D de 64 bits, API explícita (sin sobrecarga de operadores, no soportada en GDScript de scripts) | `script_gdscript/core/DVec2.gd` (nuevo) | ✅ |
+| **`VectorShape` dueño de la sincronización doc-space** — `doc_position`/`doc_rotation` siempre presentes, slots opcionales `doc_extent`/`doc_vertices`; una figura nueva solo necesita `_register_doc_extent()`/`_register_doc_vertices()` una vez | `script_gdscript/shapes/VectorShape.gd` | ✅ |
+| **VectorRectangle/VectorCircle/VectorPolygon migrados** — `to_svg()` exporta con `%.4f` desde doc-space | `script_gdscript/shapes/*.gd` | ✅ |
+| **`MoveTool` con despacho genérico** — `shape is VectorShape`, sin `is VectorRectangle or is VectorCircle or ...` en ningún punto; tamaño/extent escala sobre el valor doble exacto en cada resize, no sobre el `Vector2` ya redondeado del paso anterior | `script_gdscript/tools/MoveTool.gd` | ✅ |
+| **7 herramientas de creación migradas** a `set_doc_position`/`set_doc_extent`/`set_doc_vertices` | Rectangle/Circle/Triangle/Pentagon/Star4/Star5/WaterDrop Tool | ✅ |
+| **Bug real: `corner_radius`/`stroke_width` truncados a entero** — `StyleBoxFlat.border_width`/`corner_radius` son `int` en el motor; se reemplazó por un polígono propio (mismo patrón que `VectorCircle`) | `VectorRectangle.gd::_draw_custom_rounded_rect` | ✅ |
+| **Bug real: `VectorCircle` desalineado con su bounding box** — `CircleTool` trataba `position` como centro, pero `_draw()`/`to_svg()` sumaban `size/2` de más (esquina superior-izquierda). Alineado con la convención de `VectorRectangle` (posición = centro) | `VectorCircle.gd::_generate_vertices/to_svg` | ✅ |
+| **Campos X/Y editables en el BoundingBox** — muestran/editan `doc_position` de la figura única seleccionada, con contra-rotación/escala para seguir legibles con la figura rotada o escalada | `boundingbox.tscn` (`FieldsWrapper`/`FieldX`/`FieldY`), `bounding_box.gd`, `script_gdscript/ui/valor_dragDrop_lineedit.gd` (+ señal `value_committed`) | ✅ |
+| **Snap a grilla desactivado por defecto** — venía `grid_enabled=true`/`grid_size=10.0` de fábrica, causando saltos visibles al arrastrar que se agrandaban con el zoom | `autoloads/SnapManager.gd` | ✅ |
+| **Zoom máximo 2000% → 5.000.000%** — `camera.zoom` sigue siendo float32; documentado como el mismo tipo de límite, a nivel de cámara en vez de figura | `scripts/canvas/canvas.gd::zoom_max` | ✅ |
+| Tests nuevos | `test/core/DVec2_test.gd` (11), `test/tools/MoveTool_test.gd` (3, incluye round-trip de resize que prueba que `100.00001234` sobrevive 40 ciclos), ampliación de `VectorShape_test.gd` (8→13) y `BoundingBox_test.gd` (3→8) | ✅ |
+
+**Fuera de alcance (decisión explícita, pendiente):** rutas bézier (`Path2D`/`Curve2D` crudo vía `beziertool.gd`/`NodeSelectionTool.gd`) y pincel (`Line2D` crudo vía `brushtool.gd`) no tienen clase propia como `VectorShape`, así que no se migraron a doc-space — queda para una sesión dedicada, del mismo tamaño que esta fase.
+
+**Hallazgos anotados, sin tocar (no relacionados a esta fase):** exportación PDF no exporta figuras (`_collect_shapes()` filtra por `get_bounds()`, que ninguna clase implementa), texto ausente de la exportación SVG, sistema de guardado `DataRepository.ShapeData`/JSON huérfano (sin conexión al árbol de escena real), rutas `ext_resource` rotas apuntando a `res://scripts/...` en varios `.tscn` (los archivos reales viven en `res://script_gdscript/...`).
+
+---
+
 *Generado por OpenCode — Julio 2026*
-*Sección "Fase 5" y correcciones de esta pasada — Claude Code, Julio 2026*
+*Sección "Fase 5" y correcciones de esa pasada — Claude Code, Julio 2026*
+*Sección "Fase 6" — Claude Code, Julio 2026*

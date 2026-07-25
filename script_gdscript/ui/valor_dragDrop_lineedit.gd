@@ -1,6 +1,12 @@
 @tool
 extends Control
 
+## Emitido cada vez que "value" cambia por una acción real del usuario (arrastre
+## o texto confirmado) — no cuando otro script llama set_display_value() para
+## reflejar un valor externo. Dispara en cada paso del arrastre, no solo al
+## soltar, para permitir mover la figura en vivo mientras se arrastra el campo.
+signal value_committed(new_value: float)
+
 # --- CONFIGURACIÓN DE APARIENCIA EN EL INSPECTOR ---
 @export_group("Configuración Numérica")
 @export var value: float = 0.0: set = _set_value
@@ -18,6 +24,7 @@ extends Control
 var is_dragging: bool = false
 var is_editing: bool = false
 var drag_start_pos: Vector2 = Vector2.ZERO
+var _suppress_emit: bool = false
 
 func _ready() -> void:
 	if not line_edit or not panel:
@@ -108,6 +115,18 @@ func _on_line_edit_focus_exited() -> void:
 func _set_value(new_value: float) -> void:
 	value = clampf(new_value, min_value, max_value)
 	_actualizar_texto_ui()
+	if not _suppress_emit:
+		value_committed.emit(value)
+
+## Refleja un valor externo (p.ej. la posición actual de la figura seleccionada)
+## sin disparar value_committed y sin pisar lo que el usuario esté escribiendo
+## o arrastrando en este mismo instante.
+func set_display_value(v: float) -> void:
+	if is_editing or is_dragging:
+		return
+	_suppress_emit = true
+	value = v
+	_suppress_emit = false
 
 func _actualizar_texto_ui() -> void:
 	if line_edit:

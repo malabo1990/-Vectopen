@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cph4pqr5ppi88"]
 
 [ext_resource type="Script" uid="uid://vacalwksy0rf" path="res://scenes/canvas/bounding_box.gd" id="1_i3p5f"]
+[ext_resource type="Script" uid="uid://bvpr3hymr4qt0" path="res://script_gdscript/ui/valor_dragDrop_lineedit.gd" id="2_htxwg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e177r"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -49,17 +50,11 @@ metadata/_edit_vertical_guides_ = [62.0]
 [node name="PANEL_BOUNDINGBOX" type="Panel" parent="." unique_id=617994779]
 layout_mode = 1
 anchors_preset = 15
-mouse_filter = 2
-anchor_left = 0.0
-anchor_top = 0.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_e177r")
 
 [node name="handle_IA" type="Panel" parent="PANEL_BOUNDINGBOX" unique_id=1811259500]
@@ -202,3 +197,73 @@ offset_top = 134.0
 offset_right = 62.0
 offset_bottom = 142.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_lna83")
+
+[node name="FieldsWrapper" type="Control" parent="PANEL_BOUNDINGBOX" unique_id=1221772338]
+anchors_preset = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+offset_top = 12.0
+offset_right = 128.0
+offset_bottom = 36.0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="FieldX" type="Panel" parent="PANEL_BOUNDINGBOX/FieldsWrapper" unique_id=983150660]
+layout_mode = 0
+offset_right = 60.0
+offset_bottom = 24.0
+script = ExtResource("2_htxwg")
+node_paths = PackedStringArray("line_edit", "panel")
+line_edit = NodePath("LineEdit")
+panel = NodePath(".")
+value = 0.0
+step = 0.1
+min_value = -100000.0
+max_value = 100000.0
+decimals = 4
+line_edit_size = Vector2(56, 20)
+
+[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/FieldsWrapper/FieldX" unique_id=1308530085]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -10.0
+offset_right = 28.0
+offset_bottom = 10.0
+mouse_filter = 2
+text = "0.0000"
+alignment = 1
+
+[node name="FieldY" type="Panel" parent="PANEL_BOUNDINGBOX/FieldsWrapper" unique_id=677210457]
+layout_mode = 0
+offset_left = 64.0
+offset_right = 124.0
+offset_bottom = 24.0
+script = ExtResource("2_htxwg")
+node_paths = PackedStringArray("line_edit", "panel")
+line_edit = NodePath("LineEdit")
+panel = NodePath(".")
+value = 0.0
+step = 0.1
+min_value = -100000.0
+max_value = 100000.0
+decimals = 4
+line_edit_size = Vector2(56, 20)
+
+[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/FieldsWrapper/FieldY" unique_id=542418919]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -28.0
+offset_top = -10.0
+offset_right = 28.0
+offset_bottom = 10.0
+mouse_filter = 2
+text = "0.0000"
+alignment = 1

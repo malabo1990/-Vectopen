@@ -190,7 +190,11 @@ func _cancel_blender_transform() -> void:
 		if is_instance_valid(shape) and transform_initial_states.has(shape):
 			var snap = transform_initial_states[shape]
 			shape.global_position = snap["gpos"]
-			shape.global_rotation = snap["grot"]
+			_sync_doc_position_from_native(shape)
+			if shape is VectorShape and snap.has("doc_rot"):
+				shape.set_doc_rotation(snap["doc_rot"])
+			else:
+				shape.global_rotation = snap["grot"]
 			if snap.has("w"):
 				shape.set_meta("width", snap["w"])
 				_update_text_node_sizes(shape, snap["w"], snap.get("h", 80.0))
@@ -408,6 +412,7 @@ func _on_motion(gm: Vector2) -> bool:
 					if sm and sm.has_method("snap_position"):
 						new_pos = sm.snap_position(new_pos)
 				s.global_position = new_pos
+				_sync_doc_position_from_native(s)
 		_update_bounding_box()  # el bounding box debe seguir a las figuras mientras se arrastran
 		canvas.queue_redraw()
 		return true
@@ -439,6 +444,7 @@ func _process_blender_motion(gm: Vector2) -> void:
 						if sm and sm.has_method("snap_position"):
 							new_pos = sm.snap_position(new_pos)
 					s.global_position = new_pos
+					_sync_doc_position_from_native(s)
 			var factor_x: float = 1.0 + (delta.x / 200.0)
 			var factor_y: float = 1.0 + (delta.y / 200.0)
 			for s in selected_shapes:
@@ -453,11 +459,11 @@ func _process_blender_motion(gm: Vector2) -> void:
 					elif "width" in s and "height" in s:
 						s.set("width", max(2.0, snap["w"] * factor_x))
 						s.set("height", max(2.0, snap["h"] * factor_y))
-					elif "size" in s and (s is VectorRectangle or s is VectorCircle):
-						var ns: Vector2 = snap["size"]
-						ns.x = max(2.0, ns.x * (factor_x if current_axis != AxisLock.Y else 1.0))
-						ns.y = max(2.0, ns.y * (factor_y if current_axis != AxisLock.X else 1.0))
-						s.set("size", ns)
+					elif s is VectorShape and snap.has("doc_extent"):
+						var orig_extent: DVec2 = snap["doc_extent"]
+						var nx: float = max(2.0, orig_extent.x * (factor_x if current_axis != AxisLock.Y else 1.0))
+						var ny: float = max(2.0, orig_extent.y * (factor_y if current_axis != AxisLock.X else 1.0))
+						s.set_doc_extent(DVec2.new(nx, ny))
 
 		BlenderMode.ROTATE:
 			var angle_offset = delta.x * 0.01
@@ -614,11 +620,24 @@ func _apply_resize(gm: Vector2) -> void:
 		elif snap.has("size"):
 			var orig_gpos: Vector2 = snap["gpos"]
 			shape.global_position = pivot + (orig_gpos - pivot) * scale_vec
-			var new_size: Vector2 = Vector2(
-				max(2.0, snap["size"].x * abs(sx)),
-				max(2.0, snap["size"].y * abs(sy))
-			)
-			shape.set("size", new_size)
+			_sync_doc_position_from_native(shape)
+			if shape is VectorShape and snap.has("doc_extent"):
+				# Precisión doble real: el nuevo tamaño se calcula desde el valor
+				# EXACTO capturado en _snapshot(), no desde el Vector2 float32 que
+				# quedó guardado en .size tras el resize anterior — así el error
+				# no se acumula operación tras operación.
+				var orig_extent: DVec2 = snap["doc_extent"]
+				var new_extent := DVec2.new(
+					max(2.0, orig_extent.x * absf(sx)),
+					max(2.0, orig_extent.y * absf(sy))
+				)
+				shape.set_doc_extent(new_extent)
+			else:
+				var new_size: Vector2 = Vector2(
+					max(2.0, snap["size"].x * abs(sx)),
+					max(2.0, snap["size"].y * abs(sy))
+				)
+				shape.set("size", new_size)
 			shape.queue_redraw()
 
 		elif snap.has("g_verts"):
@@ -627,7 +646,10 @@ func _apply_resize(gm: Vector2) -> void:
 			for g_pt in orig_g_verts:
 				var new_g_pt: Vector2 = pivot + (g_pt - pivot) * scale_vec
 				new_verts.append(shape.to_local(new_g_pt))
-			shape.set("vertices", new_verts)
+			if shape is VectorShape and shape.has_doc_vertices():
+				shape.set_doc_vertices(DVec2.array_from_v2(new_verts))
+			else:
+				shape.set("vertices", new_verts)
 			shape.queue_redraw()
 
 		elif shape is Line2D and snap.has("g_pts"):
@@ -670,8 +692,17 @@ func _apply_rotation(gm: Vector2) -> void:
 		var orig_gpos: Vector2 = snap["gpos"]
 		var offset: Vector2 = orig_gpos - initial_macro_center
 		shape.global_position = initial_macro_center + offset.rotated(angle_delta)
-		shape.global_rotation = snap["grot"] + angle_delta
-		
+		_sync_doc_position_from_native(shape)
+		if shape is VectorShape and snap.has("doc_rot"):
+			# Precisión doble real: el ángulo nuevo se acumula sobre el valor
+			# EXACTO capturado en _snapshot(), no sobre el float32 que dejó
+			# guardado la rotación anterior — evita que el error se acumule
+			# rotación tras rotación (solo válido si el padre no está rotado,
+			# caso habitual en este proyecto; ver nota de alcance del plan).
+			shape.set_doc_rotation(snap["doc_rot"] + angle_delta)
+		else:
+			shape.global_rotation = snap["grot"] + angle_delta
+
 		if shape is Path2D:
 			var renderer = shape.get_node_or_null("Render_Visual")
 			if renderer is Line2D:
@@ -888,12 +919,31 @@ func draw_preview(c: Node2D) -> void:
 
 # ── Snapshot Riguroso de Estructuras Complejas ────────────────────────────────
 
+## Reescribe doc_position (doble precisión) desde la posición nativa (float32)
+## tras cualquier escritura directa a shape.global_position en este archivo.
+## No toca doc_rotation — cada punto de llamada que cambia rotación decide
+## explícitamente si usa set_doc_rotation() (precisión doble real) o debe
+## re-sincronizar desde el nativo (ver _apply_rotation/_cancel_blender_transform).
+func _sync_doc_position_from_native(shape: Node2D) -> void:
+	if shape is VectorShape:
+		shape.doc_position = DVec2.from_v2(shape.position)
+
 func _snapshot(shape: Node2D) -> Dictionary:
 	var snap: Dictionary = {
 		"gpos": shape.global_position,
 		"grot": shape.global_rotation
 	}
-	
+
+	# Captura en doble precisión para figuras VectorShape (Rectángulo/Círculo/
+	# Polígono). No sustituye la captura "gpos"/"grot" de arriba (se sigue
+	# usando para el resto de ramas/figuras), solo añade la fuente exacta que
+	# usan las nuevas rutas de traslación/resize/rotación más abajo.
+	if shape is VectorShape:
+		snap["doc_pos"] = shape.get_doc_position()
+		snap["doc_rot"] = shape.get_doc_rotation()
+		if shape.has_doc_extent():
+			snap["doc_extent"] = shape.get_doc_extent()
+
 	if shape.has_meta("shape_type") and (shape.get_meta("shape_type") in ["text_paragraph", "text_title"]):
 		snap["w"] = shape.get_meta("width") if shape.has_meta("width") else 350.0
 		snap["h"] = shape.get_meta("height") if shape.has_meta("height") else 65.0

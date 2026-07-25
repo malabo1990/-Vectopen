@@ -116,8 +116,8 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 
 	var new_shape = VectorPolygon.new()
 	new_shape.name = "Pentagono_Vectorial"
-	new_shape.position = local_center
-	new_shape.vertices = _generate_pentagon_points(Vector2.ZERO, radius, rotation_angle)
+	new_shape.set_doc_position(DVec2.from_v2(local_center))
+	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_pentagon_points(Vector2.ZERO, radius, rotation_angle)))
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH

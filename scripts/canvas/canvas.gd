@@ -17,7 +17,13 @@ var toolbar_ui: Control
 @export_group("Camera Settings")
 @export var zoom_speed: float = 0.05
 @export var zoom_min: float = 0.05
-@export var zoom_max: float = 20.0
+## 50000.0 (5.000.000%) — a pedido explícito, por encima del techo de Figma
+## (256/25600%). camera.zoom sigue siendo float32 (como todo en Godot sin
+## build de doble precisión), así que a este nivel el propio Transform2D de
+## la cámara puede perder precisión visible en coordenadas grandes — es el
+## mismo tipo de problema que resolvimos para la posición/tamaño de las
+## figuras, pero aquí no tiene arreglo sin tocar la cámara a fondo.
+@export var zoom_max: float = 50000.0
 @export var pan_speed: float = 1.0
 
 # --- CONFIGURACIÓN DE ZOOM CON TECLA Z ---

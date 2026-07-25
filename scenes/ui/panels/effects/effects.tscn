@@ -1,50 +1,53 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://byiebb2cicbvj"]
 
 [ext_resource type="Script" uid="uid://dwgjrjvmm1llv" path="res://script_gdscript/ui/panels/effects/effects.gd" id="1_script"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pl1xm"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="effects" type="PanelContainer"]
-visible = false
-layout_mode = 2
+[node name="effects" type="PanelContainer" unique_id=1947926844]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_pl1xm")
 script = ExtResource("1_script")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1828980302]
 layout_mode = 2
 theme_override_constants/margin_left = 30
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1400043079]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=35881163]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Effect"
 
-[node name="Toolbar" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="Toolbar" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=697479342]
 layout_mode = 2
 
-[node name="AddEffect" type="Button" parent="MarginContainer/VBoxContainer/Toolbar"]
+[node name="AddEffect" type="Button" parent="MarginContainer/VBoxContainer/Toolbar" unique_id=1170060894]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "+"
 
-[node name="AddEffectPopup" type="PopupMenu" parent="MarginContainer/VBoxContainer/Toolbar/AddEffect"]
+[node name="AddEffectPopup" type="PopupMenu" parent="MarginContainer/VBoxContainer/Toolbar/AddEffect" unique_id=370655900]
 unique_name_in_owner = true
 
-[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer" unique_id=740797309]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="EffectsList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer"]
+[node name="EffectsList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer" unique_id=1943670773]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3

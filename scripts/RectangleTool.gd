@@ -125,8 +125,8 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	var new_shape = VectorRectangle.new()
 	new_shape.name = "Rectangulo_Vectorial"
-	new_shape.position = local_pos + size / 2.0
-	new_shape.size = size
+	new_shape.set_doc_position(DVec2.from_v2(local_pos + size / 2.0))
+	new_shape.set_doc_extent(DVec2.from_v2(size))
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH

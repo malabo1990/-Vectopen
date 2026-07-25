@@ -1,9 +1,9 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene format=3 uid="uid://br8cexqk0eqvj"]
 
 [ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="1_hyr5e"]
 [ext_resource type="Script" uid="uid://dsb58suowyh1f" path="res://script_gdscript/ui/btn_ab_list.gd" id="1_lew25"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/effects/vectorize.tscn" id="2_vectorize"]
-[ext_resource type="PackedScene" path="res://scenes/ui/panels/effects/effects.tscn" id="3_effects"]
+[ext_resource type="PackedScene" uid="uid://byiebb2cicbvj" path="res://scenes/ui/panels/effects/effects.tscn" id="3_effects"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/effects/shader.tscn" id="4_shader"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/effects/script.tscn" id="5_script"]
 
@@ -104,14 +104,13 @@ script = ExtResource("1_hyr5e")
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Vectorizar" parent="PanelContainer/VBoxContainer/VBoxContainer" instance=ExtResource("2_vectorize")]
-layout_mode = 2
+[node name="Vectorizar" parent="PanelContainer/VBoxContainer/VBoxContainer" unique_id=712008130 instance=ExtResource("2_vectorize")]
 
-[node name="effects" parent="PanelContainer/VBoxContainer/VBoxContainer" instance=ExtResource("3_effects")]
+[node name="effects" parent="PanelContainer/VBoxContainer/VBoxContainer" unique_id=1544972644 instance=ExtResource("3_effects")]
 layout_mode = 2
+size_flags_vertical = 3
 
-[node name="Shader" parent="PanelContainer/VBoxContainer/VBoxContainer" instance=ExtResource("4_shader")]
-layout_mode = 2
+[node name="Shader" parent="PanelContainer/VBoxContainer/VBoxContainer" unique_id=848408193 instance=ExtResource("4_shader")]
 
-[node name="Script" parent="PanelContainer/VBoxContainer/VBoxContainer" instance=ExtResource("5_script")]
-layout_mode = 2
+[node name="Script" parent="PanelContainer/VBoxContainer/VBoxContainer" unique_id=1263051051 instance=ExtResource("5_script")]
+visible = false

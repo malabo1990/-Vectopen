@@ -128,12 +128,12 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	var new_shape = VectorPolygon.new()
 	new_shape.name = "Triangulo_Vectorial"
-	new_shape.position = local_pos
-	new_shape.vertices = PackedVector2Array([
+	new_shape.set_doc_position(DVec2.from_v2(local_pos))
+	new_shape.set_doc_vertices(DVec2.array_from_v2(PackedVector2Array([
 		Vector2(size.x / 2.0, 0),
 		Vector2(size.x, size.y),
 		Vector2(0, size.y)
-	])
+	])))
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH

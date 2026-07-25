@@ -7,6 +7,9 @@ class_name VectorRectangle
 
 const ROUNDED_RECT_CORNER_SEGMENTS: int = 16
 
+func _init() -> void:
+	_register_doc_extent("size")
+
 func _draw():
 	var rect = Rect2(-size/2, size)
 
@@ -67,29 +70,34 @@ func get_state() -> Dictionary:
 	return {
 		"id": object_id,
 		"type": "rectangle",
-		"position": position,
-		"size": size,
+		"position": doc_position.to_v2(),
+		"size": get_doc_extent().to_v2(),
 		"fill_color": fill_color,
 		"stroke_color": stroke_color,
 		"stroke_width": stroke_width,
-		"rotation": rotation # Usamos la propiedad nativa de Node2D
+		"rotation": doc_rotation
 	}
 
 func serialize() -> Dictionary:
 	return get_state()
 
 func to_svg() -> String:
-	# Agregamos soporte para corner_radius en SVG (rx)
-	var svg = '<rect x="%f" y="%f" width="%f" height="%f" rx="%f" fill="%s" stroke="%s" stroke-width="%f" transform="rotate(%f %f %f)" />' % [
-		position.x - size.x/2,
-		position.y - size.y/2,
-		size.x, size.y,
+	# Agregamos soporte para corner_radius en SVG (rx). Formateado a 4 decimales
+	# desde doc-space (doble precisión), no desde la caché de renderizado float32.
+	var px: float = doc_position.x
+	var py: float = doc_position.y
+	var sx: float = get_doc_extent().x
+	var sy: float = get_doc_extent().y
+	var svg = '<rect x="%.4f" y="%.4f" width="%.4f" height="%.4f" rx="%.4f" fill="%s" stroke="%s" stroke-width="%.4f" transform="rotate(%.4f %.4f %.4f)" />' % [
+		px - sx / 2.0,
+		py - sy / 2.0,
+		sx, sy,
 		corner_radius,
 		fill_color.to_html(),
 		stroke_color.to_html(),
 		stroke_width,
-		rotation_degrees, # Usamos grados para el SVG
-		position.x, position.y
+		rad_to_deg(doc_rotation),
+		px, py
 	]
 	return svg
 

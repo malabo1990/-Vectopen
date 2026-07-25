@@ -36,6 +36,12 @@ var _outline_base_border_width: float = 1.0
 const _BORDER_WIDTH_MIN: float = 1.0
 const _BORDER_WIDTH_MAX: float = 3.0
 
+# ── Campos numéricos X/Y (posición doc-space de la figura seleccionada) ──────
+var _fields_wrapper: Control = null
+var _field_x: Control = null
+var _field_y: Control = null
+var _bound_shape: VectorShape = null
+
 func _ready() -> void:
 	# Permitir que los eventos de ratón fluyan libremente a través de las capas de control
 	mouse_filter = Control.MOUSE_FILTER_PASS
@@ -47,8 +53,10 @@ func _ready() -> void:
 	# Conectar señales para actualización eficiente
 	_connect_signals()
 	_connect_handle_signals()
+	_connect_field_signals()
 	_capture_base_handle_geometry()
 	_apply_zoom_compensation()
+	_sync_fields_wrapper_transform()
 	_update_axis_lock_indicators()
 
 	# Notificar que el objeto está listo para ser usado
@@ -147,10 +155,26 @@ func _apply_zoom_compensation() -> void:
 		_outline_style.border_width_right = border_px
 		_outline_style.border_width_bottom = border_px
 
+## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
+## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
+## o escalada. Se contra-rotan/escalan para mantenerse siempre horizontales y
+## de tamaño constante en pantalla. A diferencia de _apply_zoom_compensation(),
+## esto NO puede saltarse cuando el zoom no cambió: "rotation" (de esta caja)
+## sí cambia en cada frame durante un arrastre de rotación, aunque el zoom de
+## cámara se mantenga fijo — por eso se llama sin condición desde _process().
+func _sync_fields_wrapper_transform() -> void:
+	if not is_instance_valid(_fields_wrapper):
+		return
+	var zoom: float = _get_zoom_scale()
+	var f: float = clampf(1.0 / zoom, _ZOOM_SIZE_FACTOR_MIN, _ZOOM_SIZE_FACTOR_MAX)
+	_fields_wrapper.rotation = -rotation
+	_fields_wrapper.scale = Vector2(f, f)
+
 func _process(_delta: float) -> void:
 	if not visible:
 		return
 	_apply_zoom_compensation()
+	_sync_fields_wrapper_transform()
 	_update_axis_lock_indicators()
 
 ## Muestra el indicador rojo "x" o verde "Y" cuando el usuario está trasladando
@@ -200,6 +224,45 @@ func _on_handle_gui_input(event: InputEvent, handle_code: String) -> void:
 		if move_tool_reference.resize_handle == handle_code and (move_tool_reference.is_resizing or move_tool_reference.is_rotating):
 			move_tool_reference._on_motion(move_tool_reference.canvas.get_global_mouse_position())
 
+## Localiza los campos X/Y (FieldsWrapper/FieldX/FieldY, ver boundingbox.tscn)
+## y conecta su señal value_committed a los handlers que mueven la figura.
+func _connect_field_signals() -> void:
+	_fields_wrapper = get_node_or_null("PANEL_BOUNDINGBOX/FieldsWrapper")
+	if not is_instance_valid(_fields_wrapper):
+		return
+	_field_x = _fields_wrapper.get_node_or_null("FieldX")
+	_field_y = _fields_wrapper.get_node_or_null("FieldY")
+	if is_instance_valid(_field_x) and _field_x.has_signal("value_committed"):
+		if not _field_x.value_committed.is_connected(_on_field_x_committed):
+			_field_x.value_committed.connect(_on_field_x_committed)
+	if is_instance_valid(_field_y) and _field_y.has_signal("value_committed"):
+		if not _field_y.value_committed.is_connected(_on_field_y_committed):
+			_field_y.value_committed.connect(_on_field_y_committed)
+
+func _on_field_x_committed(v: float) -> void:
+	if is_instance_valid(_bound_shape):
+		_bound_shape.set_doc_position(DVec2.new(v, _bound_shape.doc_position.y))
+		_sincronizar_dimensiones_en_canvas()
+
+func _on_field_y_committed(v: float) -> void:
+	if is_instance_valid(_bound_shape):
+		_bound_shape.set_doc_position(DVec2.new(_bound_shape.doc_position.x, v))
+		_sincronizar_dimensiones_en_canvas()
+
+func _hide_position_fields() -> void:
+	_bound_shape = null
+	if is_instance_valid(_fields_wrapper):
+		_fields_wrapper.hide()
+
+func _show_position_fields_for(shape: VectorShape) -> void:
+	_bound_shape = shape
+	if is_instance_valid(_fields_wrapper):
+		_fields_wrapper.show()
+	if is_instance_valid(_field_x):
+		_field_x.set_display_value(shape.doc_position.x)
+	if is_instance_valid(_field_y):
+		_field_y.set_display_value(shape.doc_position.y)
+
 ## Método requerido por el controlador para inyectar objetivos individuales
 func set_target(new_target: Node2D) -> void:
 	target_node = new_target
@@ -214,6 +277,7 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 
 	if shapes_to_calculate.is_empty():
 		if visible: hide()
+		_hide_position_fields()
 		return
 
 	var parent_node = get_parent()
@@ -227,6 +291,7 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		var local_rect: Rect2 = _local_rect_cloned(shape)
 		if local_rect.size == Vector2.ZERO:
 			if visible: hide()
+			_hide_position_fields()
 			return
 
 		# Control no tiene global_position/global_rotation (eso es de Node2D):
@@ -238,11 +303,20 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		position = parent_node.to_local(shape.to_global(local_rect.position))
 
 		if not visible: show()
+
+		# Campos X/Y: solo tienen sentido para una figura con doc-space (el
+		# valor mostrado/editable es shape.doc_position, precisión doble).
+		# Figuras sueltas (Polygon2D/Path2D/Line2D) no lo tienen — se ocultan.
+		if shape is VectorShape:
+			_show_position_fields_for(shape)
+		else:
+			_hide_position_fields()
 	else:
 		# Multi-selección: sin una única rotación consistente, usamos AABB alineado al mundo.
 		var global_rect: Rect2 = _get_macro_rect_cloned(shapes_to_calculate)
 		if global_rect.size == Vector2.ZERO:
 			if visible: hide()
+			_hide_position_fields()
 			return
 
 		var local_pos: Vector2 = parent_node.to_local(global_rect.position)
@@ -255,6 +329,8 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		size = local_end - local_pos
 
 		if not visible: show()
+		# Multi-selección: no hay una única posición no ambigua que editar.
+		_hide_position_fields()
 
 # ── INTERACCIÓN: GESTIÓN DE RATÓN PARA DRAG DIRECTO DESDE PANEL ASIGNADO ─────
 func _on_drag_panel_gui_input(event: InputEvent) -> void:

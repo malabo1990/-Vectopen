@@ -84,3 +84,45 @@ func test_vector_circle_extends_shape() -> void:
 	assert_object(c).is_instanceof(VectorShape)
 	assert_object(c).is_instanceof(Node2D)
 	assert_vector(c.size).is_equal(Vector2(100, 100))
+
+func test_doc_position_sync_to_native() -> void:
+	var s: VectorShape = auto_free(VectorShape.new())
+	add_child(s)
+
+	s.set_doc_position(DVec2.new(12.5, -3.25))
+	assert_vector(s.position).is_equal(Vector2(12.5, -3.25))
+	assert_float(s.doc_position.x).is_equal(12.5)
+	assert_float(s.doc_position.y).is_equal(-3.25)
+
+func test_doc_rotation_sync_to_native() -> void:
+	var s: VectorShape = auto_free(VectorShape.new())
+	add_child(s)
+
+	s.set_doc_rotation(1.25)
+	assert_float(s.rotation).is_equal(1.25)
+	assert_float(s.doc_rotation).is_equal(1.25)
+
+func test_vector_rectangle_doc_extent_default_matches_size() -> void:
+	var r: VectorRectangle = auto_free(VectorRectangle.new())
+	add_child(r)
+
+	assert_bool(r.has_doc_extent()).is_true()
+	assert_vector(r.get_doc_extent().to_v2()).is_equal(Vector2(100, 100))
+
+func test_vector_rectangle_set_doc_extent_syncs_native_size() -> void:
+	var r: VectorRectangle = auto_free(VectorRectangle.new())
+	add_child(r)
+
+	r.set_doc_extent(DVec2.new(42.5, 17.25))
+	assert_vector(r.size).is_equal(Vector2(42.5, 17.25))
+
+func test_vector_polygon_doc_vertices_sync_to_native() -> void:
+	var p: VectorPolygon = auto_free(VectorPolygon.new())
+	add_child(p)
+
+	assert_bool(p.has_doc_vertices()).is_true()
+	var pts: PackedVector2Array = PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(5, 10)])
+	p.set_doc_vertices(DVec2.array_from_v2(pts))
+	assert_vector(p.vertices[0]).is_equal(Vector2(0, 0))
+	assert_vector(p.vertices[1]).is_equal(Vector2(10, 0))
+	assert_vector(p.vertices[2]).is_equal(Vector2(5, 10))
