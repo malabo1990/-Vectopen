@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="2_2bj0v"]
 [ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://scripts/btn_toogle.gd" id="3_2bj0v"]
 [ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://scripts/Numeros_calculadora.gd" id="4_pvfsk"]
+[ext_resource type="Script" path="res://script_gdscript/ui/spin_box_value.gd" id="5_valuegd"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cdl00"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -59,6 +60,7 @@ offset_right = -1744.0
 offset_bottom = -1048.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("5_valuegd")
 
 [node name="BoxContainer" type="BoxContainer" parent="." unique_id=789905986]
 custom_minimum_size = Vector2(0, 24)
