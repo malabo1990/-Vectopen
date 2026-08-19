@@ -20,6 +20,23 @@ const TIER_SCORE: Dictionary = {
 	DeviceClass.ULTRA: 4,
 }
 
+## Fuente única de verdad para el target_fps de cada tier — la usan tanto
+## _apply_hardware_profile() (perfil activo) como _adaptive_tick() (para mirar
+## el target de la tier SIGUIENTE antes de subir, ver _stage_up()/§1.10).
+const TARGET_FPS_BY_TIER: Dictionary = {
+	DeviceClass.POTATO: 30,
+	DeviceClass.LOW: 30,
+	DeviceClass.BALANCED: 60,
+	DeviceClass.HIGH: 60,
+	DeviceClass.ULTRA: 144,
+}
+
+## Umbral mínimo (como fracción del target_fps de la tier SIGUIENTE) para
+## considerar seguro subir de tier — más exigente que el 0.95 usado contra
+## el target de la tier actual, precisamente para no subir a una tier cuyo
+## objetivo no se vaya a sostener y tener que bajar de inmediato otra vez.
+const _STAGE_UP_NEXT_TIER_RATIO: float = 0.8
+
 # ── Estado detectado ─────────────────────────────────────────────────
 var device_class: int = DeviceClass.BALANCED
 var device_type: int = DeviceType.UNKNOWN
@@ -196,33 +213,29 @@ func _classify_device() -> void:
 	device_classified.emit(device_class, device_type)
 
 func _apply_hardware_profile() -> void:
+	target_fps = TARGET_FPS_BY_TIER.get(device_class, 60)
 	match device_class:
 		DeviceClass.POTATO:
-			target_fps = 30
 			resolution_scale = 0.5
 			texture_quality = 2
 			shadow_atlas_size = 512
 			max_particles = 50
 		DeviceClass.LOW:
-			target_fps = 30
 			resolution_scale = 0.67
 			texture_quality = 1
 			shadow_atlas_size = 1024
 			max_particles = 150
 		DeviceClass.BALANCED:
-			target_fps = 60
 			resolution_scale = 0.85
 			texture_quality = 0
 			shadow_atlas_size = 2048
 			max_particles = 500
 		DeviceClass.HIGH:
-			target_fps = 60
 			resolution_scale = 1.0
 			texture_quality = 0
 			shadow_atlas_size = 4096
 			max_particles = 2000
 		DeviceClass.ULTRA:
-			target_fps = 144
 			resolution_scale = 1.0
 			texture_quality = 0
 			shadow_atlas_size = 4096
@@ -295,7 +308,14 @@ func _adaptive_tick() -> void:
 	elif ratio < 0.7 and tier > TIER_SCORE[DeviceClass.LOW]:
 		_stage_down()
 	elif ratio > 0.95 and tier < TIER_SCORE[DeviceClass.ULTRA]:
-		_stage_up()
+		# No basta con cumplir de sobra el target de la tier ACTUAL (más fácil) —
+		# hay que comprobar que el FPS real también aguantaría el target más
+		# exigente de la tier SIGUIENTE, o subimos solo para tener que volver
+		# a bajar en el próximo tick tras el enfriamiento. Encontrado el
+		# 19/08/2026 como causa de la oscilación residual "ultra ↔ high" del §1.9.
+		var next_tier_target: int = TARGET_FPS_BY_TIER.get(device_class + 1, target_fps)
+		if avg_fps / float(next_tier_target) > _STAGE_UP_NEXT_TIER_RATIO:
+			_stage_up()
 
 func _stage_down() -> void:
 	var t = TIER_SCORE.get(device_class, 2)
