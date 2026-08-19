@@ -119,9 +119,10 @@ func _create_and_register_artboard(global_pos: Vector2, artboard_size: Vector2) 
 
 func _switch_to_move_tool_safe() -> void:
 	if is_instance_valid(canvas) and canvas.MoveTool_Script:
-		# Instanciar el script de MoveTool pasándole el lienzo principal al constructor
-		var move_tool_instance = canvas.MoveTool_Script.new(canvas)
-		
+		# MoveTool es ToolBase (Node) desde el 19/08/2026 — no tiene constructor
+		# con argumento; usamos la factoría polimórfica de canvas.gd (ver _new_tool()).
+		var move_tool_instance = canvas._new_tool(canvas.MoveTool_Script)
+
 		# IMPORTANTE: call_deferred ejecuta el cambio al final del frame de procesamiento actual.
 		# Esto limpia la cola de eventos evitando que MoveTool reciba pulsaciones fantasma.
 		canvas.call_deferred("change_tool", move_tool_instance)

@@ -2,9 +2,12 @@
 # RUTA: res://script_gdscript/MoveTool.gd
 # Vectopen — Selección y transformación general de figuras (Estilo Figma + Blender)
 # Versión Pro Avanzada con soporte geométrico de precisión para vectores y texto.
+# Migrado de `Tool` (RefCounted) a `ToolBase` (Node) el 19/08/2026 — última de
+# las 8 herramientas del informe §1.1/§1.5. Construir con `canvas._new_tool(script)`
+# (o `MoveTool.new()` + `tool.canvas = ...`), NO con `MoveTool.new(canvas)`.
 # =============================================================================
 class_name MoveTool
-extends Tool
+extends ToolBase
 
 # ── Referencias ───────────────────────────────────────────────────────────────
 var target_artboard: Node2D = null
@@ -58,9 +61,6 @@ const COLOR_MARQUEE_F: Color = Color(0.05, 0.55, 0.91, 0.07)  # Relleno marquee
 const COLOR_MARQUEE_S: Color = Color(0.05, 0.55, 0.91, 0.60)  # Contorno marquee
 
 # ── Métodos del Ciclo de Vida ────────────────────────────────────────────────
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
 
 func get_class_name() -> String:
 	return "MoveTool"
@@ -226,7 +226,7 @@ func _on_double_click(gm: Vector2) -> bool:
 				push_error("Vectopen Error: No se pudo cargar 'ParagraphTool.gd'. Revisa su sintaxis interna o ruta.")
 				return false
 				
-			var para_tool = script_para.new(canvas)
+			var para_tool = canvas._new_tool(script_para)
 			canvas.change_tool(para_tool)
 			
 			var local_pos = target_artboard.to_local(gm)
@@ -241,7 +241,7 @@ func _on_double_click(gm: Vector2) -> bool:
 				push_error("Vectopen Error: No se pudo cargar 'TextTool.gd'. Revisa su sintaxis interna o ruta.")
 				return false
 				
-			var title_tool = script_text.new(canvas)
+			var title_tool = canvas._new_tool(script_text)
 			canvas.change_tool(title_tool)
 			
 			if title_tool.has_method("_check_and_trigger_edit_at"):
@@ -257,7 +257,7 @@ func _on_double_click(gm: Vector2) -> bool:
 			push_error("Vectopen Error: No se pudo cargar 'NodeSelectionTool.gd'. Revisa su sintaxis interna o ruta.")
 			return false
 			
-		var herramienta_nodos = script_nodes.new(canvas)
+		var herramienta_nodos = canvas._new_tool(script_nodes)
 		if hit is Path2D:
 			herramienta_nodos.edit_path = hit
 		else:

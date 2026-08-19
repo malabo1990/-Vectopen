@@ -241,7 +241,7 @@ func _switch_to_move_tool(shape: Node2D) -> void:
 	if is_instance_valid(canvas) and canvas.has_method("change_tool"):
 		var move_tool_script = load("res://script_gdscript/tools/MoveTool.gd")
 		if move_tool_script:
-			var move_tool = move_tool_script.new(canvas)
+			var move_tool = canvas._new_tool(move_tool_script)
 			move_tool.target_artboard = target_artboard
 			
 			if "selected_shapes" in move_tool:

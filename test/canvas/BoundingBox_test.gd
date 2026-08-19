@@ -52,7 +52,8 @@ func test_multi_selection_falls_back_to_axis_aligned_box() -> void:
 	shape_b.position = Vector2(200, 0)
 	root.add_child(shape_b)
 
-	var move_tool: MoveTool = auto_free(MoveTool.new(root))
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
 	move_tool.selected_shapes = [shape_a, shape_b]
 
 	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
@@ -87,7 +88,8 @@ func test_single_vector_shape_shows_and_syncs_position_fields() -> void:
 	shape.set_doc_position(DVec2.new(123.5, -45.25))
 	shape.set_doc_extent(DVec2.new(80.0, 60.0))
 
-	var move_tool: MoveTool = auto_free(MoveTool.new(root))
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
 	move_tool.selected_shapes = [shape]
 
 	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
@@ -109,7 +111,8 @@ func test_field_x_committed_moves_shape() -> void:
 	root.add_child(shape)
 	shape.set_doc_position(DVec2.new(0.0, 0.0))
 
-	var move_tool: MoveTool = auto_free(MoveTool.new(root))
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
 	move_tool.selected_shapes = [shape]
 
 	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
@@ -130,7 +133,8 @@ func test_field_y_committed_moves_shape() -> void:
 	root.add_child(shape)
 	shape.set_doc_position(DVec2.new(10.0, 10.0))
 
-	var move_tool: MoveTool = auto_free(MoveTool.new(root))
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
 	move_tool.selected_shapes = [shape]
 
 	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
@@ -171,7 +175,8 @@ func test_multi_selection_hides_position_fields() -> void:
 	root.add_child(shape_b)
 	shape_b.set_doc_position(DVec2.new(200.0, 0.0))
 
-	var move_tool: MoveTool = auto_free(MoveTool.new(root))
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
 	move_tool.selected_shapes = [shape_a, shape_b]
 
 	var bb: Control = auto_free(_BoundingBoxScene.instantiate())

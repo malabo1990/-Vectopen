@@ -11,7 +11,8 @@ func test_resize_round_trip_preserves_subpixel_precision() -> void:
 	shape.set_doc_position(DVec2.new(200.0, 150.0))
 	shape.set_doc_extent(DVec2.new(precise, precise))
 
-	var tool: MoveTool = MoveTool.new(canvas)
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = canvas
 	tool.resize_handle = "br"
 	tool.transform_initial_mouse = Vector2.ZERO
 
@@ -49,7 +50,8 @@ func test_snapshot_captures_doc_space_for_vector_shape() -> void:
 	shape.set_doc_position(DVec2.new(10.5, 20.5))
 	shape.set_doc_extent(DVec2.new(30.5, 40.5))
 
-	var tool: MoveTool = MoveTool.new(canvas)
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = canvas
 	var snap: Dictionary = tool._snapshot(shape)
 
 	assert_bool(snap.has("doc_pos")).is_true()
@@ -66,7 +68,8 @@ func test_translate_syncs_doc_position() -> void:
 	canvas.add_child(shape)
 	shape.set_doc_position(DVec2.new(0.0, 0.0))
 
-	var tool: MoveTool = MoveTool.new(canvas)
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = canvas
 	tool.selected_shapes = [shape]
 	tool.transform_initial_mouse = Vector2.ZERO
 	tool.transform_initial_states = {shape: tool._snapshot(shape)}

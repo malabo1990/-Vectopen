@@ -120,6 +120,19 @@ func registrar_herramienta(tecla_acceso: String, script_herramienta: Script) -> 
 	if tecla != "":
 		_herramientas_registradas[tecla] = script_herramienta
 
+## Libera una herramienta ToolBase (Node) que ya no está en uso.
+## Las herramientas `Tool` (RefCounted) no lo necesitan — se liberan solas
+## por conteo de referencias. Las `ToolBase` (Node) nunca se añaden al árbol
+## de escena (ver _new_tool()), así que si nadie las libera se acumulan como
+## "leaked ObjectDB instances" al cerrar — encontrado el 19/08/2026 al migrar
+## MoveTool.gd, la herramienta por defecto que queda viva toda la sesión.
+func _free_orphan_tool(tool) -> void:
+	if tool is Node and not tool.is_inside_tree():
+		tool.free()
+
+func _exit_tree() -> void:
+	_free_orphan_tool(current_tool)
+
 func _new_tool(script: Script):
 	if not script:
 		return null
@@ -133,7 +146,8 @@ func _new_tool(script: Script):
 func change_tool(new_tool) -> void:
 	if current_tool and current_tool.has_method("deactivate"):
 		current_tool.deactivate()
-	
+
+	_free_orphan_tool(current_tool)
 	current_tool = new_tool
 	
 	if current_tool:
