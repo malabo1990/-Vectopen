@@ -259,7 +259,19 @@ func _handle_keyboard(event: InputEventKey) -> void:
 		KEY_Z:     is_z_pressed     = event.pressed; _actualizar_cursor_navegacion()
 
 	if not event.pressed: return
-	if get_viewport().gui_get_focus_owner() != null: return 
+	# Antes bloqueaba TODOS los atajos globales si CUALQUIER Control tenía el
+	# foco de teclado — no solo campos de texto, también botones normales
+	# (Button.focus_mode es FOCUS_ALL por defecto en Godot, y nada lo soltaba
+	# tras el clic). En la práctica esto rompía Ctrl+Z/zoom/Fase 1 completos
+	# en cuanto el usuario tocaba cualquier icono de la barra de herramientas
+	# — encontrado el 19/08/2026 verificando en vivo por qué ningún atajo de
+	# teclado hacía nada tras crear una forma con la herramienta de Texto.
+	# Restringido a los controles donde SÍ tiene sentido que el atajo global
+	# no interfiera (el usuario está escribiendo), que es la intención
+	# original del guard.
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	if focus_owner and (focus_owner is LineEdit or focus_owner is TextEdit or focus_owner is SpinBox or focus_owner is CodeEdit):
+		return
 
 	if VectopenInput.is_action_triggered(event, "canvas_reset_zoom"):
 		_reset_camera()
@@ -287,6 +299,49 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			HistoryManager.undo()
 		get_viewport().set_input_as_handled()
 		return
+
+	# ── Fase 1 del informe de interacción avanzada (19/08/2026) ────────────
+	# Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/mover con flechas.
+	# VectopenInput.gd ya declaraba estos atajos pero nada los escuchaba —
+	# ver MoveTool.gd para la lógica real. De momento solo actúan con
+	# MoveTool activa: es la única herramienta que posee una selección real
+	# (selected_shapes); ampliar a otras herramientas es alcance de fase
+	# posterior, no de esta pasada.
+	if current_tool and current_tool.has_method("get_class_name") and current_tool.get_class_name() == "MoveTool":
+		if VectopenInput.is_action_triggered(event, "delete"):
+			current_tool.delete_selected()
+			get_viewport().set_input_as_handled()
+			return
+		if VectopenInput.is_action_triggered(event, "copy"):
+			current_tool.copy_selected()
+			get_viewport().set_input_as_handled()
+			return
+		if VectopenInput.is_action_triggered(event, "cut"):
+			current_tool.cut_selected()
+			get_viewport().set_input_as_handled()
+			return
+		if VectopenInput.is_action_triggered(event, "paste"):
+			current_tool.paste_clipboard()
+			get_viewport().set_input_as_handled()
+			return
+		if VectopenInput.is_action_triggered(event, "duplicate"):
+			current_tool.duplicate_selected()
+			get_viewport().set_input_as_handled()
+			return
+		if VectopenInput.is_action_triggered(event, "select_all"):
+			current_tool.select_all()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]:
+			var direction: Vector2 = Vector2.ZERO
+			match event.keycode:
+				KEY_LEFT:  direction = Vector2.LEFT
+				KEY_RIGHT: direction = Vector2.RIGHT
+				KEY_UP:    direction = Vector2.UP
+				KEY_DOWN:  direction = Vector2.DOWN
+			current_tool.nudge_selected(direction, event.shift_pressed)
+			get_viewport().set_input_as_handled()
+			return
 
 	var unicode_val = event.unicode if event.unicode != 0 else event.keycode
 	var t_char: String = char(unicode_val).to_lower()

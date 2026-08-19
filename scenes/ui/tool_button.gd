@@ -7,6 +7,16 @@ var canvas_editor: Node = null
 
 
 func _ready() -> void:
+	# Button.focus_mode es FOCUS_ALL por defecto en Godot — al pulsar
+	# cualquier botón de herramienta se quedaba con el foco de teclado
+	# indefinidamente (nada lo libera después), y canvas.gd::_handle_keyboard()
+	# bloquea TODOS los atajos globales (undo/redo/zoom/portapapeles/mover
+	# con flechas...) mientras haya un foco de UI activo — es el guard
+	# correcto para no robarle atajos a un campo de texto, pero un botón de
+	# icono no debería retenerlo. Encontrado el 19/08/2026 verificando en
+	# vivo la Fase 1 de teclado: Ctrl+A/flechas no hacían nada tras pulsar
+	# cualquier botón de la barra de herramientas.
+	focus_mode = Control.FOCUS_NONE
 	pressed.connect(_on_pressed)
 	_find_canvas_editor()
 

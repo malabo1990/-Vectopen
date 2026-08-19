@@ -732,6 +732,192 @@ func _clear_selection() -> void:
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
+# ── Operaciones sobre la selección — Fase 1 (teclado/portapapeles) ───────────
+# Añadido el 19/08/2026 a partir del informe de interacción avanzada del
+# usuario. Cablea Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/
+# mover con flechas — antes VectopenInput.gd ya declaraba los atajos pero
+# ningún código los escuchaba (verificado con grep antes de empezar: cero
+# resultados fuera de VectopenInput.gd mismo). Todas registran una acción
+# real en HistoryManager, así que también se pueden deshacer con Ctrl+Z —
+# primer uso real de HistoryManager.register_action() en toda la app (antes
+# solo lo usaba el CRUD de ProjectManager, que no tiene llamador real desde
+# la UI, ver §1.6/§1.7 del informe).
+
+const NUDGE_STEP: float = 1.0
+const NUDGE_STEP_SHIFT: float = 10.0
+
+func select_all() -> void:
+	_refresh_artboard()
+	if not target_artboard:
+		return
+	selected_shapes.clear()
+	var dl: Node = target_artboard.get_node_or_null("VectorDrawingLayer")
+	if dl:
+		for v_node in dl.get_children():
+			if v_node is Node2D:
+				selected_shapes.append(v_node)
+	for node in target_artboard.get_children():
+		if not (node is Node2D) or node.name in ["ArtboardTitle", "VectorDrawingLayer"]:
+			continue
+		selected_shapes.append(node)
+	_update_macro_rect()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
+func delete_selected() -> void:
+	if selected_shapes.is_empty():
+		return
+	var nodes: Array = selected_shapes.duplicate()
+	var parents: Array = []
+	var indices: Array = []
+	for n in nodes:
+		parents.append(n.get_parent())
+		indices.append(n.get_index())
+
+	HistoryManager.register_action("Eliminar selección")
+	HistoryManager.add_do(_do_remove_nodes.bind(nodes))
+	HistoryManager.add_undo(_do_restore_nodes.bind(nodes, parents, indices))
+	HistoryManager.commit()
+	_do_remove_nodes(nodes)
+
+## Quita los nodos del árbol SIN liberarlos (mantiene la referencia viva para
+## que el undo pueda restaurarlos). Límite conocido y aceptado: si la acción
+## se descarta del historial sin deshacerse nunca (más de max_history
+## acciones después), el nodo queda huérfano en memoria — igual que el resto
+## de callables de deshacer en este proyecto (ver ProjectManager), este
+## UndoRedoManager simplificado no tiene un gancho de "acción descartada"
+## para liberar en ese caso. Aceptable para el alcance de esta Fase 1.
+func _do_remove_nodes(nodes: Array) -> void:
+	for n in nodes:
+		if is_instance_valid(n) and is_instance_valid(n.get_parent()):
+			n.get_parent().remove_child(n)
+	_clear_selection()
+
+func _do_restore_nodes(nodes: Array, parents: Array, indices: Array) -> void:
+	for i in range(nodes.size()):
+		var n = nodes[i]
+		var p = parents[i]
+		if is_instance_valid(n) and is_instance_valid(p) and not n.is_inside_tree():
+			p.add_child(n)
+			p.move_child(n, mini(indices[i], p.get_child_count() - 1))
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
+func copy_selected() -> void:
+	if selected_shapes.is_empty() or not SessionManager:
+		return
+	var clones: Array = []
+	for s in selected_shapes:
+		if is_instance_valid(s):
+			# Los clones del portapapeles no entran en ningún árbol todavía —
+			# el nombre no necesita ser único aquí, solo cuando de verdad se
+			# inserten (paste_clipboard, contra target_artboard).
+			clones.append(s.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS))
+	SessionManager.session.clipboard_shapes = clones
+
+func cut_selected() -> void:
+	copy_selected()
+	delete_selected()
+
+func paste_clipboard() -> void:
+	if not SessionManager or not target_artboard:
+		return
+	var clipboard: Array = SessionManager.session.clipboard_shapes
+	if clipboard.is_empty():
+		return
+
+	var new_nodes: Array = []
+	for original in clipboard:
+		if is_instance_valid(original):
+			var clone: Node2D = original.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+			clone.name = _unique_sibling_name(original.name, target_artboard)
+			clone.position = original.position + Vector2(20, 20)
+			new_nodes.append(clone)
+	if new_nodes.is_empty():
+		return
+
+	_commit_add_nodes("Pegar", new_nodes)
+
+## Node.duplicate() ya conserva el `.name` original (verificado con un print
+## de depuración) — el problema real aparece después, en add_child(): cuando
+## el nombre del clon COLISIONA con un hermano existente, la resolución
+## automática de Godot para un nombre "heredado" de duplicate() no cae en el
+## sufijo esperado ("TextTitle_Container_2") sino en un nombre anónimo tipo
+## "@Node2D@599" — encontrado el 19/08/2026 verificando Ctrl+D en vivo varias
+## veces. Se evita calculando aquí un nombre único ANTES de add_child(), sin
+## depender de cómo Godot resuelva la colisión internamente.
+## IMPORTANTE: `insert_parent` debe ser el padre donde el clon se va a
+## insertar DE VERDAD (normalmente `target_artboard`), NO `original.get_parent()`
+## a ciegas — si `original` es a su vez un clon todavía fuera de árbol (como
+## los del portapapeles en paste_clipboard), `original.get_parent()` es null
+## y la comprobación de unicidad no serviría de nada.
+func _duplicate_named(original: Node2D, insert_parent: Node) -> Node2D:
+	var clone: Node2D = original.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+	clone.name = _unique_sibling_name(original.name, insert_parent)
+	return clone
+
+func _unique_sibling_name(base_name: String, parent: Node) -> String:
+	if not is_instance_valid(parent) or not parent.has_node(base_name):
+		return base_name
+	var i := 2
+	while parent.has_node("%s_%d" % [base_name, i]):
+		i += 1
+	return "%s_%d" % [base_name, i]
+
+func duplicate_selected() -> void:
+	if selected_shapes.is_empty() or not target_artboard:
+		return
+	var new_nodes: Array = []
+	for s in selected_shapes:
+		if is_instance_valid(s):
+			var clone = _duplicate_named(s, target_artboard)
+			clone.position = s.position + Vector2(20, 20)
+			new_nodes.append(clone)
+	if new_nodes.is_empty():
+		return
+
+	_commit_add_nodes("Duplicar selección", new_nodes)
+
+func _commit_add_nodes(action_name: String, new_nodes: Array) -> void:
+	HistoryManager.register_action(action_name)
+	HistoryManager.add_do(_do_add_nodes.bind(new_nodes, target_artboard))
+	HistoryManager.add_undo(_do_remove_nodes.bind(new_nodes))
+	HistoryManager.commit()
+	_do_add_nodes(new_nodes, target_artboard)
+
+	selected_shapes.clear()
+	for n in new_nodes:
+		selected_shapes.append(n)
+	_update_macro_rect()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
+func _do_add_nodes(nodes: Array, parent: Node) -> void:
+	for n in nodes:
+		if is_instance_valid(n) and not n.is_inside_tree():
+			parent.add_child(n)
+
+func nudge_selected(direction: Vector2, big_step: bool = false) -> void:
+	if selected_shapes.is_empty():
+		return
+	var delta: Vector2 = direction * (NUDGE_STEP_SHIFT if big_step else NUDGE_STEP)
+	var nodes: Array = selected_shapes.duplicate()
+
+	HistoryManager.register_action("Mover con teclado")
+	HistoryManager.add_do(_do_nudge.bind(nodes, delta))
+	HistoryManager.add_undo(_do_nudge.bind(nodes, -delta))
+	HistoryManager.commit()
+	_do_nudge(nodes, delta)
+
+func _do_nudge(nodes: Array, delta: Vector2) -> void:
+	for n in nodes:
+		if is_instance_valid(n):
+			n.global_position += delta
+			_sync_doc_position_from_native(n)
+	_update_bounding_box()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
 func _force_text_loss_focus() -> void:
 	var focus_owner = canvas.get_viewport().gui_get_focus_owner()
 	if focus_owner and (focus_owner is TextEdit or focus_owner is LineEdit):
