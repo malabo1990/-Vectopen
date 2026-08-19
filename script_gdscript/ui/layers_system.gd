@@ -60,6 +60,18 @@ func conectar_senales_sistema() -> void:
 		if not layer_tree.item_edited.is_connected(_on_layer_tree_item_edited):
 			layer_tree.item_edited.connect(_on_layer_tree_item_edited)
 
+	# Refrescar el árbol (y con él, el indicador de "fuera del artboard") cuando
+	# se termina de mover/transformar una figura — MoveTool.gd no emitía esta
+	# señal (existía en GlobalEvents pero nada la disparaba); se conectó
+	# también ahí. Sin esto, arrastrar una figura fuera del artboard no
+	# actualizaba el panel de capas hasta el siguiente cambio estructural.
+	if GlobalEvents and not GlobalEvents.object_transformed.is_connected(_on_object_transformed):
+		GlobalEvents.object_transformed.connect(_on_object_transformed)
+
+
+func _on_object_transformed() -> void:
+	sincronizar_arbol_completo()
+
 
 # =============================================================================
 # SINCRO CORE: CONSTRUCCIÓN JERÁRQUICA DE LA UI
@@ -88,25 +100,38 @@ func sincronizar_arbol_completo() -> void:
 			# Escuchar cambios internos de este Artboard (para cuando crees rectángulos/líneas)
 			_vincular_senales_artboard(artboard)
 			# Construir su estructura de forma recursiva hacia abajo
-			_construir_nodo_recursivo(raiz_oculta, artboard)
+			_construir_nodo_recursivo(raiz_oculta, artboard, artboard)
 
 	_bloquear_sincronizacion = false
 	_repintar_canvas()
 
 
-func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D) -> void:
+func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboard_actual: Node2D) -> void:
 	if not is_instance_valid(real_node) or real_node.name == "Contorno_Stroke":
 		return # Ignorar líneas estéticas auxiliares de las herramientas
 
 	# Crear el TreeItem para este nodo
-	var item = _create_tree_item(parent_item, real_node)
-	
+	var item = _create_tree_item(parent_item, real_node, artboard_actual)
+
 	# 4. Incursión Recursiva: Procesar elementos internos del nodo (Figuras del lienzo)
 	for hijo in real_node.get_children():
 		if hijo is Node2D:
-			_construir_nodo_recursivo(item, hijo)
+			_construir_nodo_recursivo(item, hijo, artboard_actual)
 
-func _create_tree_item(parent_item: TreeItem, real_node: Node2D) -> TreeItem:
+## Comprueba si el ORIGEN del nodo cae fuera del rectángulo del artboard.
+## Es una comprobación simple por punto (no el AABB completo de la figura,
+## que ya se calcula de forma más precisa y duplicada en MoveTool.gd y
+## bounding_box.gd) — suficiente para el indicador de aviso del panel de
+## capas sin añadir una tercera copia de esa lógica geométrica.
+func _esta_fuera_del_artboard(real_node: Node2D, artboard_actual: Node2D) -> bool:
+	if not is_instance_valid(artboard_actual) or real_node == artboard_actual:
+		return false
+	if not ("artboard_size" in artboard_actual):
+		return false
+	var rect := Rect2(artboard_actual.global_position, artboard_actual.artboard_size)
+	return not rect.has_point(real_node.global_position)
+
+func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual: Node2D = null) -> TreeItem:
 	# 1. Identificar el tipo de capa para el estilo visual
 	var type : String = "shape"
 	if real_node.has_meta("shape_type"):
@@ -143,10 +168,18 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D) -> TreeItem:
 
 	# Aplicar paleta de color correspondiente (Gris, Azul para grupos, etc.)
 	_aplicar_estilo_visibilidad(item, real_node.visible, type)
-	
+
+	# Aviso visual si la figura quedó fuera de los límites de su artboard
+	# (arrastrada fuera, o creada con coordenadas fuera de rango).
+	if type != "artboard" and _esta_fuera_del_artboard(real_node, artboard_actual):
+		item.set_text(1, real_node.name + "  ⚠ fuera del artboard")
+		item.set_tooltip_text(1, "Esta figura está fuera de los límites del artboard")
+		if real_node.visible:
+			item.set_custom_color(1, Color(0.95, 0.65, 0.15))  # Naranja de aviso
+
 	# Mapear nodo → TreeItem para actualizaciones incrementales
 	_node_to_item_map[real_node] = item
-	
+
 	return item
 
 
@@ -227,10 +260,10 @@ func _process_pending_changes() -> void:
 			if parent_node and _node_to_item_map.has(parent_node):
 				var parent_item = _node_to_item_map[parent_node]
 				# Crear TreeItem para este nodo
-				_create_tree_item(parent_item, nodo)
+				_create_tree_item(parent_item, nodo, _encontrar_artboard_ancestro(nodo))
 			elif artboard_container and artboard_container == nodo.get_parent():
 				# Es un artboard directo
-				_create_tree_item(layer_tree.get_root(), nodo)
+				_create_tree_item(layer_tree.get_root(), nodo, nodo)
 			
 		elif action == "removed":
 			# Eliminar el TreeItem correspondiente
@@ -248,6 +281,19 @@ func _process_pending_changes() -> void:
 # =============================================================================
 # ASISTENTES TÉCNICOS Y RECONEXIÓN DINÁMICA
 # =============================================================================
+
+## Sube por los padres hasta encontrar el artboard directo de artboard_container
+## al que pertenece nodo — usado por la ruta de alta incremental (drag&drop
+## nuevo desde otra herramienta) para saber contra qué artboard comprobar
+## "fuera de límites".
+func _encontrar_artboard_ancestro(nodo: Node) -> Node2D:
+	var actual: Node = nodo
+	while actual:
+		if is_instance_valid(artboard_container) and actual.get_parent() == artboard_container:
+			return actual as Node2D
+		actual = actual.get_parent()
+	return null
+
 func _vincular_senales_artboard(artboard: Node2D) -> void:
 	# Conecta las señales del Artboard para que el árbol se entere si creas un rectángulo dentro de él
 	if not artboard in _artboards_conectados:
@@ -259,8 +305,15 @@ func _vincular_senales_artboard(artboard: Node2D) -> void:
 
 
 func _on_canvas_structure_changed(_nodo: Node) -> void:
-	# Recargar el árbol si algo cambia estructuralmente en el lienzo
-	sincronizar_arbol_completo()
+	# Diferido a propósito: este handler llega SÍNCRONAMENTE desde
+	# child_entered_tree, es decir, en mitad de add_child() — antes de que el
+	# código que crea la figura llegue a asignarle su posición real (p.ej.
+	# TextTool._create_new_title_at() hace primero add_child() y RECIÉN
+	# DESPUÉS position = local_pos). Sincronizar aquí mismo evaluaba el
+	# indicador de "fuera del artboard" contra la posición (0,0) por defecto
+	# de todo Node2D recién creado, nunca la posición final. call_deferred()
+	# lo pospone al final del frame actual, cuando esa asignación ya ocurrió.
+	sincronizar_arbol_completo.call_deferred()
 
 func _aplicar_estilo_visibilidad(item: TreeItem, esta_visible: bool, tipo: String) -> void:
 	if not esta_visible:

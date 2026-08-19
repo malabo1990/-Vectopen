@@ -340,6 +340,14 @@ func _on_release(_gm: Vector2) -> bool:
 		is_marquee = false
 		_apply_marquee()
 
+	# GlobalEvents.object_transformed existía en la señal pero nada la
+	# emitía nunca — LayerSystem la usa para refrescar el indicador de
+	# "fuera del artboard" tras soltar un arrastre, y bounding_box.gd ya
+	# tenía un listener muerto para ella. Solo se dispara si de verdad hubo
+	# una transformación real (no en un simple clic o un marquee vacío).
+	var hubo_transformacion: bool = is_dragging_shape or is_resizing or is_rotating \
+		or is_dragging_artboard or is_resizing_artboard
+
 	is_dragging_shape = false
 	is_resizing = false
 	is_rotating = false
@@ -348,6 +356,9 @@ func _on_release(_gm: Vector2) -> bool:
 	resize_handle = ""
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
+
+	if hubo_transformacion and GlobalEvents:
+		GlobalEvents.emit_safe("object_transformed")
 
 	canvas.queue_redraw()
 	return true

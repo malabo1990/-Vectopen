@@ -131,7 +131,7 @@ target_node = NodePath("../../../../text")
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
 script = ExtResource("99_new")
-tool_name = "hand"
+tool_name = "artboard"
 
 [node name="button_capas" type="TextureButton" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1177450942 node_paths=PackedStringArray("trigger_node", "target_node")]
 custom_minimum_size = Vector2(28, 28)

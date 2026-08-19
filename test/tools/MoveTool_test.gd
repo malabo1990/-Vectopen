@@ -296,3 +296,47 @@ func test_shift_click_on_unselected_shape_adds_it_to_selection() -> void:
 	Input.flush_buffered_events()
 
 	assert_array(tool.selected_shapes).contains_exactly([already_selected, new_shape])
+
+# ── Señal object_transformed ──────────────────────────────────────────────
+
+## Regresión: _on_release() debe emitir GlobalEvents.object_transformed
+## cuando de verdad hubo una transformación (arrastre de figura), para que
+## LayerSystem pueda refrescar el indicador de "fuera del artboard". Antes
+## esta señal existía declarada en GlobalEvents pero nada la disparaba nunca.
+func test_on_release_emits_object_transformed_after_dragging_a_shape() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.is_dragging_shape = true
+
+	var recibido: Array = [false]
+	var callback := func(): recibido[0] = true
+	GlobalEvents.object_transformed.connect(callback)
+
+	tool._on_release(Vector2.ZERO)
+
+	GlobalEvents.object_transformed.disconnect(callback)
+
+	assert_bool(recibido[0]).is_true()
+
+## Comportamiento existente que no debe romperse: un release sin ningún
+## arrastre/transformación activa (p.ej. un simple clic) NO debe emitir la
+## señal — evita refrescos innecesarios del panel de capas en cada clic.
+func test_on_release_does_not_emit_object_transformed_without_a_transform() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+
+	var recibido: Array = [false]
+	var callback := func(): recibido[0] = true
+	GlobalEvents.object_transformed.connect(callback)
+
+	tool._on_release(Vector2.ZERO)
+
+	GlobalEvents.object_transformed.disconnect(callback)
+
+	assert_bool(recibido[0]).is_false()
