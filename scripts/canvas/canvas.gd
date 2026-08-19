@@ -126,9 +126,17 @@ func registrar_herramienta(tecla_acceso: String, script_herramienta: Script) -> 
 ## de escena (ver _new_tool()), así que si nadie las libera se acumulan como
 ## "leaked ObjectDB instances" al cerrar — encontrado el 19/08/2026 al migrar
 ## MoveTool.gd, la herramienta por defecto que queda viva toda la sesión.
+## Usa queue_free(), NO free(): algunas herramientas (p.ej. TextTool en
+## _create_new_title_at → _switch_to_move_tool) cambian de herramienta desde
+## dentro de su propio handle_input(), así que change_tool() puede llamar a
+## esto mientras la herramienta vieja sigue en medio de su propia pila de
+## llamadas — free() inmediato falla ahí con "Object is locked and can't be
+## freed" (encontrado el 19/08/2026 al arreglar el bug de los botones de
+## Texto/Párrafo, ver informe). queue_free() difiere la liberación real al
+## final del frame, que es justo lo que hace falta en ese caso.
 func _free_orphan_tool(tool) -> void:
 	if tool is Node and not tool.is_inside_tree():
-		tool.free()
+		tool.queue_free()
 
 func _exit_tree() -> void:
 	_free_orphan_tool(current_tool)
@@ -206,7 +214,13 @@ func switch_tool(tool_type: String) -> void:
 			pass
 		"artboard":
 			if ArtboardTool_Script: change_tool(_new_tool(ArtboardTool_Script))
-	if tool_manager and tool_manager.has_method("switch_tool"):
+	# ToolManager (Sistema A) no tiene registradas todas las herramientas que
+	# sí maneja el match de arriba (Sistema B) — p.ej. "paragraph"/"artboard"
+	# no tienen escena en tools/. Sin este guard, tool_manager.switch_tool()
+	# lanzaba un push_error real ("Herramienta no encontrada") cada vez que
+	# se activaban esas herramientas, aunque el cambio real (arriba) ya
+	# hubiera funcionado — encontrado el 19/08/2026 al probar el tipo Párrafo.
+	if tool_manager and tool_manager.has_method("switch_tool") and tool_manager.has_method("get_available_tools") and tool_manager.get_available_tools().has(tool_type.to_lower()):
 		tool_manager.switch_tool(tool_type)
 
 # ── Procesamiento de Entrada Centralizado ────────────────────────────────────
