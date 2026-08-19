@@ -54,7 +54,13 @@ var is_mobile: bool = false
 # ── Preset activo ────────────────────────────────────────────────────
 var quality_preset: String = "balanced"
 var target_fps: int = 60
-var adaptive_quality: bool = true
+# Por defecto DESACTIVADO desde el 19/08/2026, a petición explícita del
+# usuario: se clasifica el hardware una vez al arrancar (_classify_device())
+# y esa tier se queda fija — sin bajadas/subidas automáticas por FPS después.
+# Reactivar con set_adaptive_quality(true) si en el futuro se quiere que
+# vuelva a autoajustarse en caliente (ver §1.9/§1.10 para el porqué de los
+# arreglos de ese sistema antes de reactivarlo).
+var adaptive_quality: bool = false
 var show_overlay: bool = false
 
 # ── Escalado dinámico ────────────────────────────────────────────────
@@ -260,7 +266,20 @@ func _setup_timers() -> void:
 	_adapt_timer.wait_time = 5.0
 	_adapt_timer.timeout.connect(_adaptive_tick)
 	add_child(_adapt_timer)
-	_adapt_timer.start()
+	if adaptive_quality:
+		_adapt_timer.start()
+
+## Activa/desactiva el auto-ajuste de calidad por FPS en caliente.
+## Con `enabled = false` (el valor por defecto), la tier detectada en
+## _classify_device() se queda fija para siempre — es lo que se usa hoy.
+func set_adaptive_quality(enabled: bool) -> void:
+	adaptive_quality = enabled
+	if not _adapt_timer:
+		return
+	if enabled:
+		_adapt_timer.start()
+	else:
+		_adapt_timer.stop()
 
 func _check_performance() -> void:
 	var fps = Engine.get_frames_per_second()
