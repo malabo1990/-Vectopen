@@ -7,9 +7,13 @@ extends Node
 
 ## Extraído de DataRepository.gd el 19/08/2026 (ver docs/*/reports).
 ## Dueño de los datos persistentes del proyecto: artboards, capas, shapes,
-## undo/redo, guardado/carga/auto-guardado/recuperación y snap a rejilla.
+## guardado/carga/auto-guardado/recuperación y snap a rejilla.
 ## Estado de sesión (cámara, paneles abiertos, herramienta activa, config
 ## por herramienta) vive en SessionManager, no aquí.
+## Desde el 19/08/2026 (ver informe §1.7) el undo/redo de shapes/capas/
+## artboards se registra a través de HistoryManager en vez de tener su
+## propia pila de UndoRedoManager — antes estaban desconectadas y Ctrl+Z
+## nunca deshacía estas acciones.
 ## DataRepository sigue siendo la fachada pública — el resto del proyecto
 ## no debería llamar a este autoload directamente salvo los pocos sitios
 ## ya documentados en el informe técnico.
@@ -26,7 +30,7 @@ var GlobalEvents: Node = null  # Se asigna en _ready()
 # ==========================================
 
 var project: ProjectData = null       # Datos persistentes del proyecto
-var undo_redo: UndoRedoManager = null # Historial de acciones sobre el proyecto
+# El historial de undo/redo ya no vive aquí — ver HistoryManager (autoload)
 
 
 # ==========================================
@@ -70,7 +74,6 @@ func _ready() -> void:
 		push_warning("ProjectManager: GlobalEvents no encontrado. Las señales no se emitirán.")
 
 	_initialize_subsystems()
-	_connect_internal_signals()
 	_setup_auto_save()
 	_setup_recovery()
 
@@ -79,13 +82,6 @@ func _ready() -> void:
 
 func _initialize_subsystems() -> void:
 	project = ProjectData.new()
-	undo_redo = UndoRedoManager.new()
-	undo_redo.max_history = settings.max_undo_steps
-
-
-func _connect_internal_signals() -> void:
-	if undo_redo:
-		undo_redo.version_changed.connect(_on_undo_version_changed)
 
 
 # ==========================================
@@ -186,8 +182,7 @@ func new_project(project_name: String = "Nuevo Proyecto") -> void:
 	is_project_modified = false
 
 	# Limpiar historial
-	if undo_redo:
-		undo_redo.clear()
+	HistoryManager.clear()
 
 	# Crear artboard por defecto
 	_create_default_artboard()
@@ -301,8 +296,7 @@ func load_project(path: String) -> bool:
 	selected_shapes.clear()
 	is_project_modified = false
 
-	if undo_redo:
-		undo_redo.clear()
+	HistoryManager.clear()
 
 	if GlobalEvents:
 		GlobalEvents.emit_safe("data_project_loaded", project.name)
@@ -323,8 +317,7 @@ func close_project() -> void:
 	current_layer_id = ""
 	is_project_modified = false
 
-	if undo_redo:
-		undo_redo.clear()
+	HistoryManager.clear()
 
 	if GlobalEvents:
 		GlobalEvents.emit_safe("data_project_closed")
@@ -352,10 +345,10 @@ func create_shape(shape_type: String, data: Dictionary = {}, layer_id: String = 
 	shape_data.deserialize(data)
 
 	# Registrar para undo
-	undo_redo.create_action("Crear " + shape_type)
-	undo_redo.add_do_method(_do_create_shape.bind(shape_id, shape_data, target_layer))
-	undo_redo.add_undo_method(_undo_create_shape.bind(shape_id, target_layer))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Crear " + shape_type)
+	HistoryManager.add_do(_do_create_shape.bind(shape_id, shape_data, target_layer))
+	HistoryManager.add_undo(_undo_create_shape.bind(shape_id, target_layer))
+	HistoryManager.commit()
 
 	# Ejecutar DO inmediatamente
 	_do_create_shape(shape_id, shape_data, target_layer)
@@ -395,10 +388,10 @@ func update_shape(shape_id: String, property: String, value) -> void:
 	if old_value == value:
 		return
 
-	undo_redo.create_action("Cambiar " + property)
-	undo_redo.add_do_method(_do_update_shape.bind(shape_id, property, value))
-	undo_redo.add_undo_method(_do_update_shape.bind(shape_id, property, old_value))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Cambiar " + property)
+	HistoryManager.add_do(_do_update_shape.bind(shape_id, property, value))
+	HistoryManager.add_undo(_do_update_shape.bind(shape_id, property, old_value))
+	HistoryManager.commit()
 
 	_do_update_shape(shape_id, property, value)
 
@@ -425,10 +418,10 @@ func delete_shape(shape_id: String) -> void:
 	var layer_id = result["layer_id"]
 	var index = result["index"]
 
-	undo_redo.create_action("Eliminar shape")
-	undo_redo.add_do_method(_do_delete_shape.bind(shape_id, layer_id, index))
-	undo_redo.add_undo_method(_undo_delete_shape.bind(shape, layer_id, index))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Eliminar shape")
+	HistoryManager.add_do(_do_delete_shape.bind(shape_id, layer_id, index))
+	HistoryManager.add_undo(_undo_delete_shape.bind(shape, layer_id, index))
+	HistoryManager.commit()
 
 	_do_delete_shape(shape_id, layer_id, index)
 
@@ -512,10 +505,10 @@ func create_layer(layer_name: String, artboard_id: String = "") -> String:
 	var layer_id = _generate_id("layer")
 	var layer_data = LayerData.new(layer_id, layer_name, target_artboard)
 
-	undo_redo.create_action("Crear capa")
-	undo_redo.add_do_method(_do_create_layer.bind(layer_id, layer_data))
-	undo_redo.add_undo_method(_undo_create_layer.bind(layer_id))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Crear capa")
+	HistoryManager.add_do(_do_create_layer.bind(layer_id, layer_data))
+	HistoryManager.add_undo(_undo_create_layer.bind(layer_id))
+	HistoryManager.commit()
 
 	_do_create_layer(layer_id, layer_data)
 
@@ -541,10 +534,10 @@ func delete_layer(layer_id: String) -> void:
 
 	var layer = project.layers[layer_id]
 
-	undo_redo.create_action("Eliminar capa")
-	undo_redo.add_do_method(_do_delete_layer.bind(layer_id))
-	undo_redo.add_undo_method(_undo_delete_layer.bind(layer_id, layer))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Eliminar capa")
+	HistoryManager.add_do(_do_delete_layer.bind(layer_id))
+	HistoryManager.add_undo(_undo_delete_layer.bind(layer_id, layer))
+	HistoryManager.commit()
 
 	_do_delete_layer(layer_id)
 
@@ -605,10 +598,10 @@ func create_artboard(artboard_name: String, position: Vector2 = Vector2.ZERO) ->
 	var artboard_data = ArtboardData.new(artboard_id, artboard_name)
 	artboard_data.position = position
 
-	undo_redo.create_action("Crear artboard")
-	undo_redo.add_do_method(_do_create_artboard.bind(artboard_id, artboard_data))
-	undo_redo.add_undo_method(_undo_create_artboard.bind(artboard_id))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Crear artboard")
+	HistoryManager.add_do(_do_create_artboard.bind(artboard_id, artboard_data))
+	HistoryManager.add_undo(_undo_create_artboard.bind(artboard_id))
+	HistoryManager.commit()
 
 	_do_create_artboard(artboard_id, artboard_data)
 
@@ -641,10 +634,10 @@ func delete_artboard(artboard_id: String) -> void:
 		if layer.artboard_id == artboard_id:
 			layers_to_delete.append(layer_id)
 
-	undo_redo.create_action("Eliminar artboard")
-	undo_redo.add_do_method(_do_delete_artboard.bind(artboard_id, layers_to_delete))
-	undo_redo.add_undo_method(_undo_delete_artboard.bind(artboard_id, artboard, layers_to_delete))
-	undo_redo.commit_action()
+	HistoryManager.register_action("Eliminar artboard")
+	HistoryManager.add_do(_do_delete_artboard.bind(artboard_id, layers_to_delete))
+	HistoryManager.add_undo(_undo_delete_artboard.bind(artboard_id, artboard, layers_to_delete))
+	HistoryManager.commit()
 
 	_do_delete_artboard(artboard_id, layers_to_delete)
 
@@ -717,39 +710,34 @@ func update_artboard(artboard_id: String, property: String, value) -> void:
 # ==========================================
 # UNDO / REDO
 # ==========================================
-# NOTA (19/08/2026): este stack de undo/redo es independiente del que usa
-# HistoryManager (autoload) para las herramientas — ver la nota de hallazgo
-# en el informe técnico, §1.6 / §8.1. No se ha unificado en esta pasada.
+# Delegado en HistoryManager desde el 19/08/2026 (ver informe §1.7) — antes
+# ProjectManager tenía su propia pila de UndoRedoManager, desconectada de la
+# que Ctrl+Z/Y usa de verdad (HistoryManager), así que estos métodos nunca
+# deshacían nada en la práctica. DataRepository.undo()/redo()/can_undo()/
+# can_redo() siguen delegando aquí para no romper compatibilidad.
 
 func undo() -> void:
-	if undo_redo and undo_redo.can_undo():
-		undo_redo.undo()
+	if HistoryManager.can_undo():
+		HistoryManager.undo()
 		if GlobalEvents:
 			GlobalEvents.emit_safe("data_undo_performed")
 			GlobalEvents.emit_safe("object_transformed")  # Compatibilidad
-		is_project_modified = true
 
 
 func redo() -> void:
-	if undo_redo and undo_redo.can_redo():
-		undo_redo.redo()
+	if HistoryManager.can_redo():
+		HistoryManager.redo()
 		if GlobalEvents:
 			GlobalEvents.emit_safe("data_redo_performed")
 			GlobalEvents.emit_safe("object_transformed")  # Compatibilidad
-		is_project_modified = true
 
 
 func can_undo() -> bool:
-	return undo_redo and undo_redo.can_undo()
+	return HistoryManager.can_undo()
 
 
 func can_redo() -> bool:
-	return undo_redo and undo_redo.can_redo()
-
-
-func _on_undo_version_changed(has_undo: bool, has_redo: bool) -> void:
-	if GlobalEvents:
-		GlobalEvents.emit_safe("data_undo_state_changed", has_undo, has_redo)
+	return HistoryManager.can_redo()
 
 
 # ==========================================
