@@ -2,11 +2,11 @@
 # VECTOPEN CORE — ADVANCED VECTOR BRUSH ENGINE
 # =============================================================================
 class_name BrushTool
-extends Tool
+extends ToolBase
 
 var target_artboard: Node2D = null
 var current_line: Line2D = null
-var is_drawing: bool = false
+# `is_drawing` ya lo declara ToolBase (Fase migración 2026-08-19) — no redeclarar.
 var _point_count: int = 0
 
 var raw_points: PackedVector2Array = PackedVector2Array()
@@ -14,14 +14,12 @@ var _committed_points: PackedVector2Array = PackedVector2Array()
 var _settings = null
 var _locked_preset := ""
 
-const STROKE_COLOR := Color("#cc44ff")
-const STROKE_WIDTH := 4.0
+# Renombradas desde STROKE_COLOR/STROKE_WIDTH: ToolBase ya declara esos nombres
+# con otros valores (negro/1.0) — el pincel necesita los suyos propios.
+const BRUSH_STROKE_COLOR := Color("#cc44ff")
+const BRUSH_STROKE_WIDTH := 4.0
 const CENTRIPETAL_ALPHA := 0.5
 const _BRUSH_CURSOR := preload("res://assets/generated/brush_cursor.png")
-
-func _init(p_canvas: Node2D) -> void:
-	canvas = p_canvas
-	_refresh_settings()
 
 func _refresh_settings() -> void:
 	var pm := _find_performance_manager()
@@ -79,6 +77,7 @@ const BRUSH_CURSOR_HOTSPOT := Vector2(16, 16)
 func activate() -> void:
 	Input.set_custom_mouse_cursor(_BRUSH_CURSOR, Input.CURSOR_ARROW, BRUSH_CURSOR_HOTSPOT)
 	is_drawing = false
+	_refresh_settings()
 	var pm := _find_performance_manager()
 	if pm and not pm.quality_changed.is_connected(_on_quality_changed):
 		pm.quality_changed.connect(_on_quality_changed)
@@ -114,8 +113,8 @@ func handle_input(event: InputEvent) -> bool:
 			raw_points.append(local_mouse)
 
 			current_line = Line2D.new()
-			current_line.width = STROKE_WIDTH
-			current_line.default_color = STROKE_COLOR
+			current_line.width = BRUSH_STROKE_WIDTH
+			current_line.default_color = BRUSH_STROKE_COLOR
 			current_line.antialiased = true
 			current_line.joint_mode = Line2D.LINE_JOINT_ROUND
 			current_line.begin_cap_mode = Line2D.LINE_CAP_ROUND

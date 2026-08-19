@@ -4,7 +4,7 @@
 # Soporta: Saltos de línea, Color Negro, Doble Clic Robusto para editar.
 # CONTROL INTELIGENTE: CMD (o CTRL) + Arrastre Vertical para escalar fuente.
 # =============================================================================
-extends Tool
+extends ToolBase
 
 # ── Estados Internos de Edición ──────────────────────────────────────────────
 var is_editing: bool = false
@@ -21,9 +21,6 @@ var scaling_start_font_size: int = 24
 const MIN_FONT_SIZE: int = 8
 const MAX_FONT_SIZE: int = 300
 const SCALING_SENSITIVITY: float = 0.5 
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
 
 func activate() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_IBEAM)

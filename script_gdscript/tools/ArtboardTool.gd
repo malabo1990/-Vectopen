@@ -2,11 +2,11 @@
 # VECTOPEN CORE — SYSTEM TOOL ENGINE
 # RUTA RECOMENDADA: res://script_gdscript/ArtboardTool.gd
 # =============================================================================
-extends Tool
+extends ToolBase
 class_name ArtboardTool
 
 # Estados de control de geometría
-var is_drawing: bool = false
+# `is_drawing` ya lo declara ToolBase (Fase migración 2026-08-19) — no redeclarar.
 var start_pos: Vector2 = Vector2.ZERO
 var current_pos: Vector2 = Vector2.ZERO
 

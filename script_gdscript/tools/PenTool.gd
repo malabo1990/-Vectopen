@@ -1,16 +1,13 @@
 # res://scripts/PenTool.gd
 class_name PenTool
-extends Tool
+extends ToolBase
 
 var target_artboard: Node2D = null
 var active_line: Line2D = null
-var is_drawing := false
+# `is_drawing` ya lo declara ToolBase (Fase migración 2026-08-19) — no redeclarar.
 
 const LINE_COLOR := Color("#00aaff")
 const LINE_WIDTH := 2.5
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
 
 func _find_artboard() -> void:
 	if not is_instance_valid(canvas):

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://yurqyirbqywv"]
 
-[ext_resource type="Script" uid="uid://cbxy6ho38db7t" path="res://scripts/EditorCurve.gd" id="1_ng2mf"]
+[ext_resource type="Script" uid="uid://cbxy6ho38db7t" path="res://script_gdscript/data/EditorCurve.gd" id="1_ng2mf"]
 [ext_resource type="Resource" uid="uid://wf60griu1h6c" path="res://Data/CurveResource.tres" id="2_cg4tp"]
 
 [node name="EditorControlCurve" type="BoxContainer" unique_id=679954280]

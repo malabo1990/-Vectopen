@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://cp3oraptv54v8"]
 
 [ext_resource type="Texture2D" uid="uid://c80wp8ki0swiv" path="res://icon/UI/repeat.svg" id="1_cdl00"]
-[ext_resource type="Script" uid="uid://cla812rjm3ta2" path="res://scripts/systemProgressbar.gd" id="1_pjdv8"]
+[ext_resource type="Script" uid="uid://cla812rjm3ta2" path="res://script_gdscript/ui/systemProgressbar.gd" id="1_pjdv8"]
 [ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="2_2bj0v"]
-[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://scripts/btn_toogle.gd" id="3_2bj0v"]
-[ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://scripts/Numeros_calculadora.gd" id="4_pvfsk"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="3_2bj0v"]
+[ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://script_gdscript/utils/Numeros_calculadora.gd" id="4_pvfsk"]
 [ext_resource type="Script" path="res://script_gdscript/ui/spin_box_value.gd" id="5_valuegd"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cdl00"]

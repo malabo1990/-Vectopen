@@ -3,7 +3,7 @@
 # Vectopen — Herramienta Bézier profesional
 # Lógica portada desde prototipo HTML validado.
 # =============================================================================
-extends Tool
+extends ToolBase
 
 # ── Referencias ───────────────────────────────────────────────────────────────
 var target_artboard: Node2D = null
@@ -25,7 +25,8 @@ const NODE_COLOR        := Color(0.09, 0.37, 0.65, 1.0)
 const CLOSE_COLOR       := Color(0.06, 0.43, 0.33, 1.0)
 const NODE_SIZE: float  = 5.0
 const HANDLE_SIZE: float = 4.0
-const STROKE_WIDTH: float = 1.5
+# Renombrada desde STROKE_WIDTH: ToolBase ya declara ese nombre (valor 1.0).
+const BEZIER_STROKE_WIDTH: float = 1.5
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SUBCLASE DE RENDERIZADO
@@ -58,10 +59,6 @@ class BezierRenderPath extends Path2D:
 # ═══════════════════════════════════════════════════════════════════════════════
 # CICLO DE VIDA
 # ═══════════════════════════════════════════════════════════════════════════════
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
-	canvas = p_canvas
 
 func activate() -> void:
 	_reset_state()
@@ -215,7 +212,7 @@ func draw_preview(c: Node2D) -> void:
 	var scale := c.global_transform.get_scale().x
 	if scale <= 0.001:
 		scale = 1.0
-	var lw := clampf(STROKE_WIDTH / scale, 0.5, 3.0)
+	var lw := clampf(BEZIER_STROKE_WIDTH / scale, 0.5, 3.0)
 
 	var last_idx := curve.point_count - 1
 	var anchor_local := curve.get_point_position(last_idx)

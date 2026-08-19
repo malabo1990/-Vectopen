@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bfr7c44tm1acr"]
 
-[ext_resource type="Script" uid="uid://cf4voomo5sgcd" path="res://scripts/control_gradient.gd" id="1_w4gr8"]
+[ext_resource type="Script" uid="uid://cf4voomo5sgcd" path="res://script_gdscript/ui/control_gradient.gd" id="1_w4gr8"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_leyds"]
 bg_color = Color(1, 1, 1, 1)

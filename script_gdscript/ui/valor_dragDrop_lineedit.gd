@@ -27,6 +27,24 @@ var drag_start_pos: Vector2 = Vector2.ZERO
 var _suppress_emit: bool = false
 
 func _ready() -> void:
+	# Fallback: los exports tipados @export var x: LineEdit resueltos vía
+	# node_paths en el .tscn a veces no llegan asignados cuando el nodo se
+	# instancia dentro de un pool (ObjectPool duplica boundingbox.tscn 20
+	# veces al arrancar) — la escena en sí está bien formada (line_edit =
+	# NodePath("LineEdit"), panel = NodePath(".")), así que si el export no
+	# llegó, se resuelve a mano con la misma ruta relativa antes de rendirse.
+	if not line_edit:
+		var maybe_line_edit: Node = get_node_or_null("LineEdit")
+		if maybe_line_edit is LineEdit:
+			line_edit = maybe_line_edit
+	if not panel:
+		# `self` no sirve aquí: el script hace `extends Control`, así que GDScript
+		# rechaza en tiempo de compilación un cast/`is Panel` sobre `self` aunque
+		# el nodo real (donde este script está adjunto) sea un Panel. `get_node(".")`
+		# sí es un `Node` genérico en tiempo de compilación, sin ese problema.
+		var maybe_panel: Node = get_node_or_null(".")
+		if maybe_panel is Panel:
+			panel = maybe_panel
 	if not line_edit or not panel:
 		push_error("Por favor, asigna el LineEdit y el Panel en el Inspector.")
 		return

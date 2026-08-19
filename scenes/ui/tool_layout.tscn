@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://ditmj1jkjg657"]
 
 [ext_resource type="PackedScene" uid="uid://q15ts0d7cg45" path="res://scenes/ui/SliderRange.tscn" id="1_h4skp"]
-[ext_resource type="Script" uid="uid://c12w2e8u4lxj7" path="res://scripts/valuePosition_panel.gd" id="2_30lwg"]
+[ext_resource type="Script" uid="uid://c12w2e8u4lxj7" path="res://script_gdscript/ui/valuePosition_panel.gd" id="2_30lwg"]
 [ext_resource type="Texture2D" uid="uid://bmracgsala0o" path="res://icon/UI/lock.svg" id="2_aj1ea"]
 [ext_resource type="Texture2D" uid="uid://dcalp1s5wijos" path="res://icon/UI/plus-square-dashed.svg" id="3_30lwg"]
-[ext_resource type="Script" uid="uid://bvpr3hymr4qt0" path="res://scripts/valor_dragDrop_lineedit.gd" id="3_fkwhe"]
-[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://scripts/btn_toogle.gd" id="4_fkwhe"]
+[ext_resource type="Script" uid="uid://bvpr3hymr4qt0" path="res://script_gdscript/ui/valor_dragDrop_lineedit.gd" id="3_fkwhe"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="4_fkwhe"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6rvsi"]
 bg_color = Color(0.831373, 0.831373, 0.831373, 0)

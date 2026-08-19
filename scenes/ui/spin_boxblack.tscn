@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0qra2jlwad0n"]
 
-[ext_resource type="Script" uid="uid://cla812rjm3ta2" path="res://scripts/systemProgressbar.gd" id="1_ue663"]
+[ext_resource type="Script" uid="uid://cla812rjm3ta2" path="res://script_gdscript/ui/systemProgressbar.gd" id="1_ue663"]
 [ext_resource type="Texture2D" uid="uid://c80wp8ki0swiv" path="res://icon/UI/repeat.svg" id="2_fgy3k"]
 [ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="3_gob3m"]
-[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://scripts/btn_toogle.gd" id="4_ggyju"]
-[ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://scripts/Numeros_calculadora.gd" id="5_xoyel"]
+[ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="4_ggyju"]
+[ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://script_gdscript/utils/Numeros_calculadora.gd" id="5_xoyel"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f5lw3"]
 bg_color = Color(0.6, 0.6, 0.6, 0)

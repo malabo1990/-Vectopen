@@ -2,14 +2,11 @@
 # RUTA: res://script_gdscript/ParagraphTool.gd
 # Vectopen — Herramienta de Párrafos (MultiLineEdit) con Texto en Color Negro
 # =============================================================================
-extends Tool
+extends ToolBase
 
 var is_editing: bool = false
 var current_editing_shape: Node2D = null
 var target_artboard: Node2D = null
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
 
 func activate() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_IBEAM)

@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://bwfvuaxaip16m" path="res://scenes/ui/panel_export.tscn" id="9_03owx"]
 [ext_resource type="Texture2D" uid="uid://c0sbxqnnj1uty" path="res://icon/UI/fill-color.svg" id="10_fpfj3"]
 [ext_resource type="Script" uid="uid://df4s6afogq4dh" path="res://script_gdscript/utils/vistaprevia.gd" id="10_kjvhd"]
-[ext_resource type="PackedScene" uid="uid://5vmoyu7c8m4j" path="res://scenes/ui/panel__effects.tscn" id="11_20pc6"]
+[ext_resource type="PackedScene" uid="uid://br8cexqk0eqvj" path="res://scenes/ui/panel__effects.tscn" id="11_20pc6"]
 [ext_resource type="Texture2D" uid="uid://cuoyoylca84cf" path="res://icon/UI/eye.svg" id="11_c6i3y"]
 [ext_resource type="Texture2D" uid="uid://df4yglt7v5rp0" path="res://icon/UI/circle-spark.svg" id="11_sc1dx"]
 [ext_resource type="PackedScene" uid="uid://prp1f7keamjb" path="res://scenes/ui/pickr_color_tool.tscn" id="12_5vvyt"]

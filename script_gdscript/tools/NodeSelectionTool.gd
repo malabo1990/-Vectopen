@@ -4,7 +4,7 @@
 # Sincronizado exactamente con el ecosistema de Artboards y BezierRenderPath
 # =============================================================================
 class_name NodeSelectionTool
-extends Tool
+extends ToolBase
 
 # ── Estados Internos de la Herramienta ────────────────────────────────────────
 enum EditMode { IDLE, DRAGGING_NODE, DRAGGING_HANDLE, DRAGGING_SEGMENT, GRAB_MODE }
@@ -44,10 +44,6 @@ const COLOR_NODE_SELECTED: Color = Color(0.06, 0.43, 0.33, 1.0)
 const COLOR_HANDLE_LINE: Color = Color(0.72, 0.46, 0.09, 0.5)   
 const COLOR_GRAB_AXIS_X: Color = Color(0.94, 0.27, 0.27, 0.8)   
 const COLOR_GRAB_AXIS_Y: Color = Color(0.13, 0.77, 0.37, 0.8)   
-
-func _init(p_canvas: Node2D) -> void:
-	super(p_canvas)
-	canvas = p_canvas
 
 func activate() -> void:
 	_refresh_artboard()
