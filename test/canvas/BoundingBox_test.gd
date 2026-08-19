@@ -66,6 +66,48 @@ func test_multi_selection_falls_back_to_axis_aligned_box() -> void:
 	assert_float(bb.rotation).is_equal_approx(0.0, 0.001)
 	assert_vector(bb.scale).is_equal_approx(Vector2.ONE, Vector2(0.001, 0.001))
 
+## Invariante de la caja de multiselección: debe ser exactamente el AABB que
+## envuelve a TODAS las figuras seleccionadas (min de los left/top, max de los
+## right/bottom) — ni más grande ni más chica. Antes solo se comprobaba
+## rotación/escala aquí; esto es lo que realmente detecta un bounding box mal
+## calculado (encogido, desplazado, o que ignora alguna figura).
+func test_multi_selection_box_bounds_match_combined_aabb() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+
+	var shape_a: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape_a)
+	shape_a.position = Vector2(0, 0)
+	shape_a.size = Vector2(80, 40)  # AABB: (-40,-20) a (40,20)
+
+	var shape_b: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape_b)
+	shape_b.position = Vector2(250, 120)
+	shape_b.size = Vector2(60, 100)  # AABB: (220,70) a (280,170)
+
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
+	move_tool.selected_shapes = [shape_a, shape_b]
+
+	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
+	root.add_child(bb)
+	bb.move_tool_reference = move_tool
+
+	bb._sincronizar_dimensiones_en_canvas()
+
+	assert_float(bb.position.x).is_equal_approx(-40.0, 0.01)
+	assert_float(bb.position.y).is_equal_approx(-20.0, 0.01)
+	assert_float(bb.position.x + bb.size.x).is_equal_approx(280.0, 0.01)
+	assert_float(bb.position.y + bb.size.y).is_equal_approx(170.0, 0.01)
+
+	# Invariante general (no atada a estos números concretos): la caja debe
+	# encerrar completamente el AABB de cada figura seleccionada.
+	var box_rect := Rect2(bb.position, bb.size)
+	for shape: Node2D in move_tool.selected_shapes:
+		var shape_size: Vector2 = shape.get("size")
+		var shape_rect := Rect2(shape.global_position - shape_size * 0.5, shape_size)
+		assert_bool(box_rect.encloses(shape_rect)).is_true()
+
 func test_empty_selection_hides_box() -> void:
 	var root: Node2D = auto_free(Node2D.new())
 	add_child(root)

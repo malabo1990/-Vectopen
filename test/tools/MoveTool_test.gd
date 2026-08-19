@@ -1,5 +1,17 @@
 extends GdUnitTestSuite
 
+## Doble mínimo de ArtboardEditor para pruebas de _on_press() con is_selected.
+## No se usa ArtboardEditor real aquí porque su is_selected dispara
+## queue_redraw() -> _draw() -> _is_selection_tool(), que llama a
+## get_tree().current_scene.find_child(...) y revienta en el runner de
+## gdUnit4 (current_scene es null ahí) — un problema del propio
+## ArtboardEditor ajeno a lo que estas pruebas de MoveTool verifican.
+class _FakeArtboard extends Node2D:
+	var artboard_size := Vector2(794, 1123)
+	var is_selected := false
+	func is_on_handle(_local_pos: Vector2) -> bool:
+		return false
+
 func test_resize_round_trip_preserves_subpixel_precision() -> void:
 	var canvas: Node2D = auto_free(Node2D.new())
 	add_child(canvas)
@@ -87,3 +99,200 @@ func test_translate_syncs_doc_position() -> void:
 	assert_vector(shape.position).is_equal(Vector2(15.0, -5.0))
 	assert_float(shape.doc_position.x).is_equal(15.0)
 	assert_float(shape.doc_position.y).is_equal(-5.0)
+
+# ── Marquee (arrastre de selección) ──────────────────────────────────────────
+
+## Regresión del bug encontrado el 19/08/2026 a partir del reporte del
+## usuario ("fuera de artboard funciona, dentro no"): un clic en espacio
+## vacío DENTRO del artboard (sin este seleccionado) caía en la rama
+## "if ab_rect.has_point(...)" de _on_press, hacía _clear_selection() y
+## devolvía false SIN activar is_marquee — así que arrastrar dentro del
+## artboard nunca disparaba selección múltiple, solo fuera de él.
+func test_click_on_empty_space_inside_artboard_starts_marquee() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+	artboard.is_selected = false
+
+	# Punto bien dentro del artboard (tamaño por defecto 794x1123) y lejos de
+	# cualquier figura, para caer en la rama de "espacio vacío".
+	var click_point: Vector2 = artboard.to_global(Vector2(400, 400))
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+
+	var handled: bool = tool._on_press(click_point)
+
+	assert_bool(handled).is_true()
+	assert_bool(tool.is_marquee).is_true()
+	assert_vector(tool.marquee_start).is_equal(click_point)
+
+## Comportamiento existente que el fix de arriba no debe romper: si el
+## artboard YA está seleccionado, un clic en su espacio vacío interior debe
+## seguir arrastrando el artboard en vez de iniciar un marquee.
+func test_click_on_empty_space_inside_selected_artboard_drags_artboard() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: _FakeArtboard = auto_free(_FakeArtboard.new())
+	root.add_child(artboard)
+	artboard.is_selected = true
+
+	var click_point: Vector2 = artboard.to_global(Vector2(400, 400))
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+
+	var handled: bool = tool._on_press(click_point)
+
+	assert_bool(handled).is_true()
+	assert_bool(tool.is_dragging_artboard).is_true()
+	assert_bool(tool.is_marquee).is_false()
+
+## Invariante: el marquee debe seleccionar exactamente las figuras cuyo AABB
+## intersecta el rectángulo arrastrado, y NINGUNA de las que quedan fuera.
+func test_marquee_selects_only_shapes_intersecting_the_drag_rect() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var inside_shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(inside_shape)
+	inside_shape.position = Vector2(50, 50)
+	inside_shape.size = Vector2(20, 20)  # AABB: (40,40)-(60,60)
+
+	var outside_shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(outside_shape)
+	outside_shape.position = Vector2(500, 500)
+	outside_shape.size = Vector2(20, 20)  # AABB: (490,490)-(510,510)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+
+	tool.marquee_start = Vector2(0, 0)
+	tool.marquee_end = Vector2(100, 100)
+	tool._apply_marquee()
+
+	assert_array(tool.selected_shapes).contains_exactly([inside_shape])
+
+## Regresión: Alt durante el marquee debe RESTAR de la selección actual las
+## figuras que toca, no reemplazarla ni sumarlas.
+func test_marquee_with_alt_subtracts_touched_shapes_from_selection() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(shape)
+	shape.position = Vector2(50, 50)
+	shape.size = Vector2(20, 20)  # AABB: (40,40)-(60,60)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+	tool.selected_shapes = [shape]
+
+	var alt_down := InputEventKey.new()
+	alt_down.keycode = KEY_ALT
+	alt_down.pressed = true
+	Input.parse_input_event(alt_down)
+	Input.flush_buffered_events()
+
+	tool.marquee_start = Vector2(0, 0)
+	tool.marquee_end = Vector2(100, 100)
+	tool._apply_marquee()
+
+	var alt_up := InputEventKey.new()
+	alt_up.keycode = KEY_ALT
+	alt_up.pressed = false
+	Input.parse_input_event(alt_up)
+	Input.flush_buffered_events()
+
+	assert_array(tool.selected_shapes).is_empty()
+
+# ── Shift+clic (multiselección) ──────────────────────────────────────────────
+
+## Regresión del bug encontrado el 19/08/2026: Shift+clic sobre una figura YA
+## seleccionada no la quitaba de la selección (_on_press solo sabía sumar,
+## nunca restar). Ver MoveTool.gd::_on_press.
+func test_shift_click_on_already_selected_shape_deselects_it() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(shape)
+	shape.position = Vector2(50, 50)
+	shape.size = Vector2(40, 40)
+	shape.set_doc_position(DVec2.new(50, 50))
+	shape.set_doc_extent(DVec2.new(40, 40))
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+	tool.selected_shapes = [shape]
+
+	var shift_down := InputEventKey.new()
+	shift_down.keycode = KEY_SHIFT
+	shift_down.pressed = true
+	Input.parse_input_event(shift_down)
+	Input.flush_buffered_events()
+
+	tool._on_press(shape.global_position)
+
+	var shift_up := InputEventKey.new()
+	shift_up.keycode = KEY_SHIFT
+	shift_up.pressed = false
+	Input.parse_input_event(shift_up)
+	Input.flush_buffered_events()
+
+	assert_array(tool.selected_shapes).is_empty()
+
+## Comportamiento existente que el fix de arriba no debe romper: Shift+clic
+## sobre una figura NO seleccionada debe añadirla, conservando la selección previa.
+func test_shift_click_on_unselected_shape_adds_it_to_selection() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var already_selected: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(already_selected)
+	already_selected.position = Vector2(50, 50)
+	already_selected.size = Vector2(20, 20)
+	already_selected.set_doc_position(DVec2.new(50, 50))
+	already_selected.set_doc_extent(DVec2.new(20, 20))
+
+	var new_shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(new_shape)
+	new_shape.position = Vector2(300, 50)
+	new_shape.size = Vector2(20, 20)
+	new_shape.set_doc_position(DVec2.new(300, 50))
+	new_shape.set_doc_extent(DVec2.new(20, 20))
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+	tool.selected_shapes = [already_selected]
+
+	var shift_down := InputEventKey.new()
+	shift_down.keycode = KEY_SHIFT
+	shift_down.pressed = true
+	Input.parse_input_event(shift_down)
+	Input.flush_buffered_events()
+
+	tool._on_press(new_shape.global_position)
+
+	var shift_up := InputEventKey.new()
+	shift_up.keycode = KEY_SHIFT
+	shift_up.pressed = false
+	Input.parse_input_event(shift_up)
+	Input.flush_buffered_events()
+
+	assert_array(tool.selected_shapes).contains_exactly([already_selected, new_shape])

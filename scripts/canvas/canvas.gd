@@ -109,7 +109,10 @@ func _registrar_herramientas_iniciales() -> void:
 
 	if BrushTool_Script:     registrar_herramienta("b", BrushTool_Script)
 	if RectangleTool_Script: registrar_herramienta("m", RectangleTool_Script)
-	if PenTool_Script:       registrar_herramienta("p", PenTool_Script)
+	# "p" abre la Pluma Bézier profesional (nodos + handles simétricos/libres,
+	# cierre de trazo), no PenTool_Script (solo polilínea recta sin curvas) —
+	# alineado con el atajo "P" de Figma/Illustrator que pidió el usuario.
+	if BezierTool_Script:    registrar_herramienta("p", BezierTool_Script)
 	if ArtboardTool_Script:  registrar_herramienta("a", ArtboardTool_Script)
 	if TextTool_Script:      registrar_herramienta("t", TextTool_Script)
 
@@ -441,16 +444,26 @@ func _draw() -> void:
 	if _dirty_regions.size() > 0:
 		for region in _dirty_regions:
 			draw_rect(region, Color.TRANSPARENT)  # Limpiar la región
-			
+
 			# Aplicar clipping a la región sucia
 			var viewport_rect = Rect2(Vector2.ZERO, get_viewport_rect().size)
 			var clip_rect = region.intersection(viewport_rect)
 			RenderingServer.canvas_item_set_custom_rect(get_canvas_item(), true, clip_rect)
-			
+
 			# Dibujar solo en la región sucia
 			if current_tool and current_tool.has_method("draw_preview"):
 				current_tool.draw_preview(self)
-			
+
+		# Las regiones ya se consumieron: si no se limpian aquí, _dirty_regions
+		# queda "sucio" para siempre desde la primera llamada a mark_region_dirty()
+		# de toda la sesión (cambio de herramienta, zoom, toolbar...), y CADA
+		# redibujado posterior queda recortado (canvas_item_set_custom_rect) a esa
+		# región vieja — por eso el rectángulo de marquee y los contornos de
+		# multiselección de MoveTool.draw_preview() nunca se veían al arrastrar.
+		# Encontrado el 19/08/2026 verificando en vivo por qué no aparecía ningún
+		# bounding box de selección múltiple ni el marco de arrastre.
+		_dirty_regions.clear()
+		RenderingServer.canvas_item_set_custom_rect(get_canvas_item(), false, Rect2())
 
 	else:
 		# Redibujar todo si no hay regiones sucias

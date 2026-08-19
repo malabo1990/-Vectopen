@@ -288,11 +288,15 @@ func _on_press(gm: Vector2) -> bool:
 
 	var hit: Node2D = _shape_at(gm)
 	if hit:
-		if not selected_shapes.has(hit):
+		if selected_shapes.has(hit):
+			if Input.is_key_pressed(KEY_SHIFT):
+				_deselect(hit)
+				return true
+		else:
 			if not Input.is_key_pressed(KEY_SHIFT):
 				_clear_selection()
 			_select(hit)
-		
+
 		is_dragging_shape = true
 		transform_initial_mouse = gm
 		transform_initial_states.clear()
@@ -304,16 +308,20 @@ func _on_press(gm: Vector2) -> bool:
 		canvas.queue_redraw()
 		return true
 
-	if ab_rect.has_point(ab_local):
+	if ab_rect.has_point(ab_local) and target_artboard.is_selected:
 		_force_text_loss_focus()
 		_clear_selection()
-		if target_artboard.is_selected:
-			is_dragging_artboard = true
-			artboard_drag_start_mouse = gm
-			artboard_drag_start_pos = target_artboard.global_position
-			return true
-		return false
+		is_dragging_artboard = true
+		artboard_drag_start_mouse = gm
+		artboard_drag_start_pos = target_artboard.global_position
+		return true
 
+	# Clic en espacio vacío, tanto dentro como fuera del artboard, inicia marquee.
+	# Antes, un clic en vacío DENTRO del artboard (con este no seleccionado)
+	# entraba al "if ab_rect.has_point(...)" de arriba, hacía _clear_selection()
+	# y devolvía false sin nunca activar is_marquee — por eso el drag-select
+	# solo funcionaba fuera del artboard. Encontrado el 19/08/2026 a partir del
+	# reporte del usuario ("fuera de artboard funciona, dentro no").
 	_force_text_loss_focus()
 	# Shift/Alt mantienen la selección actual para sumar o restar con el marquee;
 	# sin modificador, el marquee reemplaza la selección como antes.
@@ -1369,11 +1377,11 @@ func _acquire_bounding_box() -> void:
 	"""
 	if _bounding_box:
 		return  # Ya tenemos uno
-	
+
 	if not ObjectPool:
 		push_error("MoveTool: ObjectPool no disponible")
 		return
-	
+
 	_bounding_box = ObjectPool.acquire("BoundingBox")
 	if _bounding_box:
 		# Configurar el bounding box
