@@ -52,6 +52,14 @@ var _overlay_label: Label = null
 var _stats_timer: Timer = null
 var _adapt_timer: Timer = null
 
+# Enfriamiento tras cambiar de tier: sin esto, _adaptive_tick() rebotaba sin
+# parar entre dos tiers cada 5s (p.ej. ultra→high→ultra→high...) porque el
+# ratio avg_fps/target_fps se reevaluaba con un historial que todavía
+# mezclaba muestras de antes y después del cambio — encontrado el 19/08/2026
+# al verificar el arreglo de target_fps congelado (ver _stage_down/_stage_up).
+const _STAGE_COOLDOWN_MS: int = 10000
+var _last_stage_change_ms: int = 0
+
 # Señales
 signal quality_changed(preset: String)
 signal device_classified(device_class: int, device_type: int)
@@ -274,6 +282,8 @@ func _avg(arr: Array[float]) -> float:
 func _adaptive_tick() -> void:
 	if not adaptive_quality:
 		return
+	if Time.get_ticks_msec() - _last_stage_change_ms < _STAGE_COOLDOWN_MS:
+		return
 	var avg_fps = _avg(_fps_history)
 	if avg_fps <= 0:
 		return
@@ -294,11 +304,17 @@ func _stage_down() -> void:
 		return
 	device_class = t - 1
 	quality_preset = PRESET_NAMES[device_class]
+	# Re-sincroniza target_fps (y el resto del perfil) al de la nueva tier más
+	# baja. Sin esto, target_fps se quedaba congelado en el valor de la tier
+	# inicial (p.ej. 144 en "ultra") para siempre, así que el ratio avg_fps/
+	# target_fps de _adaptive_tick() nunca mejoraba tras bajar de tier y el
+	# sistema seguía degradando en cascada hasta "potato" aunque el hardware
+	# fuera capaz de más — encontrado el 19/08/2026 viendo el log real bajar
+	# de ultra a potato en ~20s en una RTX 3060.
+	_apply_hardware_profile()
 	resolution_scale = max(resolution_scale * 0.85, 0.35)
-	if is_mobile:
-		target_fps = 30
-	Engine.max_fps = target_fps
 	_apply_quality_settings()
+	_reset_adaptive_measurement_window()
 	quality_changed.emit(quality_preset)
 	performance_degraded.emit("downscaled", float(device_class))
 	print("Vectopen stepped DOWN to: %s (scale=%.2f)" % [quality_preset, resolution_scale])
@@ -309,11 +325,23 @@ func _stage_up() -> void:
 		return
 	device_class = t + 1
 	quality_preset = PRESET_NAMES[device_class]
+	# Mismo motivo que en _stage_down(): re-sincroniza target_fps a la nueva
+	# tier antes de reajustar resolution_scale sobre esa base.
+	_apply_hardware_profile()
 	resolution_scale = min(resolution_scale * 1.1, 1.0)
-	Engine.max_fps = target_fps
 	_apply_quality_settings()
+	_reset_adaptive_measurement_window()
 	quality_changed.emit(quality_preset)
 	print("Vectopen stepped UP to: %s" % quality_preset)
+
+## Llamado tras cualquier cambio de tier — arranca el enfriamiento
+## (_STAGE_COOLDOWN_MS) y descarta las muestras de FPS de la tier anterior,
+## para que la siguiente decisión de _adaptive_tick() se base solo en el
+## rendimiento real ya con el nuevo target_fps aplicado.
+func _reset_adaptive_measurement_window() -> void:
+	_last_stage_change_ms = Time.get_ticks_msec()
+	_fps_history.clear()
+	_frame_time_history.clear()
 
 func _lower_resolution_scale() -> void:
 	resolution_scale = max(resolution_scale * 0.75, 0.25)
