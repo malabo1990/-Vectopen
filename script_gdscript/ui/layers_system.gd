@@ -52,11 +52,144 @@ func _ready() -> void:
 	if escena:
 		_contador_label = escena.find_child("Numer layer", true, false) as Label
 
+	_conectar_botones()
+
 	# Crear timer para actualizaciones batch
 	_setup_update_timer()
-	
+
 	conectar_senales_sistema()
 	sincronizar_arbol_completo()
+
+
+## Los botones de la barra del panel (+, +A, -, D, M, G) no tenían NINGUNA
+## señal conectada en la .tscn → no hacían nada. Los cableamos por código.
+func _conectar_botones() -> void:
+	var barra := get_node_or_null("Panel/VBoxContainer/ButtonsBar")
+	if not barra:
+		barra = find_child("ButtonsBar", true, false)
+	if not barra:
+		return
+	var mapa := {
+		"AddLayer": _on_btn_add_group,
+		"AddLayerArtboard": _on_btn_add_artboard,
+		"DeleteLayer": _on_btn_delete,
+	}
+	for nombre in mapa:
+		var b := barra.get_node_or_null(nombre) as Button
+		if b and not b.pressed.is_connected(mapa[nombre]):
+			b.pressed.connect(mapa[nombre])
+
+
+func _hm() -> Node:
+	return get_node_or_null("/root/HistoryManager")
+
+func _mgr() -> ArtboardManager:
+	return ArtboardManager.find(get_tree()) if get_tree() else null
+
+func _artboard_activo() -> Node2D:
+	var m := _mgr()
+	if m and m.has_method("get_active_artboard"):
+		var a = m.get_active_artboard()
+		if is_instance_valid(a):
+			return a
+	if is_instance_valid(artboard_container):
+		for ch in artboard_container.get_children():
+			if _es_artboard(ch):
+				return ch
+	return null
+
+
+## "+A": crea un artboard nuevo a la derecha del último (como añadir una página).
+func _on_btn_add_artboard() -> void:
+	if not is_instance_valid(artboard_container):
+		return
+	var GAP := 80.0
+	var pos := Vector2(0, 0)
+	var size := Vector2(794, 1123)
+	var previos: Array = []
+	for ch in artboard_container.get_children():
+		if _es_artboard(ch):
+			previos.append(ch)
+	if not previos.is_empty():
+		var ref: Node2D = previos.back()
+		size = ref.artboard_size
+		pos = ref.global_position + Vector2(ref.artboard_size.x + GAP, 0)
+	var ab := Node2D.new()
+	ab.set_script(load("res://scripts/canvas/artboard.gd"))
+	ab.name = "Artboard_%d" % Time.get_ticks_msec()
+	ab.artboard_size = size
+	var cont := artboard_container
+	var m := _mgr()
+	var do_fn := func() -> void:
+		if not is_instance_valid(ab):
+			return
+		if ab.get_parent() == null:
+			cont.add_child(ab)
+		ab.global_position = pos
+		if m and m.has_method("set_active_artboard"):
+			m.set_active_artboard(ab)
+	var undo_fn := func() -> void:
+		if is_instance_valid(ab) and ab.get_parent():
+			ab.get_parent().remove_child(ab)
+	var h := _hm()
+	if h and h.has_method("register_action"):
+		h.register_action("Crear artboard")
+		h.add_do(do_fn)
+		h.add_undo(undo_fn)
+		h.commit()
+	do_fn.call()
+
+
+## "+": crea un grupo vacío en el artboard activo (equivalente a "nueva capa").
+func _on_btn_add_group() -> void:
+	var destino := _artboard_activo()
+	if not is_instance_valid(destino):
+		return
+	var grupo := Node2D.new()
+	grupo.name = "Grupo_%d" % Time.get_ticks_msec()
+	grupo.set_meta("shape_type", "group")
+	grupo.position = Vector2(40, 40)
+	var do_fn := func() -> void:
+		if is_instance_valid(grupo) and grupo.get_parent() == null:
+			destino.add_child(grupo)
+	var undo_fn := func() -> void:
+		if is_instance_valid(grupo) and grupo.get_parent():
+			grupo.get_parent().remove_child(grupo)
+	var h := _hm()
+	if h and h.has_method("register_action"):
+		h.register_action("Crear grupo")
+		h.add_do(do_fn)
+		h.add_undo(undo_fn)
+		h.commit()
+	do_fn.call()
+
+
+## "-": borra el elemento seleccionado en el árbol (figura, grupo o artboard).
+func _on_btn_delete() -> void:
+	if not is_instance_valid(layer_tree):
+		return
+	var sel: TreeItem = layer_tree.get_selected()
+	if not sel:
+		return
+	var nodo = sel.get_metadata(1)
+	if not is_instance_valid(nodo) or not (nodo is Node):
+		return
+	var padre: Node = nodo.get_parent()
+	var idx: int = nodo.get_index()
+	var do_fn := func() -> void:
+		if is_instance_valid(nodo) and nodo.get_parent():
+			nodo.get_parent().remove_child(nodo)
+	var undo_fn := func() -> void:
+		if is_instance_valid(nodo) and is_instance_valid(padre) and nodo.get_parent() == null:
+			padre.add_child(nodo)
+			padre.move_child(nodo, mini(idx, padre.get_child_count() - 1))
+	var h := _hm()
+	if h and h.has_method("register_action"):
+		h.register_action("Eliminar del panel de capas")
+		h.add_do(do_fn)
+		h.add_undo(undo_fn)
+		h.commit()
+	do_fn.call()
 
 
 func conectar_senales_sistema() -> void:

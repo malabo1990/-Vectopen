@@ -212,3 +212,39 @@ func test_arrastrar_figura_fuera_de_todo_la_vuelve_suelta() -> void:
 	assert_object(mgr.owning_artboard(fig)).is_null()
 	assert_bool(mgr.is_element_outside(fig)).is_true()
 	HistoryManager.clear()
+
+
+## El botón "+A" del panel de capas no tenía señal → no hacía nada. Ahora crea
+## un artboard nuevo (a la derecha del último), lo activa, y es undo-able.
+func test_boton_mas_A_crea_artboard_nuevo() -> void:
+	var s := _scene()
+	await get_tree().process_frame
+	var mgr := _mgr(s)
+	var container: Node2D = s.get_node("ArtboardsContainer")
+	var ab1: ArtboardEditor = mgr.all_artboards()[0]
+	ab1.global_position = Vector2(100, 100)
+	ab1.artboard_size = Vector2(400, 500)
+	HistoryManager.clear()
+
+	var ls := LayerSystem.new()
+	ls.artboard_container = container
+	ls.layer_tree = auto_free(Tree.new())
+	s.add_child(ls)
+	auto_free(ls)
+	await get_tree().process_frame
+
+	var antes := mgr.all_artboards().size()
+	ls._on_btn_add_artboard()
+	await get_tree().process_frame
+
+	assert_int(mgr.all_artboards().size()).is_equal(antes + 1)
+	var nuevo: ArtboardEditor = mgr.get_active_artboard()
+	assert_object(nuevo).is_not_same(ab1)
+	# a la derecha de ab1, con separación
+	assert_float(nuevo.global_position.x).is_greater(ab1.global_position.x + ab1.artboard_size.x)
+	assert_vector(nuevo.artboard_size).is_equal(ab1.artboard_size)
+
+	HistoryManager.undo()
+	await get_tree().process_frame
+	assert_int(mgr.all_artboards().size()).is_equal(antes)
+	HistoryManager.clear()
