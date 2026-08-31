@@ -1212,10 +1212,12 @@ func draw_preview(c: Node2D) -> void:
 	# NOTA: El recuadro principal + handles de resize/rotate ya no se dibujan aquí.
 	# Los renderiza boundingbox.tscn (instancia real del pool), ver bounding_box.gd.
 	if selected_shapes.size() > 1:
-		# Grosor CONSTANTE en pantalla (≈1.25 px) a cualquier zoom — sin recorte,
-		# como Figma / Affinity. El clamp solo evita valores absurdos si el zoom
-		# se acerca a 0.
-		var outline_width: float = 1.25 / clampf(c.global_transform.get_scale().x, 0.0002, 100000.0)
+		# Grosor CONSTANTE en pantalla (≈1.25 px) a cualquier zoom — como Figma /
+		# Affinity. El zoom REAL es el del viewport (la cámara no escala el nodo
+		# Canvas, escala el viewport).
+		var vp := c.get_viewport()
+		var zsc: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+		var outline_width: float = 1.25 / maxf(zsc, 0.0002)
 		for shape in selected_shapes:
 			if is_instance_valid(shape):
 				var s_rect: Rect2 = _global_rect(shape)

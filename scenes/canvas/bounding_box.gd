@@ -24,16 +24,29 @@ const _HANDLE_CODES := {
 	"handle_MA": "tc", "MB": "bc", "handle_IM": "lc", "handle_DM": "rc",
 	"Rotation": "rot_handle",
 }
+# Posición de cada handle como fracción del rect de la caja (0..1). El de
+# rotación va por encima del centro superior (ver _draw / _apply_zoom_compensation).
+const _HANDLE_FRAC := {
+	"handle_IA": Vector2(0, 0), "handle_DA": Vector2(1, 0),
+	"handle_IB": Vector2(0, 1), "handle_DB": Vector2(1, 1),
+	"handle_MA": Vector2(0.5, 0), "MB": Vector2(0.5, 1),
+	"handle_IM": Vector2(0, 0.5), "handle_DM": Vector2(1, 0.5),
+	"Rotation": Vector2(0.5, 0),
+}
 
-# ── Compensación de zoom ─────────────────────────────────────────────────────
-# Los handles y el contorno se ven SIEMPRE del mismo tamaño en pantalla a
-# CUALQUIER zoom (como Figma / Affinity / Penpot): factor = 1 / zoom exacto,
-# sin recortes. El clamp antiguo [0.45, 2.2] hacía que en zoom fuerte o muy
-# alejado los handles/línea se vieran demasiado grandes o demasiado pequeños.
-const _OUTLINE_SCREEN_PX: float = 1.25   # grosor del contorno, en píxeles de pantalla
-const _OUTLINE_COLOR := Color(0.05, 0.55, 0.91, 1.0)  # azul Figma
+# ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como Figma / Affinity) ────
+# Los handles ya NO se ven vía sus StyleBox (el borde es entero y se escala con
+# el canvas → en zoom fuerte/lejano quedaban enormes o invisibles). Ahora:
+#   · el Panel de cada handle queda TRANSPARENTE y solo sirve de zona de clic
+#   · el dibujo real (cuadros + contorno + tallo de rotación) lo hace _draw()
+#     con medidas en PÍXELES DE PANTALLA divididas por el zoom.
+const _OUTLINE_SCREEN_PX: float = 1.25   # grosor del contorno
+const _OUTLINE_COLOR := Color(0.05, 0.55, 0.91, 1.0)   # azul Figma
+const _HANDLE_FILL := Color(1, 1, 1, 1)                # relleno del handle
+const _HANDLE_SCREEN_PX: float = 8.0     # lado visible del handle
+const _HANDLE_HIT_PX: float = 16.0       # lado de la zona de clic (Panel)
+const _ROT_STEM_SCREEN_PX: float = 20.0  # largo del tallo del handle de rotación
 var _handle_base_rects: Dictionary = {}    # nombre de nodo → Rect2 de offsets originales (a zoom 1.0)
-var _candle_base_rect: Rect2 = Rect2()
 var _last_zoom_scale: float = -1.0
 var _outline_style: StyleBoxFlat = null    # copia única por instancia (no la compartida del .tscn)
 
@@ -69,14 +82,15 @@ func _ready() -> void:
 	bounding_box_ready.emit()
 	_pool_initialized = true
 
-## Guarda el tamaño/posición "de diseño" (a zoom 1.0) de cada handle y del "candle"
-## (el tallo del handle de rotación), para poder recalcularlos proporcionalmente al zoom.
+## Guarda la geometría base de cada handle y deja sus Panels transparentes
+## (pasan a ser solo zona de clic; el dibujo lo hace _draw()).
 func _capture_base_handle_geometry() -> void:
 	if not _handle_base_rects.is_empty():
 		return  # ya capturado (instancia reciclada del pool)
 	var panel_interactivo := get_node_or_null("PANEL_BOUNDINGBOX")
 	if not is_instance_valid(panel_interactivo):
 		return
+	var vacio := StyleBoxEmpty.new()
 	for handle_name in _HANDLE_CODES:
 		var p := panel_interactivo.get_node_or_null(handle_name)
 		if is_instance_valid(p):
@@ -84,40 +98,35 @@ func _capture_base_handle_geometry() -> void:
 				p.offset_left, p.offset_top,
 				p.offset_right - p.offset_left, p.offset_bottom - p.offset_top
 			)
+			p.add_theme_stylebox_override("panel", vacio)   # solo zona de clic; se dibuja en _draw()
 	var candle := panel_interactivo.get_node_or_null("candle")
 	if is_instance_valid(candle):
-		_candle_base_rect = Rect2(
-			candle.offset_left, candle.offset_top,
-			candle.offset_right - candle.offset_left, candle.offset_bottom - candle.offset_top
-		)
+		candle.add_theme_stylebox_override("panel", vacio)  # el tallo lo dibuja _draw()
 
-	# El StyleBox del contorno viene compartido (SubResource) entre todas las
-	# instancias del pool; lo duplicamos y le quitamos el borde: el contorno lo
-	# dibujamos nosotros en _draw() con grosor CONSTANTE en pantalla (el borde
-	# de StyleBoxFlat es entero y se escala con el zoom → no sirve).
+	# El StyleBox del contorno del panel: le quitamos el borde (el contorno lo
+	# dibuja _draw() con grosor CONSTANTE en pantalla — el borde de StyleBoxFlat
+	# es entero y se escala con el zoom, así que en zoom fuerte/lejano quedaba
+	# demasiado grueso o invisible).
 	var current_style: StyleBox = panel_interactivo.get_theme_stylebox("panel")
 	if current_style is StyleBoxFlat:
 		_outline_style = current_style.duplicate()
 		_outline_style.set_border_width_all(0)
 		panel_interactivo.add_theme_stylebox_override("panel", _outline_style)
 
+## Escala TOTAL con la que se ve en pantalla el contenido de esta caja:
+##   zoom de cámara (viewport canvas transform)  ×  escala propia de la caja
+##   (que copia la escala de la figura seleccionada, ver _sincronizar…).
+## El código antiguo leía canvas.global_transform.get_scale(), que SIEMPRE es 1
+## (la cámara no escala el nodo Canvas, escala el viewport) → la compensación no
+## hacía nada y los handles/línea crecían/encogían con el zoom. Ese era el bug.
 func _get_zoom_scale() -> float:
-	# Los handles son hijos de esta caja: si la caja tiene su propia escala
-	# (porque copia la escala de la figura seleccionada, ver _sincronizar_dimensiones_en_canvas),
-	# esa escala también agranda/achica los handles, así que hay que compensar el total:
-	# zoom de cámara × escala propia de la caja.
-	var total: float = 1.0
-	if is_instance_valid(move_tool_reference) and is_instance_valid(move_tool_reference.canvas):
-		var cam_s: float = move_tool_reference.canvas.global_transform.get_scale().x
-		if cam_s > 0.001:
-			total *= cam_s
-	var own_s: float = absf(scale.x)
-	if own_s > 0.001:
-		total *= own_s
-	return total
+	var vp := get_viewport()
+	var cam_s: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	var self_s: float = get_global_transform().get_scale().x   # escala propia + ancestros
+	return maxf(cam_s * self_s, 0.0001)
 
-## Recalcula el tamaño local de cada handle (y del tallo del handle de rotación)
-## para que su tamaño EN PANTALLA se mantenga constante sin importar el zoom del canvas.
+## Coloca la ZONA DE CLIC de cada handle (un Panel transparente) centrada en su
+## punto y con un tamaño constante en pantalla. El dibujo real lo hace _draw().
 func _apply_zoom_compensation() -> void:
 	if _handle_base_rects.is_empty():
 		return
@@ -126,44 +135,57 @@ func _apply_zoom_compensation() -> void:
 		return
 	_last_zoom_scale = zoom
 	var f: float = _zoom_comp(zoom)
-	queue_redraw()  # el contorno (que dibujamos nosotros) depende del zoom
+	queue_redraw()
 
 	var panel_interactivo := get_node_or_null("PANEL_BOUNDINGBOX")
 	if not is_instance_valid(panel_interactivo):
 		return
 
+	var hit_half: float = _HANDLE_HIT_PX * 0.5 * f
 	for handle_name in _handle_base_rects:
 		var p := panel_interactivo.get_node_or_null(handle_name)
 		if not is_instance_valid(p):
 			continue
-		var base: Rect2 = _handle_base_rects[handle_name]
-		var center: Vector2 = base.position + base.size * 0.5
-		var new_half: Vector2 = base.size * 0.5 * f
-		p.offset_left = center.x - new_half.x
-		p.offset_top = center.y - new_half.y
-		p.offset_right = center.x + new_half.x
-		p.offset_bottom = center.y + new_half.y
+		# Centro de la zona de clic respecto a su anchor: 0 para todos salvo el
+		# de rotación, que va por encima del borde superior.
+		var cy: float = -_ROT_STEM_SCREEN_PX * f if handle_name == "Rotation" else 0.0
+		p.offset_left = -hit_half
+		p.offset_right = hit_half
+		p.offset_top = cy - hit_half
+		p.offset_bottom = cy + hit_half
 
-	if _candle_base_rect.size != Vector2.ZERO:
-		var candle := panel_interactivo.get_node_or_null("candle")
-		if is_instance_valid(candle):
-			# El extremo inferior queda pegado al borde de la caja (no escala);
-			# solo el largo hacia arriba y el ancho se compensan con el zoom.
-			var half_w: float = (_candle_base_rect.size.x * 0.5) * f
-			var cx: float = _candle_base_rect.position.x + _candle_base_rect.size.x * 0.5
-			candle.offset_left = cx - half_w
-			candle.offset_right = cx + half_w
-			candle.offset_top = _candle_base_rect.position.y * f
-			candle.offset_bottom = _candle_base_rect.end.y
 
-# Contorno del bounding box: lo pintamos aquí con grosor CONSTANTE en pantalla
-# (independiente del zoom). El nodo está en el espacio del canvas escalado por
-# el zoom, así que el grosor local = px_pantalla / zoom.
+## Dibuja el contorno, los handles y el tallo de rotación con medidas SIEMPRE
+## constantes en pantalla, a cualquier zoom (como Figma / Affinity / Penpot).
+## `_draw()` corre en el espacio local de la caja, que el canvas escala por el
+## zoom → cada medida en px de pantalla se divide por ese zoom (`inv`).
 func _draw() -> void:
 	if not visible or size == Vector2.ZERO:
 		return
-	var w: float = _OUTLINE_SCREEN_PX * _zoom_comp(_get_zoom_scale())
-	draw_rect(Rect2(Vector2.ZERO, size), _OUTLINE_COLOR, false, w)
+	var inv: float = _zoom_comp(_get_zoom_scale())
+	var lw: float = _OUTLINE_SCREEN_PX * inv
+	var hs: float = _HANDLE_SCREEN_PX * inv
+	var hb: float = maxf(_OUTLINE_SCREEN_PX * inv, 0.01)   # borde del handle = grosor de línea
+
+	# Contorno
+	draw_rect(Rect2(Vector2.ZERO, size), _OUTLINE_COLOR, false, lw)
+
+	# Tallo + handle de rotación (por encima del centro superior)
+	var top_c := Vector2(size.x * 0.5, 0.0)
+	var rot_p := top_c + Vector2(0.0, -_ROT_STEM_SCREEN_PX * inv)
+	draw_line(top_c, rot_p, _OUTLINE_COLOR, lw)
+	draw_circle(rot_p, hs * 0.5, _HANDLE_FILL)
+	draw_arc(rot_p, hs * 0.5, 0.0, TAU, 20, _OUTLINE_COLOR, hb)
+
+	# 8 handles de redimensionado (esquinas + centros de lado)
+	for handle_name in _HANDLE_FRAC:
+		if handle_name == "Rotation":
+			continue
+		var frac: Vector2 = _HANDLE_FRAC[handle_name]
+		var c := Vector2(frac.x * size.x, frac.y * size.y)
+		var r := Rect2(c - Vector2(hs, hs) * 0.5, Vector2(hs, hs))
+		draw_rect(r, _HANDLE_FILL, true)
+		draw_rect(r, _OUTLINE_COLOR, false, hb)
 
 ## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
 ## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
