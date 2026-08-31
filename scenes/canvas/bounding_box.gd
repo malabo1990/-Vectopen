@@ -53,6 +53,16 @@ const _HANDLE_FILL := Color(1, 1, 1, 1)                # relleno del handle
 const _HANDLE_SCREEN_PX: float = 8.0     # lado visible del handle
 const _HANDLE_HIT_PX: float = 16.0       # lado de la zona de clic (Panel)
 const _ROT_STEM_SCREEN_PX: float = 20.0  # largo del tallo del handle de rotación
+# Puntero del ratón por handle → identidad visual (como Figma / Affinity).
+# Godot no trae cursor de rotación → CROSS para el de rotación.
+const _HANDLE_CURSORS := {
+	"handle_IA": Control.CURSOR_FDIAGSIZE, "handle_DB": Control.CURSOR_FDIAGSIZE,  # ╲ tl/br
+	"handle_DA": Control.CURSOR_BDIAGSIZE, "handle_IB": Control.CURSOR_BDIAGSIZE,  # ╱ tr/bl
+	"handle_MA": Control.CURSOR_VSIZE, "MB": Control.CURSOR_VSIZE,                  # ↕ tc/bc
+	"handle_IM": Control.CURSOR_HSIZE, "handle_DM": Control.CURSOR_HSIZE,           # ↔ lc/rc
+	"Rotation": Control.CURSOR_CROSS,
+	"x": Control.CURSOR_HSIZE, "Y": Control.CURSOR_VSIZE,                           # gizmo de eje
+}
 var _handle_base_rects: Dictionary = {}    # nombre de nodo → Rect2 de offsets originales (a zoom 1.0)
 var _last_zoom_scale: float = -1.0
 var _outline_style: StyleBoxFlat = null    # copia única por instancia (no la compartida del .tscn)
@@ -107,6 +117,11 @@ func _capture_base_handle_geometry() -> void:
 				p.offset_right - p.offset_left, p.offset_bottom - p.offset_top
 			)
 			p.add_theme_stylebox_override("panel", vacio)   # solo zona de clic; el dibujo lo hace _draw()
+			if _HANDLE_CURSORS.has(handle_name):
+				p.mouse_default_cursor_shape = _HANDLE_CURSORS[handle_name]
+	# Arrastrar el cuerpo de la caja = mover libre → cursor de movimiento.
+	if is_instance_valid(drag_panel):
+		drag_panel.mouse_default_cursor_shape = Control.CURSOR_MOVE
 	var candle := panel_interactivo.get_node_or_null("candle")
 	if is_instance_valid(candle):
 		candle.add_theme_stylebox_override("panel", vacio)  # el tallo lo dibuja _draw()
@@ -376,7 +391,35 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		else:
 			_hide_position_fields()
 	else:
-		# Multi-selección: sin una única rotación consistente, usamos AABB alineado al mundo.
+		# Multi-selección.
+		var mt = move_tool_reference
+		var mid_rot: bool = is_instance_valid(mt) and mt.is_rotating
+		var mid_scale: bool = is_instance_valid(mt) and mt.is_resizing
+		if (mid_rot or mid_scale) and mt.transform_macro_rect.size != Vector2.ZERO:
+			# DURANTE el gesto: la caja = el AABB de INICIO transformado por el
+			# gesto en vivo (rota / escala con la selección). Así no "respira"
+			# recalculando el AABB de las figuras ya rotadas cada frame.
+			var r0: Rect2 = mt.transform_macro_rect
+			var piv: Vector2 = mt.live_pivot
+			var box_center: Vector2 = r0.get_center()
+			var box_size: Vector2 = r0.size
+			if mid_scale:
+				box_size = Vector2(absf(box_size.x) * absf(mt.live_scale.x), absf(box_size.y) * absf(mt.live_scale.y))
+				box_center = piv + (r0.get_center() - piv) * mt.live_scale
+			var box_rot := 0.0
+			if mid_rot:
+				box_center = piv + (r0.get_center() - piv).rotated(mt.live_rot_angle)
+				box_rot = mt.live_rot_angle
+			pivot_offset = box_size * 0.5
+			rotation = box_rot - parent_node.global_rotation
+			scale = Vector2.ONE
+			size = box_size
+			position = parent_node.to_local(box_center) - box_size * 0.5
+			if not visible: show()
+			_hide_position_fields()
+			return
+
+		# En reposo: AABB alineado al mundo que envuelve toda la selección.
 		var global_rect: Rect2 = _get_macro_rect_cloned(shapes_to_calculate)
 		if global_rect.size == Vector2.ZERO:
 			if visible: hide()
@@ -393,7 +436,6 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		size = local_end - local_pos
 
 		if not visible: show()
-		# Multi-selección: no hay una única posición no ambigua que editar.
 		_hide_position_fields()
 
 # ── INTERACCIÓN: GESTIÓN DE RATÓN PARA DRAG DIRECTO DESDE PANEL ASIGNADO ─────

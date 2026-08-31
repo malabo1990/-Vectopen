@@ -38,9 +38,10 @@ func _state(s: Node2D) -> Dictionary:
 	return {"pos": s.global_position, "rot": s.global_rotation, "size": s.get("size")}
 
 func _assert_state(actual: Dictionary, expected: Dictionary, msg := "") -> void:
-	assert_vector(actual["pos"]).override_failure_message("pos " + msg).is_equal_approx(expected["pos"], Vector2(0.5, 0.5))
-	assert_float(actual["rot"]).override_failure_message("rot " + msg).is_equal_approx(expected["rot"], 0.001)
-	assert_vector(actual["size"]).override_failure_message("size " + msg).is_equal_approx(expected["size"], Vector2(0.5, 0.5))
+	# tol 2px: project.godot fuerza snap_2d_transforms_to_pixel (redondeo).
+	assert_vector(actual["pos"]).override_failure_message("pos " + msg).is_equal_approx(expected["pos"], Vector2(2, 2))
+	assert_float(actual["rot"]).override_failure_message("rot " + msg).is_equal_approx(expected["rot"], 0.002)
+	assert_vector(actual["size"]).override_failure_message("size " + msg).is_equal_approx(expected["size"], Vector2(2, 2))
 
 # ── helpers de gesto ─────────────────────────────────────────────────────────
 func _begin(t: MoveTool, shapes: Array) -> void:
@@ -66,12 +67,13 @@ func _resize(t: MoveTool, shapes: Array, handle: String, delta: Vector2) -> void
 	t._on_release(delta)
 
 func _rotate(t: MoveTool, shapes: Array, ang_rad: float) -> void:
-	_begin(t, shapes)
-	t.is_rotating = true
-	for x in shapes:
-		x.global_rotation += ang_rad
-		if x is VectorShape:
-			x.doc_rotation = x.global_rotation
+	# Conduce el _apply_rotation REAL (rota posición alrededor del centro del
+	# grupo + orientación propia), simulando el arrastre angular del handle.
+	t.selected_shapes.assign(shapes)
+	t.start_handle_transform("rot_handle")
+	var c: Vector2 = t.initial_macro_center
+	t.transform_initial_mouse = c + Vector2(100, 0)
+	t._on_motion(c + Vector2(100, 0).rotated(ang_rad))
 	t._on_release(Vector2.ZERO)
 
 
@@ -301,6 +303,88 @@ func test_figura_rotada_escalar_undo() -> void:
 	_assert_state(_state(r), s0, "rotada+escala undo")
 	# la rotación NO debe haberse perdido
 	assert_float(r.global_rotation).is_equal_approx(deg_to_rad(30.0), 0.001)
+	HistoryManager.clear()
+
+
+## Multiselección → ROTAR: cada figura gira alrededor del centro del grupo,
+## y su propia orientación también cambia. + undo/redo.
+func test_multiseleccion_rotar_alrededor_del_centro_undo_redo() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t := _tool(s)
+	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
+	var a := _rect(ab, Vector2(100, 200))
+	var b := _rect(ab, Vector2(300, 200))   # centro del grupo ≈ (200, 200)
+	await get_tree().process_frame
+	HistoryManager.clear()
+	var a0 := a.global_position
+	var b0 := b.global_position
+	var centro := (a0 + b0) * 0.5
+
+	_rotate(t, [a, b], deg_to_rad(90.0))
+	# a estaba a la izquierda del centro → tras 90° queda arriba/abajo del centro.
+	# tol 2px: project.godot fuerza snap_2d_transforms_to_pixel.
+	assert_vector(a.global_position).is_equal_approx(centro + (a0 - centro).rotated(deg_to_rad(90.0)), Vector2(2, 2))
+	assert_vector(b.global_position).is_equal_approx(centro + (b0 - centro).rotated(deg_to_rad(90.0)), Vector2(2, 2))
+	assert_float(a.global_rotation).is_equal_approx(deg_to_rad(90.0), 0.001)
+	assert_float(b.global_rotation).is_equal_approx(deg_to_rad(90.0), 0.001)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_vector(a.global_position).is_equal_approx(a0, Vector2(2, 2))
+	assert_vector(b.global_position).is_equal_approx(b0, Vector2(2, 2))
+	assert_float(a.global_rotation).is_equal_approx(0.0, 0.001)
+
+	HistoryManager.redo(); await get_tree().process_frame
+	assert_float(a.global_rotation).is_equal_approx(deg_to_rad(90.0), 0.001)
+	HistoryManager.clear()
+
+
+## Multiselección → mover → rotar → escalar → undo×3 → estado original.
+func test_multiseleccion_cadena_completa_undo() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t := _tool(s)
+	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
+	var a := _rect(ab, Vector2(150, 150), Vector2(60, 40))
+	var b := _rect(ab, Vector2(320, 260), Vector2(80, 50))
+	await get_tree().process_frame
+	HistoryManager.clear()
+	var sa0 := _state(a)
+	var sb0 := _state(b)
+
+	_drag(t, [a, b], Vector2(40, 20))
+	_rotate(t, [a, b], deg_to_rad(25.0))
+	_resize(t, [a, b], "br", Vector2(30, 30))
+
+	HistoryManager.undo(); await get_tree().process_frame
+	HistoryManager.undo(); await get_tree().process_frame
+	HistoryManager.undo(); await get_tree().process_frame
+	_assert_state(_state(a), sa0, "multi undo → A original")
+	_assert_state(_state(b), sb0, "multi undo → B original")
+	HistoryManager.clear()
+
+
+## El bounding box de multiselección durante una rotación va rotado con el gesto
+## (no se queda alineado al mundo recalculando el AABB de las figuras rotadas).
+func test_bbox_multiseleccion_rota_con_el_gesto() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t := _tool(s)
+	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
+	var a := _rect(ab, Vector2(100, 100))
+	var b := _rect(ab, Vector2(300, 300))
+	await get_tree().process_frame
+
+	var bb := preload("res://scenes/canvas/boundingbox.tscn").instantiate()
+	ab.add_child(bb)
+	auto_free(bb)
+	bb.move_tool_reference = t
+
+	t.selected_shapes.assign([a, b])
+	t.start_handle_transform("rot_handle")
+	t.transform_initial_mouse = t.initial_macro_center + Vector2(100, 0)
+	t._on_motion(t.initial_macro_center + Vector2(0, 100))   # ~90°
+	bb._sincronizar_dimensiones_en_canvas()
+
+	assert_float(absf(bb.rotation)).is_greater(0.1)   # la caja está rotada
+	t._on_release(Vector2.ZERO)
 	HistoryManager.clear()
 
 

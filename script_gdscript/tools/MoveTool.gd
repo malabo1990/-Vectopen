@@ -26,6 +26,12 @@ var _axis_move: String = ""
 var is_resizing: bool = false
 var is_rotating: bool = false
 var resize_handle: String = ""
+## Estado EN VIVO de la transformación en curso — lo lee el bounding box para
+## dibujar una caja estable (que rota/escala con el gesto) en multiselección,
+## en vez de recalcular el AABB de las figuras ya rotadas cada frame.
+var live_rot_angle: float = 0.0
+var live_scale: Vector2 = Vector2.ONE
+var live_pivot: Vector2 = Vector2.ZERO
 var transform_initial_mouse: Vector2 = Vector2.ZERO
 var transform_macro_rect: Rect2 = Rect2()
 var transform_initial_states: Dictionary = {}
@@ -383,6 +389,8 @@ func _on_release(_gm: Vector2) -> bool:
 	is_resizing_artboard = false
 	resize_handle = ""
 	_axis_move = ""
+	live_rot_angle = 0.0
+	live_scale = Vector2.ONE
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
 
@@ -737,6 +745,8 @@ func _apply_resize(gm: Vector2) -> void:
 	if abs(sy) < 0.01: sy = 0.01 * sign(sy)
 
 	var scale_vec: Vector2 = Vector2(sx, sy)
+	live_scale = scale_vec
+	live_pivot = pivot
 
 	for shape in selected_shapes:
 		if not is_instance_valid(shape) or not transform_initial_states.has(shape):
@@ -882,6 +892,9 @@ func _apply_rotation(gm: Vector2) -> void:
 	if Input.is_key_pressed(KEY_SHIFT):
 		var snap_step: float = deg_to_rad(15.0)
 		angle_delta = round(angle_delta / snap_step) * snap_step
+
+	live_rot_angle = angle_delta
+	live_pivot = initial_macro_center
 
 	for shape in selected_shapes:
 		if not is_instance_valid(shape) or not transform_initial_states.has(shape):
@@ -1571,6 +1584,8 @@ func start_handle_transform(handle_code: String) -> bool:
 	var macro: Rect2 = _get_macro_rect()
 
 	_axis_move = ""
+	live_rot_angle = 0.0
+	live_scale = Vector2.ONE
 	if handle_code == "move_x" or handle_code == "move_y":
 		# Handle de eje: mover la selección SOLO en horizontal / vertical.
 		_axis_move = "x" if handle_code == "move_x" else "y"
@@ -1584,6 +1599,7 @@ func start_handle_transform(handle_code: String) -> bool:
 	transform_initial_mouse = gm
 	transform_macro_rect = macro
 	initial_macro_center = macro.get_center()
+	live_pivot = initial_macro_center
 	transform_initial_states.clear()
 
 	for shape in selected_shapes:
