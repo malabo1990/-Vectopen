@@ -18,6 +18,9 @@ var _bounding_box: Node = null  # Referencia al bounding box del pool
 
 # ── Estado de arrastre de objetos ─────────────────────────────────────────────
 var is_dragging_shape: bool = false
+## "" | "x" | "y" — cuando el usuario arrastra un handle de eje del bounding box,
+## el movimiento se restringe a ese eje.
+var _axis_move: String = ""
 
 # ── Estado de transformación avanzada ─────────────────────────────────────────
 var is_resizing: bool = false
@@ -374,6 +377,7 @@ func _on_release(_gm: Vector2) -> bool:
 	is_dragging_artboard = false
 	is_resizing_artboard = false
 	resize_handle = ""
+	_axis_move = ""
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
 
@@ -492,7 +496,12 @@ func _on_motion(gm: Vector2) -> bool:
 
 	if is_dragging_shape:
 		var delta: Vector2 = gm - transform_initial_mouse
-		if Input.is_key_pressed(KEY_SHIFT):
+		# Handles de eje del bounding box: mover SOLO en horizontal / vertical.
+		if _axis_move == "x":
+			delta.y = 0.0
+		elif _axis_move == "y":
+			delta.x = 0.0
+		elif Input.is_key_pressed(KEY_SHIFT):
 			if abs(delta.x) > abs(delta.y):
 				delta.y = 0.0
 			else:
@@ -1468,7 +1477,12 @@ func start_handle_transform(handle_code: String) -> bool:
 	var gm: Vector2 = canvas.get_global_mouse_position()
 	var macro: Rect2 = _get_macro_rect()
 
-	if handle_code.begins_with("rot"):
+	_axis_move = ""
+	if handle_code == "move_x" or handle_code == "move_y":
+		# Handle de eje: mover la selección SOLO en horizontal / vertical.
+		_axis_move = "x" if handle_code == "move_x" else "y"
+		is_dragging_shape = true
+	elif handle_code.begins_with("rot"):
 		is_rotating = true
 	else:
 		is_resizing = true

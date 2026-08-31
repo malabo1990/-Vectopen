@@ -18,21 +18,27 @@ var _pool_initialized: bool = false
 
 signal bounding_box_ready
 
-# Mapeo Panel de handle → código usado por MoveTool (_apply_resize/_apply_rotation)
+# Mapeo Panel de handle → código usado por MoveTool.
+#   move_x / move_y → arrastrar mueve la selección SOLO en horizontal / vertical
+#   (los Panels `x` y `Y` del .tscn, antes solo indicadores del modo Blender).
 const _HANDLE_CODES := {
 	"handle_IA": "tl", "handle_DA": "tr", "handle_IB": "bl", "handle_DB": "br",
 	"handle_MA": "tc", "MB": "bc", "handle_IM": "lc", "handle_DM": "rc",
 	"Rotation": "rot_handle",
+	"x": "move_x", "Y": "move_y",
 }
-# Posición de cada handle como fracción del rect de la caja (0..1). El de
-# rotación va por encima del centro superior (ver _draw / _apply_zoom_compensation).
+# Handles de redimensionado: posición como fracción del rect (0..1).
 const _HANDLE_FRAC := {
 	"handle_IA": Vector2(0, 0), "handle_DA": Vector2(1, 0),
 	"handle_IB": Vector2(0, 1), "handle_DB": Vector2(1, 1),
 	"handle_MA": Vector2(0.5, 0), "MB": Vector2(0.5, 1),
 	"handle_IM": Vector2(0, 0.5), "handle_DM": Vector2(1, 0.5),
-	"Rotation": Vector2(0.5, 0),
 }
+# Gizmo de eje: barras que salen del centro de la caja.
+const _AXIS_GIZMO_PX: float = 32.0   # largo de la barra (px pantalla)
+const _AXIS_GRAB_PX: float = 10.0    # cuadro agarrable en el extremo
+const _AXIS_X_COLOR := Color(0.92, 0.24, 0.24, 1.0)  # rojo → horizontal
+const _AXIS_Y_COLOR := Color(0.18, 0.74, 0.30, 1.0)  # verde → vertical
 
 # ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como Figma / Affinity) ────
 # Los handles ya NO se ven vía sus StyleBox (el borde es entero y se escala con
@@ -142,12 +148,29 @@ func _apply_zoom_compensation() -> void:
 		return
 
 	var hit_half: float = _HANDLE_HIT_PX * 0.5 * f
+	var axis_reach: float = (_AXIS_GIZMO_PX + _AXIS_GRAB_PX * 0.5) * f  # extremo del gizmo
+	var cx: float = size.x * 0.5
+	var cy0: float = size.y * 0.5
 	for handle_name in _handle_base_rects:
 		var p := panel_interactivo.get_node_or_null(handle_name)
 		if not is_instance_valid(p):
 			continue
-		# Centro de la zona de clic respecto a su anchor: 0 para todos salvo el
-		# de rotación, que va por encima del borde superior.
+		if handle_name == "x":
+			# Barra horizontal (mover solo en X): agarrable toda la barra + cabo.
+			p.offset_left = cx + 6.0 * f
+			p.offset_right = cx + axis_reach + hit_half
+			p.offset_top = cy0 - hit_half
+			p.offset_bottom = cy0 + hit_half
+			continue
+		if handle_name == "Y":
+			# Barra vertical (mover solo en Y), hacia abajo.
+			p.offset_left = cx - hit_half
+			p.offset_right = cx + hit_half
+			p.offset_top = cy0 + 6.0 * f
+			p.offset_bottom = cy0 + axis_reach + hit_half
+			continue
+		# Handles de resize/rotación: cuadrado centrado en su anchor (0 para
+		# todos salvo el de rotación, por encima del borde superior).
 		var cy: float = -_ROT_STEM_SCREEN_PX * f if handle_name == "Rotation" else 0.0
 		p.offset_left = -hit_half
 		p.offset_right = hit_half
@@ -179,13 +202,29 @@ func _draw() -> void:
 
 	# 8 handles de redimensionado (esquinas + centros de lado)
 	for handle_name in _HANDLE_FRAC:
-		if handle_name == "Rotation":
-			continue
 		var frac: Vector2 = _HANDLE_FRAC[handle_name]
 		var c := Vector2(frac.x * size.x, frac.y * size.y)
 		var r := Rect2(c - Vector2(hs, hs) * 0.5, Vector2(hs, hs))
 		draw_rect(r, _HANDLE_FILL, true)
 		draw_rect(r, _OUTLINE_COLOR, false, hb)
+
+	# Gizmo de eje: barra roja (horizontal) y verde (vertical) desde el centro.
+	# Arrastrar el extremo mueve la selección SOLO en ese eje.
+	var ctr := Vector2(size.x * 0.5, size.y * 0.5)
+	var glen := _AXIS_GIZMO_PX * inv
+	var grab := _AXIS_GRAB_PX * inv
+	var bar := maxf(_OUTLINE_SCREEN_PX * 2.0 * inv, 0.01)
+	var x_end := ctr + Vector2(glen, 0.0)
+	var y_end := ctr + Vector2(0.0, glen)
+	draw_line(ctr, x_end, _AXIS_X_COLOR, bar)
+	draw_line(ctr, y_end, _AXIS_Y_COLOR, bar)
+	# punta de flecha en el extremo (triángulo)
+	var ah := grab
+	draw_colored_polygon(PackedVector2Array([
+		x_end + Vector2(ah, 0), x_end + Vector2(-ah * 0.4, ah * 0.7), x_end + Vector2(-ah * 0.4, -ah * 0.7)]), _AXIS_X_COLOR)
+	draw_colored_polygon(PackedVector2Array([
+		y_end + Vector2(0, ah), y_end + Vector2(ah * 0.7, -ah * 0.4), y_end + Vector2(-ah * 0.7, -ah * 0.4)]), _AXIS_Y_COLOR)
+	draw_circle(ctr, grab * 0.4, _OUTLINE_COLOR)   # origen del gizmo
 
 ## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
 ## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
@@ -209,25 +248,17 @@ func _process(_delta: float) -> void:
 	queue_redraw()   # el contorno sigue a la figura (tamaño/rotación) y al zoom
 	_update_axis_lock_indicators()
 
-## Muestra el indicador rojo "x" o verde "Y" cuando el usuario está trasladando
-## con el eje bloqueado (atajo Blender G + X / G + Y), oculta ambos en cualquier otro caso.
+## Los Panels `x` / `Y` son ahora las ZONAS DE CLIC del gizmo de eje (mover solo
+## en horizontal / vertical). Siempre visibles mientras haya selección; el
+## dibujo del gizmo lo hace _draw().
 func _update_axis_lock_indicators() -> void:
 	var panel_interactivo := get_node_or_null("PANEL_BOUNDINGBOX")
 	if not is_instance_valid(panel_interactivo):
 		return
-	var x_panel := panel_interactivo.get_node_or_null("x")
-	var y_panel := panel_interactivo.get_node_or_null("Y")
-
-	var show_x := false
-	var show_y := false
-	if is_instance_valid(move_tool_reference) and move_tool_reference.current_blender_mode == MoveTool.BlenderMode.TRANSLATE:
-		show_x = move_tool_reference.current_axis == MoveTool.AxisLock.X
-		show_y = move_tool_reference.current_axis == MoveTool.AxisLock.Y
-
-	if is_instance_valid(x_panel) and x_panel.visible != show_x:
-		x_panel.visible = show_x
-	if is_instance_valid(y_panel) and y_panel.visible != show_y:
-		y_panel.visible = show_y
+	for n in ["x", "Y"]:
+		var p := panel_interactivo.get_node_or_null(n)
+		if is_instance_valid(p) and not p.visible:
+			p.visible = true
 
 ## Conecta cada Panel de handle (resize + rotación) para que dispare la
 ## transformación real en MoveTool, en vez de depender de su hit-testing manual.
@@ -253,8 +284,9 @@ func _on_handle_gui_input(event: InputEvent, handle_code: String) -> void:
 		elif move_tool_reference.resize_handle == handle_code:
 			move_tool_reference._on_release(Vector2.ZERO)
 	elif event is InputEventMouseMotion:
-		if move_tool_reference.resize_handle == handle_code and (move_tool_reference.is_resizing or move_tool_reference.is_rotating):
-			move_tool_reference._on_motion(move_tool_reference.canvas.get_global_mouse_position())
+		var m = move_tool_reference
+		if m.resize_handle == handle_code and (m.is_resizing or m.is_rotating or m.is_dragging_shape):
+			m._on_motion(m.canvas.get_global_mouse_position())
 
 ## Localiza los campos X/Y (FieldsWrapper/FieldX/FieldY, ver boundingbox.tscn)
 ## y conecta su señal value_committed a los handlers que mueven la figura.
