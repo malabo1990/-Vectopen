@@ -263,28 +263,32 @@ func _post_write() -> void:
 
 # ── alineación / distribución ────────────────────────────────────────────────
 ## mode: left | center_h | right | top | middle | bottom
-## Referencia: la caja combinada de la selección si hay 2+; el artboard si hay 1.
-func align(mode: String) -> void:
+## `modes`: un String ("left") o un Array (["left","top"]) para alinear en los
+## dos ejes a la vez. Referencia: caja combinada de la selección (2+) o el
+## artboard que la contiene (1). Una sola acción de undo.
+func align(modes) -> void:
 	_sync_selection()
 	if _selection.is_empty():
 		return
 	var ref := _align_reference()
 	if ref.size == Vector2.ZERO:
 		return
+	var lista: Array = modes if modes is Array else [modes]
 	var moves := []
 	for s in _selection:
 		var r: Rect2 = _mt._global_rect(s)
 		var d := Vector2.ZERO
-		match mode:
-			"left":     d.x = ref.position.x - r.position.x
-			"center_h": d.x = ref.get_center().x - r.get_center().x
-			"right":    d.x = ref.end.x - r.end.x
-			"top":      d.y = ref.position.y - r.position.y
-			"middle":   d.y = ref.get_center().y - r.get_center().y
-			"bottom":   d.y = ref.end.y - r.end.y
+		for mode in lista:
+			match mode:
+				"left":     d.x = ref.position.x - r.position.x
+				"center_h": d.x = ref.get_center().x - r.get_center().x
+				"right":    d.x = ref.end.x - r.end.x
+				"top":      d.y = ref.position.y - r.position.y
+				"middle":   d.y = ref.get_center().y - r.get_center().y
+				"bottom":   d.y = ref.end.y - r.end.y
 		if d != Vector2.ZERO:
 			moves.append({"s": s, "before": s.global_position, "after": s.global_position + d})
-	_commit_moves("Alinear " + mode, moves)
+	_commit_moves("Alinear " + "+".join(lista), moves)
 
 ## axis: h | v — espaciado uniforme entre bordes (necesita 3+ figuras).
 func distribute(axis: String) -> void:

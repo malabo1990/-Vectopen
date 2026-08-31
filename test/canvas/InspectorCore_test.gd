@@ -176,6 +176,65 @@ func test_distribuir_horizontal_espaciado_uniforme() -> void:
 	HistoryManager.clear()
 
 
+## Alinear en los DOS ejes a la vez (["left","top"]) en una sola acción de undo.
+func test_alinear_combo_dos_ejes_una_accion() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var a := _rect(_ab(s), Vector2(100, 100), Vector2(40, 40))
+	var b := _rect(_ab(s), Vector2(300, 250), Vector2(40, 40))
+	await get_tree().process_frame
+	t.selected_shapes.assign([a, b])
+	InspectorCore._sync_selection()
+	HistoryManager.clear()
+
+	InspectorCore.align(["left", "top"])
+	# ambas comparten esquina sup-izq (min x=100, min y=100)
+	assert_vector(a.global_position).is_equal_approx(Vector2(100, 100), Vector2(0.5, 0.5))
+	assert_vector(b.global_position).is_equal_approx(Vector2(100, 100), Vector2(0.5, 0.5))
+
+	# UNA sola acción → un undo lo revierte todo
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_vector(b.global_position).is_equal_approx(Vector2(300, 250), Vector2(0.5, 0.5))
+	assert_bool(HistoryManager.can_undo()).is_false()
+	HistoryManager.clear()
+
+
+## Muestra de color del menú contextual → aplica fill a la selección (con undo).
+func test_swatch_de_color_aplica_fill() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var r := _rect(_ab(s), Vector2(200, 200))
+	r.fill_color = Color.WHITE
+	await get_tree().process_frame
+	t.selected_shapes.assign([r])
+	InspectorCore._sync_selection()
+	HistoryManager.clear()
+
+	# ListaColor.gd sobre una FlowContainer con muestras (como en tool_in_mouse.tscn)
+	var fc: FlowContainer = auto_free(FlowContainer.new())
+	fc.set_script(load("res://script_gdscript/ui/ListaColor.gd"))
+	for i in 5:
+		var cr := ColorRect.new()
+		cr.color = Color(0.1 * i, 0.2, 0.3)
+		fc.add_child(cr)
+	add_child(fc)
+	await get_tree().process_frame
+	await get_tree().process_frame   # _ready hace await 1 frame
+
+	var swatch: ColorRect = fc.get_child(2) as ColorRect
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	swatch.gui_input.emit(ev)
+	await get_tree().process_frame
+
+	assert_that(r.fill_color).is_equal(swatch.color)
+	assert_bool(HistoryManager.can_undo()).is_true()
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_that(r.fill_color).is_equal(Color.WHITE)
+	HistoryManager.clear()
+
+
 ## Invariante I6: el Inspector y el bounding box muestran el mismo valor.
 func test_inspector_y_bounding_box_coinciden_en_pos() -> void:
 	var s := _scene(); await get_tree().process_frame

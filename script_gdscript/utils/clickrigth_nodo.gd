@@ -22,14 +22,33 @@ func _ready() -> void:
 		target_node.visible = false
 	_conectar_botones()
 
-const _ALIGN_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/TOOLS ALINEACION/VBoxContainer/HBoxContainer4"
-# Iconos de esa fila: distribuir-h, alinear-izq, alinear-centro-h, distribuir-h, alinear-der.
-const _ALIGN := {
-	"Button":  ["distribute", "h"],
-	"Button2": ["align", "left"],
-	"Button3": ["align", "center_h"],
-	"Button4": ["distribute", "h"],
-	"Button7": ["align", "right"],
+const _ALIGN_TOOLS := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/TOOLS ALINEACION/VBoxContainer"
+# Fila de iconos: distribuir-h, alinear-izq, alinear-centro-h, distribuir-h, alinear-der.
+const _ALIGN_ROW := {
+	"HBoxContainer4/Button":  ["distribute", "h"],
+	"HBoxContainer4/Button2": ["align", "left"],
+	"HBoxContainer4/Button3": ["align", "center_h"],
+	"HBoxContainer4/Button4": ["distribute", "h"],
+	"HBoxContainer4/Button7": ["align", "right"],
+}
+# Grid 4×4 de alineación: 9 puntos combinados + barras de un solo eje.
+const _ALIGN_GRID := {
+	"BoxContainer/GridContainer/Button":    ["align", ["left", "top"]],
+	"BoxContainer/GridContainer/Button2":   ["align", ["center_h", "top"]],
+	"BoxContainer/GridContainer/Button3":   ["align", ["right", "top"]],
+	"BoxContainer/GridContainer/Button4":   ["align", ["top"]],
+	"BoxContainer/GridContainer/Button5":   ["align", ["left", "middle"]],
+	"BoxContainer/GridContainer/Button6":   ["align", ["center_h", "middle"]],
+	"BoxContainer/GridContainer/Button7":   ["align", ["right", "middle"]],
+	"BoxContainer/GridContainer/Button8":   ["align", ["middle"]],
+	"BoxContainer/GridContainer/Button9":   ["align", ["left", "bottom"]],
+	"BoxContainer/GridContainer/Button10":  ["align", ["center_h", "bottom"]],
+	"BoxContainer/GridContainer/Button11":  ["align", ["right", "bottom"]],
+	"BoxContainer/GridContainer/Button12":  ["align", ["bottom"]],
+	"BoxContainer/GridContainer/Button13":  ["align", ["left"]],
+	"BoxContainer/GridContainer/Button14":  ["align", ["center_h"]],
+	"BoxContainer/GridContainer/Button15":  ["align", ["right"]],
+	"BoxContainer/GridContainer/Button17":  ["align", ["center_h", "middle"]],
 }
 
 func _conectar_botones() -> void:
@@ -40,14 +59,42 @@ func _conectar_botones() -> void:
 	var cut := get_node_or_null(_MENU_BASE + "/Cut") as Button
 	if cut and not cut.pressed.is_connected(_on_accion.bind("cut_selected")):
 		cut.pressed.connect(_on_accion.bind("cut_selected"))
+	# Renombrar (botones "name" y "Button6") → editor inline de nombre.
+	for rn in ["name", "Button6"]:
+		var rb := get_node_or_null(_MENU_BASE + "/" + rn) as Button
+		if rb and not rb.pressed.is_connected(_on_rename):
+			rb.pressed.connect(_on_rename)
 	# Alineación / distribución → InspectorCore (opera sobre la selección, con undo).
-	for nombre in _ALIGN:
-		var ab := get_node_or_null(_ALIGN_BASE + "/" + nombre) as Button
-		var op: Array = _ALIGN[nombre]
-		if ab and not ab.pressed.is_connected(_on_align.bind(op[0], op[1])):
-			ab.pressed.connect(_on_align.bind(op[0], op[1]))
+	for mapa in [_ALIGN_ROW, _ALIGN_GRID]:
+		for rel in mapa:
+			var ab := get_node_or_null(_ALIGN_TOOLS + "/" + rel) as Button
+			var op: Array = mapa[rel]
+			if ab and not ab.pressed.is_connected(_on_align.bind(op[0], op[1])):
+				ab.pressed.connect(_on_align.bind(op[0], op[1]))
 
-func _on_align(kind: String, arg: String) -> void:
+## Editor inline del nombre de la figura seleccionada (selección única).
+func _on_rename() -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return
+	var props: Dictionary = ic.current_props()
+	if not props.has("name"):
+		return   # multiselección o nada seleccionado
+	var le := LineEdit.new()
+	le.text = String(props["name"]["value"])
+	le.custom_minimum_size = Vector2(180, 26)
+	le.size = le.custom_minimum_size
+	add_child(le)
+	le.global_position = get_global_mouse_position()
+	le.select_all()
+	le.grab_focus()
+	le.text_submitted.connect(func(t: String):
+		ic.apply("name", t)
+		le.queue_free()
+		if target_node: target_node.visible = false)
+	le.focus_exited.connect(func(): if is_instance_valid(le): le.queue_free())
+
+func _on_align(kind: String, arg) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic == null:
 		return
