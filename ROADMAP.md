@@ -53,6 +53,14 @@ deliberately dropped
   Deliberately not a ZIP (`ZIPReader.read_file` is linear-scan → re-save O(N²)).
 - ✅ **Stress-test harnesses** — `test/perf/`: `stress_book`, `stress_bezier`,
   `stress_scale`, `stress_10k`, `profile_real`, `idle_render`.
+- ✅ **Drag-to-reparent on canvas** — dropping a shape over another artboard makes
+  it a child of that artboard (or a loose child of the container if dropped
+  outside all), preserving world transform, in one undo action. `MoveTool` drags
+  now register undo at all (they didn't before).
+- ✅ **Layer panel: loose elements shown under a "Fuera de artboard" root group**
+  instead of masquerading as top-level artboards; layer-tree drag-drop resync
+  (`hierarchy_changed_by_user` was emitted but unheard); drop onto the loose
+  group un-parents a shape.
 
 ### Performance fixes (measured, kept)
 - ✅ `WorldTextLabel` extreme-zoom stampede (per-frame recompute + outline
@@ -148,6 +156,7 @@ From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
 |---|---|---|
 | H-1 | README + `CLAUDE.md` still say the project format is JSON `.vectopen` | It is now `.vtc` (VTC2). Update the docs. |
 | H-2 | `scripts/` (legacy) vs `script_gdscript/` (primary) still both in use | e.g. `canvas_serializer.gd`, `artboard.gd`, `canvas.gd` live in `scripts/`. Long-term: consolidate. |
+| H-2b | 3 half-built layer-panel implementations coexist | Live one: `Layertree.gd` + `layers_system.gd` (in `layers_system.tscn`). Dead: `layers_drop_handler.gd` (TreeItem-only clone, no reparent), `panel_tree_layers.gd` / `LayerPanel.gd` (pilot with fake layers). Delete the dead two. |
 | H-3 | `rich_text_label_slider_size.gd:44` warning on startup (×2) | Two attachments in `scenes/ui/panel_tooltext.tscn` with no node-path wiring for the script's 4 exports. Needs a design decision, not a blind fix. |
 | H-4 | `ProjectManager` data-model CRUD has no UI caller | See §2. Either wire it or remove it. |
 | H-5 | gdUnit4 leaves ~30 orphan nodes + 2 `ShapedTextDataAdvanced` RID allocs at exit | Cosmetic; investigate if it grows. |

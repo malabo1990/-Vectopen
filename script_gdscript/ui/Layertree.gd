@@ -367,6 +367,16 @@ func _drop_data(pos_mouse: Vector2, data: Variant) -> void:
 	var nodo_destino : Node2D = destino.get_metadata(COL_NAME) as Node2D
 	var nodos_validos : bool  = is_instance_valid(nodo_origen) and is_instance_valid(nodo_destino)
 
+	# Soltar sobre el grupo raíz "Fuera de artboard" → la figura pasa a ser
+	# SUELTA (hija directa del contenedor de artboards).
+	if str(destino.get_metadata(COL_VIS)) == "sueltos":
+		if is_instance_valid(nodo_origen):
+			var cont := _contenedor_artboards()
+			if is_instance_valid(cont) and nodo_origen.get_parent() != cont:
+				nodo_origen.reparent(cont, true)
+		hierarchy_changed_by_user.emit()
+		return
+
 	match seccion:
 		0: # Soltar justo ENCIMA del ítem (reparentar hacia adentro)
 			origen.move_after(destino)
@@ -391,6 +401,23 @@ func _drop_data(pos_mouse: Vector2, data: Variant) -> void:
 				padre_real.move_child(nodo_origen, nodo_destino.get_index() + 1)
 
 	hierarchy_changed_by_user.emit()
+
+## Contenedor de artboards de la escena viva (mismo patrón que LayerSystem).
+func _contenedor_artboards() -> Node:
+	var esc := get_tree().current_scene if get_tree() else null
+	if esc:
+		var c := esc.find_child("ArtboardsContainer", true, false)
+		if c:
+			return c
+	# fallback: el padre del artboard ancestro del ítem seleccionado
+	var sel := get_selected()
+	if sel:
+		var n = sel.get_metadata(COL_NAME)
+		while is_instance_valid(n):
+			if n is ArtboardEditor:
+				return n.get_parent()
+			n = n.get_parent()
+	return null
 
 # =============================================================================
 # MENÚ CON CLIC DERECHO (CONTEXT MENU)

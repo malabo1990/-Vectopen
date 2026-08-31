@@ -355,8 +355,18 @@ func _on_release(_gm: Vector2) -> bool:
 	# "fuera del artboard" tras soltar un arrastre, y bounding_box.gd ya
 	# tenía un listener muerto para ella. Solo se dispara si de verdad hubo
 	# una transformación real (no en un simple clic o un marquee vacío).
+	var was_dragging_shape: bool = is_dragging_shape
 	var hubo_transformacion: bool = is_dragging_shape or is_resizing or is_rotating \
 		or is_dragging_artboard or is_resizing_artboard
+
+	# Un arrastre de figuras registra UNA acción de undo con el cambio de
+	# posición Y de padre: si la figura terminó dentro de otro artboard pasa a
+	# ser hija suya; si terminó fuera de todos, hija directa del contenedor
+	# (elemento "suelto"). Antes un drag no registraba nada en el historial ni
+	# reparentaba — la figura seguía colgando de su artboard original y saltaba
+	# el aviso "fuera del artboard" aunque visualmente estuviera dentro de otro.
+	if was_dragging_shape and not selected_shapes.is_empty():
+		_commit_shape_drag(selected_shapes.duplicate())
 
 	is_dragging_shape = false
 	is_resizing = false
@@ -372,6 +382,64 @@ func _on_release(_gm: Vector2) -> bool:
 
 	canvas.queue_redraw()
 	return true
+
+
+## Registra (y aplica) la acción de undo de un arrastre de figuras: posición
+## final + reparentado al artboard que contiene ahora cada figura (o al
+## contenedor si quedó fuera de todos). Preserva la transformación de mundo.
+func _commit_shape_drag(nodes: Array) -> void:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var container: Node = canvas.get_node_or_null("ArtboardsContainer") if is_instance_valid(canvas) else null
+	var recs: Array = []
+	for n in nodes:
+		if not is_instance_valid(n) or not is_instance_valid(n.get_parent()):
+			continue
+		# Nunca reparentamos títulos/auxiliares ni artboards.
+		if n is ArtboardEditor or n.name == "ArtboardTitle" or n.name == "Contorno_Stroke":
+			continue
+		var snap: Dictionary = transform_initial_states.get(n, {})
+		var old_parent: Node = n.get_parent()
+		var old_gpos: Vector2 = snap.get("gpos", n.global_position)
+		var new_gpos: Vector2 = n.global_position
+		var new_parent: Node = old_parent
+		if mgr and is_instance_valid(container):
+			var owner_ab := mgr.owning_artboard(n)
+			var hit_ab := mgr.artboard_at_point(new_gpos)
+			if hit_ab != owner_ab:
+				new_parent = hit_ab if hit_ab != null else container
+		var moved := not old_gpos.is_equal_approx(new_gpos)
+		if moved or new_parent != old_parent:
+			recs.append({
+				"n": n, "op": old_parent, "oi": n.get_index(), "og": old_gpos,
+				"np": new_parent, "ng": new_gpos,
+			})
+	if recs.is_empty():
+		return
+	HistoryManager.register_action("Mover selección")
+	HistoryManager.add_do(_do_apply_drag.bind(recs, false))
+	HistoryManager.add_undo(_do_apply_drag.bind(recs, true))
+	HistoryManager.commit()
+	_do_apply_drag(recs, false)
+
+
+func _do_apply_drag(recs: Array, undo: bool) -> void:
+	for r in recs:
+		var n: Node2D = r["n"]
+		if not is_instance_valid(n):
+			continue
+		var parent: Node = r["op"] if undo else r["np"]
+		var gpos: Vector2 = r["og"] if undo else r["ng"]
+		if is_instance_valid(parent) and n.get_parent() != parent:
+			n.reparent(parent, true)   # conserva la transformación de mundo
+			if undo:
+				parent.move_child(n, mini(int(r["oi"]), parent.get_child_count() - 1))
+		n.global_position = gpos
+		_sync_doc_position_from_native(n)
+	_update_bounding_box()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+	if GlobalEvents:
+		GlobalEvents.emit_safe("object_transformed")
 
 # ── Motion ─────────────────────────────────────────────────────────────────────
 

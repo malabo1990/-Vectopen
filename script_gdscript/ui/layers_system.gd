@@ -24,6 +24,13 @@ var _node_to_item_map       : Dictionary = {}  # Mapeo nodo → TreeItem
 ## contra cuántas figuras estás trabajando (rendimiento).
 var _contador_label : Label = null
 
+## Item raíz sintético que agrupa las figuras SUELTAS (hijas directas del
+## contenedor, fuera de todo artboard). Solo existe si hay alguna. Así el panel
+## refleja exactamente lo que un editor profesional: lo que está fuera de un
+## artboard se ve fuera de un artboard, no colgando como si fuera un artboard.
+const SUELTOS_LABEL := "Fuera de artboard"
+var _sueltos_item : TreeItem = null
+
 # =============================================================================
 # INICIALIZACIÓN Y CONEXIONES DE SEÑALES
 # =============================================================================
@@ -68,6 +75,13 @@ func conectar_senales_sistema() -> void:
 	if is_instance_valid(layer_tree):
 		if not layer_tree.item_edited.is_connected(_on_layer_tree_item_edited):
 			layer_tree.item_edited.connect(_on_layer_tree_item_edited)
+		# El LayerTree reparenta nodos reales en su _drop_data (drag&drop). Tras
+		# eso hay que re-sincronizar el árbol con la jerarquía nueva — antes esta
+		# señal se emitía pero nadie la escuchaba, así que el panel quedaba
+		# desincronizado hasta el siguiente cambio estructural.
+		if layer_tree.has_signal("hierarchy_changed_by_user") \
+				and not layer_tree.hierarchy_changed_by_user.is_connected(_on_hierarchy_changed_by_user):
+			layer_tree.hierarchy_changed_by_user.connect(_on_hierarchy_changed_by_user)
 
 	# Refrescar el árbol (y con él, el indicador de "fuera del artboard") cuando
 	# se termina de mover/transformar una figura — MoveTool.gd no emitía esta
@@ -76,6 +90,15 @@ func conectar_senales_sistema() -> void:
 	# actualizaba el panel de capas hasta el siguiente cambio estructural.
 	if GlobalEvents and not GlobalEvents.object_transformed.is_connected(_on_object_transformed):
 		GlobalEvents.object_transformed.connect(_on_object_transformed)
+
+
+## El usuario reordenó / reparentó nodos arrastrando en el propio panel de capas
+## (LayerTree._drop_data ya movió los Node2D reales). Re-sincronizamos el árbol
+## contra la jerarquía nueva. Diferido: el drop puede disparar varias señales.
+func _on_hierarchy_changed_by_user() -> void:
+	if _bloquear_sincronizacion:
+		return
+	sincronizar_arbol_completo.call_deferred()
 
 
 func _on_object_transformed() -> void:
@@ -94,10 +117,13 @@ func _refrescar_indicadores_estado() -> void:
 		if not is_instance_valid(item) or not is_instance_valid(nodo):
 			continue
 		var tipo := str(item.get_metadata(0))
-		if tipo == "artboard":
+		if tipo == "artboard" or tipo == "sueltos":
 			continue
+		# Suelto de primer nivel (hijo directo del grupo "Fuera de artboard") →
+		# fuera por definición. Más profundo → se compara con su contenedor local.
+		var es_suelto_top: bool = item.get_parent() == _sueltos_item
 		var ab := _encontrar_artboard_ancestro(nodo)
-		var fuera := _esta_fuera_del_artboard(nodo, ab)
+		var fuera := es_suelto_top or (ab != null and _esta_fuera_del_artboard(nodo, ab))
 		var base_name := str(nodo.name)
 		item.set_text(1, base_name + ("  ⚠ fuera del artboard" if fuera else ""))
 		item.set_checked(0, nodo.visible)
@@ -118,6 +144,7 @@ func sincronizar_arbol_completo() -> void:
 	layer_tree.clear()
 	_node_to_item_map.clear()
 	_pending_changes.clear()
+	_sueltos_item = null
 
 	# Crear la raíz invisible obligatoria para el Tree
 	var raiz_oculta : TreeItem = layer_tree.create_item()
@@ -128,16 +155,35 @@ func sincronizar_arbol_completo() -> void:
 	# Limpiar registro de artboards antiguos para evitar fugas de memoria
 	_artboards_conectados.clear()
 
-	# Recorrer los hijos directos del contenedor (Artboards)
-	for artboard in artboard_container.get_children():
-		if artboard is Node2D:
-			# Escuchar cambios internos de este Artboard (para cuando crees rectángulos/líneas)
-			_vincular_senales_artboard(artboard)
-			# Construir su estructura de forma recursiva hacia abajo
-			_construir_nodo_recursivo(raiz_oculta, artboard, artboard)
+	# Los hijos directos del contenedor son de DOS clases: artboards y figuras
+	# SUELTAS (fuera de todo artboard). Se muestran por separado.
+	for hijo in artboard_container.get_children():
+		if _es_artboard(hijo):
+			_vincular_senales_artboard(hijo)
+			_construir_nodo_recursivo(raiz_oculta, hijo, hijo)
+		elif hijo is Node2D and hijo.name != "Contorno_Stroke":
+			_construir_nodo_recursivo(_get_sueltos_item(), hijo, null)
 
 	_bloquear_sincronizacion = false
 	_repintar_canvas()
+
+
+## Crea (perezosamente) el grupo raíz "Fuera de artboard". null-safe.
+func _get_sueltos_item() -> TreeItem:
+	if is_instance_valid(_sueltos_item):
+		return _sueltos_item
+	var raiz := layer_tree.get_root()
+	if not raiz:
+		return raiz
+	_sueltos_item = layer_tree.create_item(raiz)
+	_sueltos_item.set_cell_mode(1, TreeItem.CELL_MODE_STRING)
+	_sueltos_item.set_text(1, SUELTOS_LABEL)
+	_sueltos_item.set_editable(1, false)
+	for c in 3:
+		_sueltos_item.set_selectable(c, false)
+	_sueltos_item.set_metadata(0, "sueltos")
+	_sueltos_item.set_custom_color(1, Color(0.95, 0.65, 0.15))
+	return _sueltos_item
 
 
 func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboard_actual: Node2D) -> void:
@@ -148,9 +194,12 @@ func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboar
 	var item = _create_tree_item(parent_item, real_node, artboard_actual)
 
 	# 4. Incursión Recursiva: Procesar elementos internos del nodo (Figuras del lienzo)
+	# En el subárbol suelto (artboard_actual == null) los descendientes se
+	# comparan contra su contenedor local, no heredan el aviso "fuera del artboard".
+	var ab_para_hijos: Node2D = artboard_actual if artboard_actual != null else real_node
 	for hijo in real_node.get_children():
 		if hijo is Node2D:
-			_construir_nodo_recursivo(item, hijo, artboard_actual)
+			_construir_nodo_recursivo(item, hijo, ab_para_hijos)
 
 ## Comprueba si el ORIGEN del nodo cae fuera del rectángulo del artboard.
 ## Es una comprobación simple por punto (no el AABB completo de la figura,
@@ -158,9 +207,11 @@ func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboar
 ## bounding_box.gd) — suficiente para el indicador de aviso del panel de
 ## capas sin añadir una tercera copia de esa lógica geométrica.
 func _esta_fuera_del_artboard(real_node: Node2D, artboard_actual: Node2D) -> bool:
-	if not is_instance_valid(artboard_actual) or real_node == artboard_actual:
+	if real_node == artboard_actual:
 		return false
-	if not ("artboard_size" in artboard_actual):
+	if artboard_actual == null:
+		return true   # figura SUELTA: fuera de todo artboard, por definición
+	if not is_instance_valid(artboard_actual) or not ("artboard_size" in artboard_actual):
 		return false
 	var rect := Rect2(artboard_actual.global_position, artboard_actual.artboard_size)
 	return not rect.has_point(real_node.global_position)
@@ -168,10 +219,10 @@ func _esta_fuera_del_artboard(real_node: Node2D, artboard_actual: Node2D) -> boo
 func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual: Node2D = null) -> TreeItem:
 	# 1. Identificar el tipo de capa para el estilo visual
 	var type : String = "shape"
-	if real_node.has_meta("shape_type"):
-		type = real_node.get_meta("shape_type") as String
-	elif real_node.name.to_lower().contains("artboard"):
+	if _es_artboard(real_node):
 		type = "artboard"
+	elif real_node.has_meta("shape_type"):
+		type = real_node.get_meta("shape_type") as String
 	elif real_node.get_child_count() > 0:
 		type = "group"
 
@@ -300,8 +351,13 @@ func _process_pending_changes() -> void:
 			var parent_node = nodo.get_parent()
 			if parent_node and _node_to_item_map.has(parent_node):
 				_create_tree_item(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
-			elif artboard_container and artboard_container == nodo.get_parent():
-				_create_tree_item(layer_tree.get_root(), nodo, nodo)
+			elif artboard_container and artboard_container == parent_node:
+				if _es_artboard(nodo):
+					_vincular_senales_artboard(nodo)
+					_create_tree_item(layer_tree.get_root(), nodo, nodo)
+				else:
+					# Figura SUELTA (hija directa del contenedor) → grupo "Fuera de artboard".
+					_create_tree_item(_get_sueltos_item(), nodo, null)
 			else:
 				# Padre no mapeado (anidamiento profundo, orden raro): una
 				# reconstrucción completa — O(N) UNA vez, no O(N) por figura.
@@ -345,10 +401,14 @@ func _process_pending_changes() -> void:
 func _encontrar_artboard_ancestro(nodo: Node) -> Node2D:
 	var actual: Node = nodo
 	while actual:
-		if actual is ArtboardEditor:
-			return actual
+		if _es_artboard(actual):
+			return actual as Node2D
 		actual = actual.get_parent()
 	return null
+
+## Un artboard real (ArtboardEditor) o un doble con `artboard_size` (tests).
+func _es_artboard(n: Node) -> bool:
+	return n is ArtboardEditor or (n is Node2D and "artboard_size" in n)
 
 func _vincular_senales_artboard(artboard: Node2D) -> void:
 	# Conecta las señales del Artboard para enterarse de figuras nuevas/borradas
@@ -399,14 +459,20 @@ func _actualizar_contador() -> void:
 		return
 	var total := 0
 	var artboards := 0
+	var sueltos := 0
 	for ab in artboard_container.get_children():
-		if ab is Node2D:
+		if _es_artboard(ab):
 			artboards += 1
 			total += _contar_descendientes(ab)
-	if artboards <= 1:
-		_contador_label.text = "%d capas" % total
-	else:
-		_contador_label.text = "%d capas · %d artboards" % [total, artboards]
+		elif ab is Node2D and ab.name != "Contorno_Stroke":
+			sueltos += 1
+			total += 1 + _contar_descendientes(ab)
+	var txt := "%d capas" % total
+	if artboards > 1:
+		txt += " · %d artboards" % artboards
+	if sueltos > 0:
+		txt += " · %d fuera" % sueltos
+	_contador_label.text = txt
 
 
 func _contar_descendientes(nodo: Node) -> int:

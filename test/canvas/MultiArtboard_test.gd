@@ -134,3 +134,81 @@ func test_figura_arrastrada_fuera_de_su_artboard() -> void:
 	assert_bool(mgr.is_element_outside(fig)).is_true()
 	# sigue PERTENECIENDO a ab1 (jerarquía), aunque esté geométricamente fuera
 	assert_object(mgr.owning_artboard(fig)).is_same(ab1)
+
+
+## Bug reportado: arrastrar una figura ENCIMA de otro artboard debe hacerla
+## HIJA de ese artboard (nuevo padre), como en un editor profesional.
+func _move_tool_en(s: Node2D) -> MoveTool:
+	var t := MoveTool.new()
+	t.canvas = s
+	s.add_child(t)
+	auto_free(t)
+	return t
+
+func test_arrastrar_figura_a_otro_artboard_la_reparenta() -> void:
+	var s := _scene()
+	await get_tree().process_frame
+	var mgr := _mgr(s)
+	var container: Node2D = s.get_node("ArtboardsContainer")
+	var ab1: ArtboardEditor = mgr.all_artboards()[0]
+	ab1.global_position = Vector2.ZERO
+	ab1.artboard_size = Vector2(500, 500)
+	var ab2 := _nuevo_artboard(container, Vector2(1000, 0), Vector2(500, 500))
+	await get_tree().process_frame
+
+	var fig := VectorRectangle.new()
+	fig.name = "Viajera"
+	ab1.add_child(fig)
+	fig.global_position = Vector2(250, 250)
+	await get_tree().process_frame
+	HistoryManager.clear()
+
+	var t := _move_tool_en(s)
+	t.selected_shapes.assign([fig])
+	t.transform_initial_states = {fig: {"gpos": Vector2(250, 250), "grot": 0.0}}
+	t.is_dragging_shape = true
+
+	fig.global_position = Vector2(1250, 250)  # soltada dentro de ab2
+	t._on_release(Vector2(1250, 250))
+	await get_tree().process_frame
+
+	assert_object(fig.get_parent()).is_same(ab2)
+	assert_object(mgr.owning_artboard(fig)).is_same(ab2)
+	assert_vector(fig.global_position).is_equal_approx(Vector2(1250, 250), Vector2(0.5, 0.5))
+	assert_bool(mgr.is_element_outside(fig)).is_false()
+	assert_bool(HistoryManager.can_undo()).is_true()
+
+	HistoryManager.undo()
+	await get_tree().process_frame
+	assert_object(fig.get_parent()).is_same(ab1)
+	assert_vector(fig.global_position).is_equal_approx(Vector2(250, 250), Vector2(0.5, 0.5))
+	HistoryManager.clear()
+
+
+func test_arrastrar_figura_fuera_de_todo_la_vuelve_suelta() -> void:
+	var s := _scene()
+	await get_tree().process_frame
+	var mgr := _mgr(s)
+	var container: Node2D = s.get_node("ArtboardsContainer")
+	var ab1: ArtboardEditor = mgr.all_artboards()[0]
+	ab1.global_position = Vector2.ZERO
+	ab1.artboard_size = Vector2(500, 500)
+
+	var fig := VectorRectangle.new()
+	ab1.add_child(fig)
+	fig.global_position = Vector2(100, 100)
+	await get_tree().process_frame
+	HistoryManager.clear()
+
+	var t := _move_tool_en(s)
+	t.selected_shapes.assign([fig])
+	t.transform_initial_states = {fig: {"gpos": Vector2(100, 100)}}
+	t.is_dragging_shape = true
+	fig.global_position = Vector2(3000, 3000)  # fuera de todo artboard
+	t._on_release(Vector2(3000, 3000))
+	await get_tree().process_frame
+
+	assert_object(fig.get_parent()).is_same(container)  # hija directa del contenedor = suelta
+	assert_object(mgr.owning_artboard(fig)).is_null()
+	assert_bool(mgr.is_element_outside(fig)).is_true()
+	HistoryManager.clear()

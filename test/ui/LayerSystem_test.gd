@@ -46,6 +46,11 @@ func test_esta_fuera_del_artboard_checks_point_against_artboard_rect() -> void:
 	# El propio artboard nunca debe marcarse como "fuera de sí mismo".
 	assert_bool(system._esta_fuera_del_artboard(artboard, artboard)).is_false()
 
+	# Figura SUELTA (sin artboard) → fuera de todo artboard por definición.
+	# Es lo que va bajo el grupo raíz "Fuera de artboard" del panel.
+	var suelta: Node2D = auto_free(Node2D.new())
+	assert_bool(system._esta_fuera_del_artboard(suelta, null)).is_true()
+
 
 ## REGRESIÓN O(N²): añadir figuras a un artboard debe ir por la ruta
 ## INCREMENTAL (un batch de 100 ms), no disparar sincronizar_arbol_completo()
