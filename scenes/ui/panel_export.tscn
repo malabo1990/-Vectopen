@@ -2,8 +2,13 @@
 
 [ext_resource type="Script" uid="uid://dcel1g67431r7" path="res://script_gdscript/system/ImportExportManager.gd" id="1_3goxh"]
 [ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="1_8k6w1"]
-[ext_resource type="Script" uid="uid://c00oeeuccp45" path="res://Scene/control_raiz.gd" id="3_lwi2q"]
-[ext_resource type="Script" uid="uid://de0j0x5q70tda" path="res://Scene/explotar_archivos.gd" id="3_oqeks"]
+[ext_resource type="Script" path="res://scenes/ui/FileFlowLayout.gd" id="12_ffl"]
+[ext_resource type="Script" path="res://scenes/ui/RecentFilesTree.gd" id="13_rft"]
+[ext_resource type="Script" path="res://script_gdscript/ui/format_config.gd" id="14_fcfg"]
+[ext_resource type="Script" path="res://scenes/ui/RecentFilesGrid.gd" id="15_rfg"]
+[ext_resource type="Script" uid="uid://dlqx7jasihjde" path="res://script_gdscript/ui/TogglePanelSetting.gd" id="16_tgl"]
+[ext_resource type="Texture2D" path="res://assets/icons/details.png" id="17_det"]
+[ext_resource type="Texture2D" path="res://assets/icons/grid.png" id="18_grid"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e4rlv"]
 bg_color = Color(1, 1, 1, 1)
@@ -23,17 +28,73 @@ bg_color = Color(0.890625, 0.890625, 0.890625, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l4thb"]
 bg_color = Color(0.92578125, 0.92578125, 0.92578125, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_npura"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xrivr"]
 bg_color = Color(1, 1, 1, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8qr3o"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_w"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="Panel_manager" type="Panel" unique_id=758353070]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_h"]
+bg_color = Color(0.88, 0.88, 0.88, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_p"]
+bg_color = Color(0.78, 0.78, 0.78, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_le_n"]
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.7, 0.7, 0.7, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_le_f"]
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.4, 0.4, 1)
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_fmt"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_view"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_header"]
+bg_color = Color(0.945, 0.945, 0.945, 1)
+content_margin_left = 6.0
+content_margin_top = 4.0
+content_margin_right = 6.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close"]
+bg_color = Color(0.85, 0.15, 0.15, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_h"]
+bg_color = Color(0.95, 0.25, 0.25, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_p"]
+bg_color = Color(0.7, 0.1, 0.1, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="Panel_manager" type="PanelContainer" unique_id=1664659992]
+anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = -343.0
+offset_bottom = 19.0
 grow_horizontal = 2
 grow_vertical = 0
 size_flags_horizontal = 3
@@ -41,279 +102,495 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_e4rlv")
 script = ExtResource("1_3goxh")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=186443432]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="QuickActionMenu" type="HBoxContainer" parent="HBoxContainer" unique_id=117354869]
 custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 
-[node name="ButtonsVBox" type="VBoxContainer" parent="HBoxContainer/QuickActionMenu" unique_id=1602545796]
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/QuickActionMenu" unique_id=834077227]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonsVBox" type="VBoxContainer" parent="HBoxContainer/QuickActionMenu/MarginContainer" unique_id=1602545796]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="BtnNuevo" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=328469264]
+[node name="BtnNuevo" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=328469264]
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "New"
 
-[node name="BtnReciente" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=559384842]
+[node name="BtnReciente" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=559384842]
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "Recent"
 
-[node name="BtnArchivos" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=409311692]
+[node name="BtnArchivos" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=409311692]
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "Files"
 
-[node name="BtnRecuperar" type="Button" parent="HBoxContainer/QuickActionMenu/ButtonsVBox" unique_id=1581669432]
+[node name="BtnRecuperar" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=1581669432]
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "Recover"
 
-[node name="BtnClose" type="Button" parent="HBoxContainer/QuickActionMenu" unique_id=1720302683]
+[node name="BtnSave" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=2200000006]
 layout_mode = 2
-size_flags_vertical = 4
-theme_override_colors/font_color = Color(1, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_debnt")
-text = " X "
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
+text = "Save"
+
+[node name="BtnSaveAs" type="Button" parent="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox" unique_id=2200000007]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
+text = "Save As"
 
 [node name="FileFlowLayout" type="HBoxContainer" parent="HBoxContainer" unique_id=679995410]
 layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("12_ffl")
 
 [node name="FileLibraryPanel" type="PanelContainer" parent="HBoxContainer/FileFlowLayout" unique_id=374963603]
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
+
+[node name="PreviewPanel" type="PanelContainer" parent="HBoxContainer/FileFlowLayout" unique_id=2200000016]
+visible = false
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
+
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/FileFlowLayout/PreviewPanel" unique_id=2200000017]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="PreviewTexture" type="TextureRect" parent="HBoxContainer/FileFlowLayout/PreviewPanel/MarginContainer" unique_id=2200000018]
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel" unique_id=1488887158]
 layout_mode = 2
+
+[node name="ViewHeader" type="PanelContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=2200000009]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_header")
+
+[node name="ViewLabel" type="Label" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewHeader" unique_id=2200000004]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 14
+text = "Recent Files"
 
 [node name="SearchBar" type="LineEdit" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=2054770853]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+theme_override_styles/normal = SubResource("StyleBoxFlat_le_n")
+theme_override_styles/focus = SubResource("StyleBoxFlat_le_f")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=379551797]
+[node name="ViewBar" type="PanelContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=2200000010]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
 
-[node name="detalles" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/HBoxContainer" unique_id=763435211]
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar" unique_id=379551797]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BtnBack" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=2200000012]
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "◀"
+
+[node name="BtnForward" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=2200000013]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "▶"
+
+[node name="BtnUp" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=2200000014]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "▲"
+
+[node name="detalles" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=763435211]
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_view")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+icon = ExtResource("17_det")
+expand_icon = true
 text = "Details"
 
-[node name="icono" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/HBoxContainer" unique_id=1692739685]
+[node name="icono" type="Button" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=1692739685]
 layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_view")
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+icon = ExtResource("18_grid")
+expand_icon = true
 text = "Icon"
+
+[node name="ZoomSlider" type="HSlider" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer/ViewBar/HBoxContainer" unique_id=2200000011]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+min_value = 16.0
+max_value = 96.0
+step = 4.0
+value = 48.0
 
 [node name="RecentFilesTree" type="Tree" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=1826160510]
 custom_minimum_size = Vector2(200, 300)
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_selected_color = Color(0, 0, 0, 1)
+theme_override_colors/selected_color = Color(0.82, 0.82, 0.82, 1)
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
+script = ExtResource("13_rft")
+
+[node name="RecentFilesGrid" type="ItemList" parent="HBoxContainer/FileFlowLayout/FileLibraryPanel/VBoxContainer" unique_id=2200000008]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_selected_color = Color(0, 0, 0, 1)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 1)
+theme_override_colors/selected_bg_color = Color(0.82, 0.82, 0.82, 1)
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
+icon_mode = 1
+fixed_icon_size = Vector2i(64, 64)
+same_column_width = true
+fixed_column_width = 120
+max_columns = 0
+script = ExtResource("15_rfg")
 
 [node name="ExportPanel" type="PanelContainer" parent="HBoxContainer/FileFlowLayout" unique_id=76099097]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_xrivr")
+script = ExtResource("14_fcfg")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel" unique_id=883541166]
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel" unique_id=631048697]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer" unique_id=883541166]
 layout_mode = 2
 
-[node name="NameHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=693544754]
+[node name="NameHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=693544754]
 layout_mode = 2
 
-[node name="LabelName" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/NameHBox" unique_id=1944820760]
+[node name="LabelName" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/NameHBox" unique_id=1944820760]
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Name"
 
-[node name="LineEditName" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/NameHBox" unique_id=1269849784]
+[node name="LineEditName" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/NameHBox" unique_id=1269849784]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_le_n")
+theme_override_styles/focus = SubResource("StyleBoxFlat_le_f")
 
-[node name="FormatGrid" type="GridContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=171379713]
+[node name="FormatGrid" type="GridContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=171379713]
 layout_mode = 2
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 columns = 5
 
-[node name="BtnSVG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=511341676]
+[node name="BtnSVG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=511341676]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "SVG"
 
-[node name="BtnPNG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=1477510374]
+[node name="BtnPNG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=1477510374]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "PNG"
 
-[node name="BtnJPEG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=874865214]
+[node name="BtnJPEG" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=874865214]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "JPEG"
 
-[node name="BtnJPEGXL" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=20776636]
+[node name="BtnJPEGXL" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=20776636]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "JPEG XL"
 
-[node name="BtnWEBP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=187018220]
+[node name="BtnWEBP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=187018220]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "WEBP"
 
-[node name="BtnEPS" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=193765399]
+[node name="BtnEPS" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=193765399]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "EPS"
 
-[node name="BtnPDF" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=368739874]
+[node name="BtnPDF" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=368739874]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "PDF"
 
-[node name="BtnTSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=1250316258]
+[node name="BtnTSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=1250316258]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "TSCN"
 
-[node name="BtnSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=447877649]
+[node name="BtnSCN" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=447877649]
 layout_mode = 2
 size_flags_horizontal = 3
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "SCN"
 
-[node name="BtnVOP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatGrid" unique_id=979324392]
+[node name="BtnVOP" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatGrid" unique_id=979324392]
 layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_fmt")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 
-layout_mode = 2
-
-[node name="SearchBar" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=258683848]
+[node name="SearchBar" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=258683848]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_le_n")
+theme_override_styles/focus = SubResource("StyleBoxFlat_le_f")
 text = "VOP"
 
-[node name="FolderPathHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer"]
+[node name="FolderPathHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=607379107]
 layout_mode = 2
 
-[node name="LabelFolder" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+[node name="LabelFolder" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox" unique_id=374963812]
 layout_mode = 2
-text = "Folder:"
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Folder:"
 
-[node name="PathLineEdit" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+[node name="PathLineEdit" type="LineEdit" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox" unique_id=82634639]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_le_n")
+theme_override_styles/focus = SubResource("StyleBoxFlat_le_f")
 placeholder_text = "C:/Users/..."
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
-[node name="BtnBrowse" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FolderPathHBox"]
+[node name="BtnBrowse" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox" unique_id=259336556]
 layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "Browse"
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
-[node name="CantidadHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1181542724]
+[node name="CantidadHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=1181542724]
 layout_mode = 2
 
-[node name="LabelCantidad" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/CantidadHBox" unique_id=1963388738]
+[node name="LabelCantidad" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/CantidadHBox" unique_id=1963388738]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Quantity"
 
-[node name="SpinBoxCantidad" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/CantidadHBox" unique_id=584699499 instance=ExtResource("1_8k6w1")]
+[node name="SpinBoxCantidad" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/CantidadHBox" unique_id=584699499 instance=ExtResource("1_8k6w1")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ResolucionHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=423163966]
+[node name="ResolucionHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=423163966]
 layout_mode = 2
 
-[node name="LabelResolucion" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/ResolucionHBox" unique_id=241955445]
+[node name="LabelResolucion" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/ResolucionHBox" unique_id=241955445]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Resolution"
 
-[node name="SpinBoxResolucion" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/ResolucionHBox" unique_id=1739575074 instance=ExtResource("1_8k6w1")]
+[node name="SpinBoxResolucion" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/ResolucionHBox" unique_id=1739575074 instance=ExtResource("1_8k6w1")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MesaTrabajoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1797579336]
+[node name="MesaTrabajoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=1797579336]
 layout_mode = 2
 
-[node name="LabelMesa" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/MesaTrabajoHBox" unique_id=1043570755]
+[node name="LabelMesa" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/MesaTrabajoHBox" unique_id=1043570755]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Work Table"
 
-[node name="SpinBoxMesa" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/MesaTrabajoHBox" unique_id=1504588259 instance=ExtResource("1_8k6w1")]
+[node name="SpinBoxMesa" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/MesaTrabajoHBox" unique_id=1504588259 instance=ExtResource("1_8k6w1")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="FormatoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer" unique_id=1177397413]
+[node name="FormatoHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=1177397413]
 layout_mode = 2
 
-[node name="LabelFormato" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatoHBox" unique_id=1892486725]
+[node name="LabelFormato" type="Label" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatoHBox" unique_id=1892486725]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Format"
 
-[node name="SpinBoxFormato" parent="HBoxContainer/FileFlowLayout/ExportPanel/VBoxContainer/FormatoHBox" unique_id=1028201588 instance=ExtResource("1_8k6w1")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="FileDialog" type="FileDialog" parent="HBoxContainer/FileFlowLayout" unique_id=628975106]
-access = 1
-
-[node name="explotar" type="PanelContainer" parent="HBoxContainer" unique_id=308221281 node_paths=PackedStringArray("search_bar", "file_tree", "btn_details", "btn_icons")]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_npura")
-script = ExtResource("3_lwi2q")
-search_bar = NodePath("MarginContainer/VBoxContainer/HBoxContainer/LineEdit")
-file_tree = NodePath("MarginContainer/VBoxContainer/Tree")
-btn_details = NodePath("MarginContainer/VBoxContainer/HBoxContainer/detalles")
-btn_icons = NodePath("MarginContainer/VBoxContainer/HBoxContainer/icono")
-
-[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/explotar" unique_id=1273841237]
-layout_mode = 2
-theme_override_constants/margin_top = 5
-
-[node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/explotar/MarginContainer" unique_id=1574479312]
-layout_mode = 2
-
-[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer" unique_id=181405293]
-layout_mode = 2
-
-[node name="LineEdit" type="LineEdit" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=478018420]
+[node name="OptionFormat" type="OptionButton" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FormatoHBox" unique_id=1028201588]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_h3dyp")
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 
-[node name="detalles" type="Button" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=511261482]
+[node name="SaveHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=2200000001]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BtnSave" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox" unique_id=2200000002]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
-text = "Details"
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
+text = "Save"
 
-[node name="icono" type="Button" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer/HBoxContainer" unique_id=737852889]
+[node name="BtnSaveAs" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox" unique_id=2200000003]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
-text = "Icon"
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_w")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
+text = "Save As"
 
-[node name="Tree" type="Tree" parent="HBoxContainer/explotar/MarginContainer/VBoxContainer" unique_id=445252542]
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_8qr3o")
-script = ExtResource("3_oqeks")
-color_carpeta = Color(0.51171875, 0.2882614, 0, 1)
-color_archivo = Color(0, 0, 0, 1)
-color_texto_detalles = Color(0, 0, 0, 1)
+[node name="CloseLayer" type="Control" parent="." unique_id=2200000015]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BtnClose" type="Button" parent="CloseLayer" unique_id=1720302683]
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 34.0
+offset_bottom = 30.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_close")
+theme_override_styles/hover = SubResource("StyleBoxFlat_close_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_close_p")
+text = " X "
+
+[connection signal="pressed" from="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox/BtnArchivos" to="." method="_on_btn_archivos_pressed"]
+[connection signal="pressed" from="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox/BtnRecuperar" to="." method="_on_btn_recuperar_pressed"]
+[connection signal="pressed" from="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox/BtnNuevo" to="." method="_on_btn_nuevo_pressed"]
+[connection signal="pressed" from="HBoxContainer/QuickActionMenu/MarginContainer/ButtonsVBox/BtnReciente" to="." method="_on_btn_reciente_pressed"]

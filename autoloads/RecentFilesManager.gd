@@ -11,7 +11,7 @@ func get_files() -> Array:
 	return cfg.get_value("History", "items", [])
 
 func add_file(path: String) -> void:
-	var name := path.get_file().get_basename()
+	var file_name := path.get_file().get_basename()
 	var ext := path.get_extension()
 	var cfg := ConfigFile.new()
 	cfg.load(CONFIG_PATH)
@@ -21,7 +21,7 @@ func add_file(path: String) -> void:
 			files.remove_at(i)
 			break
 	files.insert(0, {
-		"name": name,
+		"name": file_name,
 		"path": path,
 		"format": ext,
 		"time": Time.get_unix_time_from_system()

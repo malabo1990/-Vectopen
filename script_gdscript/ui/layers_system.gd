@@ -19,6 +19,11 @@ var _update_timer           : Timer = null
 var _pending_changes        : Array[Dictionary] = []
 var _node_to_item_map       : Dictionary = {}  # Mapeo nodo → TreeItem
 
+## Label "Numer layer" del panel (layout.tscn): muestra el nº total de
+## elementos dibujables dentro de los artboards — útil para ver de un vistazo
+## contra cuántas figuras estás trabajando (rendimiento).
+var _contador_label : Label = null
+
 # =============================================================================
 # INICIALIZACIÓN Y CONEXIONES DE SEÑALES
 # =============================================================================
@@ -35,6 +40,10 @@ func _ready() -> void:
 		var escena_activa = get_tree().current_scene
 		if escena_activa:
 			artboard_container = escena_activa.find_child("ArtboardsContainer", true, false) as Node2D
+
+	var escena := get_tree().current_scene
+	if escena:
+		_contador_label = escena.find_child("Numer layer", true, false) as Label
 
 	# Crear timer para actualizaciones batch
 	_setup_update_timer()
@@ -70,7 +79,32 @@ func conectar_senales_sistema() -> void:
 
 
 func _on_object_transformed() -> void:
-	sincronizar_arbol_completo()
+	# Mover/rotar/escalar NO cambia la ESTRUCTURA del árbol, solo si la figura
+	# quedó fuera del artboard. Refrescamos ese indicador in situ (O(N) barato)
+	# en vez de reconstruir N TreeItems desde cero (O(N) con allocations) en
+	# cada fin de arrastre — con miles de figuras ese rebuild se notaba.
+	_refrescar_indicadores_estado()
+
+## Recorre los items ya existentes y actualiza texto/color/aviso sin recrearlos.
+func _refrescar_indicadores_estado() -> void:
+	if _bloquear_sincronizacion or not is_instance_valid(layer_tree):
+		return
+	for nodo in _node_to_item_map.keys():
+		var item: TreeItem = _node_to_item_map[nodo]
+		if not is_instance_valid(item) or not is_instance_valid(nodo):
+			continue
+		var tipo := str(item.get_metadata(0))
+		if tipo == "artboard":
+			continue
+		var ab := _encontrar_artboard_ancestro(nodo)
+		var fuera := _esta_fuera_del_artboard(nodo, ab)
+		var base_name := str(nodo.name)
+		item.set_text(1, base_name + ("  ⚠ fuera del artboard" if fuera else ""))
+		item.set_checked(0, nodo.visible)
+		_aplicar_estilo_visibilidad(item, nodo.visible, tipo)
+		if fuera and nodo.visible:
+			item.set_custom_color(1, Color(0.95, 0.65, 0.15))
+	_repintar_canvas()
 
 
 # =============================================================================
@@ -231,8 +265,12 @@ func _on_node_removed(nodo: Node) -> void:
 		_schedule_update()
 
 func _schedule_update() -> void:
-	# Programar una actualización batch si no está ya programada
-	if _update_timer and not _update_timer.is_stopped():
+	# (Re)arranca el timer one-shot: cada cambio nuevo reinicia la ventana de
+	# 100 ms, así una ráfaga de N figuras se procesa en UN batch, no en N.
+	# BUG previo: "and not is_stopped()" -> con el timer parado (lo normal) no
+	# arrancaba nunca y los cambios incrementales no se procesaban; todo caía
+	# en sincronizar_arbol_completo() = O(N²) al añadir figuras una a una.
+	if _update_timer:
 		_update_timer.start()
 
 func _setup_update_timer() -> void:
@@ -248,34 +286,48 @@ func _process_pending_changes() -> void:
 		return
 	
 	_bloquear_sincronizacion = true
-	
-	# Procesar solo los cambios pendientes
+	var necesita_full := false
+
 	for change in _pending_changes:
 		var nodo = change["node"]
 		var action = change["action"]
-		
+		if not is_instance_valid(nodo):
+			continue
+
 		if action == "added":
-			# Encontrar el padre en el árbol
+			if _node_to_item_map.has(nodo):
+				continue  # ya está en el árbol
 			var parent_node = nodo.get_parent()
 			if parent_node and _node_to_item_map.has(parent_node):
-				var parent_item = _node_to_item_map[parent_node]
-				# Crear TreeItem para este nodo
-				_create_tree_item(parent_item, nodo, _encontrar_artboard_ancestro(nodo))
+				_create_tree_item(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
 			elif artboard_container and artboard_container == nodo.get_parent():
-				# Es un artboard directo
 				_create_tree_item(layer_tree.get_root(), nodo, nodo)
-			
+			else:
+				# Padre no mapeado (anidamiento profundo, orden raro): una
+				# reconstrucción completa — O(N) UNA vez, no O(N) por figura.
+				necesita_full = true
+
 		elif action == "removed":
-			# Eliminar el TreeItem correspondiente
 			if _node_to_item_map.has(nodo):
-				var item = _node_to_item_map[nodo]
-				if item and item.get_parent():
-					item.get_parent().remove_child(item)
-					_node_to_item_map.erase(nodo)
-	
+				var item: TreeItem = _node_to_item_map[nodo]
+				_node_to_item_map.erase(nodo)
+				if is_instance_valid(item):
+					# Si tenía subelementos, sus entradas del map quedan colgando
+					# apuntando a TreeItems que se van a liberar → una
+					# reconstrucción completa (O(N) una vez) las purga.
+					if item.get_child_count() > 0:
+						necesita_full = true
+					var padre := item.get_parent()
+					if padre:
+						padre.remove_child(item)
+
 	_pending_changes.clear()
 	_bloquear_sincronizacion = false
-	_repintar_canvas()
+
+	if necesita_full:
+		sincronizar_arbol_completo.call_deferred()
+	else:
+		_repintar_canvas()
 
 
 # =============================================================================
@@ -286,34 +338,38 @@ func _process_pending_changes() -> void:
 ## al que pertenece nodo — usado por la ruta de alta incremental (drag&drop
 ## nuevo desde otra herramienta) para saber contra qué artboard comprobar
 ## "fuera de límites".
+## Artboard al que pertenece `nodo` por jerarquía. null si es una figura
+## SUELTA (hija directa del contenedor, fuera de todo artboard) o no cuelga
+## de ningún artboard. Antes devolvía la propia figura suelta como si fuera
+## un artboard → el aviso "fuera del artboard" no funcionaba con figuras sueltas.
 func _encontrar_artboard_ancestro(nodo: Node) -> Node2D:
 	var actual: Node = nodo
 	while actual:
-		if is_instance_valid(artboard_container) and actual.get_parent() == artboard_container:
-			return actual as Node2D
+		if actual is ArtboardEditor:
+			return actual
 		actual = actual.get_parent()
 	return null
 
 func _vincular_senales_artboard(artboard: Node2D) -> void:
-	# Conecta las señales del Artboard para que el árbol se entere si creas un rectángulo dentro de él
+	# Conecta las señales del Artboard para enterarse de figuras nuevas/borradas
+	# DENTRO de él. Va por la ruta incremental (_on_node_added/_removed → batch
+	# de 100 ms), no por sincronizar_arbol_completo(): el batch ya difiere lo
+	# suficiente para que la posición final de la figura esté asignada cuando
+	# se evalúa el indicador "fuera del artboard".
 	if not artboard in _artboards_conectados:
 		_artboards_conectados.append(artboard)
-		if not artboard.child_entered_tree.is_connected(_on_canvas_structure_changed):
-			artboard.child_entered_tree.connect(_on_canvas_structure_changed)
-		if not artboard.child_exiting_tree.is_connected(_on_canvas_structure_changed):
-			artboard.child_exiting_tree.connect(_on_canvas_structure_changed)
+		if not artboard.child_entered_tree.is_connected(_on_node_added):
+			artboard.child_entered_tree.connect(_on_node_added)
+		if not artboard.child_exiting_tree.is_connected(_on_node_removed):
+			artboard.child_exiting_tree.connect(_on_node_removed)
 
 
-func _on_canvas_structure_changed(_nodo: Node) -> void:
-	# Diferido a propósito: este handler llega SÍNCRONAMENTE desde
-	# child_entered_tree, es decir, en mitad de add_child() — antes de que el
-	# código que crea la figura llegue a asignarle su posición real (p.ej.
-	# TextTool._create_new_title_at() hace primero add_child() y RECIÉN
-	# DESPUÉS position = local_pos). Sincronizar aquí mismo evaluaba el
-	# indicador de "fuera del artboard" contra la posición (0,0) por defecto
-	# de todo Node2D recién creado, nunca la posición final. call_deferred()
-	# lo pospone al final del frame actual, cuando esa asignación ya ocurrió.
-	sincronizar_arbol_completo.call_deferred()
+## Compat: algo externo puede seguir llamando a este nombre. Rutea al batch.
+func _on_canvas_structure_changed(nodo: Node) -> void:
+	if nodo is Node2D:
+		var action := "added" if nodo.is_inside_tree() else "removed"
+		_pending_changes.append({"node": nodo, "action": action})
+		_schedule_update()
 
 func _aplicar_estilo_visibilidad(item: TreeItem, esta_visible: bool, tipo: String) -> void:
 	if not esta_visible:
@@ -333,3 +389,30 @@ func _repintar_canvas() -> void:
 		var raiz_canvas = artboard_container.get_parent()
 		if raiz_canvas and raiz_canvas.has_method("queue_redraw"):
 			raiz_canvas.queue_redraw()
+	_actualizar_contador()
+
+
+## Cuenta los Node2D dibujables dentro de cada artboard (sin contar el propio
+## artboard ni los auxiliares de las herramientas) y lo escribe en el label.
+func _actualizar_contador() -> void:
+	if not is_instance_valid(_contador_label) or not is_instance_valid(artboard_container):
+		return
+	var total := 0
+	var artboards := 0
+	for ab in artboard_container.get_children():
+		if ab is Node2D:
+			artboards += 1
+			total += _contar_descendientes(ab)
+	if artboards <= 1:
+		_contador_label.text = "%d capas" % total
+	else:
+		_contador_label.text = "%d capas · %d artboards" % [total, artboards]
+
+
+func _contar_descendientes(nodo: Node) -> int:
+	var n := 0
+	for hijo in nodo.get_children():
+		if hijo is Node2D and hijo.name != "Contorno_Stroke":
+			n += 1
+			n += _contar_descendientes(hijo)
+	return n

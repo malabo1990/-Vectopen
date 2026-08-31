@@ -373,10 +373,14 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		return
 
 	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		if GlobalUI and GlobalUI.is_mouse_over_ui:
+			return
 		var f: float = 1.0 + (zoom_speed * (2.0 if (is_ctrl_pressed or is_cmd_pressed) else 1.0))
 		zoom_at_point(f, get_global_mouse_position())
 		get_viewport().set_input_as_handled()
 	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		if GlobalUI and GlobalUI.is_mouse_over_ui:
+			return
 		var f: float = 1.0 - (zoom_speed * (2.0 if (is_ctrl_pressed or is_cmd_pressed) else 1.0))
 		zoom_at_point(f, get_global_mouse_position())
 		get_viewport().set_input_as_handled()
@@ -651,8 +655,9 @@ func zoom_at_point(factor: float, world_point: Vector2) -> void:
 	var region = Rect2(camera.position - (viewport_size / (2 * old_zoom)), 
 					  viewport_size / old_zoom)
 	
+	# Zoom centrado en el puntero: el punto del mundo bajo el cursor permanece fijo
 	camera.zoom = Vector2(new_zoom, new_zoom)
-	camera.position += (world_point - camera.position) * (1.0 - new_zoom / old_zoom)
+	camera.position = world_point + (camera.position - world_point) * (old_zoom / new_zoom)
 	
 	zoom_percentage = new_zoom * 100.0
 	mark_region_dirty(region)

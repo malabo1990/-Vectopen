@@ -466,6 +466,11 @@ text = "--"
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 
+[node name="Numer layer" type="Label" parent="PanelContainer/MarginContainer/HBoxContainer/VBoxContainer" unique_id=906150530]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "aasdfas"
+
 [node name="Control" type="Control" parent="PanelContainer" unique_id=882342091]
 layout_mode = 2
 size_flags_horizontal = 0

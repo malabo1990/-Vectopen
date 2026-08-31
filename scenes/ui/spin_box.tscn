@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="2_2bj0v"]
 [ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="3_2bj0v"]
 [ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://script_gdscript/utils/Numeros_calculadora.gd" id="4_pvfsk"]
-[ext_resource type="Script" path="res://script_gdscript/ui/spin_box_value.gd" id="5_valuegd"]
+[ext_resource type="Script" uid="uid://b62s0ldsiych4" path="res://script_gdscript/ui/spin_box_value.gd" id="5_valuegd"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cdl00"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -50,6 +50,8 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
+[sub_resource type="Theme" id="Theme_local"]
+
 [node name="Control" type="Control" unique_id=921905472]
 custom_minimum_size = Vector2(176, 32)
 layout_mode = 3
@@ -60,6 +62,7 @@ offset_right = -1744.0
 offset_bottom = -1048.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = SubResource("Theme_local")
 script = ExtResource("5_valuegd")
 
 [node name="BoxContainer" type="BoxContainer" parent="." unique_id=789905986]
@@ -88,7 +91,7 @@ custom_minimum_size = Vector2(70, 24)
 layout_mode = 2
 size_flags_vertical = 1
 theme_override_styles/fill = SubResource("StyleBoxFlat_3le74")
-value = 40.0
+value = 20.0
 
 [node name="LineEdit" type="LineEdit" parent="BoxContainer/ProgressBar" unique_id=1514885742]
 visible = false
@@ -128,7 +131,7 @@ theme_override_styles/focus = SubResource("StyleBoxFlat_pjdv8")
 icon = ExtResource("2_2bj0v")
 expand_icon = true
 
-[node name="PanelContainer" type="PanelContainer" parent="BoxContainer/Button4" unique_id=1885945686]
+[node name="PanelContainer" type="PanelContainer" parent="BoxContainer/Button4" unique_id=1885945686 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
 visible = false
 light_mask = 4
 z_index = 3
@@ -139,8 +142,8 @@ offset_right = -26.0
 offset_bottom = -9.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_wpeii")
 script = ExtResource("3_2bj0v")
-target_node_path = NodePath(".")
-button_toggle_path = NodePath("..")
+nodo_disparador = NodePath("..")
+target_nodo = NodePath(".")
 
 [node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Button4/PanelContainer" unique_id=1209517959]
 layout_mode = 2

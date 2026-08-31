@@ -17,7 +17,8 @@ func _draw() -> void:
 		var stroke_verts := PackedVector2Array(vertices)
 		if closed:
 			stroke_verts.append(vertices[0])
-		draw_polyline(stroke_verts, stroke_color, stroke_width, true)
+		# sin antialias por-primitiva (rompe el batching); el MSAA 2D lo cubre
+		draw_polyline(stroke_verts, stroke_color, stroke_width, false)
 
 func set_vertices_from_center(center: Vector2, points: PackedVector2Array) -> void:
 	set_doc_position(DVec2.from_v2(center))

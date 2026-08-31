@@ -116,6 +116,7 @@ func _finalize_star() -> void:
 	var final_rotation: float = geom["rotation"]
 
 	if final_radius > 3.0:
+		_retarget_artboard_at(final_center_global)
 		var local_center: Vector2 = artboard.to_local(final_center_global)
 		_spawn_shape(local_center, final_radius, final_rotation)
 	else:

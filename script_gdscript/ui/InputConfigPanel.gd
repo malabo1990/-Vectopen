@@ -1,13 +1,15 @@
+@tool
 extends PanelContainer
 
 @export var action_container: VBoxContainer
 @export var filter_line_edit: LineEdit
 
-var _rebind_action: String = ""
-var _action_rows: Dictionary = {}
+var _capture_action: String = ""
+var _capture_index: int = -1
+var _capture_label: Label
+var _current_filter: String = ""
 
 const CONFIG_PATH := "user://vectopen_inputmap.cfg"
-const EXCLUDED_PREFIXES := ["ui_", "spatial_editor/"]
 
 func _ready() -> void:
 	if filter_line_edit:
@@ -35,9 +37,11 @@ func _get_action_events_text(action: String) -> String:
 func _build_action_list(filter: String = "") -> void:
 	if not action_container:
 		return
+	_current_filter = filter
 	for c in action_container.get_children():
 		c.queue_free()
-	_action_rows.clear()
+	if _capture_label:
+		_capture_label = null
 
 	var actions := _get_relevant_actions()
 	actions.sort()
@@ -47,94 +51,157 @@ func _build_action_list(filter: String = "") -> void:
 			continue
 
 		var display := _action_display_name(action)
-		var current := _get_action_events_text(action)
-
 		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 28)
+		row.custom_minimum_size = Vector2(0, 32)
+		row.add_theme_constant_override("separation", 8)
 		action_container.add_child(row)
 
 		var label := Label.new()
 		label.text = display
 		label.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
 		label.mouse_filter = MOUSE_FILTER_STOP
+		label.theme_type_variation = "BindRowLabel"
 		row.add_child(label)
 
-		var bind_btn := Button.new()
-		bind_btn.text = current
-		bind_btn.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
-		bind_btn.toggle_mode = true
-		bind_btn.toggled.connect(_on_bind_toggled.bind(action, bind_btn))
-		row.add_child(bind_btn)
+		var binds := HBoxContainer.new()
+		binds.add_theme_constant_override("separation", 4)
+		var events: Array = []
+		if InputMap.has_action(action):
+			events = InputMap.action_get_events(action)
+		for i in events.size():
+			binds.add_child(_make_bind_chip(action, i, events[i] as InputEvent))
+		var add_btn := Button.new()
+		add_btn.text = "+"
+		add_btn.custom_minimum_size = Vector2(22, 24)
+		add_btn.tooltip_text = tr("Add binding")
+		add_btn.theme_type_variation = "BindChip"
+		add_btn.pressed.connect(_start_capture.bind(action, -1))
+		binds.add_child(add_btn)
+		row.add_child(binds)
 
 		var reset_btn := Button.new()
-		reset_btn.text = "R"
-		reset_btn.custom_minimum_size = Vector2(24, 24)
-		reset_btn.pressed.connect(_on_reset_action.bind(action, bind_btn))
+		reset_btn.text = tr("Reset")
+		reset_btn.theme_type_variation = "ResetLink"
+		reset_btn.pressed.connect(_reset_action.bind(action))
 		row.add_child(reset_btn)
 
-		_action_rows[action] = bind_btn
+func _make_bind_chip(action: String, index: int, event: InputEvent) -> HBoxContainer:
+	var vi := get_node_or_null("/root/VectopenInput")
+	var text := "..."
+	if vi:
+		text = vi.event_text(event)
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var chip := Button.new()
+	chip.text = text
+	chip.custom_minimum_size = Vector2(0, 24)
+	chip.theme_type_variation = "BindChip"
+	chip.pressed.connect(_start_capture.bind(action, index))
+	box.add_child(chip)
+	var x_btn := Button.new()
+	x_btn.text = "×"
+	x_btn.custom_minimum_size = Vector2(18, 24)
+	x_btn.tooltip_text = tr("Remove binding")
+	x_btn.theme_type_variation = "BindChip"
+	x_btn.pressed.connect(_remove_bind.bind(action, index))
+	box.add_child(x_btn)
+	return box
 
-func _on_bind_toggled(toggled: bool, action: String, btn: Button) -> void:
-	if not toggled:
-		_rebind_action = ""
-		btn.text = _get_action_events_text(action)
-		return
-	_rebind_action = action
-	btn.text = "Press a key..."
+# ============================================================================
+#                        CAPTURA DE INPUT (escuchando)
+# ============================================================================
+
+func _start_capture(action: String, index: int) -> void:
+	if not _capture_action.is_empty():
+		_cancel_capture()
+	_capture_action = action
+	_capture_index = index
+	if not _capture_label:
+		_capture_label = Label.new()
+		_capture_label.theme_type_variation = "CaptureHint"
+		_capture_label.custom_minimum_size = Vector2(0, 22)
+		action_container.add_child(_capture_label)
+		action_container.move_child(_capture_label, 0)
+	_capture_label.text = tr("Listening for input... (Esc cancela)")
+	_capture_label.visible = true
+
+func _cancel_capture() -> void:
+	_capture_action = ""
+	_capture_index = -1
+	if _capture_label:
+		_capture_label.visible = false
 
 func _input(event: InputEvent) -> void:
-	if _rebind_action.is_empty():
+	if Engine.is_editor_hint():
 		return
-	if event is InputEventKey and event.pressed:
-		var new_event := InputEventKey.new()
-		new_event.keycode = event.keycode
-		new_event.ctrl_pressed = event.ctrl_pressed
-		new_event.shift_pressed = event.shift_pressed
-		new_event.alt_pressed = event.alt_pressed
-		new_event.meta_pressed = event.meta_pressed
-
-		InputMap.action_erase_events(_rebind_action)
-		InputMap.action_add_event(_rebind_action, new_event)
-
-		_save_rebinding(_rebind_action, new_event)
-
-		if _action_rows.has(_rebind_action):
-			var btn = _action_rows[_rebind_action]
-			btn.button_pressed = false
-			btn.text = _get_action_events_text(_rebind_action)
-
-		_rebind_action = ""
+	if _capture_action.is_empty():
+		return
+	if event is InputEventKey:
+		if event.pressed and not event.echo:
+			if event.keycode == KEY_ESCAPE:
+				_cancel_capture()
+				_build_action_list(_current_filter)
+				get_viewport().set_input_as_handled()
+				return
+			_apply_bind(_capture_action, _capture_index, _get_vi().event_to_dict(event))
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed:
+		_apply_bind(_capture_action, _capture_index, _get_vi().event_to_dict(event))
 		get_viewport().set_input_as_handled()
 
-func _on_reset_action(action: String, btn: Button) -> void:
+func _get_vi() -> Node:
+	return get_node_or_null("/root/VectopenInput")
+
+func _apply_bind(action: String, index: int, bind_dict: Dictionary) -> void:
+	if not InputMap.has_action(action):
+		return
+	var events := InputMap.action_get_events(action)
+	var new_event: InputEvent = _get_vi().dict_to_event(bind_dict)
+	if index >= 0 and index < events.size():
+		events[index] = new_event
+	else:
+		events.append(new_event)
 	InputMap.action_erase_events(action)
-	if _action_rows.has(action):
-		btn.text = _get_action_events_text(action)
-	_remove_saved_rebinding(action)
+	for e in events:
+		InputMap.action_add_event(action, e)
+	_save_rebinding(action, events)
+	_cancel_capture()
+	_build_action_list(_current_filter)
+
+func _remove_bind(action: String, index: int) -> void:
+	if not InputMap.has_action(action):
+		return
+	var events := InputMap.action_get_events(action)
+	if index >= 0 and index < events.size():
+		events.remove_at(index)
+		InputMap.action_erase_events(action)
+		for e in events:
+			InputMap.action_add_event(action, e)
+		_save_rebinding(action, events)
+		_build_action_list(_current_filter)
+
+func _reset_action(action: String) -> void:
+	if not InputMap.has_action(action):
+		return
+	var vi := _get_vi()
+	InputMap.action_erase_events(action)
+	for entry in vi.get_default_binds(action):
+		InputMap.action_add_event(action, vi.dict_to_event(entry))
+	_save_rebinding(action, InputMap.action_get_events(action))
+	_build_action_list(_current_filter)
+
+func _save_rebinding(action: String, events: Array) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(CONFIG_PATH)
+	var dicts: Array = []
+	for e in events:
+		dicts.append(_get_vi().event_to_dict(e))
+	cfg.set_value("rebinds", action, dicts)
+	cfg.save(CONFIG_PATH)
 
 func _on_filter_changed(new_text: String) -> void:
 	_build_action_list(new_text)
 
-func _save_rebinding(action: String, event: InputEventKey) -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(CONFIG_PATH)
-	var existing = cfg.get_value("rebinds", action, [])
-	existing.append({
-		"keycode": event.keycode,
-		"ctrl": event.ctrl_pressed,
-		"shift": event.shift_pressed,
-		"alt": event.alt_pressed,
-		"meta": event.meta_pressed,
-	})
-	cfg.set_value("rebinds", action, existing)
-	cfg.save(CONFIG_PATH)
-
-func _remove_saved_rebinding(action: String) -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(CONFIG_PATH) == OK:
-		cfg.set_value("rebinds", action, [])
-		cfg.save(CONFIG_PATH)
-
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_VISIBILITY_CHANGED and is_visible_in_tree():
-		_build_action_list()
+		_build_action_list(_current_filter)

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cj2t85bu50p22"]
+
+[ext_resource type="Script" path="res://test/perf/stress_bezier.gd" id="1_bez"]
+
+[node name="StressBezier" type="Node"]
+script = ExtResource("1_bez")

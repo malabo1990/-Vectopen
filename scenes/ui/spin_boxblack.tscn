@@ -5,6 +5,9 @@
 [ext_resource type="Texture2D" uid="uid://clttdgciab8j7" path="res://icon/UI/btn_calcular.svg" id="3_gob3m"]
 [ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="4_ggyju"]
 [ext_resource type="Script" uid="uid://plxocjbj2hnh" path="res://script_gdscript/utils/Numeros_calculadora.gd" id="5_xoyel"]
+[ext_resource type="Script" uid="uid://b62s0ldsiych4" path="res://script_gdscript/ui/spin_box_value.gd" id="6_val"]
+
+[sub_resource type="Theme" id="Theme_local"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_f5lw3"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -50,12 +53,15 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
 [node name="Control" type="Control" unique_id=1888442830]
+custom_minimum_size = Vector2(180, 0)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = SubResource("Theme_local")
+script = ExtResource("6_val")
 
 [node name="BoxContainer" type="BoxContainer" parent="." unique_id=1109138249]
 custom_minimum_size = Vector2(0, 24)
@@ -134,8 +140,6 @@ offset_right = -26.0
 offset_bottom = -9.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_dxsvy")
 script = ExtResource("4_ggyju")
-target_node_path = NodePath(".")
-button_toggle_path = NodePath("..")
 
 [node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Button4/PanelContainer" unique_id=1435496843]
 layout_mode = 2

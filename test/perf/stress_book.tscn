@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://csn31u48gvyje"]
+
+[ext_resource type="Script" path="res://test/perf/stress_book.gd" id="1_book"]
+
+[node name="StressBook" type="Node"]
+script = ExtResource("1_book")

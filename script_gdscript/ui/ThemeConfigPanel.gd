@@ -4,7 +4,7 @@ extends PanelContainer
 var _fill_picker: ColorPickerButton
 var _stroke_picker: ColorPickerButton
 var _text_picker: ColorPickerButton
-var _text_size_spin: SpinBox
+var _text_size_spin: Node
 var _lang_option: OptionButton
 var _ui_colors: VBoxContainer
 
@@ -27,12 +27,12 @@ func _load_draw_prefs() -> void:
 	if _text_size_spin: _text_size_spin.value = dp.text_size
 
 func _find_nodes() -> void:
-	_fill_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowFill/PickFill")
-	_stroke_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowStroke/PickStroke")
-	_text_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextColor/PickTextColor")
-	_text_size_spin = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowTextSize/SpinTextSize")
-	_lang_option = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/RowLang/OptLang")
-	_ui_colors = _get_node("MarginContainer/VBoxContainer/ScrollContainer/SlotContainer/UIColors")
+	_fill_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowFill/PickFill")
+	_stroke_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowStroke/PickStroke")
+	_text_picker = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowTextColor/PickTextColor")
+	_text_size_spin = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowTextSize/SpinTextSize")
+	_lang_option = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowLang/OptLang")
+	_ui_colors = _get_node("MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/UIColors")
 
 func _get_node(node_path: String):
 	var n = get_node_or_null(node_path)
@@ -73,6 +73,7 @@ func _populate_ui_colors() -> void:
 		var picker := ColorPickerButton.new()
 		picker.color = color
 		picker.custom_minimum_size = Vector2(18, 18)
+		picker.theme_type_variation = "FlatButton"
 		picker.color_changed.connect(func(c): tm.set_custom_color(slot, c))
 		row.add_child(picker)
 

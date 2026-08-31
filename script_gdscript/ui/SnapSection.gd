@@ -1,7 +1,7 @@
 extends BoxContainer
 
 @export var grid_check: CheckButton
-@export var grid_size_spin: SpinBox
+@export var grid_size_spin: Node
 
 func _ready() -> void:
 	var sm: Node = get_node_or_null("/root/SnapManager")

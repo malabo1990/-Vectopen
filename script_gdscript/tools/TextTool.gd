@@ -78,6 +78,9 @@ func handle_input(event: InputEvent) -> bool:
 			if not (Input.is_key_pressed(KEY_META) or Input.is_key_pressed(KEY_CTRL)):
 				var hit: Node2D = _shape_at(gm)
 				if not hit:
+					var t := _artboard_for_point(gm)
+					if is_instance_valid(t):
+						target_artboard = t
 					_create_new_title_at(target_artboard.to_local(gm))
 					return true
 		
@@ -105,7 +108,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 		is_editing = true
 		current_editing_shape = hit
 		
-		var display_label: Label = hit.get_node_or_null("DisplayLabel")
+		var display_label: Control = hit.get_node_or_null("DisplayLabel")
 		var title_edit: TextEdit = hit.get_node_or_null("TitleEdit")
 		
 		if display_label: display_label.visible = false
@@ -125,7 +128,7 @@ func _finish_editing_and_save() -> void:
 		_reset_state()
 		return
 		
-	var display_label: Label = current_editing_shape.get_node_or_null("DisplayLabel")
+	var display_label: Control = current_editing_shape.get_node_or_null("DisplayLabel")
 	var title_edit: TextEdit = current_editing_shape.get_node_or_null("TitleEdit")
 	
 	if title_edit:
@@ -152,8 +155,9 @@ func _create_new_title_at(local_pos: Vector2) -> void:
 	new_title.set_meta("text", "Título Corporativo")
 	new_title.set_meta("font_size", 24)
 	
-	var label = Label.new()
+	var label := WorldTextLabel.new()
 	label.name = "DisplayLabel"
+	label.base_font_size = 24
 	label.text = new_title.get_meta("text")
 	label.add_theme_color_override("font_color", Color.BLACK)
 	label.add_theme_font_size_override("font_size", 24)
@@ -193,19 +197,24 @@ func _process_cmd_scaling(current_mouse_y: float) -> void:
 	var font_size_delta = int(delta_y * SCALING_SENSITIVITY)
 	var new_font_size = clamp(scaling_start_font_size + font_size_delta, MIN_FONT_SIZE, MAX_FONT_SIZE)
 	
-	var display_label: Label = scaling_shape.get_node_or_null("DisplayLabel")
+	var display_label: Control = scaling_shape.get_node_or_null("DisplayLabel")
 	var title_edit: TextEdit = scaling_shape.get_node_or_null("TitleEdit")
 	
-	if display_label and display_label.get_theme_font_size("font_size") != new_font_size:
-		display_label.add_theme_font_size_override("font_size", new_font_size)
-		if title_edit: title_edit.add_theme_font_size_override("font_size", new_font_size)
-		_update_shape_meta_size(scaling_shape)
+	if display_label:
+		var font_changed: bool = display_label.world_font_size != new_font_size if display_label is WorldTextLabel else display_label.get_theme_font_size("font_size") != new_font_size
+		if font_changed:
+			if display_label is WorldTextLabel:
+				display_label.world_font_size = new_font_size
+			else:
+				display_label.add_theme_font_size_override("font_size", new_font_size)
+			if title_edit: title_edit.add_theme_font_size_override("font_size", new_font_size)
+			_update_shape_meta_size(scaling_shape)
 
 func _confirm_cmd_scaling() -> void:
 	if is_instance_valid(scaling_shape):
-		var display_label: Label = scaling_shape.get_node_or_null("DisplayLabel")
+		var display_label: Control = scaling_shape.get_node_or_null("DisplayLabel")
 		if display_label:
-			var final_fs = display_label.get_theme_font_size("font_size")
+			var final_fs = display_label.world_font_size if display_label is WorldTextLabel else display_label.get_theme_font_size("font_size")
 			scaling_shape.set_meta("font_size", final_fs)
 			_update_shape_meta_size(scaling_shape)
 	_reset_scaling_state()
@@ -218,18 +227,23 @@ func _reset_scaling_state() -> void:
 # ── Utilidades de Cálculo Inmediato ───────────────────────────────────────────
 
 func _update_shape_meta_size(shape: Node2D) -> void:
-	var display_label: Label = shape.get_node_or_null("DisplayLabel")
+	var display_label: Control = shape.get_node_or_null("DisplayLabel")
 	var title_edit: TextEdit = shape.get_node_or_null("TitleEdit")
 	
 	if display_label:
-		# get_combined_minimum_size() devuelve el tamaño requerido de forma síncrona inmediata
-		var real_size = display_label.get_combined_minimum_size()
+		# get_combined_minimum_size() devuelve el tamaño requerido de forma síncrona inmediata.
+		# Si es un WorldTextLabel, el re-rasterizado de zoom infla el mínimo local:
+		# pedimos el mínimo EN UNIDADES DE MUNDO (el de diseño).
+		var real_size: Vector2 = display_label.get_world_minimum_size() if display_label is WorldTextLabel else display_label.get_combined_minimum_size()
 		var safe_size = Vector2(max(real_size.x, 200.0), max(real_size.y, 40.0))
 		
 		shape.set_meta("width", safe_size.x)
 		shape.set_meta("height", safe_size.y)
 		
-		display_label.size = safe_size
+		if display_label is WorldTextLabel:
+			display_label.set_world_size(safe_size)
+		else:
+			display_label.size = safe_size
 		if title_edit: title_edit.size = safe_size
 
 func _get_current_shape_size(shape: Node2D) -> Vector2:
@@ -266,6 +280,12 @@ func _reset_state() -> void:
 	current_editing_shape = null
 
 func _refresh_artboard() -> void:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr:
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			target_artboard = act
+			return
 	var container = canvas.get_node_or_null("ArtboardsContainer")
 	if container and container.get_child_count() > 0:
 		target_artboard = container.get_child(0)

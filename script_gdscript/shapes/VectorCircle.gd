@@ -6,18 +6,32 @@ class_name VectorCircle
 
 const CIRCLE_QUALITY: int = 128
 
+## Caché de vértices: _generate_vertices() hace 128 cos/sin; regenerarlo en cada
+## _draw (y encima 2 veces) es puro desperdicio cuando el tamaño no cambia.
+var _verts_cache: PackedVector2Array = PackedVector2Array()
+var _verts_cache_size: Vector2 = Vector2(-1, -1)
+
 func _init() -> void:
 	_register_doc_extent("size")
 
 func _draw() -> void:
+	if fill_color.a <= 0 and stroke_width <= 0:
+		return
+	var verts := _cached_vertices()
 	if fill_color.a > 0:
-		var verts = _generate_vertices()
 		draw_colored_polygon(verts, fill_color)
-
 	if stroke_width > 0:
-		var verts = _generate_vertices()
-		verts.append(verts[0])
-		draw_polyline(verts, stroke_color, stroke_width, true)
+		var ring := PackedVector2Array(verts)
+		ring.append(verts[0])
+		# SIN antialias por-primitiva: rompe el batching (cada polyline AA = su
+		# propia draw call). El MSAA 2D del viewport suaviza el borde igual.
+		draw_polyline(ring, stroke_color, stroke_width, false)
+
+func _cached_vertices() -> PackedVector2Array:
+	if _verts_cache.is_empty() or _verts_cache_size != size:
+		_verts_cache = _generate_vertices()
+		_verts_cache_size = size
+	return _verts_cache
 
 ## Vértices centrados en el origen local (-size/2 .. +size/2), igual que
 ## VectorRectangle. "position" es el CENTRO de la figura en ambas clases —

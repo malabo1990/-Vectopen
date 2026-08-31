@@ -95,10 +95,11 @@ func handle_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			var manager = canvas.find_child("ArtboardManager", true, false)
-			if manager and "active_artboard" in manager and is_instance_valid(manager.active_artboard):
-				target_artboard = manager.active_artboard
-			elif canvas.artboards_container and canvas.artboards_container.get_child_count() > 0:
+			# El trazo va al artboard bajo el punto de inicio; si cae fuera de
+			# todos, al activo.
+			var start_gm: Vector2 = canvas.get_global_mouse_position()
+			target_artboard = _artboard_for_point(start_gm)
+			if not is_instance_valid(target_artboard) and canvas.artboards_container and canvas.artboards_container.get_child_count() > 0:
 				target_artboard = canvas.artboards_container.get_child(0)
 
 			if not is_instance_valid(target_artboard):
@@ -115,7 +116,10 @@ func handle_input(event: InputEvent) -> bool:
 			current_line = Line2D.new()
 			current_line.width = BRUSH_STROKE_WIDTH
 			current_line.default_color = BRUSH_STROKE_COLOR
-			current_line.antialiased = true
+			# antialiased=true en Line2D desactiva el batching y añade geometría
+			# extra por segmento: con cientos de trazos hunde el pan. El MSAA 2D
+			# del viewport suaviza el borde igual.
+			current_line.antialiased = false
 			current_line.joint_mode = Line2D.LINE_JOINT_ROUND
 			current_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 			current_line.end_cap_mode = Line2D.LINE_CAP_ROUND

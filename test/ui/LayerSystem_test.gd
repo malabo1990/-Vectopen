@@ -45,3 +45,50 @@ func test_esta_fuera_del_artboard_checks_point_against_artboard_rect() -> void:
 
 	# El propio artboard nunca debe marcarse como "fuera de sí mismo".
 	assert_bool(system._esta_fuera_del_artboard(artboard, artboard)).is_false()
+
+
+## REGRESIÓN O(N²): añadir figuras a un artboard debe ir por la ruta
+## INCREMENTAL (un batch de 100 ms), no disparar sincronizar_arbol_completo()
+## por cada figura. Antes _schedule_update() nunca arrancaba el timer (bug
+## "and not is_stopped()") y todo caía en el rebuild completo O(N) por figura.
+func test_alta_de_figuras_es_incremental_no_rebuild_por_figura() -> void:
+	var contenedor: Node2D = auto_free(Node2D.new())
+	add_child(contenedor)
+	var artboard: _FakeArtboard = auto_free(_FakeArtboard.new())
+	artboard.name = "Artboard"
+	contenedor.add_child(artboard)
+
+	var system: LayerSystem = _make_system(auto_free(Tree.new()), contenedor)
+	await get_tree().process_frame
+
+	var rebuilds := [0]
+	# contamos las reconstrucciones completas
+	var _orig_pending := system._pending_changes.size()
+
+	# añadir 8 figuras seguidas dentro del artboard
+	for i in 8:
+		var s: Node2D = auto_free(Node2D.new())
+		s.name = "Fig_%d" % i
+		s.position = Vector2(100 + i, 100 + i)
+		artboard.add_child(s)
+
+	# aún NO se ha procesado nada (batch diferido) — la clave del arreglo:
+	# NO se dispara sincronizar_arbol_completo() por cada figura.
+	assert_int(system._pending_changes.size()).is_greater(0)
+
+	# tras la ventana de batch, un único proceso incremental
+	await get_tree().create_timer(0.15).timeout
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_int(system._pending_changes.size()).is_equal(0)
+	# el artboard + las 8 figuras están mapeadas
+	assert_int(system._node_to_item_map.size()).is_greater_equal(9)
+
+	# borrar una figura hoja -> se quita su item, sin rebuild
+	var victima := artboard.get_node("Fig_3")
+	artboard.remove_child(victima)
+	await get_tree().create_timer(0.15).timeout
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_bool(system._node_to_item_map.has(victima)).is_false()
+	victima.free()

@@ -23,11 +23,11 @@ func save_as() -> void:
 	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.title = "Guardar proyecto"
-	fd.add_filter("*.vectopen", "Vectopen Project")
+	fd.add_filter("*.vtc", "Vectopen Project")
 	fd.add_filter("*.json", "JSON Backup")
 	fd.file_selected.connect(_on_save_as_selected)
-	fd.popup_centered(Vector2i(800, 600))
 	add_child(fd)
+	fd.popup_centered(Vector2i(800, 600))
 
 func _on_save_as_selected(path: String) -> void:
 	current_path = path
@@ -54,10 +54,10 @@ func open(path: String) -> void:
 	project_loaded.emit(path)
 	RecentFilesManager.add_file(path)
 
-func new_project(name: String = "Sin título") -> void:
+func new_project(project_name: String = "Sin título") -> void:
 	if not DataRepository:
 		return
-	DataRepository.new_project(name)
+	DataRepository.new_project(project_name)
 	current_path = ""
 	is_modified = false
 	save_state_changed.emit(false)

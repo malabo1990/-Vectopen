@@ -108,6 +108,12 @@ func _finalize_rectangle() -> void:
 	var final_top_left_global: Vector2 = geom["top_left"]
 
 	if final_size.x > 3.0 and final_size.y > 3.0:
+		# El rectángulo va al artboard que contiene su CENTRO (multi-artboard);
+		# si cae fuera de todos, al activo.
+		var center_global := final_top_left_global + final_size / 2.0
+		var target := _artboard_for_point(center_global)
+		if is_instance_valid(target):
+			artboard = target
 		var local_pos: Vector2 = artboard.to_local(final_top_left_global)
 		_spawn_shape(local_pos, final_size)
 	else:

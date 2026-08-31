@@ -68,11 +68,20 @@ var cache_enabled: bool = true
 var default_pdf_page_size: Vector2 = Vector2(612, 792)
 var default_png_scale: float = 2.0
 
+# Formato y configuración seleccionados en el panel (FormatConfigPanel)
+var current_format: String = "SVG"
+var current_export_config: Dictionary = {}
+
 func _ready() -> void:
 	_get_and_connect_button("HBoxContainer/QuickActionMenu/ButtonsVBox/BtnArchivos", _on_btn_archivos_pressed)
 	_get_and_connect_button("HBoxContainer/QuickActionMenu/ButtonsVBox/BtnRecuperar", _on_btn_recuperar_pressed)
 	_get_and_connect_button("HBoxContainer/QuickActionMenu/ButtonsVBox/BtnNuevo", _on_btn_nuevo_pressed)
 	_get_and_connect_button("HBoxContainer/QuickActionMenu/ButtonsVBox/BtnReciente", _on_btn_reciente_pressed)
+	var format_config := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel")
+	if format_config and format_config.has_signal("format_selected"):
+		format_config.format_selected.connect(_on_format_selected_changed)
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox/BtnSave", _on_btn_save_pressed)
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox/BtnSaveAs", _on_btn_save_as_pressed)
 
 func _get_and_connect_button(path: String, callback: Callable) -> void:
 	var btn: Button = get_node_or_null(path)
@@ -80,43 +89,39 @@ func _get_and_connect_button(path: String, callback: Callable) -> void:
 		btn.pressed.connect(callback)
 
 func _on_btn_archivos_pressed() -> void:
-	var fd: FileDialog = get_node_or_null("HBoxContainer/FileFlowLayout/FileDialog")
-	if fd:
-		fd.file_mode = FileDialog.FILE_MODE_OPEN_FILES
-		fd.access = FileDialog.ACCESS_FILESYSTEM
-		fd.add_filter("*.vectopen", "Vectopen Project")
-		fd.add_filter("*.svg", "SVG Image")
-		fd.add_filter("*.png", "PNG Image")
-		fd.add_filter("*.json", "JSON Backup")
-		fd.file_selected.connect(_on_open_file_selected)
-		fd.popup_centered(Vector2i(800, 600))
+	_set_file_view("files")
+
+func _on_btn_recuperar_pressed() -> void:
+	_set_file_view("recover")
+
+func _on_btn_reciente_pressed() -> void:
+	_set_file_view("recent")
+
+func _set_file_view(mode: String) -> void:
+	var ffl := get_node_or_null("HBoxContainer/FileFlowLayout")
+	if ffl and ffl.has_method("set_view"):
+		ffl.set_view(mode)
 
 func _on_open_file_selected(path: String) -> void:
 	if SaveManager:
 		SaveManager.open(path)
 	RecentFilesManager.add_file(path)
 
-func _on_btn_recuperar_pressed() -> void:
-	var fd: FileDialog = get_node_or_null("HBoxContainer/FileFlowLayout/FileDialog")
-	if fd:
-		fd.file_mode = FileDialog.FILE_MODE_OPEN_FILES
-		fd.access = FileDialog.ACCESS_FILESYSTEM
-		fd.add_filter("*.vectopen", "Vectopen Project")
-		fd.add_filter("*.json", "JSON Backup")
-		fd.file_selected.connect(_on_open_file_selected)
-		fd.popup_centered(Vector2i(800, 600))
-
 func _on_btn_nuevo_pressed() -> void:
 	if SaveManager:
 		SaveManager.new_project()
 
-func _on_btn_reciente_pressed() -> void:
-	var files = RecentFilesManager.get_files() if RecentFilesManager else []
-	if files.is_empty():
-		return
-	var path = files[0]["path"]
+func _on_btn_save_pressed() -> void:
 	if SaveManager:
-		SaveManager.open(path)
+		SaveManager.save()
+
+func _on_btn_save_as_pressed() -> void:
+	if SaveManager:
+		SaveManager.save_as()
+
+func _on_format_selected_changed(format: String, config: Dictionary) -> void:
+	current_format = format
+	current_export_config = config
 
 func export_artboard(artboard: Node, format: ExportFormat, path: String, settings: Dictionary = {}) -> void:
 	var format_name = ExportFormat.keys()[format]

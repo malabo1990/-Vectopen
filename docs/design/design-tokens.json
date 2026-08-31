@@ -1,0 +1,80 @@
+{
+  "$schema": "https://vectopen.dev/schemas/design-tokens.v1.json",
+  "name": "Vectopen Pro — Design Tokens",
+  "version": "2.0.0",
+  "themes": {
+    "dark": {
+      "name": "macOS Pro",
+      "color": {
+        "surface": {
+          "app_bg": "#121214",
+          "canvas": "#18181A",
+          "panel_bg": "rgba(26, 26, 30, 0.88)",
+          "widget_bg": "rgba(255, 255, 255, 0.05)",
+          "input_bg": "rgba(255, 255, 255, 0.08)",
+          "border": "rgba(255, 255, 255, 0.12)",
+          "toolbar_bg": "#18181C",
+          "ruler_bg": "#1E1E22"
+        },
+        "text": {
+          "primary": "#F5F5F7",
+          "secondary": "rgba(255, 255, 255, 0.55)",
+          "disabled": "rgba(255, 255, 255, 0.25)"
+        },
+        "semantic": {
+          "affirmative": "#30D158",
+          "affirmative_hover": "#28B84C",
+          "negative": "#FF453A",
+          "negative_hover": "#D7372D",
+          "accent": "#0A84FF"
+        },
+        "scrollbar": {
+          "bg": "rgba(255, 255, 255, 0.08)",
+          "grab": "rgba(255, 255, 255, 0.2)"
+        }
+      },
+      "geometry": {
+        "radius_panel": 12,
+        "radius_widget": 8,
+        "radius_button": 6
+      }
+    },
+    "light": {
+      "name": "Studio Light",
+      "color": {
+        "surface": {
+          "app_bg": "#EFEFF4",
+          "canvas": "#FFFFFF",
+          "panel_bg": "#F8F8FA",
+          "widget_bg": "#FFFFFF",
+          "input_bg": "#E5E5EA",
+          "border": "#D1D1D6",
+          "border_subtle": "#E5E5EA",
+          "toolbar_bg": "#F0F0F3",
+          "ruler_bg": "#E4E4E9"
+        },
+        "text": {
+          "primary": "#1C1C1E",
+          "secondary": "#6C6C70",
+          "disabled": "#8E8E93"
+        },
+        "semantic": {
+          "affirmative": "#34C759",
+          "affirmative_hover": "#28A745",
+          "negative": "#FF3B30",
+          "negative_hover": "#DC3545",
+          "accent": "#007AFF"
+        },
+        "scrollbar": {
+          "bg": "rgba(0, 0, 0, 0.05)",
+          "grab": "rgba(0, 0, 0, 0.22)"
+        }
+      },
+      "geometry": {
+        "radius_panel": 12,
+        "radius_widget": 8,
+        "radius_button": 6
+      }
+    }
+  }
+}

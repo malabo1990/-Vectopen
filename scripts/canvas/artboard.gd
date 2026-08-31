@@ -30,12 +30,181 @@ var _resize_edge: Vector2    = Vector2.ZERO
 var _drag_start_mouse: Vector2
 var _drag_start_pos: Vector2
 
+# ── STREAMING: dormir/despertar ──────────────────────────────────────────────
+# Un artboard DORMIDO no tiene sus figuras instanciadas: las guarda como datos
+# (formato de CanvasSerializer). Ahorra memoria y hace la carga O(páginas).
+# El ArtboardStreamer las despierta al acercarse el viewport.
+const _CS = preload("res://scripts/canvas/canvas_serializer.gd")
+## Figuras instanciadas por frame al despertar (amortiza el tirón: 100 figuras
+## de golpe = ~110 ms; a WAKE_BUDGET/frame se reparte en varios frames).
+const WAKE_BUDGET := 20
+var is_dormant: bool = false
+var _dormant: Array = []
+## Fuente perezosa a nivel de archivo: {"vtc": ruta, "off", "len", "rlen"}. El
+## contenido de la página no se lee del .vtc hasta que despierta.
+var _lazy_src: Dictionary = {}
+var _waking_queue: Array = []
+var _is_edited: bool = false   # tocado desde la última carga (ver streaming/undo)
+var _restoring: bool = false   # true mientras wake()/set_dormant reconstruye
+
 func _ready() -> void:
+	add_to_group("artboards")
 	_verificar_y_crear_titulo()
+	# Cualquier alta/baja de figura marca la página como editada (salvo durante
+	# wake/sleep). Sirve para no dormirla mientras su undo siga vivo.
+	child_entered_tree.connect(_on_content_changed)
+	child_exiting_tree.connect(_on_content_changed)
 	queue_redraw()
 
+func _on_content_changed(nodo: Node) -> void:
+	if _restoring or nodo.name == "ArtboardTitle":
+		return
+	_is_edited = true
+
+## Rect del artboard en coordenadas de mundo (sin escala ni rotación).
+func world_rect() -> Rect2:
+	return Rect2(global_position, artboard_size)
+
+# ── API de streaming ────────────────────────────────────────────────────────
+func dormant_content() -> Array:
+	if _dormant.is_empty() and not _lazy_src.is_empty():
+		_resolve_lazy()
+	return _dormant
+
+func has_pending_wake() -> bool:
+	return not _waking_queue.is_empty()
+
+func pending_wake_data() -> Array:
+	return _waking_queue
+
+## Marca el artboard como dormido con este contenido (usado al CARGAR).
+func set_dormant_content(elements: Array) -> void:
+	_dormant = elements
+	_lazy_src = {}
+	is_dormant = true
+
+## Marca el artboard como dormido con una fuente perezosa en el .vtc.
+## `loc` = {off, len, rlen}: posición del chunk en la región de datos del .vtc.
+func set_lazy_source(vtc_path: String, loc: Dictionary) -> void:
+	_lazy_src = {"vtc": vtc_path, "off": int(loc.get("off", 0)),
+		"len": int(loc.get("len", 0)), "rlen": int(loc.get("rlen", 0))}
+	_dormant = []
+	is_dormant = true
+
+## Fuente perezosa actual ({} si ya se resolvió o nunca la hubo). CanvasSerializer
+## la usa para copiar el chunk byte a byte al guardar si la página nunca despertó.
+func get_lazy_source() -> Dictionary:
+	return _lazy_src
+
+## Lee (una vez) el contenido de la fuente perezosa a `_dormant`. Un seek directo
+## en el .vtc (handle de lectura cacheado por documento) → O(1).
+func _resolve_lazy() -> void:
+	if _lazy_src.is_empty():
+		return
+	var raw := _CS.read_vtc_chunk_raw(_lazy_src.get("vtc", ""), _lazy_src.get("off", 0),
+		_lazy_src.get("len", 0), _lazy_src.get("rlen", 0))
+	if not raw.is_empty():
+		var parsed = JSON.parse_string(raw.get_string_from_utf8())
+		if parsed is Array:
+			_dormant = parsed
+	_lazy_src = {}
+
+func mark_edited() -> void:
+	_is_edited = true
+
+func is_edited() -> bool:
+	return _is_edited
+
+func clear_edited() -> void:
+	_is_edited = false
+
+## Serializa las figuras, las libera y pasa a dormido. No duerme si ya está
+## dormido, si está seleccionado, o si alguna figura suya está seleccionada
+## (evita liberar un nodo al que MoveTool tiene una referencia viva).
+func sleep() -> void:
+	if is_dormant or is_selected or _tiene_figura_seleccionada():
+		return
+	# Si esta página fue editada y todavía hay historial de undo, sus nodos
+	# están referenciados por callables de HistoryManager → no dormir (dejaría
+	# el undo sin efecto). Al cargar/limpiar historial, can_undo() pasa a false
+	# y la página puede dormir de nuevo.
+	if _is_edited:
+		var h := get_node_or_null("/root/HistoryManager")
+		if h and h.has_method("can_undo") and h.can_undo():
+			return
+	# Contenido = figuras instanciadas + las que aún estaban en cola de wake.
+	_dormant = _CS.serialize_elements(self)
+	if not _waking_queue.is_empty():
+		_dormant.append_array(_waking_queue)
+		_waking_queue = []
+		set_process(false)
+	# Detach inmediato + free diferido: el árbol queda limpio ya (sin choques
+	# de nombres al despertar) y la memoria se libera al final del frame.
+	for child in get_children():
+		if child.name == "ArtboardTitle" or child.name == "Contorno_Stroke":
+			continue
+		remove_child(child)
+		child.queue_free()
+	is_dormant = true
+	queue_redraw()
+
+func _tiene_figura_seleccionada() -> bool:
+	for child in get_children():
+		if child.get("is_selected") == true:
+			return true
+	return false
+
+## Reinstancia las figuras guardadas (repartido en varios frames) y pasa a
+## despierto. `immediate = true` las crea todas de golpe (guardado, tests).
+func wake(immediate: bool = false) -> void:
+	if not is_dormant:
+		return
+	if _dormant.is_empty() and not _lazy_src.is_empty():
+		_resolve_lazy()   # leer el chunk del .vtc
+	is_dormant = false
+	if not has_node("ArtboardTitle"):
+		_verificar_y_crear_titulo()
+	if immediate or _dormant.size() <= WAKE_BUDGET:
+		_restoring = true
+		_CS.instantiate_elements(self, _dormant)
+		_restoring = false
+		_dormant = []
+		queue_redraw()
+		return
+	# Amortizado: encolar y drenar en _process
+	_waking_queue = _dormant
+	_dormant = []
+	set_process(true)
+
+## Fuerza la materialización total AHORA (p.ej. antes de serializar para guardar,
+## o al seleccionar contenido de la página).
+func wake_now() -> void:
+	if is_dormant:
+		wake(true)
+	elif not _waking_queue.is_empty():
+		_restoring = true
+		_CS.instantiate_elements(self, _waking_queue)
+		_restoring = false
+		_waking_queue = []
+		set_process(false)
+		queue_redraw()
+
+func _process(_delta: float) -> void:
+	if _waking_queue.is_empty():
+		set_process(false)
+		return
+	var batch: Array = _waking_queue.slice(0, WAKE_BUDGET)
+	_waking_queue = _waking_queue.slice(WAKE_BUDGET)
+	_restoring = true
+	_CS.instantiate_elements(self, batch)
+	_restoring = false
+	queue_redraw()
+	if _waking_queue.is_empty():
+		set_process(false)
+
 func _is_selection_tool() -> bool:
-	var canvas := get_tree().current_scene.find_child("Canvas", true, false)
+	var scene := get_tree().current_scene if get_tree() else null
+	var canvas := scene.find_child("Canvas", true, false) if scene else null
 	if not canvas or canvas.current_tool == null:
 		return true
 	var path: String = canvas.current_tool.get_script().resource_path.get_file().to_lower()
@@ -86,7 +255,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_title_gui_input(event: InputEvent) -> void:
 	# Captura el doble click específico en el Label del título
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
-		var manager = get_tree().current_scene.find_child("ArtboardManager", true, false)
+		var manager = ArtboardManager.find(get_tree()) if get_tree() else null
 		if manager and manager.has_method("set_active_artboard"):
 			manager.set_active_artboard(self)
 		else:
@@ -504,14 +673,14 @@ func vectorize_image(file_path: String) -> void:
 	GlobalEvents.emit_safe("import_error", "Imagen importada sin vectorizar (trazado no implementado)")
 
 func _verificar_y_crear_titulo() -> void:
-	var label := get_node_or_null("ArtboardTitle") as Label
+	var label := get_node_or_null("ArtboardTitle") as WorldTextLabel
 	if not label:
-		label = Label.new()
+		label = WorldTextLabel.new()
 		label.name = "ArtboardTitle"
 		add_child(label)
 	
 	label.text = "Artboard"
-	# CAMBIO: Color Blanco para el Texto del Título
+	label.base_font_size = 12
 	label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	label.add_theme_font_size_override("font_size", 12)
 	label.position = Vector2(0, -20)

@@ -55,6 +55,9 @@ func handle_input(event: InputEvent) -> bool:
 		# CASO B: Clic en lienzo vacío -> Crea párrafo estático negro y cambia a MoveTool
 		var hit: Node2D = _shape_at(gm)
 		if not hit:
+			var t := _artboard_for_point(gm)
+			if is_instance_valid(t):
+				target_artboard = t
 			_create_new_paragraph_at(target_artboard.to_local(gm))
 			return true
 
@@ -68,7 +71,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 		is_editing = true
 		current_editing_shape = hit
 		
-		var display_label: Label = hit.get_node_or_null("DisplayLabel")
+		var display_label: Control = hit.get_node_or_null("DisplayLabel")
 		var multi_edit: TextEdit = hit.get_node_or_null("MultiLineEdit")
 		
 		if display_label: display_label.visible = false
@@ -82,7 +85,7 @@ func _finish_editing_and_save() -> void:
 		_reset_state()
 		return
 		
-	var display_label: Label = current_editing_shape.get_node_or_null("DisplayLabel")
+	var display_label: Control = current_editing_shape.get_node_or_null("DisplayLabel")
 	var multi_edit: TextEdit = current_editing_shape.get_node_or_null("MultiLineEdit")
 	
 	if multi_edit:
@@ -93,11 +96,35 @@ func _finish_editing_and_save() -> void:
 		if display_label:
 			display_label.text = final_text
 			display_label.visible = true
+			# RE-SINCRONIZAR: el contenido cambió → el tamaño del shape debe
+			# recalcularse para que el boundingbox envuelva el texto.
+			_update_shape_meta_size(current_editing_shape)
 		
 		multi_edit.release_focus()
 		multi_edit.visible = false
 
 	_reset_state()
+
+## Recalcula width/height del shape a partir del mínimo real del label
+## (en unidades de MUNDO), y re-dimensiona label + MultiLineEdit (que es lo
+## que muestra el boundingbox de selección de MoveTool).
+func _update_shape_meta_size(shape: Node2D) -> void:
+	var display_label: Control = shape.get_node_or_null("DisplayLabel")
+	var multi_edit: Control = shape.get_node_or_null("MultiLineEdit")
+	if not display_label:
+		return
+	var min_size: Vector2 = display_label.get_world_minimum_size() if display_label is WorldTextLabel else display_label.get_combined_minimum_size()
+	var safe_size: Vector2 = Vector2(maxf(min_size.x, 100.0), maxf(min_size.y, 40.0))
+	shape.set_meta("width", safe_size.x)
+	shape.set_meta("height", safe_size.y)
+	if display_label is WorldTextLabel:
+		display_label.set_world_size(safe_size)
+	else:
+		display_label.custom_minimum_size = safe_size
+		display_label.size = safe_size
+	if multi_edit:
+		multi_edit.custom_minimum_size = safe_size
+		multi_edit.size = safe_size
 
 func _create_new_paragraph_at(local_pos: Vector2) -> void:
 	var new_para = Node2D.new()
@@ -107,14 +134,17 @@ func _create_new_paragraph_at(local_pos: Vector2) -> void:
 	new_para.set_meta("height", 100.0)
 	new_para.set_meta("text", "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam nec diam interdum, laoreet lacus id, aliquet magna.")
 	
-	var label = Label.new()
+	var label := WorldTextLabel.new()
 	label.name = "DisplayLabel"
+	label.base_font_size = 24
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size = Vector2(350, 100)
 	label.size = Vector2(350, 100)
+	label.set_world_size(Vector2(350, 100))
 	label.text = new_para.get_meta("text")
 	# Forzar color de fuente a negro
 	label.add_theme_color_override("font_color", Color.BLACK)
+	label.add_theme_font_size_override("font_size", 24)
 	
 	var edit = TextEdit.new()
 	edit.name = "MultiLineEdit"
@@ -130,6 +160,9 @@ func _create_new_paragraph_at(local_pos: Vector2) -> void:
 	
 	target_artboard.add_child(new_para)
 	new_para.position = local_pos
+	
+	# Sincronizar el tamaño del shape con el contenido renderizado del label
+	_update_shape_meta_size(new_para)
 	
 	_switch_to_move_tool(new_para)
 
@@ -162,6 +195,12 @@ func _reset_state() -> void:
 	current_editing_shape = null
 
 func _refresh_artboard() -> void:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr:
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			target_artboard = act
+			return
 	var container = canvas.get_node_or_null("ArtboardsContainer")
 	if container and container.get_child_count() > 0:
 		target_artboard = container.get_child(0)

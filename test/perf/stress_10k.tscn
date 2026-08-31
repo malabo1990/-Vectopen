@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8s7r3k10stress"]
+
+[ext_resource type="Script" path="res://test/perf/stress_10k.gd" id="1_stress10k"]
+
+[node name="Stress10K" type="Node2D"]
+script = ExtResource("1_stress10k")

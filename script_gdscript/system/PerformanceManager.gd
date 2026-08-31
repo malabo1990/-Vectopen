@@ -23,12 +23,16 @@ const TIER_SCORE: Dictionary = {
 ## Fuente única de verdad para el target_fps de cada tier — la usan tanto
 ## _apply_hardware_profile() (perfil activo) como _adaptive_tick() (para mirar
 ## el target de la tier SIGUIENTE antes de subir, ver _stage_up()/§1.10).
+## Un editor 2D no gana NADA por encima de la frecuencia del monitor (60 Hz
+## típico): pasar de 60 a 144 solo quema GPU/batería sin que se note. El
+## objetivo activo se queda en 60 para todos salvo hardware flojo (30). Cuando
+## no tocas nada durante IDLE_DELAY_MS baja a IDLE_FPS (ver más abajo).
 const TARGET_FPS_BY_TIER: Dictionary = {
 	DeviceClass.POTATO: 30,
 	DeviceClass.LOW: 30,
 	DeviceClass.BALANCED: 60,
 	DeviceClass.HIGH: 60,
-	DeviceClass.ULTRA: 144,
+	DeviceClass.ULTRA: 60,
 }
 
 ## Umbral mínimo (como fracción del target_fps de la tier SIGUIENTE) para
@@ -63,6 +67,20 @@ var target_fps: int = 60
 var adaptive_quality: bool = false
 var show_overlay: bool = false
 
+# ── Render bajo demanda (idle throttling) ────────────────────────────
+## Un editor vectorial está QUIETO la mayor parte del tiempo. Renderizar el
+## lienzo estático a 60-144 FPS quema GPU/CPU/batería para nada y, en portátiles
+## que hacen throttle térmico, deja menos margen para cuando SÍ interactúas
+## (pan, zoom, arrastre). Cuando no hay input durante IDLE_DELAY_MS bajamos a
+## IDLE_FPS; al primer evento de entrada se restaura target_fps al instante.
+## Nada se congela (a diferencia de OS.low_processor_usage_mode): solo baja el
+## refresco mientras nadie mira ni toca.
+@export var idle_render_enabled: bool = true
+const IDLE_FPS: int = 10
+const IDLE_DELAY_MS: int = 600
+var _last_activity_ms: int = 0
+var _is_idle: bool = false
+
 # ── Escalado dinámico ────────────────────────────────────────────────
 var resolution_scale: float = 1.0
 var texture_quality: int = 0
@@ -94,6 +112,54 @@ func _ready() -> void:
 	_apply_hardware_profile()
 	_setup_timers()
 	_apply_quality_settings()
+	_last_activity_ms = Time.get_ticks_msec()
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process(idle_render_enabled)
+	_conectar_actividad()
+
+## Señales del editor que cuentan como actividad aunque no haya input del ratón
+## (crear/mover/borrar figuras por código, deshacer, importar, efectos…).
+func _conectar_actividad() -> void:
+	if not has_node("/root/GlobalEvents"):
+		return
+	var ge := get_node("/root/GlobalEvents")
+	for s in ["object_created", "object_deleted", "object_transformed",
+			"object_style_changed", "layer_created", "artboard_created",
+			"artboard_moved", "artboard_resized", "data_undo_performed",
+			"import_finished", "effect_applied", "filter_applied",
+			"vectorization_progress", "renderer_changed"]:
+		if ge.has_signal(s) and not ge.is_connected(s, mark_activity):
+			ge.connect(s, mark_activity)
+
+## Cualquier entrada = actividad → volver a FPS pleno al instante.
+func _input(_event: InputEvent) -> void:
+	_last_activity_ms = Time.get_ticks_msec()
+	if _is_idle:
+		_is_idle = false
+		Engine.max_fps = target_fps
+
+## Además del input, ciertas señales del editor cuentan como actividad
+## (crear/mover/borrar figuras, cambiar de herramienta, deshacer…): así una
+## animación disparada por código no se ve a 10 FPS.
+func mark_activity() -> void:
+	_last_activity_ms = Time.get_ticks_msec()
+	if _is_idle:
+		_is_idle = false
+		Engine.max_fps = target_fps
+
+func _process(_delta: float) -> void:
+	if not idle_render_enabled or _is_idle:
+		return
+	if Time.get_ticks_msec() - _last_activity_ms > IDLE_DELAY_MS:
+		_is_idle = true
+		Engine.max_fps = IDLE_FPS
+
+func set_idle_render(enabled: bool) -> void:
+	idle_render_enabled = enabled
+	set_process(enabled)
+	if not enabled and _is_idle:
+		_is_idle = false
+		Engine.max_fps = target_fps
 
 func _detect_everything() -> void:
 	_detect_renderer()
@@ -397,18 +463,16 @@ func _apply_quality_settings() -> void:
 	var vr = get_viewport().get_viewport_rid()
 	var _msaa_ok := renderer_api != RendererAPI.GL_COMPATIBILITY
 
+	# MSAA 2D en Godot fuerza todo el pase 2D a un render target multisample: es
+	# CARO (fill-rate) y con arte vectorial plano el salto de 2X->4X->8X es casi
+	# imperceptible. Para un editor 2D con miles de figuras, 2X es el punto
+	# dulce; 4X/8X solo hundían el pan en GPUs modestas sin ganancia visible.
 	if _msaa_ok:
 		match quality_preset:
-			"potato":
+			"potato", "low":
 				RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_DISABLED)
-			"low":
-				RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_DISABLED)
-			"balanced":
+			_:
 				RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_2X)
-			"high":
-				RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_4X)
-			"ultra":
-				RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_8X)
 	else:
 		RenderingServer.viewport_set_msaa_2d(vr, RenderingServer.VIEWPORT_MSAA_DISABLED)
 

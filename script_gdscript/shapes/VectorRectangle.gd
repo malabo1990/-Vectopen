@@ -37,7 +37,8 @@ func _draw_custom_rounded_rect(rect: Rect2, f_color: Color, s_color: Color, s_wi
 	if s_width > 0:
 		var closed_verts := verts
 		closed_verts.append(verts[0])
-		draw_polyline(closed_verts, s_color, s_width, true)
+		# sin antialias por-primitiva (rompe el batching); el MSAA 2D lo cubre
+		draw_polyline(closed_verts, s_color, s_width, false)
 
 func _generate_rounded_rect_vertices(rect: Rect2, radius: float) -> PackedVector2Array:
 	var r: float = min(radius, min(rect.size.x, rect.size.y) / 2.0)

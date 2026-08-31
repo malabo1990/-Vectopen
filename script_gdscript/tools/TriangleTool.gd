@@ -111,6 +111,7 @@ func _finalize_triangle() -> void:
 	var final_top_left_global: Vector2 = geom["top_left"]
 
 	if final_size.x > 3.0 and final_size.y > 3.0:
+		_retarget_artboard_at(final_top_left_global + final_size / 2.0)
 		var local_pos: Vector2 = artboard.to_local(final_top_left_global)
 		_spawn_shape(local_pos, final_size)
 	else:

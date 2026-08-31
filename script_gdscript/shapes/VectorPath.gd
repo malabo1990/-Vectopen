@@ -30,10 +30,10 @@ func _draw() -> void:
 		# Cierre visual del trazo
 		var closed_polyline := baked_pts
 		closed_polyline.append(baked_pts[0])
-		draw_polyline(closed_polyline, STROKE_COLOR, STROKE_WIDTH, true)
+		draw_polyline(closed_polyline, STROKE_COLOR, STROKE_WIDTH, false)
 	else:
 		# 2. Contorno abierto estándar
-		draw_polyline(baked_pts, STROKE_COLOR, STROKE_WIDTH, true)
+		draw_polyline(baked_pts, STROKE_COLOR, STROKE_WIDTH, false)
 
 ## Exporta este path como elemento <path> SVG. Usa los puntos horneados de
 ## la curva (misma fuente de datos que _draw()) en vez de reconstruir

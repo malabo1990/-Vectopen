@@ -273,6 +273,16 @@ func _on_double_click(gm: Vector2) -> bool:
 # ── Press ──────────────────────────────────────────────────────────────────────
 
 func _on_press(gm: Vector2) -> bool:
+	# El artboard sobre el que se pulsa (multi-artboard). Si el clic cae fuera
+	# de todos, seguimos con el activo para el marquee de "espacio vacío".
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var clicked_ab: Node2D = mgr.artboard_at_point(gm) if mgr else null
+	if is_instance_valid(clicked_ab):
+		target_artboard = clicked_ab
+		if mgr and mgr.active_artboard != clicked_ab and _shape_at(gm) == null:
+			# clic en el cuerpo de OTRO artboard → activarlo
+			mgr.set_active_artboard(clicked_ab)
+
 	var ab_local: Vector2 = target_artboard.to_local(gm)
 	var ab_rect: Rect2 = Rect2(Vector2.ZERO, target_artboard.artboard_size)
 
@@ -681,7 +691,7 @@ func _apply_resize(gm: Vector2) -> void:
 			shape.queue_redraw()
 
 func _update_text_node_sizes(shape: Node2D, w: float, h: float) -> void:
-	var display_label: Label = shape.get_node_or_null("DisplayLabel")
+	var display_label: Control = shape.get_node_or_null("DisplayLabel")
 	var multi_edit: Control = shape.get_node_or_null("MultiLineEdit")
 	if not multi_edit: multi_edit = shape.get_node_or_null("LineEdit")
 	
@@ -974,25 +984,44 @@ func _apply_marquee() -> void:
 # ── Motor de Hit-Testing e Intersección de Precisión Geométrica ───────────────
 
 func _shape_at(gpos: Vector2) -> Node2D:
-	if not target_artboard:
-		return null
+	# Busca en TODOS los artboards (no solo el activo) + las figuras sueltas
+	# hijas directas del contenedor. Antes solo miraba target_artboard, así
+	# que con varios artboards solo se podían seleccionar figuras del primero.
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var artboards: Array = mgr.all_artboards() if mgr else ([target_artboard] if target_artboard else [])
 
-	var dl: Node = target_artboard.get_node_or_null("VectorDrawingLayer")
+	for ab in artboards:
+		if not is_instance_valid(ab):
+			continue
+		var hit := _shape_at_in(ab, gpos)
+		if hit:
+			return hit
+
+	# Figuras sueltas (hijas directas de ArtboardsContainer, fuera de todo artboard)
+	var container: Node = canvas.get_node_or_null("ArtboardsContainer")
+	if container:
+		var loose: Array = container.get_children()
+		for i in range(loose.size() - 1, -1, -1):
+			var n = loose[i]
+			if n is Node2D and not (n is ArtboardEditor) and _global_rect(n).has_point(gpos):
+				return n
+	return null
+
+func _shape_at_in(ab: Node2D, gpos: Vector2) -> Node2D:
+	var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
 	if dl:
 		var vector_nodes: Array = dl.get_children()
 		for i in range(vector_nodes.size() - 1, -1, -1):
 			var v_node = vector_nodes[i]
 			if v_node is Node2D and _global_rect(v_node).has_point(gpos):
 				return v_node
-
-	var ab_nodes: Array = target_artboard.get_children()
+	var ab_nodes: Array = ab.get_children()
 	for i in range(ab_nodes.size() - 1, -1, -1):
 		var node = ab_nodes[i]
 		if not (node is Node2D) or node.name in ["ArtboardTitle", "VectorDrawingLayer"]:
 			continue
 		if _global_rect(node).has_point(gpos):
 			return node
-
 	return null
 
 # ── Cálculo Dinámico del Bounding Box Pro (Soporte Títulos y Párrafos) ─────────
@@ -1202,6 +1231,12 @@ func _snapshot(shape: Node2D) -> Dictionary:
 	return snap
 
 func _refresh_artboard() -> void:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr:
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			target_artboard = act
+			return
 	var container: Node = canvas.get_node_or_null("ArtboardsContainer")
 	if container and container.get_child_count() > 0:
 		target_artboard = container.get_child(0)

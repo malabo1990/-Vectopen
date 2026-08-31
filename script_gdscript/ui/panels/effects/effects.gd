@@ -36,9 +36,9 @@ func _on_add_pressed() -> void:
 func _refresh_popup() -> void:
 	_add_popup.clear()
 	for i in EFFECT_ORDER.size():
-		var name: String = EFFECT_ORDER[i]
-		if not _active_effects.has(name):
-			_add_popup.add_item(name, i)
+		var effect_id: String = EFFECT_ORDER[i]
+		if not _active_effects.has(effect_id):
+			_add_popup.add_item(effect_id, i)
 
 func _on_popup_id_pressed(id: int) -> void:
 	_add_effect(EFFECT_ORDER[id])

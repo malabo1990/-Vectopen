@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cgdr82frman5n"]
+
+[ext_resource type="Script" path="res://test/perf/profile_real.gd" id="1_prof"]
+
+[node name="ProfileReal" type="Node"]
+script = ExtResource("1_prof")

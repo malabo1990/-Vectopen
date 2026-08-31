@@ -90,5 +90,9 @@ class SessionData:
 		camera_offset = Vector2(off[0], off[1])
 		rulers_visible = data.get("rulers_visible", rulers_visible)
 		grid_visible = data.get("grid_visible", grid_visible)
-		open_panels = data.get("open_panels", [])
+		# JSON.parse devuelve un Array sin tipo → hay que convertir a Array[String]
+		# o la asignación revienta al cargar un proyecto.
+		open_panels.clear()
+		for p in data.get("open_panels", []):
+			open_panels.append(String(p))
 		tool_configs = data.get("tool_configs", {})

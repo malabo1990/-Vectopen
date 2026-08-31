@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scenes/ui/FileFlowLayout.gd" id=1]
+[ext_resource type="Script" path="res://scenes/ui/RecentFilesTree.gd" id=2]
 
 [node name="FileFlowLayout" type="HBoxContainer"]
 layout_mode = 3
@@ -11,6 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 margin_right = -4.0
 margin_bottom = -4.0
+script = ExtResource("1")
 
 [node name="FileLibraryPanel" type="PanelContainer" parent="."]
 layout_mode = 2
@@ -24,6 +26,10 @@ margin_top = 4.0
 margin_right = 4.0
 margin_bottom = 4.0
 
+[node name="ViewLabel" type="Label" parent="FileLibraryPanel/VBoxContainer"]
+layout_mode = 2
+text = "Recent Files"
+
 [node name="SearchBar" type="LineEdit" parent="FileLibraryPanel/VBoxContainer"]
 layout_mode = 2
 grow_horizontal = 1
@@ -34,6 +40,7 @@ layout_mode = 2
 grow_horizontal = 1
 grow_vertical = 1
 custom_minimum_size = Vector2(200, 300)
+script = ExtResource("2")
 
 [node name="ExportPanel" type="PanelContainer" parent="."]
 layout_mode = 2
@@ -61,3 +68,4 @@ layout_mode = 2
 grow_horizontal = 1
 grow_vertical = 1
 custom_minimum_size = Vector2(200, 300)
+script = ExtResource("2")

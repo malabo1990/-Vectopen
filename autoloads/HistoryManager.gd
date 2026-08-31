@@ -16,8 +16,8 @@ func _ready() -> void:
 	_undo_redo.max_history = ProjectManager.settings.max_undo_steps
 	_undo_redo.version_changed.connect(_on_version_changed)
 
-func register_action(name: String) -> void:
-	_undo_redo.create_action(name)
+func register_action(action_name: String) -> void:
+	_undo_redo.create_action(action_name)
 
 func add_do(callable: Callable) -> void:
 	_undo_redo.add_do_method(callable)
@@ -57,5 +57,5 @@ func get_redo_name() -> String:
 func clear() -> void:
 	_undo_redo.clear()
 
-func _on_version_changed(can_undo: bool, can_redo: bool) -> void:
-	history_changed.emit(can_undo, can_redo, _undo_redo.get_undo_name(), _undo_redo.get_redo_name())
+func _on_version_changed(undo_available: bool, redo_available: bool) -> void:
+	history_changed.emit(undo_available, redo_available, _undo_redo.get_undo_name(), _undo_redo.get_redo_name())

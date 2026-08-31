@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://bmh6ie1y00dvs" path="res://scenes/ui/main.tscn" id="7_1ckkv"]
 [ext_resource type="Script" uid="uid://cxmeq11efwq7b" path="res://scenes/canvas/canvas_overlay_controller.gd" id="8_d444h"]
 [ext_resource type="Script" uid="uid://5br6orey0uhx" path="res://scenes/canvas/artboard_manager.gd" id="10_yqq0e"]
+[ext_resource type="Script" path="res://scenes/canvas/cull_manager.gd" id="20_cull"]
 [ext_resource type="Script" path="res://script_gdscript/tools/CircleTool.gd" id="11_circle"]
 [ext_resource type="Script" path="res://script_gdscript/tools/TriangleTool.gd" id="12_tri"]
 [ext_resource type="Script" path="res://script_gdscript/tools/PentagonTool.gd" id="13_pent"]
@@ -57,5 +58,8 @@ visible = false
 
 [node name="Background" type="Node2D" parent="." unique_id=1459288826]
 
+[node name="CullManager" type="Node" parent="." unique_id=2704910081]
+script = ExtResource("20_cull")
+camera = NodePath("../Camera2D")
 [node name="manager_script" type="Node2D" parent="." unique_id=1468653365]
 script = ExtResource("10_yqq0e")

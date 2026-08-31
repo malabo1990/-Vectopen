@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://c17j4e1yuvjgf" path="res://scenes/ui/layout.tscn" id="3_fos0i"]
 [ext_resource type="PackedScene" uid="uid://cr6hxhkm4rbis" path="res://scenes/ui/tool_in_mouse.tscn" id="3_r0du0"]
 [ext_resource type="Texture2D" uid="uid://b7qpg06o584cd" path="res://icon/UI/Export.svg" id="4_j4qnp"]
-[ext_resource type="PackedScene" uid="uid://qh8goduv5218" path="res://scenes/ui/panels/manager_windws_regla.tscn" id="4_wweun"]
+[ext_resource type="PackedScene" uid="uid://cadpjrn1ympx4" path="res://scenes/ui/panels/manager_windws_regla.tscn" id="4_wweun"]
 [ext_resource type="Script" uid="uid://dlqx7jasihjde" path="res://script_gdscript/ui/TogglePanelSetting.gd" id="5_wkp8b"]
 [ext_resource type="PackedScene" uid="uid://bwfvuaxaip16m" path="res://scenes/ui/panel_export.tscn" id="9_03owx"]
 [ext_resource type="Texture2D" uid="uid://c0sbxqnnj1uty" path="res://icon/UI/fill-color.svg" id="10_fpfj3"]
@@ -107,12 +107,50 @@ corner_radius_bottom_left = 20
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w3rk5"]
 bg_color = Color(1, 1, 1, 1)
 
+[sub_resource type="Theme" id="Theme_panel_keyboard"]
+BindChip/colors/font_color = Color(0.95, 0.95, 0.98, 1)
+BindChip/colors/font_focus_color = Color(0.95, 0.95, 0.98, 1)
+BindChip/colors/font_hover_color = Color(0.95, 0.95, 0.98, 1)
+BindChip/colors/font_pressed_color = Color(0.95, 0.95, 0.98, 1)
+BindChip/font_sizes/font_size = 12
+BindRowLabel/colors/font_color = Color(0.92, 0.92, 0.95, 1)
+BindRowLabel/font_sizes/font_size = 13
+CaptureHint/colors/font_color = Color(0.55, 0.8, 1, 1)
+CaptureHint/font_sizes/font_size = 12
+ResetLink/colors/font_color = Color(0.55, 0.55, 0.62, 1)
+ResetLink/colors/font_focus_color = Color(0.55, 0.55, 0.62, 1)
+ResetLink/colors/font_hover_color = Color(0.9, 0.9, 0.95, 1)
+ResetLink/colors/font_pressed_color = Color(0.75, 0.75, 0.82, 1)
+ResetLink/font_sizes/font_size = 11
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hri7i"]
-bg_color = Color(0, 0, 0, 1)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+bg_color = Color(0.09, 0.09, 0.12, 0.97)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.14)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 24
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_le_pop"]
+content_margin_left = 10.0
+bg_color = Color(0.16, 0.16, 0.2, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+expand_margin_left = 7.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5mvff"]
 bg_color = Color(1, 1, 1, 1)
@@ -141,6 +179,7 @@ metadata/_edit_lock_ = true
 metadata/_edit_vertical_guides_ = [-450.0]
 
 [node name="windows_ recla" type="Control" parent="." unique_id=1788269800]
+z_index = 10
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -173,7 +212,7 @@ grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_gb15f")
 metadata/_edit_lock_ = true
 
-[node name="Button_panelsettings" type="Button" parent="windows_ recla" unique_id=1946388509 node_paths=PackedStringArray("target_panel")]
+[node name="Button" type="Button" parent="windows_ recla" unique_id=1946388509 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(24, 20)
 layout_mode = 0
 offset_top = 1.0
@@ -186,7 +225,6 @@ script = ExtResource("5_wkp8b")
 target_panel = NodePath("../MANAGER WINDWS_REGLA")
 
 [node name="MANAGER WINDWS_REGLA" parent="windows_ recla" unique_id=1408537131 instance=ExtResource("4_wweun")]
-visible = false
 layout_mode = 1
 offset_left = 24.0
 offset_top = 24.0
@@ -675,7 +713,6 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_3dxm6")
 icon = ExtResource("4_j4qnp")
 icon_alignment = 1
 expand_icon = true
-script = ExtResource("5_wkp8b")
 
 [node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=1973582187]
 custom_minimum_size = Vector2(24, 24)
@@ -685,14 +722,16 @@ icon = ExtResource("14_sc1dx")
 expand_icon = true
 script = ExtResource("5_wkp8b")
 
-[node name="Panel_keyboard" type="PanelContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button" unique_id=807634236]
+[node name="Panel_keyboard" type="PanelContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button" unique_id=807634236 node_paths=PackedStringArray("action_container", "filter_line_edit")]
+visible = false
 layout_mode = 0
 offset_top = -422.0
 offset_right = 440.0
 offset_bottom = -8.0
+theme = SubResource("Theme_panel_keyboard")
 theme_override_styles/panel = SubResource("StyleBoxFlat_hri7i")
 script = ExtResource("18_wweun")
-action_container = NodePath("MarginContainer/BoxContainer/ScrollContainer/ActionContainer")
+action_container = NodePath("MarginContainer/BoxContainer/ScrollContainer/MarginContainer/ActionContainer")
 filter_line_edit = NodePath("MarginContainer/BoxContainer/FilterLineEdit")
 
 [node name="MarginContainer" type="MarginContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard" unique_id=1187035092]
@@ -708,26 +747,17 @@ vertical = true
 
 [node name="Label" type="Label" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer" unique_id=1276573325]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.453125, 0.453125, 0.453125, 1)
-text = "keyboard"
-
-[node name="BoxContainer" type="BoxContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer" unique_id=1357371756]
-layout_mode = 2
-
-[node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/BoxContainer" unique_id=1192755593]
-layout_mode = 2
-text = "Icono teclado "
-
-[node name="BoxContainer2" type="BoxContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer" unique_id=1489204903]
-layout_mode = 2
-
-[node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/BoxContainer2" unique_id=1020521361]
-layout_mode = 2
-text = "Icono raton"
+theme_override_colors/font_color = Color(0.68, 0.68, 0.74, 1)
+theme_override_font_sizes/font_size = 12
+text = "Keyboard & Mouse"
 
 [node name="FilterLineEdit" type="LineEdit" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer" unique_id=1358496224]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95, 0.95, 0.98, 1)
+theme_override_colors/caret_color = Color(0.95, 0.95, 0.98, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_le_pop")
+theme_override_styles/focus = SubResource("StyleBoxFlat_le_pop")
 placeholder_text = "Search actions..."
 
 [node name="ScrollContainer" type="ScrollContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer" unique_id=271914354]
@@ -735,7 +765,11 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="ActionContainer" type="VBoxContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/ScrollContainer" unique_id=188643384]
+[node name="MarginContainer" type="MarginContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/ScrollContainer" unique_id=-2094967197]
+layout_mode = 2
+theme_override_constants/margin_right = 6
+
+[node name="ActionContainer" type="VBoxContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/ScrollContainer/MarginContainer" unique_id=188643384]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -794,7 +828,7 @@ offset_top = 326.0
 offset_right = 1606.0
 offset_bottom = 699.0
 
-[node name="Panel_manager" parent="." unique_id=454116989 instance=ExtResource("9_03owx")]
+[node name="Panel_export" parent="." unique_id=454116989 instance=ExtResource("9_03owx")]
 visible = false
 layout_mode = 1
 offset_top = -370.0

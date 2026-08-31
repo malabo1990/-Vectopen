@@ -98,8 +98,14 @@ func create_shape_explicit(p_pos: Vector2, w: float, h: float) -> VectopenRect:
 	print("ShapeManager: Rectángulo creado en pos local ", p_pos, " tamaño ", Vector2(w, h))
 	return new_rect
 
-## Retorna el artboard activo (primer hijo de ArtboardsContainer).
+## Retorna el artboard ACTIVO. Autoridad: ArtboardManager (soporta
+## multi-artboard). Fallback al primer hijo del contenedor si no hay manager.
 func get_active_artboard() -> Node2D:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr:
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			return act
 	if not artboards_container or artboards_container.get_child_count() == 0:
 		return null
 	return artboards_container.get_child(0) as Node2D

@@ -97,13 +97,13 @@ static func _node_to_svg(element: Node) -> String:
 	""" % element.name
 	return svg_content
 
-static func _node_to_png(element: Node) -> String:
+static func _node_to_png(_element: Node) -> String:
 	return ""
 
-static func _node_to_pdf(element: Node) -> String:
+static func _node_to_pdf(_element: Node) -> String:
 	return ""
 
-static func _node_to_jpeg(element: Node) -> String:
+static func _node_to_jpeg(_element: Node) -> String:
 	return ""
 
 # ==========================================

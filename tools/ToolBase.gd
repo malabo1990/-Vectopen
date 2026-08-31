@@ -44,6 +44,13 @@ func _refresh_dependencies() -> void:
 			canvas = get_tree().get_first_node_in_group("_vectopen_canvas")
 
 	if is_instance_valid(canvas):
+		# `artboard` = artboard ACTIVO (destino de figuras nuevas sin punto).
+		# Se re-resuelve siempre: si el usuario cambió de artboard, apunta al
+		# nuevo. Antes se cacheaba container.get_child(0) para siempre → todas
+		# las figuras caían en el artboard 0.
+		var mgr := _artboard_manager()
+		if mgr:
+			artboard = mgr.get_active_artboard()
 		if not is_instance_valid(artboard):
 			var container = canvas.get_node_or_null("ArtboardsContainer")
 			if container and container.get_child_count() > 0:
@@ -51,3 +58,31 @@ func _refresh_dependencies() -> void:
 
 		if not is_instance_valid(shape_manager):
 			shape_manager = canvas.get_node_or_null("ShapeManager")
+
+## ArtboardManager vivo (autoridad multi-artboard). null si no está en escena.
+func _artboard_manager() -> ArtboardManager:
+	if not get_tree():
+		return null
+	return ArtboardManager.find(get_tree())
+
+## Fija `self.artboard` al artboard que contiene `world_point` (multi-artboard).
+## Llamar al principio de _finalize_*() antes de convertir a coords locales.
+func _retarget_artboard_at(world_point: Vector2) -> void:
+	var t := _artboard_for_point(world_point)
+	if is_instance_valid(t):
+		artboard = t
+
+## Artboard destino para una figura creada EN un punto del mundo:
+## el que contiene el punto; si el punto cae fuera de todos, el activo (así
+## la herramienta sigue siendo usable dibujando "al lado").
+func _artboard_for_point(world_point: Vector2) -> Node:
+	var mgr := _artboard_manager()
+	if mgr:
+		var hit := mgr.artboard_at_point(world_point)
+		if is_instance_valid(hit):
+			return hit
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			return act
+	_refresh_dependencies()
+	return artboard

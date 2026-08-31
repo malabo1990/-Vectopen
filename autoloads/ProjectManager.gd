@@ -24,6 +24,11 @@ extends Node
 
 var GlobalEvents: Node = null  # Se asigna en _ready()
 
+## Extensión del documento de Vectopen. .vtc = contenedor plano direccionable
+## (VTC2): manifest gzip + un chunk gzip por artboard → carga/guardado perezosos.
+## El .json queda como respaldo legible sin comprimir.
+const DOC_EXT := ".vtc"
+
 
 # ==========================================
 # SUBSISTEMA DE DATOS
@@ -171,6 +176,9 @@ func new_project(project_name: String = "Nuevo Proyecto") -> void:
 	if project and is_project_modified:
 		save_recovery_state()
 
+	# Soltar el handle de lectura del .vtc anterior (si lo había)
+	_CanvasSerializer.close_reader_cache()
+
 	# Crear nuevo proyecto
 	project = ProjectData.new()
 	project.name = project_name
@@ -241,23 +249,37 @@ func _save_to_path(path: String) -> bool:
 		return false
 
 	# Asegurar extensión
-	if not path.ends_with(".vectopen") and not path.ends_with(".json"):
-		path += ".vectopen"
+	if not path.ends_with(DOC_EXT) and not path.ends_with(".json"):
+		path += DOC_EXT
 
-	var save_data = {
-		"version": 2,
+	var header := {
+		"version": 3,
 		"project": project.serialize(),
 		"session": SessionManager.session.serialize(),
 		"timestamp": Time.get_unix_time_from_system(),
-		"app_version": "Vectopen 1.0"
+		"app_version": "Vectopen 1.0",
 	}
 
-	var file = FileAccess.open(path, FileAccess.WRITE)
+	# .vtc = contenedor ZIP (manifest.json + un chunk por artboard) → lazy-read
+	# a nivel de archivo. El contenido real del lienzo son los NODOS de escena
+	# (el modelo `project` nunca capturó las figuras dibujadas).
+	if path.ends_with(DOC_EXT):
+		var c := _canvas_container()
+		if c:
+			return _CanvasSerializer.write_vtc(path, c, header)
+		# sin lienzo (raro): guarda solo la cabecera comprimida
+		var gf := FileAccess.open_compressed(path, FileAccess.WRITE, FileAccess.COMPRESSION_GZIP)
+		if gf: gf.store_string(JSON.stringify(header)); gf.close()
+		return gf != null
+
+	# .json de respaldo: legible, sin comprimir, con todo el lienzo inline
+	header["canvas"] = _serialize_canvas()
+	var file := FileAccess.open(path, FileAccess.WRITE)
 	if not file:
 		push_error("ProjectManager: No se pudo crear archivo - ", path)
 		return false
-
-	file.store_string(JSON.stringify(save_data, "\t"))
+	file.store_string(JSON.stringify(header, "\t"))
+	file.close()
 	return true
 
 
@@ -266,12 +288,33 @@ func load_project(path: String) -> bool:
 		push_error("ProjectManager: Archivo no existe - ", path)
 		return false
 
-	var file = FileAccess.open(path, FileAccess.READ)
-	var content = file.get_as_text()
-	var data = JSON.parse_string(content)
+	# Soltar el handle de lectura del .vtc anterior antes de cambiar de archivo.
+	_CanvasSerializer.close_reader_cache()
+
+	# 1) .vtc como contenedor ZIP: lee solo el manifest, artboards dormidos.
+	var data = null
+	var vtc_manifest := {}
+	if path.ends_with(DOC_EXT):
+		vtc_manifest = _CanvasSerializer.read_vtc_manifest(path)
+	if not vtc_manifest.is_empty():
+		data = vtc_manifest   # trae project/session/version en la cabecera
+	else:
+		# 2) fallback: gzip (formato .vtc previo) o texto plano (.json)
+		var content := ""
+		if path.ends_with(DOC_EXT):
+			var cf := FileAccess.open_compressed(path, FileAccess.READ, FileAccess.COMPRESSION_GZIP)
+			if cf:
+				content = cf.get_as_text()
+				cf.close()
+		if content.is_empty():
+			var pf := FileAccess.open(path, FileAccess.READ)
+			if pf:
+				content = pf.get_as_text()
+				pf.close()
+		data = JSON.parse_string(content)
 
 	if not data:
-		push_error("ProjectManager: Error al parsear JSON")
+		push_error("ProjectManager: Error al parsear el proyecto - ", path)
 		return false
 
 	# Guardar recovery del proyecto actual
@@ -302,13 +345,55 @@ func load_project(path: String) -> bool:
 		GlobalEvents.emit_safe("data_project_loaded", project.name)
 		GlobalEvents.emit_safe("data_undo_state_changed", false, false)
 
+	# Reconstruir el contenido del lienzo.
+	var c := _canvas_container()
+	if not vtc_manifest.is_empty() and c:
+		# .vtc ZIP: artboards dormidos con fuente perezosa por chunk.
+		_CanvasSerializer.rebuild_from_vtc(c, path)
+	elif data.has("canvas"):
+		# formato antiguo (canvas inline): reconstrucción diferida en memoria.
+		_rebuild_canvas(data.get("canvas", {}))
+
 	print("ProjectManager: Proyecto cargado - ", project.name)
 	return true
+
+
+## Contenedor de artboards de la escena viva (o null fuera de una escena de canvas).
+func _canvas_container() -> Node:
+	if not get_tree():
+		return null
+	var root := get_tree().get_first_node_in_group("_vectopen_canvas")
+	if root:
+		return root.get_node_or_null("ArtboardsContainer")
+	var sc := get_tree().current_scene
+	return sc.find_child("ArtboardsContainer", true, false) if sc else null
+
+
+const _CanvasSerializer = preload("res://scripts/canvas/canvas_serializer.gd")
+
+func _serialize_canvas() -> Dictionary:
+	var c := _canvas_container()
+	return _CanvasSerializer.serialize_container(c) if c else {}
+
+
+func _rebuild_canvas(canvas_data: Dictionary) -> void:
+	if canvas_data.is_empty():
+		return
+	var c := _canvas_container()
+	if not c:
+		push_warning("ProjectManager: no hay ArtboardsContainer para reconstruir el lienzo")
+		return
+	# CARGA DIFERIDA: los artboards se crean DORMIDOS (su contenido queda como
+	# datos). El CullManager despierta los visibles en los frames siguientes.
+	# Cargar un libro de 500 páginas pasa de O(figuras) a O(páginas).
+	_CanvasSerializer.rebuild_container(c, canvas_data, false)
 
 
 func close_project() -> void:
 	if is_project_modified:
 		save_recovery_state()
+
+	_CanvasSerializer.close_reader_cache()
 
 	project = ProjectData.new()
 	SessionManager.reset_session()

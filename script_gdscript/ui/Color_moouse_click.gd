@@ -30,9 +30,11 @@ func _ready() -> void:
 	if colorrect_rojo: color_original_rojo = colorrect_rojo.color
 
 	# Buscamos el nodo CanvasRoot según tu árbol de escenas (visto en tu captura)
-	_canvas_root = get_tree().current_scene.find_child("CanvasRoot", true, false)
-	if not _canvas_root:
-		_canvas_root = get_tree().current_scene
+	var current_scene := get_tree().current_scene if get_tree() else null
+	if current_scene:
+		_canvas_root = current_scene.find_child("CanvasRoot", true, false)
+		if not _canvas_root:
+			_canvas_root = current_scene
 
 func _gui_input(event: InputEvent) -> void:
 	# 1. FORZADO DIRECTO DE ENTRADA A LA HERRAMIENTA ACTIVA

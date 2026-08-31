@@ -102,20 +102,14 @@ func _create_and_register_artboard(global_pos: Vector2, artboard_size: Vector2) 
 		canvas.artboards_container.add_child(new_ab)
 		print("[Vectopen Engine]: Instanciado nuevo lienzo: ", new_ab.name)
 		
-		# 4. Sincronización del Manager: Localizar el ArtboardManager activo en la escena
-		var manager = canvas.find_child("ArtboardManager", true, false)
-		if not manager and canvas.get_tree().current_scene:
-			manager = canvas.get_tree().current_scene.find_child("ArtboardManager", true, false)
-			
-		# 5. Registrar el nuevo objeto y activarlo inmediatamente como foco global
-		if manager and manager.has_method("add_artboard") and manager.has_method("set_active_artboard"):
-			manager.add_artboard(new_ab)
+		# 4. Registrar el nuevo artboard en el ArtboardManager (autoridad) y
+		#    activarlo. `new_ab` entra al contenedor arriba, así que el manager
+		#    ya lo registra vía child_entered_tree; set_active_artboard lo
+		#    fuerza como destino de las próximas figuras.
+		var manager = ArtboardManager.find(canvas.get_tree()) if canvas.get_tree() else null
+		if manager and manager.has_method("set_active_artboard"):
 			manager.set_active_artboard(new_ab)
-			print("[Vectopen Engine]: Sincronización exitosa con ArtboardManager.")
-		
-		# Mantener redundancia de asignación directa si tu Canvas expone la variable expuesta
-		if "active_artboard" in canvas:
-			canvas.active_artboard = new_ab
+			print("[Vectopen Engine]: nuevo artboard activo → ", new_ab.name)
 
 func _switch_to_move_tool_safe() -> void:
 	if is_instance_valid(canvas) and canvas.MoveTool_Script:

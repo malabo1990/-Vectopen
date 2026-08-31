@@ -41,3 +41,6 @@ prototipo/
 .vs/
 *.csproj.user
 *.suo
+
+# MCP server cache
+addons/godot_mcp/cache/

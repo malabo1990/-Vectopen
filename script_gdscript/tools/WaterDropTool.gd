@@ -135,6 +135,7 @@ func _finalize_drop() -> void:
 	var geom: Dictionary = _calculate_geometry()
 
 	if geom["radius"] > 3.0:
+		_retarget_artboard_at(geom["center"])
 		var local_center: Vector2 = artboard.to_local(geom["center"])
 		_spawn_shape(local_center, geom["radius"], geom["rotation"])
 

@@ -12,10 +12,13 @@ const LINE_WIDTH := 2.5
 func _find_artboard() -> void:
 	if not is_instance_valid(canvas):
 		return
-	var manager = canvas.find_child("ArtboardManager", true, false)
-	if manager and "active_artboard" in manager and is_instance_valid(manager.active_artboard):
-		target_artboard = manager.active_artboard
-	elif canvas.artboards_container and canvas.artboards_container.get_child_count() > 0:
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr:
+		var act := mgr.get_active_artboard()
+		if is_instance_valid(act):
+			target_artboard = act
+			return
+	if canvas.artboards_container and canvas.artboards_container.get_child_count() > 0:
 		target_artboard = canvas.artboards_container.get_child(0)
 
 func activate() -> void:

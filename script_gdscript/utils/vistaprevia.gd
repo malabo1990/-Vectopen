@@ -12,6 +12,13 @@ var sub_viewport: SubViewport
 var camera_miniatura: Camera2D
 var artboard_real: Node2D
 
+## El minimapa comparte world_2d con el lienzo, así que RE-RENDERIZA toda la
+## escena. A 60 FPS eso duplica el coste de dibujado y provoca tirones al hacer
+## pan con muchas figuras. Lo refrescamos solo PREVIEW_HZ veces por segundo:
+## para un minimapa es de sobra y devuelve ~toda la GPU al lienzo principal.
+const PREVIEW_HZ := 6.0
+var _preview_accum := 999.0
+
 func _ready() -> void:
 	sub_viewport = find_child("SubViewport", true, false) as SubViewport
 	camera_miniatura = find_child("Camera2D", true, false) as Camera2D
@@ -29,15 +36,24 @@ func _ready() -> void:
 	if artboard_real:
 		sub_viewport.world_2d = artboard_real.get_viewport().world_2d
 		camera_miniatura.make_current()
-		
+		sub_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
 		_actualizar_posicion_camara()
 		_configurar_slider()
 	else:
 		push_warning("VistaPrevia: No se encontró el 'Artboard' activo.")
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if not is_instance_valid(sub_viewport):
+		return
+	_preview_accum += delta
+	if _preview_accum < 1.0 / PREVIEW_HZ:
+		return
+	_preview_accum = 0.0
 	if is_instance_valid(artboard_real) and is_instance_valid(camera_miniatura):
 		_actualizar_posicion_camara()
+	# UPDATE_ONCE renderiza UN frame y vuelve solo a UPDATE_DISABLED.
+	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _actualizar_posicion_camara() -> void:
 	if "size" in artboard_real:
