@@ -25,16 +25,22 @@ const _HANDLE_CODES := {
 	"Rotation": "rot_handle",
 }
 
-# ── Compensación de zoom: los handles deben verse igual sin importar el zoom ──
-const _ZOOM_SIZE_FACTOR_MIN: float = 0.45  # no encoger más allá de esto (zoom muy cercano)
-const _ZOOM_SIZE_FACTOR_MAX: float = 2.2   # no agrandar más allá de esto (zoom muy alejado)
+# ── Compensación de zoom ─────────────────────────────────────────────────────
+# Los handles y el contorno se ven SIEMPRE del mismo tamaño en pantalla a
+# CUALQUIER zoom (como Figma / Affinity / Penpot): factor = 1 / zoom exacto,
+# sin recortes. El clamp antiguo [0.45, 2.2] hacía que en zoom fuerte o muy
+# alejado los handles/línea se vieran demasiado grandes o demasiado pequeños.
+const _OUTLINE_SCREEN_PX: float = 1.25   # grosor del contorno, en píxeles de pantalla
+const _OUTLINE_COLOR := Color(0.05, 0.55, 0.91, 1.0)  # azul Figma
 var _handle_base_rects: Dictionary = {}    # nombre de nodo → Rect2 de offsets originales (a zoom 1.0)
 var _candle_base_rect: Rect2 = Rect2()
 var _last_zoom_scale: float = -1.0
 var _outline_style: StyleBoxFlat = null    # copia única por instancia (no la compartida del .tscn)
-var _outline_base_border_width: float = 1.0
-const _BORDER_WIDTH_MIN: float = 1.0
-const _BORDER_WIDTH_MAX: float = 3.0
+
+## Factor de compensación de zoom, exacto (sin recorte visible). El clamp solo
+## evita valores patológicos si el zoom se acerca a 0 o es absurdamente grande.
+static func _zoom_comp(zoom: float) -> float:
+	return 1.0 / clampf(zoom, 0.0002, 100000.0)
 
 # ── Campos numéricos X/Y (posición doc-space de la figura seleccionada) ──────
 var _fields_wrapper: Control = null
@@ -85,12 +91,14 @@ func _capture_base_handle_geometry() -> void:
 			candle.offset_right - candle.offset_left, candle.offset_bottom - candle.offset_top
 		)
 
-	# El StyleBox del contorno viene compartido (SubResource) entre todas las instancias
-	# del pool; lo duplicamos para poder ajustar el grosor del borde solo en esta instancia.
+	# El StyleBox del contorno viene compartido (SubResource) entre todas las
+	# instancias del pool; lo duplicamos y le quitamos el borde: el contorno lo
+	# dibujamos nosotros en _draw() con grosor CONSTANTE en pantalla (el borde
+	# de StyleBoxFlat es entero y se escala con el zoom → no sirve).
 	var current_style: StyleBox = panel_interactivo.get_theme_stylebox("panel")
 	if current_style is StyleBoxFlat:
-		_outline_base_border_width = current_style.border_width_left
 		_outline_style = current_style.duplicate()
+		_outline_style.set_border_width_all(0)
 		panel_interactivo.add_theme_stylebox_override("panel", _outline_style)
 
 func _get_zoom_scale() -> float:
@@ -117,7 +125,8 @@ func _apply_zoom_compensation() -> void:
 	if is_equal_approx(zoom, _last_zoom_scale):
 		return
 	_last_zoom_scale = zoom
-	var f: float = clampf(1.0 / zoom, _ZOOM_SIZE_FACTOR_MIN, _ZOOM_SIZE_FACTOR_MAX)
+	var f: float = _zoom_comp(zoom)
+	queue_redraw()  # el contorno (que dibujamos nosotros) depende del zoom
 
 	var panel_interactivo := get_node_or_null("PANEL_BOUNDINGBOX")
 	if not is_instance_valid(panel_interactivo):
@@ -147,13 +156,14 @@ func _apply_zoom_compensation() -> void:
 			candle.offset_top = _candle_base_rect.position.y * f
 			candle.offset_bottom = _candle_base_rect.end.y
 
-	if is_instance_valid(_outline_style):
-		var border: float = clampf(_outline_base_border_width * f, _BORDER_WIDTH_MIN, _BORDER_WIDTH_MAX)
-		var border_px: int = roundi(border)
-		_outline_style.border_width_left = border_px
-		_outline_style.border_width_top = border_px
-		_outline_style.border_width_right = border_px
-		_outline_style.border_width_bottom = border_px
+# Contorno del bounding box: lo pintamos aquí con grosor CONSTANTE en pantalla
+# (independiente del zoom). El nodo está en el espacio del canvas escalado por
+# el zoom, así que el grosor local = px_pantalla / zoom.
+func _draw() -> void:
+	if not visible or size == Vector2.ZERO:
+		return
+	var w: float = _OUTLINE_SCREEN_PX * _zoom_comp(_get_zoom_scale())
+	draw_rect(Rect2(Vector2.ZERO, size), _OUTLINE_COLOR, false, w)
 
 ## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
 ## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
@@ -165,8 +175,7 @@ func _apply_zoom_compensation() -> void:
 func _sync_fields_wrapper_transform() -> void:
 	if not is_instance_valid(_fields_wrapper):
 		return
-	var zoom: float = _get_zoom_scale()
-	var f: float = clampf(1.0 / zoom, _ZOOM_SIZE_FACTOR_MIN, _ZOOM_SIZE_FACTOR_MAX)
+	var f: float = _zoom_comp(_get_zoom_scale())
 	_fields_wrapper.rotation = -rotation
 	_fields_wrapper.scale = Vector2(f, f)
 
@@ -175,6 +184,7 @@ func _process(_delta: float) -> void:
 		return
 	_apply_zoom_compensation()
 	_sync_fields_wrapper_transform()
+	queue_redraw()   # el contorno sigue a la figura (tamaño/rotación) y al zoom
 	_update_axis_lock_indicators()
 
 ## Muestra el indicador rojo "x" o verde "Y" cuando el usuario está trasladando
