@@ -186,24 +186,27 @@ func _start_blender_mode(mode: BlenderMode) -> void:
 			transform_initial_states[shape] = _snapshot(shape)
 
 func _confirm_blender_transform() -> void:
+	# G / S / R (modo Blender) también son transformaciones reales → undo.
+	var accion := "Transformar"
+	match current_blender_mode:
+		BlenderMode.TRANSLATE: accion = "Mover selección"
+		BlenderMode.SCALE: accion = "Redimensionar"
+		BlenderMode.ROTATE: accion = "Rotar"
+	if not selected_shapes.is_empty():
+		_commit_transform(accion, selected_shapes.duplicate(),
+			current_blender_mode != BlenderMode.TRANSLATE)
+	transform_initial_states.clear()
 	_clear_blender_transform()
 
 func _cancel_blender_transform() -> void:
+	# Restaura el estado COMPLETO (posición/rotación/tamaño/vértices/…), no solo
+	# posición+rotación+texto como antes — cancelar un escalado dejaba la figura
+	# a medio transformar.
 	for shape in selected_shapes:
 		if is_instance_valid(shape) and transform_initial_states.has(shape):
-			var snap = transform_initial_states[shape]
-			shape.global_position = snap["gpos"]
-			_sync_doc_position_from_native(shape)
-			if shape is VectorShape and snap.has("doc_rot"):
-				shape.set_doc_rotation(snap["doc_rot"])
-			else:
-				shape.global_rotation = snap["grot"]
-			if snap.has("w"):
-				shape.set_meta("width", snap["w"])
-				_update_text_node_sizes(shape, snap["w"], snap.get("h", 80.0))
-			if snap.has("h") and shape.has_meta("height"):
-				shape.set_meta("height", snap["h"])
+			_restore_transform(shape, transform_initial_states[shape])
 	_clear_blender_transform()
+	_update_bounding_box()
 	canvas.queue_redraw()
 
 func _clear_blender_transform() -> void:
@@ -358,18 +361,20 @@ func _on_release(_gm: Vector2) -> bool:
 	# "fuera del artboard" tras soltar un arrastre, y bounding_box.gd ya
 	# tenía un listener muerto para ella. Solo se dispara si de verdad hubo
 	# una transformación real (no en un simple clic o un marquee vacío).
-	var was_dragging_shape: bool = is_dragging_shape
-	var hubo_transformacion: bool = is_dragging_shape or is_resizing or is_rotating \
-		or is_dragging_artboard or is_resizing_artboard
+	var shape_transform: bool = is_dragging_shape or is_resizing or is_rotating
+	var hubo_transformacion: bool = shape_transform or is_dragging_artboard or is_resizing_artboard
 
-	# Un arrastre de figuras registra UNA acción de undo con el cambio de
-	# posición Y de padre: si la figura terminó dentro de otro artboard pasa a
-	# ser hija suya; si terminó fuera de todos, hija directa del contenedor
-	# (elemento "suelto"). Antes un drag no registraba nada en el historial ni
-	# reparentaba — la figura seguía colgando de su artboard original y saltaba
-	# el aviso "fuera del artboard" aunque visualmente estuviera dentro de otro.
-	if was_dragging_shape and not selected_shapes.is_empty():
-		_commit_shape_drag(selected_shapes.duplicate())
+	# CUALQUIER transformación de figuras (mover / redimensionar / rotar / eje)
+	# registra UNA acción de undo con el estado completo antes/después + el
+	# cambio de padre (mover libre reparenta al artboard bajo la figura; resize/
+	# rotar no). Antes solo nudge/borrar/duplicar/pegar tenían undo real — un
+	# resize o una rotación con el ratón NO se podían deshacer.
+	if shape_transform and not selected_shapes.is_empty():
+		var _accion := "Mover selección"
+		if is_resizing: _accion = "Redimensionar"
+		elif is_rotating: _accion = "Rotar"
+		elif _axis_move != "": _accion = "Mover en eje"
+		_commit_transform(_accion, selected_shapes.duplicate(), is_resizing or is_rotating)
 
 	is_dragging_shape = false
 	is_resizing = false
@@ -388,62 +393,150 @@ func _on_release(_gm: Vector2) -> bool:
 	return true
 
 
-## Registra (y aplica) la acción de undo de un arrastre de figuras: posición
-## final + reparentado al artboard que contiene ahora cada figura (o al
-## contenedor si quedó fuera de todos). Preserva la transformación de mundo.
-func _commit_shape_drag(nodes: Array) -> void:
+## Registra (y aplica) UNA acción de undo para una transformación de figuras.
+## Captura el estado COMPLETO antes (de transform_initial_states) y después
+## (_snapshot fresco) de cada figura + el cambio de padre. `solo_transform`
+## true en resize/rotar → no se reparenta (la figura no "se mueve" de artboard).
+func _commit_transform(action_name: String, nodes: Array, solo_transform: bool) -> void:
 	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
 	var container: Node = canvas.get_node_or_null("ArtboardsContainer") if is_instance_valid(canvas) else null
 	var recs: Array = []
 	for n in nodes:
 		if not is_instance_valid(n) or not is_instance_valid(n.get_parent()):
 			continue
-		# Nunca reparentamos títulos/auxiliares ni artboards.
 		if n is ArtboardEditor or n.name == "ArtboardTitle" or n.name == "Contorno_Stroke":
 			continue
-		var snap: Dictionary = transform_initial_states.get(n, {})
+		var before: Dictionary = transform_initial_states.get(n, {})
+		if before.is_empty():
+			continue
+		var after: Dictionary = _snapshot(n)
 		var old_parent: Node = n.get_parent()
-		var old_gpos: Vector2 = snap.get("gpos", n.global_position)
-		var new_gpos: Vector2 = n.global_position
 		var new_parent: Node = old_parent
-		if mgr and is_instance_valid(container):
+		if not solo_transform and mgr and is_instance_valid(container):
 			var owner_ab := mgr.owning_artboard(n)
-			var hit_ab := mgr.artboard_at_point(new_gpos)
+			var hit_ab := mgr.artboard_at_point(n.global_position)
 			if hit_ab != owner_ab:
 				new_parent = hit_ab if hit_ab != null else container
-		var moved := not old_gpos.is_equal_approx(new_gpos)
-		if moved or new_parent != old_parent:
-			recs.append({
-				"n": n, "op": old_parent, "oi": n.get_index(), "og": old_gpos,
-				"np": new_parent, "ng": new_gpos,
-			})
+		if _snap_equal(before, after) and new_parent == old_parent:
+			continue
+		recs.append({
+			"n": n, "before": before, "after": after,
+			"op": old_parent, "oi": n.get_index(), "np": new_parent,
+		})
 	if recs.is_empty():
 		return
-	HistoryManager.register_action("Mover selección")
-	HistoryManager.add_do(_do_apply_drag.bind(recs, false))
-	HistoryManager.add_undo(_do_apply_drag.bind(recs, true))
+	HistoryManager.register_action(action_name)
+	HistoryManager.add_do(_do_apply_transform.bind(recs, false))
+	HistoryManager.add_undo(_do_apply_transform.bind(recs, true))
 	HistoryManager.commit()
-	_do_apply_drag(recs, false)
+	_do_apply_transform(recs, false)
 
 
-func _do_apply_drag(recs: Array, undo: bool) -> void:
+func _do_apply_transform(recs: Array, undo: bool) -> void:
 	for r in recs:
 		var n: Node2D = r["n"]
 		if not is_instance_valid(n):
 			continue
 		var parent: Node = r["op"] if undo else r["np"]
-		var gpos: Vector2 = r["og"] if undo else r["ng"]
 		if is_instance_valid(parent) and n.get_parent() != parent:
-			n.reparent(parent, true)   # conserva la transformación de mundo
+			n.reparent(parent, true)
 			if undo:
 				parent.move_child(n, mini(int(r["oi"]), parent.get_child_count() - 1))
-		n.global_position = gpos
-		_sync_doc_position_from_native(n)
+		_restore_transform(n, r["before"] if undo else r["after"])
 	_update_bounding_box()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 	if GlobalEvents:
 		GlobalEvents.emit_safe("object_transformed")
+
+
+## ¿Dos snapshots representan el mismo estado (posición/rotación/tamaño)?
+func _snap_equal(a: Dictionary, b: Dictionary) -> bool:
+	var ap: Vector2 = a.get("gpos", Vector2.ZERO)
+	var bp: Vector2 = b.get("gpos", Vector2.ZERO)
+	if not ap.is_equal_approx(bp):
+		return false
+	if not is_equal_approx(a.get("grot", 0.0), b.get("grot", 0.0)):
+		return false
+	if a.has("size") and b.has("size") and not (a["size"] as Vector2).is_equal_approx(b["size"]):
+		return false
+	if a.has("w") and b.has("w") and not is_equal_approx(a["w"], b["w"]):
+		return false
+	if a.has("h") and b.has("h") and not is_equal_approx(a["h"], b["h"]):
+		return false
+	return true
+
+
+## Escribe de vuelta TODO lo que capturó _snapshot: rotación, posición,
+## tamaño/extent, vértices, puntos de línea/path, metas de texto. Inverso
+## exacto de _apply_resize / _apply_rotation / la traslación, usado por el
+## undo/redo (_do_apply_transform) y por cancelar (Escape) una transformación.
+func _restore_transform(shape: Node2D, snap: Dictionary) -> void:
+	if not is_instance_valid(shape) or snap.is_empty():
+		return
+	# 1) rotación (antes de reconstruir puntos: to_local depende de ella).
+	#    grot es la verdad de render; doc_rot se re-deriva.
+	if snap.has("grot"):
+		shape.global_rotation = snap["grot"]
+	if shape is VectorShape and snap.has("doc_rot"):
+		shape.doc_rotation = snap["doc_rot"]
+	# 2) posición — gpos (global) es la autoridad; doc_position se re-sincroniza.
+	if snap.has("gpos"):
+		shape.global_position = snap["gpos"]
+	# 3) tamaño / extent — el `size` nativo es la verdad de render
+	if snap.has("size") and "size" in shape:
+		shape.set("size", snap["size"])
+		if shape is VectorShape and shape.has_doc_extent():
+			shape.set_doc_extent(DVec2.from_v2(snap["size"]))
+	elif shape is VectorShape and snap.has("doc_extent") and shape.has_doc_extent():
+		shape.set_doc_extent(snap["doc_extent"])
+	# 4) texto (metas width/height)
+	if snap.has("w") and shape.has_meta("shape_type"):
+		shape.set_meta("width", snap["w"])
+		if snap.has("h"):
+			shape.set_meta("height", snap["h"])
+		_update_text_node_sizes(shape, snap["w"], snap.get("h", 80.0))
+	elif snap.has("w") and "width" in shape:
+		shape.set("width", snap["w"])
+		if snap.has("h") and "height" in shape:
+			shape.set("height", snap["h"])
+	# 5) vértices (guardados en global → volver a local)
+	if snap.has("g_verts") and "vertices" in shape:
+		var lv := PackedVector2Array()
+		for gv in snap["g_verts"]:
+			lv.append(shape.to_local(gv))
+		shape.set("vertices", lv)
+	# 6) Polygon2D
+	if snap.has("g_poly_pts") and shape is Polygon2D:
+		var lp := PackedVector2Array()
+		for gp in snap["g_poly_pts"]:
+			lp.append(shape.to_local(gp))
+		shape.polygon = lp
+		if snap.has("g_stroke_pts"):
+			var st = shape.get_node_or_null("Contorno_Stroke")
+			if st is Line2D:
+				var ls := PackedVector2Array()
+				for gs in snap["g_stroke_pts"]:
+					ls.append(st.to_local(gs))
+				st.points = ls
+	# 7) Line2D
+	if snap.has("g_pts") and shape is Line2D:
+		var lpt := PackedVector2Array()
+		for g in snap["g_pts"]:
+			lpt.append(shape.to_local(g))
+		shape.points = lpt
+	# 8) Path2D
+	if snap.has("g_path_nodes") and shape is Path2D and shape.curve:
+		var cv: Curve2D = shape.curve
+		var nd = snap["g_path_nodes"]
+		for i in range(mini(cv.point_count, nd.size())):
+			var lpp := shape.to_local(nd[i]["node"])
+			cv.set_point_position(i, lpp)
+			cv.set_point_in(i, shape.to_local(nd[i]["in"]) - lpp)
+			cv.set_point_out(i, shape.to_local(nd[i]["out"]) - lpp)
+	_sync_doc_position_from_native(shape)
+	if shape.has_method("queue_redraw"):
+		shape.queue_redraw()
 
 # ── Motion ─────────────────────────────────────────────────────────────────────
 

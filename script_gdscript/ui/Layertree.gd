@@ -432,14 +432,16 @@ func _on_item_mouse_selected(pos_mouse: Vector2, boton: int) -> void:
 # TECLADO Y NAVEGACIÓN AVANZADA (PANNING CON CLIC CENTRAL)
 # =============================================================================
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_text_delete"):
+	# SOLO si el árbol de capas tiene el foco de teclado. Antes interceptaba
+	# CUALQUIER pulsación de Suprimir en toda la app y hacía nodo.queue_free()
+	# sin undo ni sincronizar la selección → pérdida de datos irreversible, y
+	# además impedía que Suprimir llegara al canvas (que sí borra con undo).
+	if event.is_action_pressed("ui_text_delete") and has_focus():
 		var sel : TreeItem = get_selected()
 		if sel:
-			var nodo : Node = sel.get_metadata(COL_NAME) as Node
-			if is_instance_valid(nodo):
-				print("Vectopen: Borrado por teclado → ", nodo.name)
-				nodo.queue_free()
-				hierarchy_changed_by_user.emit()
+			var nodo = sel.get_metadata(COL_NAME)
+			if is_instance_valid(nodo) and nodo is Node:
+				_borrar_nodo_con_undo(nodo)
 				get_viewport().set_input_as_handled()
 		return
 
@@ -466,6 +468,30 @@ func _input(event: InputEvent) -> void:
 			_vscroll.value -= delta * velocidad_arrastre
 		_ultima_pos_y = event.global_position.y
 		get_viewport().set_input_as_handled()
+
+## Borra el nodo seleccionado en el árbol registrando una acción de undo
+## (detach + guardar padre/índice; no queue_free para poder restaurarlo).
+func _borrar_nodo_con_undo(nodo: Node) -> void:
+	var padre := nodo.get_parent()
+	if not is_instance_valid(padre):
+		return
+	var idx := nodo.get_index()
+	var do_fn := func() -> void:
+		if is_instance_valid(nodo) and is_instance_valid(nodo.get_parent()):
+			nodo.get_parent().remove_child(nodo)
+	var undo_fn := func() -> void:
+		if is_instance_valid(nodo) and is_instance_valid(padre) and nodo.get_parent() == null:
+			padre.add_child(nodo)
+			padre.move_child(nodo, mini(idx, padre.get_child_count() - 1))
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Eliminar del panel de capas")
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+	do_fn.call()
+	hierarchy_changed_by_user.emit()
+
 
 func _buscar_vscroll_nativo() -> void:
 	for child in get_children(true):
