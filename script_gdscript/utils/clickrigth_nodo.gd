@@ -22,15 +22,41 @@ func _ready() -> void:
 		target_node.visible = false
 	_conectar_botones()
 
+const _ALIGN_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/TOOLS ALINEACION/VBoxContainer/HBoxContainer4"
+# Iconos de esa fila: distribuir-h, alinear-izq, alinear-centro-h, distribuir-h, alinear-der.
+const _ALIGN := {
+	"Button":  ["distribute", "h"],
+	"Button2": ["align", "left"],
+	"Button3": ["align", "center_h"],
+	"Button4": ["distribute", "h"],
+	"Button7": ["align", "right"],
+}
+
 func _conectar_botones() -> void:
 	for nombre in _ACCIONES:
 		var b := get_node_or_null(_MENU_BASE + "/" + nombre) as Button
 		if b and not b.pressed.is_connected(_on_accion.bind(_ACCIONES[nombre])):
 			b.pressed.connect(_on_accion.bind(_ACCIONES[nombre]))
-	# Cut = Copy + Remove (no hay botón propio, pero por si se añade)
 	var cut := get_node_or_null(_MENU_BASE + "/Cut") as Button
 	if cut and not cut.pressed.is_connected(_on_accion.bind("cut_selected")):
 		cut.pressed.connect(_on_accion.bind("cut_selected"))
+	# Alineación / distribución → InspectorCore (opera sobre la selección, con undo).
+	for nombre in _ALIGN:
+		var ab := get_node_or_null(_ALIGN_BASE + "/" + nombre) as Button
+		var op: Array = _ALIGN[nombre]
+		if ab and not ab.pressed.is_connected(_on_align.bind(op[0], op[1])):
+			ab.pressed.connect(_on_align.bind(op[0], op[1]))
+
+func _on_align(kind: String, arg: String) -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return
+	if kind == "align":
+		ic.align(arg)
+	else:
+		ic.distribute(arg)
+	if target_node:
+		target_node.visible = false
 
 func _move_tool():
 	var canvas := get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null

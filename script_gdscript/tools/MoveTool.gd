@@ -927,6 +927,7 @@ func _select(shape: Node2D) -> void:
 	if not selected_shapes.has(shape):
 		selected_shapes.append(shape)
 	_update_macro_rect()          # ← esta línea faltaba
+	_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
@@ -934,15 +935,24 @@ func _deselect(shape: Node2D) -> void:
 	if selected_shapes.has(shape):
 		selected_shapes.erase(shape)
 		_update_macro_rect()
+		_emit_selection_changed()
 		if is_instance_valid(canvas):
 			canvas.queue_redraw()
 
 func _clear_selection() -> void:
+	var tenia := not selected_shapes.is_empty()
 	selected_shapes.clear()
 	transform_initial_states.clear()
 	_update_macro_rect()  # oculta el bounding box (selected_shapes ahora está vacío)
+	if tenia:
+		_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
+
+## Notifica a InspectorCore (y a quien escuche) que la selección cambió.
+func _emit_selection_changed() -> void:
+	if GlobalEvents and GlobalEvents.has_signal("selection_changed"):
+		GlobalEvents.emit_safe("selection_changed", selected_shapes.duplicate())
 
 # ── Operaciones sobre la selección — Fase 1 (teclado/portapapeles) ───────────
 # Añadido el 19/08/2026 a partir del informe de interacción avanzada del
@@ -973,6 +983,7 @@ func select_all() -> void:
 			continue
 		selected_shapes.append(node)
 	_update_macro_rect()
+	_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 

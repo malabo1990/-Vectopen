@@ -51,6 +51,7 @@ MCPRuntime="*res://addons/godot_mcp/runtime/mcp_runtime.gd"
 HistoryManager="*res://autoloads/HistoryManager.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
 RecentFilesManager="*res://autoloads/RecentFilesManager.gd"
+InspectorCore="*res://autoloads/InspectorCore.gd"
 
 [debug]
 

@@ -37,6 +37,9 @@ signal object_selected
 signal object_deleted
 signal object_transformed
 signal object_style_changed
+## La selección del canvas cambió (añadida/quitada figura, o limpiada).
+## `shapes` = Array de Node2D seleccionados ahora. La escucha InspectorCore.
+signal selection_changed(shapes: Array)
 
 # --- SEÑALES DE EFECTOS / UI ---
 signal effect_parameter_updated(effect_name: String, property: String, value: Variant)

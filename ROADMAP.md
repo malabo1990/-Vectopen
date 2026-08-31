@@ -155,6 +155,34 @@ Pending (from the user's analysis doc — the full matrix):
 - Limits: 0-width/height, negative, huge/tiny scale, far-from-origin.
 - Stress: transform under 1k–10k objects, timings for select/transform/undo.
 
+## 3c. Inspector core system
+
+`autoloads/InspectorCore.gd` — the central layer between the **selection** and
+any property UI (the right-click `tool_in_Mouse` panel, a future side panel, the
+bounding-box X/Y fields). Same role for properties that the bounding box plays
+for transforms.
+
+Done:
+- ✅ Follows the live selection via `GlobalEvents.selection_changed` (new signal,
+  emitted by MoveTool `_select`/`_deselect`/`_clear_selection`/`select_all`).
+- ✅ One property model over all shape types: `pos_x/y` (doc-space, matches the
+  bbox fields), `width/height`, `rotation`, `fill_color`, `stroke_color`,
+  `stroke_width`, `opacity`, `corner_radius`, `visible`, `name`.
+- ✅ `current_props()` → `{prop: {value, mixed}}`; multi-select shows the common
+  value or `mixed`.
+- ✅ `apply(prop, value)` — writes to every selected shape in ONE undo action.
+- ✅ `align(mode)` / `distribute(axis)` — left/center/right/top/middle/bottom and
+  even h/v spacing, undo-able. Reference = selection bounds (2+) or the artboard
+  (1). Wired to the `TOOLS ALINEACION` icon row in the context menu.
+- ✅ Tests `test/canvas/InspectorCore_test.gd` (7) incl. Inspector↔bbox parity.
+
+Pending:
+- Side panel UI bound to `InspectorCore.changed`.
+- `name` rename flow (needs a text input).
+- Colour swatches / stroke / text panels in `tool_in_Mouse` → `InspectorCore`.
+- The 16-button align grid (needs a design decision on 9-point semantics).
+- Boolean ops, effects, gradient fill.
+
 ## 4. Planned — Advanced interaction (Phases 2–4)
 
 From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
