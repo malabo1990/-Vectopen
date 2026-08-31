@@ -120,6 +120,41 @@ pick one up only when a real document exposes the limit.
 
 ---
 
+## 3b. In progress — Bounding-box / transform bug-hunt (P0)
+
+The selection + transform system is a foundational subsystem. Goal: it survives
+long combined chains (select → move → scale → rotate → duplicate → delete →
+undo → redo → multi-select → transform → undo → redo) with no state drift
+between the model, the bounding box, the Inspector fields and the history.
+Rule: **every bug found becomes a permanent test** in
+`test/canvas/TransformRegression_test.gd`.
+
+Done:
+- ✅ Real undo/redo for move / resize / rotate / axis-move / G-S-R confirm
+  (was: only nudge/delete/duplicate/paste). One action per gesture, full
+  before/after state.
+- ✅ `_restore_transform()` — one inverse used by undo/redo AND Escape-cancel
+  (cancel used to leave a scaled shape half-transformed).
+- ✅ Constant screen-size handles + axis-move gizmo (§3b handled the visuals).
+- ✅ Delete key no longer globally hijacked by the layer tree (was irreversible
+  `queue_free`).
+- ✅ First regression batch (11): move/resize/rotate undo+redo, chain undo×3/
+  redo×3, non-selected untouched, multi-select relative positions, delete
+  multi, axis X/Y, rotated-shape resize, cancel mid-transform.
+
+Pending (from the user's analysis doc — the full matrix):
+- Every handle (8 corners+sides) individually, each object type
+  (rect/ellipse/line/path/text/image/group), each zoom level (10%–800%).
+- `scale → rotate → scale` again (classic coordinate-math bug spot).
+- Multi-select rotate/scale about the group centroid; 2/3/10 shapes.
+- Rotation values 0/45/90/180/270/360/−360/720/decimals; normalization.
+- Numeric-precision drift after hundreds of ops; +0.1×3 vs +0.3.
+- Tool-switch / new-selection / Escape mid-transform → safe finalize, no ghost
+  box, no dangling undo entry.
+- Inspector ↔ bounding box ↔ model value parity (invariant I6).
+- Limits: 0-width/height, negative, huge/tiny scale, far-from-origin.
+- Stress: transform under 1k–10k objects, timings for select/transform/undo.
+
 ## 4. Planned — Advanced interaction (Phases 2–4)
 
 From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
