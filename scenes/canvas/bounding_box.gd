@@ -34,11 +34,12 @@ const _HANDLE_FRAC := {
 	"handle_MA": Vector2(0.5, 0), "MB": Vector2(0.5, 1),
 	"handle_IM": Vector2(0, 0.5), "handle_DM": Vector2(1, 0.5),
 }
-# Gizmo de eje: barras que salen del centro de la caja.
-const _AXIS_GIZMO_PX: float = 32.0   # largo de la barra (px pantalla)
-const _AXIS_GRAB_PX: float = 10.0    # cuadro agarrable en el extremo
-const _AXIS_X_COLOR := Color(0.92, 0.24, 0.24, 1.0)  # rojo → horizontal
-const _AXIS_Y_COLOR := Color(0.18, 0.74, 0.30, 1.0)  # verde → vertical
+# Handles de eje (diseño del .tscn: `x` rojo a la derecha, `Y` verde debajo).
+# Cuadros del color de sus StyleBox, separados del borde de la caja. Arrastrar
+# uno mueve la selección SOLO en ese eje.
+const _AXIS_GAP_PX: float = 20.0     # separación del borde de la caja (px pantalla)
+const _AXIS_X_COLOR := Color(1, 0, 0, 1)        # rojo  (StyleBoxFlat_gxv5u)
+const _AXIS_Y_COLOR := Color(0, 0.82, 0, 1)     # verde (StyleBoxFlat_lna83)
 
 # ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como Figma / Affinity) ────
 # Los handles ya NO se ven vía sus StyleBox (el borde es entero y se escala con
@@ -98,13 +99,14 @@ func _capture_base_handle_geometry() -> void:
 		return
 	var vacio := StyleBoxEmpty.new()
 	for handle_name in _HANDLE_CODES:
-		var p := panel_interactivo.get_node_or_null(handle_name)
+		# `Y` cuelga de `MB` en el .tscn, no directamente del panel → find_child.
+		var p := panel_interactivo.find_child(handle_name, true, false) as Control
 		if is_instance_valid(p):
 			_handle_base_rects[handle_name] = Rect2(
 				p.offset_left, p.offset_top,
 				p.offset_right - p.offset_left, p.offset_bottom - p.offset_top
 			)
-			p.add_theme_stylebox_override("panel", vacio)   # solo zona de clic; se dibuja en _draw()
+			p.add_theme_stylebox_override("panel", vacio)   # solo zona de clic; el dibujo lo hace _draw()
 	var candle := panel_interactivo.get_node_or_null("candle")
 	if is_instance_valid(candle):
 		candle.add_theme_stylebox_override("panel", vacio)  # el tallo lo dibuja _draw()
@@ -148,29 +150,30 @@ func _apply_zoom_compensation() -> void:
 		return
 
 	var hit_half: float = _HANDLE_HIT_PX * 0.5 * f
-	var axis_reach: float = (_AXIS_GIZMO_PX + _AXIS_GRAB_PX * 0.5) * f  # extremo del gizmo
+	var gap: float = _AXIS_GAP_PX * f
 	var cx: float = size.x * 0.5
 	var cy0: float = size.y * 0.5
 	for handle_name in _handle_base_rects:
-		var p := panel_interactivo.get_node_or_null(handle_name)
+		var p := panel_interactivo.find_child(handle_name, true, false) as Control
 		if not is_instance_valid(p):
 			continue
 		if handle_name == "x":
-			# Barra horizontal (mover solo en X): agarrable toda la barra + cabo.
-			p.offset_left = cx + 6.0 * f
-			p.offset_right = cx + axis_reach + hit_half
-			p.offset_top = cy0 - hit_half
-			p.offset_bottom = cy0 + hit_half
+			# `x` cuelga del panel (layout_mode 0): a la DERECHA del borde, centrado.
+			var xc := Vector2(size.x + gap, cy0)
+			p.offset_left = xc.x - hit_half
+			p.offset_right = xc.x + hit_half
+			p.offset_top = xc.y - hit_half
+			p.offset_bottom = xc.y + hit_half
 			continue
 		if handle_name == "Y":
-			# Barra vertical (mover solo en Y), hacia abajo.
-			p.offset_left = cx - hit_half
-			p.offset_right = cx + hit_half
-			p.offset_top = cy0 + 6.0 * f
-			p.offset_bottom = cy0 + axis_reach + hit_half
+			# `Y` cuelga de `MB` (bottom-center, rect ±hit_half): centrado, DEBAJO.
+			var yc_local := Vector2(hit_half, hit_half + gap)   # relativo al top-left de MB
+			p.offset_left = yc_local.x - hit_half
+			p.offset_right = yc_local.x + hit_half
+			p.offset_top = yc_local.y - hit_half
+			p.offset_bottom = yc_local.y + hit_half
 			continue
-		# Handles de resize/rotación: cuadrado centrado en su anchor (0 para
-		# todos salvo el de rotación, por encima del borde superior).
+		# Handles de resize/rotación: cuadrado centrado en su anchor.
 		var cy: float = -_ROT_STEM_SCREEN_PX * f if handle_name == "Rotation" else 0.0
 		p.offset_left = -hit_half
 		p.offset_right = hit_half
@@ -208,23 +211,20 @@ func _draw() -> void:
 		draw_rect(r, _HANDLE_FILL, true)
 		draw_rect(r, _OUTLINE_COLOR, false, hb)
 
-	# Gizmo de eje: barra roja (horizontal) y verde (vertical) desde el centro.
-	# Arrastrar el extremo mueve la selección SOLO en ese eje.
-	var ctr := Vector2(size.x * 0.5, size.y * 0.5)
-	var glen := _AXIS_GIZMO_PX * inv
-	var grab := _AXIS_GRAB_PX * inv
-	var bar := maxf(_OUTLINE_SCREEN_PX * 2.0 * inv, 0.01)
-	var x_end := ctr + Vector2(glen, 0.0)
-	var y_end := ctr + Vector2(0.0, glen)
-	draw_line(ctr, x_end, _AXIS_X_COLOR, bar)
-	draw_line(ctr, y_end, _AXIS_Y_COLOR, bar)
-	# punta de flecha en el extremo (triángulo)
-	var ah := grab
-	draw_colored_polygon(PackedVector2Array([
-		x_end + Vector2(ah, 0), x_end + Vector2(-ah * 0.4, ah * 0.7), x_end + Vector2(-ah * 0.4, -ah * 0.7)]), _AXIS_X_COLOR)
-	draw_colored_polygon(PackedVector2Array([
-		y_end + Vector2(0, ah), y_end + Vector2(ah * 0.7, -ah * 0.4), y_end + Vector2(-ah * 0.7, -ah * 0.4)]), _AXIS_Y_COLOR)
-	draw_circle(ctr, grab * 0.4, _OUTLINE_COLOR)   # origen del gizmo
+	# Handles de eje (diseño del .tscn): cuadro ROJO a la derecha (mover solo X)
+	# y cuadro VERDE debajo (mover solo Y). Con conector fino hasta el borde.
+	var gap := _AXIS_GAP_PX * inv
+	var x_c := Vector2(size.x + gap, size.y * 0.5)
+	var y_c := Vector2(size.x * 0.5, size.y + gap)
+	draw_line(Vector2(size.x, x_c.y), x_c, _AXIS_X_COLOR, hb)
+	draw_line(Vector2(y_c.x, size.y), y_c, _AXIS_Y_COLOR, hb)
+	_draw_handle_square(x_c, hs, hb, _AXIS_X_COLOR)
+	_draw_handle_square(y_c, hs, hb, _AXIS_Y_COLOR)
+
+func _draw_handle_square(center: Vector2, side: float, border: float, fill: Color) -> void:
+	var r := Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side))
+	draw_rect(r, fill, true)
+	draw_rect(r, Color.WHITE, false, border)
 
 ## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
 ## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
@@ -256,7 +256,7 @@ func _update_axis_lock_indicators() -> void:
 	if not is_instance_valid(panel_interactivo):
 		return
 	for n in ["x", "Y"]:
-		var p := panel_interactivo.get_node_or_null(n)
+		var p := panel_interactivo.find_child(n, true, false) as Control
 		if is_instance_valid(p) and not p.visible:
 			p.visible = true
 
@@ -267,7 +267,7 @@ func _connect_handle_signals() -> void:
 	if not is_instance_valid(panel_interactivo):
 		return
 	for handle_name in _HANDLE_CODES:
-		var handle_panel := panel_interactivo.get_node_or_null(handle_name)
+		var handle_panel := panel_interactivo.find_child(handle_name, true, false) as Control
 		if is_instance_valid(handle_panel):
 			var handle_code: String = _HANDLE_CODES[handle_name]
 			var bound_callable := _on_handle_gui_input.bind(handle_code)
