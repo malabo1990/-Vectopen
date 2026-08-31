@@ -25,6 +25,23 @@ func _nuevo_artboard(container: Node2D, pos: Vector2, size: Vector2) -> Artboard
 	return ab
 
 
+## REGRESIÓN: la herramienta activa DEBE estar en el árbol de escena. Si no,
+## get_tree() es null dentro de ella y ArtboardManager.find(get_tree()) devuelve
+## null → toda la resolución multi-artboard se cae al primer artboard (por eso
+## "no se podía seleccionar ni arrastrar el 2º artboard" en la app real).
+func test_la_herramienta_activa_esta_en_el_arbol_y_ve_el_manager() -> void:
+	var s := _scene()  # el nodo raíz de canvas.tscn ES el canvas
+	await get_tree().process_frame
+	assert_bool("current_tool" in s).is_true()
+	var tool = s.current_tool
+	assert_object(tool).is_not_null()
+	assert_bool(tool is Node).is_true()
+	assert_bool(tool.is_inside_tree()).is_true()          # <- el fix
+	assert_object(tool.get_tree()).is_not_null()
+	# y desde la herramienta se localiza el ArtboardManager
+	assert_object(ArtboardManager.find(tool.get_tree())).is_not_null()
+
+
 func test_manager_registra_todos_los_artboards_y_tiene_activo() -> void:
 	var s := _scene()
 	await get_tree().process_frame

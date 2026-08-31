@@ -53,6 +53,13 @@ deliberately dropped
   Deliberately not a ZIP (`ZIPReader.read_file` is linear-scan → re-save O(N²)).
 - ✅ **Stress-test harnesses** — `test/perf/`: `stress_book`, `stress_bezier`,
   `stress_scale`, `stress_10k`, `profile_real`, `idle_render`.
+- ✅ **Tools are now in the scene tree** — `change_tool()` never called
+  `add_child()`, so every tool's `get_tree()` was `null` and
+  `ArtboardManager.find(get_tree())` always failed → multi-artboard resolution
+  silently fell back to `container.get_child(0)` (the first artboard) in the
+  real app. This was why the 2nd+ artboard couldn't be selected or dragged and
+  why shapes never reparented between artboards live. Also fixes the tool
+  ObjectDB leak (orphans 35 → 5).
 - ✅ **Drag-to-reparent on canvas** — dropping a shape over another artboard makes
   it a child of that artboard (or a loose child of the container if dropped
   outside all), preserving world transform, in one undo action. `MoveTool` drags

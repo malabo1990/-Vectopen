@@ -125,10 +125,9 @@ func registrar_herramienta(tecla_acceso: String, script_herramienta: Script) -> 
 
 ## Libera una herramienta ToolBase (Node) que ya no está en uso.
 ## Las herramientas `Tool` (RefCounted) no lo necesitan — se liberan solas
-## por conteo de referencias. Las `ToolBase` (Node) nunca se añaden al árbol
-## de escena (ver _new_tool()), así que si nadie las libera se acumulan como
-## "leaked ObjectDB instances" al cerrar — encontrado el 19/08/2026 al migrar
-## MoveTool.gd, la herramienta por defecto que queda viva toda la sesión.
+## por conteo de referencias. Las `ToolBase` (Node) SÍ entran al árbol de
+## escena desde change_tool() (necesitan get_tree()); al cambiar de herramienta
+## hay que sacarlas y liberarlas o se acumulan como "leaked ObjectDB instances".
 ## Usa queue_free(), NO free(): algunas herramientas (p.ej. TextTool en
 ## _create_new_title_at → _switch_to_move_tool) cambian de herramienta desde
 ## dentro de su propio handle_input(), así que change_tool() puede llamar a
@@ -138,7 +137,9 @@ func registrar_herramienta(tecla_acceso: String, script_herramienta: Script) -> 
 ## Texto/Párrafo, ver informe). queue_free() difiere la liberación real al
 ## final del frame, que es justo lo que hace falta en ese caso.
 func _free_orphan_tool(tool) -> void:
-	if tool is Node and not tool.is_inside_tree():
+	if tool is Node:
+		if tool.is_inside_tree() and is_instance_valid(tool.get_parent()):
+			tool.get_parent().remove_child(tool)
 		tool.queue_free()
 
 func _exit_tree() -> void:
@@ -160,7 +161,18 @@ func change_tool(new_tool) -> void:
 
 	_free_orphan_tool(current_tool)
 	current_tool = new_tool
-	
+
+	# La herramienta ToolBase (Node) DEBE entrar al árbol de escena: si no,
+	# get_tree() es null dentro de ella y TODO lo que depende de él queda muerto
+	# — sobre todo ArtboardManager.find(get_tree()), así que la resolución
+	# multi-artboard se caía SIEMPRE al fallback container.get_child(0) (el
+	# primer artboard). Por eso "no se podía seleccionar ni arrastrar el 2º
+	# artboard" ni reparentar figuras entre artboards en la app real (los tests
+	# sí pasaban porque añaden la herramienta al árbol a mano).
+	# Las `Tool` (RefCounted) legacy no son Node → no aplica.
+	if new_tool is Node and not new_tool.is_inside_tree():
+		add_child(new_tool)
+
 	if current_tool:
 		print("==================================================")
 		print("CANVAS NOTIFICACIÓN: ¡Herramienta Cambiada con Éxito!")
@@ -395,9 +407,11 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	else:
 		if _eraser_active:
 			_eraser_active = false
-			if _tool_before_eraser:
+			if is_instance_valid(_tool_before_eraser):
 				change_tool(_tool_before_eraser)
-				_tool_before_eraser = null
+			elif MoveTool_Script:
+				change_tool(_new_tool(MoveTool_Script))
+			_tool_before_eraser = null
 
 	if current_tool and event.pressure > 0.0:
 		current_tool.set_meta("pen_pressure", event.pressure)
