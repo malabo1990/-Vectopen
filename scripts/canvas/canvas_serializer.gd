@@ -498,7 +498,7 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	if d.get("z_abs", false):
 		node.z_as_relative = false
 	if d.has("clip") and "clip_children" in node:
-		node.clip_children = int(d["clip"])
+		node.clip_children = int(d["clip"]) as CanvasItem.ClipChildrenMode
 	if d.has("light_mask"):
 		node.light_mask = int(d["light_mask"])
 	if d.has("vis_layer") and "visibility_layer" in node:
@@ -529,8 +529,8 @@ static func _apply_material(node: CanvasItem, md: Dictionary) -> void:
 				node.material = sm
 		"canvas":
 			var cm := CanvasItemMaterial.new()
-			cm.blend_mode = int(md.get("blend", 0))
-			cm.light_mode = int(md.get("light", 0))
+			cm.blend_mode = int(md.get("blend", 0)) as CanvasItemMaterial.BlendMode
+			cm.light_mode = int(md.get("light", 0)) as CanvasItemMaterial.LightMode
 			node.material = cm
 
 

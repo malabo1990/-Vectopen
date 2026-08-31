@@ -53,7 +53,7 @@ func _ready() -> void:
 	# herramientas siempre tienen destino.
 	_ensure_active()
 	print("ArtboardManager: %d artboards | activo = %s" % [
-		artboards.size(), active_artboard.name if active_artboard else "<ninguno>"])
+		artboards.size(), String(active_artboard.name) if active_artboard else "<ninguno>"])
 
 
 # ─────────────────────────────────────────────────────────── registro
