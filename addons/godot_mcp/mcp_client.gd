@@ -10,7 +10,13 @@ signal tool_requested(request_id: String, tool_name: String, args: Dictionary)
 signal client_count_changed(count: int)
 signal runtime_status_changed(connected: bool)
 
-const DEFAULT_URL := "ws://127.0.0.1:6505"
+## El servidor godot-mcp escucha en 6515 (variante "-ls"). Se puede forzar otro
+## puerto/host con la variable de entorno GODOT_MCP_URL.
+const DEFAULT_URL := "ws://127.0.0.1:6515"
+
+static func _resolved_url() -> String:
+	var env := OS.get_environment("GODOT_MCP_URL")
+	return env if not env.is_empty() else DEFAULT_URL
 const RECONNECT_DELAY := 2.0
 const MAX_RECONNECT_DELAY := 10.0
 const MAX_PACKETS_PER_FRAME := 32
@@ -63,8 +69,8 @@ func _process(_delta: float) -> void:
 			if _is_connected:
 				_handle_disconnect()
 
-func connect_to_server(url: String = DEFAULT_URL) -> void:
-	server_url = url
+func connect_to_server(url: String = "") -> void:
+	server_url = url if not url.is_empty() else _resolved_url()
 	_should_reconnect = true
 	_current_reconnect_delay = RECONNECT_DELAY
 	_attempt_connection()

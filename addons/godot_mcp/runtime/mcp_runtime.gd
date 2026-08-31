@@ -10,7 +10,12 @@ extends Node
 ## Auto-registered as an autoload by the godot_mcp editor plugin on
 ## _enable_plugin(); removed on _disable_plugin().
 
-const SERVER_URL := "ws://127.0.0.1:6505"
+## Mismo servidor que el plugin del editor (mcp_client.gd). Debe coincidir con
+## el puerto que reporta godot-mcp; override con GODOT_MCP_URL.
+const DEFAULT_SERVER_URL := "ws://127.0.0.1:6515"
+static func _server_url() -> String:
+	var env := OS.get_environment("GODOT_MCP_URL")
+	return env if not env.is_empty() else DEFAULT_SERVER_URL
 const CACHE_SCREENSHOT_DIR := "res://addons/godot_mcp/cache/screenshots/"
 const LOG_RING_CAPACITY := 500
 
@@ -68,7 +73,7 @@ func _attempt_connect() -> void:
 	_socket = WebSocketPeer.new()
 	_socket.outbound_buffer_size = 8 * 1024 * 1024  # screenshots can be big
 	_socket.inbound_buffer_size = 256 * 1024
-	var err := _socket.connect_to_url(SERVER_URL)
+	var err := _socket.connect_to_url(_server_url())
 	_reconnect_at_msec = Time.get_ticks_msec() + 2000
 	if err != OK:
 		push_runtime_log("warn", "MCPRuntime connect_to_url failed: %d (%s)" % [err, error_string(err)])
