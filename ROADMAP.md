@@ -61,6 +61,10 @@ deliberately dropped
   instead of masquerading as top-level artboards; layer-tree drag-drop resync
   (`hierarchy_changed_by_user` was emitted but unheard); drop onto the loose
   group un-parents a shape.
+- ✅ **Layer-panel toolbar buttons wired** — `+A` (new artboard, right of the
+  last, made active), `+` (new group in the active artboard), `-` (delete the
+  selected node). All undo-able. Live-validated via godot-mcp. `D` / `M` / `G`
+  (duplicate / merge / group) still unwired.
 
 ### Performance fixes (measured, kept)
 - ✅ `WorldTextLabel` extreme-zoom stampede (per-frame recompute + outline
@@ -159,7 +163,9 @@ From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
 | H-2b | 3 half-built layer-panel implementations coexist | Live one: `Layertree.gd` + `layers_system.gd` (in `layers_system.tscn`). Dead: `layers_drop_handler.gd` (TreeItem-only clone, no reparent), `panel_tree_layers.gd` / `LayerPanel.gd` (pilot with fake layers). Delete the dead two. |
 | H-3 | `rich_text_label_slider_size.gd:44` warning on startup (×2) | Two attachments in `scenes/ui/panel_tooltext.tscn` with no node-path wiring for the script's 4 exports. Needs a design decision, not a blind fix. |
 | H-4 | `ProjectManager` data-model CRUD has no UI caller | See §2. Either wire it or remove it. |
-| H-5 | gdUnit4 leaves ~30 orphan nodes + 2 `ShapedTextDataAdvanced` RID allocs at exit | Cosmetic; investigate if it grows. |
+| H-5 | gdUnit4 leaves ~35 orphan nodes + 2 `ShapedTextDataAdvanced` RID allocs at exit | Cosmetic; investigate if it grows. |
+| H-6 | Layer-panel `D` / `M` / `G` buttons unwired | Duplicate / merge / group. `+` / `+A` / `-` are done. |
+| H-7 | godot-mcp plugin port was hard-coded to 6505, server on 6515 | Fixed to 6515 + `GODOT_MCP_URL` override; see `addons/godot_mcp/README.md`. |
 
 ---
 
