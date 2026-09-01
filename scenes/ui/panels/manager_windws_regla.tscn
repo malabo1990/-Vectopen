@@ -376,10 +376,22 @@ vertical = true
 script = ExtResource("2_g1lqb")
 grid_check = NodePath("GridRow/GridCheck")
 grid_size_spin = NodePath("SizeRow/SizeSpin")
+object_check = NodePath("ObjectRow/ObjectCheck")
 
 [node name="HeaderLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1373442547]
 layout_mode = 2
 text = "Snapping"
+
+[node name="ObjectRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1960017300]
+layout_mode = 2
+
+[node name="ObjectLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section/ObjectRow" unique_id=1960017301]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Smart Snap (objects)"
+
+[node name="ObjectCheck" type="CheckButton" parent="MarginContainer/BoxContainer/Container/snap_section/ObjectRow" unique_id=1960017302]
+layout_mode = 2
 
 [node name="GridRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1960017221]
 layout_mode = 2

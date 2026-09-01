@@ -58,6 +58,9 @@ var artboard_resize_edge: Vector2 = Vector2.ZERO
 var artboard_drag_start_mouse: Vector2 = Vector2.ZERO
 var artboard_drag_start_pos: Vector2 = Vector2.ZERO
 
+# ── Imán inteligente (líneas guía mientras se arrastra) ────────────────────────
+var _snap_guides: Array = []
+
 # ── Modos de transformación por teclado ────────────────────────────────────
 enum KeyMode { NONE, TRANSLATE, SCALE, ROTATE }
 var current_key_mode: KeyMode = KeyMode.NONE
@@ -77,6 +80,7 @@ const COLOR_BBOX: Color = Color(0.05, 0.55, 0.91, 1.0)        # azul de acento
 const COLOR_HANDLE_F: Color = Color(1.0, 1.0, 1.0, 1.0)      # Fondo tiradores
 const COLOR_MARQUEE_F: Color = Color(0.05, 0.55, 0.91, 0.07)  # Relleno marquee
 const COLOR_MARQUEE_S: Color = Color(0.05, 0.55, 0.91, 0.60)  # Contorno marquee
+const COLOR_SNAP_GUIDE: Color = Color(1.0, 0.19, 0.42, 0.95)  # magenta de la guía del imán
 
 # ── Métodos del Ciclo de Vida ────────────────────────────────────────────────
 
@@ -513,6 +517,7 @@ func _on_release(_gm: Vector2) -> bool:
 	live_scale = Vector2.ONE
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
+	_snap_guides.clear()
 
 	if hubo_transformacion and GlobalEvents:
 		GlobalEvents.emit_safe("object_transformed")
@@ -692,6 +697,7 @@ func _heal_stuck_gesture() -> void:
 	_axis_move = ""
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
+	_snap_guides.clear()
 	if is_instance_valid(_bounding_box) and "_is_dragging_canvas_area" in _bounding_box:
 		_bounding_box._is_dragging_canvas_area = false
 	if is_instance_valid(canvas):
@@ -756,6 +762,20 @@ func _on_motion(gm: Vector2) -> bool:
 				delta.y = 0.0
 			else:
 				delta.x = 0.0
+
+		# ── Imán inteligente: alinear con bordes/centros de otras figuras ──
+		_snap_guides.clear()
+		var _sm := _snap_manager()
+		if _sm and _sm.has_method("smart_snap") and _sm.snap_to_objects \
+				and not _sm.grid_enabled and _axis_move == "" \
+				and not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_ALT) \
+				and not Input.is_key_pressed(KEY_CTRL):
+			var start_union: Rect2 = _macro_rect_inicial()
+			if start_union.size != Vector2.ZERO:
+				var moving_now := Rect2(start_union.position + delta, start_union.size)
+				var snap_res: Dictionary = _sm.smart_snap(moving_now, _snap_candidates(), _viewport_zoom())
+				delta += snap_res["offset"] as Vector2
+				_snap_guides = snap_res["guides"]
 
 		for s in selected_shapes:
 			if is_instance_valid(s) and transform_initial_states.has(s):
@@ -1575,7 +1595,7 @@ func _get_macro_rect() -> Rect2:
 	if selected_shapes.size() == 0: return Rect2()
 	var valid_first_rect = false
 	var r: Rect2 = Rect2()
-	
+
 	for shape in selected_shapes:
 		if is_instance_valid(shape):
 			if not valid_first_rect:
@@ -1584,6 +1604,73 @@ func _get_macro_rect() -> Rect2:
 			else:
 				r = r.merge(_global_rect(shape))
 	return r
+
+# ── Imán inteligente ─────────────────────────────────────────────────────────
+
+func _snap_manager() -> Node:
+	var st := Engine.get_main_loop() as SceneTree
+	return st.root.get_node_or_null("SnapManager") if st else null
+
+func _viewport_zoom() -> float:
+	if not is_instance_valid(canvas):
+		return 1.0
+	var vp := canvas.get_viewport()
+	return vp.get_canvas_transform().get_scale().x if vp else 1.0
+
+## Rect global de la selección en el instante en que empezó el arrastre
+## (`transform_initial_states[s]["gpos"]` + tamaño actual). Sirve de base para
+## calcular el ajuste del imán sin depender de las posiciones ya movidas.
+func _macro_rect_inicial() -> Rect2:
+	var r: Rect2 = Rect2()
+	var got := false
+	for s in selected_shapes:
+		if is_instance_valid(s) and transform_initial_states.has(s):
+			var rr := Rect2(transform_initial_states[s]["gpos"], _global_rect(s).size)
+			r = rr if not got else r.merge(rr)
+			got = true
+	return r if got else Rect2()
+
+## Rects (mundo) contra los que imanta la selección: los artboards que la
+## contienen + sus capas de primer nivel (sin la propia selección ni sus
+## ancestros/descendientes).
+func _snap_candidates() -> Array:
+	var out: Array = []
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if mgr == null:
+		return out
+	var vistos := {}
+	for s in selected_shapes:
+		if not is_instance_valid(s):
+			continue
+		var ab := mgr.owning_artboard(s)
+		if ab == null or vistos.has(ab):
+			continue
+		vistos[ab] = true
+		out.append(mgr.world_rect(ab))
+		var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
+		var raiz: Node = dl if dl else ab
+		for ch in raiz.get_children():
+			if not (ch is Node2D):
+				continue
+			var nm := String(ch.name)
+			if nm in ["Contorno_Stroke", "ArtboardTitle", "VectorDrawingLayer"]:
+				continue
+			if _es_seleccion_o_pariente(ch):
+				continue
+			var cr: Rect2 = _global_rect(ch)
+			if cr.size != Vector2.ZERO:
+				out.append(cr)
+			if out.size() > 240:
+				return out
+	return out
+
+func _es_seleccion_o_pariente(n: Node) -> bool:
+	for s in selected_shapes:
+		if not is_instance_valid(s):
+			continue
+		if s == n or _es_ancestro(n, s) or _es_ancestro(s, n):
+			return true
+	return false
 
 # ── Renderizado del Bounding Box Pro (estilo profesional) ─────────────────────────
 
@@ -1598,6 +1685,22 @@ func draw_preview(c: Node2D) -> void:
 		c.draw_rect(r, COLOR_MARQUEE_F, true)
 		c.draw_rect(r, COLOR_MARQUEE_S, false, 1.0)
 		return
+
+	# Guías del imán inteligente (solo mientras se arrastra una figura)
+	if is_dragging_shape and not _snap_guides.is_empty():
+		var vpg := c.get_viewport()
+		var zg: float = vpg.get_canvas_transform().get_scale().x if vpg else 1.0
+		var gw: float = 1.0 / maxf(zg, 0.0002)
+		for g in _snap_guides:
+			var p1: Vector2
+			var p2: Vector2
+			if String(g["axis"]) == "x":
+				p1 = c.to_local(Vector2(g["coord"], g["a"]))
+				p2 = c.to_local(Vector2(g["coord"], g["b"]))
+			else:
+				p1 = c.to_local(Vector2(g["a"], g["coord"]))
+				p2 = c.to_local(Vector2(g["b"], g["coord"]))
+			c.draw_line(p1, p2, COLOR_SNAP_GUIDE, gw)
 
 	# NOTA: El recuadro principal + handles de resize/rotate ya no se dibujan aquí.
 	# Los renderiza boundingbox.tscn (instancia real del pool), ver bounding_box.gd.
