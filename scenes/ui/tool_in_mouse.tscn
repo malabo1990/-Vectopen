@@ -1029,11 +1029,9 @@ layout_mode = 2
 vertical = true
 
 [node name="pickr" parent="PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_color/BoxContainer2/BoxContainer2" unique_id=1011017438 instance=ExtResource("20_do8d7")]
-visible = false
 layout_mode = 2
 
 [node name="Colorpack" type="PanelContainer" parent="PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_color/BoxContainer2/BoxContainer2" unique_id=766970058]
-visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_5jfgr")
 

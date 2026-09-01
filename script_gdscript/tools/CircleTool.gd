@@ -117,7 +117,7 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 	print("[CircleTool]: Instanciando VectorCircle en el Artboard...")
 
 	var new_shape = VectorCircle.new()
-	new_shape.name = "Circulo_Vectorial"
+	new_shape.name = NameUtils.unique_child_name(artboard, "Círculo")
 	new_shape.set_doc_position(DVec2.from_v2(local_pos + size / 2.0))
 	new_shape.set_doc_extent(DVec2.from_v2(size))
 	new_shape.fill_color = FILL_COLOR

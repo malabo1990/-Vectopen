@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dgf0yd8prwq7i"]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/transform_panel.gd" id="1_tp"]
+
+[node name="TransformPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(248, 232)
+script = ExtResource("1_tp")

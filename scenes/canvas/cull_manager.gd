@@ -17,7 +17,7 @@
 # WorldTextLabel) se apagan cuando su huella EN PANTALLA cae por debajo de
 # min_screen_px — a ese zoom el texto es ilegible y dibujar 10.000 labels
 # minúsculos a la vez costaba ~20 FPS. Con esto, alejar el zoom del todo
-# vuelve a ir a 60 FPS (igual que Inkscape, que deja de pintar texto pequeño).
+# vuelve a ir a 60 FPS (igual que estándar, que deja de pintar texto pequeño).
 # ==========================================
 extends Node
 class_name CullManager

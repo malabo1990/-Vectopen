@@ -11,6 +11,8 @@ class_name GestorColor
 # 2. Señal local por si algún sub-nodo de la herramienta quiere escuchar de forma directa
 signal color_actualizado(nuevo_color: Color)
 
+var _from_core: bool = false
+
 func _ready() -> void:
 	if _brillo_slider:
 		_brillo_slider.value_changed.connect(_on_brillo_changed)
@@ -25,14 +27,30 @@ func _ready() -> void:
 	if GlobalEvents.has_signal("gradient_changed") and not GlobalEvents.gradient_changed.is_connected(_on_global_gradient_changed):
 		GlobalEvents.gradient_changed.connect(_on_global_gradient_changed)
 
+	# Sincronía con ColorCore: reflejar el color de la selección / otros pickers.
+	var cc := get_node_or_null("/root/ColorCore")
+	if cc and cc.has_signal("changed") and not cc.changed.is_connected(_on_colorcore_changed):
+		cc.changed.connect(_on_colorcore_changed)
+
+func _on_colorcore_changed(fill: Color, _stroke: Color, _target: String) -> void:
+	# Solo reflejar visualmente — NO re-emitir al bus (evita realimentación).
+	if is_instance_valid(nodo_color_rect) and nodo_color_rect.color != fill:
+		nodo_color_rect.color = fill
+		color_actualizado.emit(fill)
+
 # 3. Función SET profesional (Modifica el color y lo comunica a todo tu motor)
 func establecer_color(nuevo_color: Color) -> void:
-	if not is_instance_valid(nodo_color_rect): 
+	if not is_instance_valid(nodo_color_rect):
 		return
-		
+
 	if nodo_color_rect.color != nuevo_color:
 		nodo_color_rect.color = nuevo_color
 		_notificar_cambio_color(nuevo_color)
+		# Puente al sistema core (aplica a la selección con undo).
+		if not _from_core:
+			var cc := get_node_or_null("/root/ColorCore")
+			if cc and cc.has_method("set_color"):
+				cc.set_color(nuevo_color)
 
 # 4. Función GET limpia para que las herramientas de dibujo lean el color plano activo
 func obtener_color() -> Color:

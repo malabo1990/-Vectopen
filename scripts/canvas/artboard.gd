@@ -632,7 +632,7 @@ func _import_svg_path(attrs: Dictionary) -> void:
 
 ## Soporta M/L/Z — exactamente lo que produce nuestro propio export_to_svg
 ## (ver _node_to_svg). NO soporta curvas C/Q/A: un <path> con curvas bezier
-## reales de un SVG externo (Illustrator, Inkscape, etc.) se importaría
+## reales de un SVG externo (vectorial, estándar, etc.) se importaría
 ## como los segmentos rectos entre los puntos de control listados, no como
 ## una traza fiel de la curva — suficiente para round-trip propio, no para
 ## import general de SVGs arbitrarios.
@@ -654,7 +654,7 @@ func _parse_svg_path_d(d: String) -> PackedVector2Array:
 ## NO es un trazado vectorial real (sin detección de contornos/edge-tracing)
 ## — carga la imagen como Sprite2D para que el import no falle, y avisa
 ## claramente que no se vectorizó de verdad. Implementar tracing real
-## (Illustrator "Image Trace") es un algoritmo aparte, fuera de alcance aquí.
+## (vectorial "Image Trace") es un algoritmo aparte, fuera de alcance aquí.
 func vectorize_image(file_path: String) -> void:
 	var image := Image.new()
 	var err := image.load(file_path)

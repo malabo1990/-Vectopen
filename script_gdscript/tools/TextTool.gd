@@ -150,7 +150,7 @@ func _finish_editing_and_save() -> void:
 
 func _create_new_title_at(local_pos: Vector2) -> void:
 	var new_title = Node2D.new()
-	new_title.name = "TextTitle_Container"
+	new_title.name = NameUtils.unique_child_name(target_artboard, "Texto")
 	new_title.set_meta("shape_type", "text_title")
 	new_title.set_meta("text", "Título Corporativo")
 	new_title.set_meta("font_size", 24)

@@ -15,7 +15,7 @@ extends Control
 @export var grid_divisions: int = 4
 
 @export_group("Estilo de la Curva", "curve_")
-@export var curve_main_color: Color = Color(0.0, 0.47, 1.0, 1.0) # Azul Figma
+@export var curve_main_color: Color = Color(0.0, 0.47, 1.0, 1.0) # azul de acento
 @export var curve_thickness: float = 2.0
 @export var curve_bezier_resolution: int = 40 # Más alto = curva más suave
 
@@ -270,7 +270,7 @@ func _draw() -> void:
 			draw_circle(centro, node_radius, bg_color.lightened(0.2))
 			draw_circle(centro, node_radius - 1.0, node_default_color)
 
-	# 6. Barra de Botones Inferior Estilo Figma
+	# 6. Barra de Botones Inferior estilo profesional
 	button_rects.clear()
 	var btn_w = w / tipos.size()
 	var active_font = get_theme_font("font")

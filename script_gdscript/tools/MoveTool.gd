@@ -1,6 +1,6 @@
 # =============================================================================
 # RUTA: res://script_gdscript/MoveTool.gd
-# Vectopen — Selección y transformación general de figuras (Estilo Figma + Blender)
+# Vectopen — Selección y transformación general de figuras (estilo profesional + Key)
 # Versión Pro Avanzada con soporte geométrico de precisión para vectores y texto.
 # Migrado de `Tool` (RefCounted) a `ToolBase` (Node) el 19/08/2026 — última de
 # las 8 herramientas del informe §1.1/§1.5. Construir con `canvas._new_tool(script)`
@@ -13,8 +13,17 @@ extends ToolBase
 var target_artboard: Node2D = null
 
 # ── Selección ─────────────────────────────────────────────────────────────────
+## `SelectionManager` (autoload) es la única fuente de verdad de la selección
+## viva — ver docs/es/guides/PANEL_DE_CAPAS_PROFESIONAL.md (Fase 1). Este array
+## es un ESPEJO local: MoveTool lo escribe y `_emit_selection_changed()` lo
+## refleja hacia SelectionManager; cuando la selección cambia desde otra
+## superficie (panel de capas, atajo global) `_on_external_selection_changed()`
+## la copia de vuelta aquí. Se mantiene como variable real para no romper los
+## ~40 puntos de test y las herramientas de texto que lo asignan directamente.
 var selected_shapes: Array[Node2D] = []
 var _bounding_box: Node = null  # Referencia al bounding box del pool
+var _sel_conn: bool = false     # ¿conectado a SelectionManager.changed?
+var _pushing_selection: bool = false  # evita el eco al reflejar hacia el manager
 
 # ── Estado de arrastre de objetos ─────────────────────────────────────────────
 var is_dragging_shape: bool = false
@@ -49,9 +58,9 @@ var artboard_resize_edge: Vector2 = Vector2.ZERO
 var artboard_drag_start_mouse: Vector2 = Vector2.ZERO
 var artboard_drag_start_pos: Vector2 = Vector2.ZERO
 
-# ── Modos de Transformación Estilo Blender ────────────────────────────────────
-enum BlenderMode { NONE, TRANSLATE, SCALE, ROTATE }
-var current_blender_mode: BlenderMode = BlenderMode.NONE
+# ── Modos de transformación por teclado ────────────────────────────────────
+enum KeyMode { NONE, TRANSLATE, SCALE, ROTATE }
+var current_key_mode: KeyMode = KeyMode.NONE
 
 enum AxisLock { NONE, X, Y }
 var current_axis: AxisLock = AxisLock.NONE
@@ -63,8 +72,8 @@ const ROTATE_ZONE: float = 18.0
 const STALK_LENGTH: float = 24.0 
 const MIN_LINE_PAD: float = 6.0
 
-# Colores de alta fidelidad (Estilo Figma)
-const COLOR_BBOX: Color = Color(0.05, 0.55, 0.91, 1.0)        # Azul Figma original
+# Colores de alta fidelidad (estilo profesional)
+const COLOR_BBOX: Color = Color(0.05, 0.55, 0.91, 1.0)        # azul de acento
 const COLOR_HANDLE_F: Color = Color(1.0, 1.0, 1.0, 1.0)      # Fondo tiradores
 const COLOR_MARQUEE_F: Color = Color(0.05, 0.55, 0.91, 0.07)  # Relleno marquee
 const COLOR_MARQUEE_S: Color = Color(0.05, 0.55, 0.91, 0.60)  # Contorno marquee
@@ -79,15 +88,38 @@ func activate() -> void:
 	if SmartCursor:
 		SmartCursor.set_state(CursorStateMachine.CursorState.ACTIVE)
 	
-	_clear_blender_transform()
+	_clear_key_transform()
 	_notificar_cambio_al_overlay()
 	_acquire_bounding_box()
+	# Reflejar en el bounding box la selección que ya viva en SelectionManager
+	# (p. ej. hecha desde el panel de capas con otra herramienta activa).
+	if SelectionManager and not _sel_conn:
+		SelectionManager.changed.connect(_on_external_selection_changed)
+		_sel_conn = true
+	_update_macro_rect()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
+	var _dc := get_node_or_null("/root/DebugConsola")
+	if _dc and _dc.has_method("registrar_movetool"):
+		_dc.registrar_movetool(self)
+		if is_instance_valid(_bounding_box) and _dc.has_method("registrar_bbox"):
+			_dc.registrar_bbox(_bounding_box)
+
+## Red de seguridad: si un gesto (arrastre/resize/rotación/marquee) se quedó
+## "abierto" porque la SUELTA del ratón no llegó a `handle_input` (la comió un
+## Control que se movió bajo el cursor — típico del gizmo del bounding box),
+## lo cerramos aquí cada frame. Sin esto, `is_dragging_shape` atascado hace que
+## `_on_motion` consuma TODO evento y bloquea el editor entero.
+func _process(_delta: float) -> void:
+	_heal_stuck_gesture()
+
 func deactivate() -> void:
+	if SelectionManager and _sel_conn:
+		SelectionManager.changed.disconnect(_on_external_selection_changed)
+		_sel_conn = false
 	_clear_selection()
-	_clear_blender_transform()
+	_clear_key_transform()
 	is_dragging_shape = false
 	is_resizing = false
 	is_rotating = false
@@ -116,15 +148,15 @@ func handle_input(event: InputEvent) -> bool:
 
 	var gm: Vector2 = canvas.get_global_mouse_position()
 
-	# Atajos de Teclado Estilo Blender (G, S, R, X, Y, ESC)
+	# Atajos de Teclado por teclado (G, S, R, X, Y, ESC)
 	if event is InputEventKey and event.pressed:
-		if _handle_blender_shortcuts(event.keycode):
+		if _handle_key_shortcuts(event.keycode):
 			return true
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			if current_blender_mode != BlenderMode.NONE:
-				_confirm_blender_transform()
+			if current_key_mode != KeyMode.NONE:
+				_confirm_key_transform()
 				return true
 				
 			if event.double_click:
@@ -134,8 +166,8 @@ func handle_input(event: InputEvent) -> bool:
 			return _on_release(gm)
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		if current_blender_mode != BlenderMode.NONE:
-			_cancel_blender_transform()
+		if current_key_mode != KeyMode.NONE:
+			_cancel_key_transform()
 			return true
 
 	if event is InputEventMouseMotion:
@@ -143,9 +175,9 @@ func handle_input(event: InputEvent) -> bool:
 
 	return false
 
-# ── LÓGICA DE ATAJO BLENDER (G, S, R, X, Y) ──────────────────────────────────
+# ── LÓGICA DE ATAJO POR TECLADO (G, S, R, X, Y) ──────────────────────────────────
 
-func _handle_blender_shortcuts(keycode: int) -> bool:
+func _handle_key_shortcuts(keycode: int) -> bool:
 	var focus_owner = canvas.get_viewport().gui_get_focus_owner()
 	if focus_owner is TextEdit or focus_owner is LineEdit:
 		return false
@@ -155,32 +187,32 @@ func _handle_blender_shortcuts(keycode: int) -> bool:
 
 	match keycode:
 		KEY_G:
-			_start_blender_mode(BlenderMode.TRANSLATE)
+			_start_key_mode(KeyMode.TRANSLATE)
 			return true
 		KEY_S:
-			_start_blender_mode(BlenderMode.SCALE)
+			_start_key_mode(KeyMode.SCALE)
 			return true
 		KEY_R:
-			_start_blender_mode(BlenderMode.ROTATE)
+			_start_key_mode(KeyMode.ROTATE)
 			return true
 		KEY_X:
-			if current_blender_mode != BlenderMode.NONE:
+			if current_key_mode != KeyMode.NONE:
 				current_axis = AxisLock.X if current_axis != AxisLock.X else AxisLock.NONE
 				canvas.queue_redraw()
 				return true
 		KEY_Y:
-			if current_blender_mode != BlenderMode.NONE:
+			if current_key_mode != KeyMode.NONE:
 				current_axis = AxisLock.Y if current_axis != AxisLock.Y else AxisLock.NONE
 				canvas.queue_redraw()
 				return true
 		KEY_ESCAPE:
-			if current_blender_mode != BlenderMode.NONE:
-				_cancel_blender_transform()
+			if current_key_mode != KeyMode.NONE:
+				_cancel_key_transform()
 				return true
 	return false
 
-func _start_blender_mode(mode: BlenderMode) -> void:
-	current_blender_mode = mode
+func _start_key_mode(mode: KeyMode) -> void:
+	current_key_mode = mode
 	current_axis = AxisLock.NONE
 	transform_initial_mouse = canvas.get_global_mouse_position()
 	transform_macro_rect = _get_macro_rect()
@@ -191,32 +223,32 @@ func _start_blender_mode(mode: BlenderMode) -> void:
 		if is_instance_valid(shape):
 			transform_initial_states[shape] = _snapshot(shape)
 
-func _confirm_blender_transform() -> void:
-	# G / S / R (modo Blender) también son transformaciones reales → undo.
+func _confirm_key_transform() -> void:
+	# G / S / R (modo por teclado) también son transformaciones reales → undo.
 	var accion := "Transformar"
-	match current_blender_mode:
-		BlenderMode.TRANSLATE: accion = "Mover selección"
-		BlenderMode.SCALE: accion = "Redimensionar"
-		BlenderMode.ROTATE: accion = "Rotar"
+	match current_key_mode:
+		KeyMode.TRANSLATE: accion = "Mover selección"
+		KeyMode.SCALE: accion = "Redimensionar"
+		KeyMode.ROTATE: accion = "Rotar"
 	if not selected_shapes.is_empty():
 		_commit_transform(accion, selected_shapes.duplicate(),
-			current_blender_mode != BlenderMode.TRANSLATE)
+			current_key_mode != KeyMode.TRANSLATE)
 	transform_initial_states.clear()
-	_clear_blender_transform()
+	_clear_key_transform()
 
-func _cancel_blender_transform() -> void:
+func _cancel_key_transform() -> void:
 	# Restaura el estado COMPLETO (posición/rotación/tamaño/vértices/…), no solo
 	# posición+rotación+texto como antes — cancelar un escalado dejaba la figura
 	# a medio transformar.
 	for shape in selected_shapes:
 		if is_instance_valid(shape) and transform_initial_states.has(shape):
 			_restore_transform(shape, transform_initial_states[shape])
-	_clear_blender_transform()
+	_clear_key_transform()
 	_update_bounding_box()
 	canvas.queue_redraw()
 
-func _clear_blender_transform() -> void:
-	current_blender_mode = BlenderMode.NONE
+func _clear_key_transform() -> void:
+	current_key_mode = KeyMode.NONE
 	current_axis = AxisLock.NONE
 
 # ── LÓGICA DE DOBLE CLIC ──────────────────────────────────────────────────────
@@ -279,7 +311,87 @@ func _on_double_click(gm: Vector2) -> bool:
 				
 		canvas.change_tool(herramienta_nodos)
 		return true
-			
+
+	# 4. ENTRAR A LA FIGURA HIJA bajo el cursor (estilo Affinity):
+	#    - doble clic normal  → baja UN nivel (salta, salta, salta…)
+	#    - Alt + doble clic    → salta DIRECTO a la figura más profunda que hay
+	#                            bajo el ratón (atajo "ir directo al elemento")
+	#    Sin límite de profundidad. Un clic sencillo sigue seleccionando el
+	#    contenedor de primer nivel.
+	if Input.is_key_pressed(KEY_ALT):
+		if _entrar_hasta_hoja(gm):
+			return true
+	elif _entrar_en_hijo(gm):
+		return true
+
+	return false
+
+## Alt+doble clic: selecciona directamente la figura MÁS PROFUNDA bajo `gm`
+## (sin ir nivel a nivel). Devuelve true si seleccionó algo por debajo del
+## contenedor de primer nivel.
+func _entrar_hasta_hoja(gm: Vector2) -> bool:
+	var top: Node2D = _shape_at(gm)
+	if not is_instance_valid(top):
+		return false
+	var actual: Node2D = top
+	while true:
+		var h: Node2D = _hijo_bajo_punto(actual, gm)
+		if not is_instance_valid(h) or h == actual:
+			break
+		actual = h
+	if actual == top:
+		return false
+	_clear_selection()
+	_select(actual)
+	_update_bounding_box()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+	return true
+
+## Selecciona el hijo directo (del nodo ya seleccionado en esta rama, o del
+## contenedor de primer nivel) cuyo cuerpo/rama contiene `gm`. Devuelve true si
+## de verdad bajó un nivel.
+func _entrar_en_hijo(gm: Vector2) -> bool:
+	var top: Node2D = _shape_at(gm)
+	if not is_instance_valid(top) or not _es_grupo_movetool(top):
+		return false
+	var actual: Node = top
+	for s in selected_shapes:
+		if is_instance_valid(s) and (s == top or _es_ancestro(top, s)):
+			actual = s
+			break
+	var siguiente: Node2D = _hijo_bajo_punto(actual, gm)
+	if not is_instance_valid(siguiente) or siguiente == actual:
+		return false
+	_clear_selection()
+	_select(siguiente)
+	_update_bounding_box()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+	return true
+
+## Hijo DIRECTO de `padre` (arriba→abajo en Z) cuyo cuerpo o rama contiene `gm`.
+func _hijo_bajo_punto(padre: Node, gm: Vector2) -> Node2D:
+	if not is_instance_valid(padre):
+		return null
+	for i in range(padre.get_child_count() - 1, -1, -1):
+		var c = padre.get_child(i)
+		if not (c is Node2D) or String(c.name) == "Contorno_Stroke":
+			continue
+		if _es_grupo_movetool(c):
+			if _rama_contiene_punto(c, gm):
+				return c
+		elif _global_rect(c).has_point(gm):
+			return c
+	return null
+
+## ¿`posible_ancestro` está por encima de `nodo` en el árbol?
+func _es_ancestro(posible_ancestro: Node, nodo: Node) -> bool:
+	var a: Node = nodo.get_parent() if is_instance_valid(nodo) else null
+	while a != null:
+		if a == posible_ancestro:
+			return true
+		a = a.get_parent()
 	return false
 
 # ── Press ──────────────────────────────────────────────────────────────────────
@@ -310,6 +422,14 @@ func _on_press(gm: Vector2) -> bool:
 
 	var hit: Node2D = _shape_at(gm)
 	if hit:
+		# `_shape_at` devuelve el GRUPO de primer nivel. Pero si ya hay una
+		# figura seleccionada DENTRO de esa rama (elegida en el panel de capas),
+		# se arrastra esa figura — sin cambiar la selección al grupo. Antes el
+		# clic en el relleno de un hijo lo deseleccionaba.
+		if _es_grupo_movetool(hit):
+			var sel_dentro := _primer_seleccionado_en_rama(hit)
+			if sel_dentro != null:
+				hit = sel_dentro
 		if selected_shapes.has(hit):
 			if Input.is_key_pressed(KEY_SHIFT):
 				_deselect(hit)
@@ -548,14 +668,43 @@ func _restore_transform(shape: Node2D, snap: Dictionary) -> void:
 
 # ── Motion ─────────────────────────────────────────────────────────────────────
 
+## Autocuración de estado de arrastre atascado. `bounding_box._on_drag_panel_gui_input`
+## pone `is_dragging_shape = true` al pulsar sobre el interior del gizmo; si el
+## panel se aleja bajo el cursor (persigue a la figura) la SUELTA nunca llega a
+## ese `gui_input` y `is_dragging_shape` se queda en `true` para siempre → cada
+## motion arrastra la selección y NADA más responde (ni panel de capas ni
+## arrastre de artboard). Si el botón izquierdo NO está pulsado de verdad,
+## cancelamos cualquier gesto en curso. Barato (una llamada nativa por evento).
+func _heal_stuck_gesture() -> void:
+	if not (is_dragging_shape or is_marquee or is_dragging_artboard \
+			or is_resizing_artboard or is_resizing or is_rotating):
+		return
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return
+	# El ratón no está pulsado pero seguimos "en gesto" → estado zombi. Cerramos.
+	is_dragging_shape = false
+	is_marquee = false
+	is_dragging_artboard = false
+	is_resizing_artboard = false
+	is_resizing = false
+	is_rotating = false
+	resize_handle = ""
+	_axis_move = ""
+	artboard_resize_edge = Vector2.ZERO
+	transform_initial_states.clear()
+	if is_instance_valid(_bounding_box) and "_is_dragging_canvas_area" in _bounding_box:
+		_bounding_box._is_dragging_canvas_area = false
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
 func _on_motion(gm: Vector2) -> bool:
 	if is_marquee:
 		marquee_end = gm
 		canvas.queue_redraw()
 		return true
 
-	if current_blender_mode != BlenderMode.NONE and selected_shapes.size() > 0:
-		_process_blender_motion(gm)
+	if current_key_mode != KeyMode.NONE and selected_shapes.size() > 0:
+		_process_key_motion(gm)
 		return true
 
 	# Detectar elementos interactivos
@@ -634,10 +783,10 @@ func _on_motion(gm: Vector2) -> bool:
 
 	return false
 
-func _process_blender_motion(gm: Vector2) -> void:
+func _process_key_motion(gm: Vector2) -> void:
 	var delta: Vector2 = gm - transform_initial_mouse
-	match current_blender_mode:
-		BlenderMode.TRANSLATE:
+	match current_key_mode:
+		KeyMode.TRANSLATE:
 			if current_axis == AxisLock.X:
 				delta.y = 0.0
 			elif current_axis == AxisLock.Y:
@@ -672,7 +821,7 @@ func _process_blender_motion(gm: Vector2) -> void:
 						var ny: float = max(2.0, orig_extent.y * (factor_y if current_axis != AxisLock.X else 1.0))
 						s.set_doc_extent(DVec2.new(nx, ny))
 
-		BlenderMode.ROTATE:
+		KeyMode.ROTATE:
 			var angle_offset = delta.x * 0.01
 			for s in selected_shapes:
 				if is_instance_valid(s) and transform_initial_states.has(s):
@@ -924,9 +1073,9 @@ func _apply_rotation(gm: Vector2) -> void:
 # ── Gestión de Selección Avanzada ──────────────────────────────────────────────
 
 func _select(shape: Node2D) -> void:
-	if not selected_shapes.has(shape):
+	if is_instance_valid(shape) and not selected_shapes.has(shape):
 		selected_shapes.append(shape)
-	_update_macro_rect()          # ← esta línea faltaba
+	_update_macro_rect()
 	_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
@@ -943,16 +1092,35 @@ func _clear_selection() -> void:
 	var tenia := not selected_shapes.is_empty()
 	selected_shapes.clear()
 	transform_initial_states.clear()
-	_update_macro_rect()  # oculta el bounding box (selected_shapes ahora está vacío)
+	_update_macro_rect()  # oculta el bounding box (la selección ahora está vacía)
 	if tenia:
 		_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
-## Notifica a InspectorCore (y a quien escuche) que la selección cambió.
+## Refleja el espejo local hacia SelectionManager (única fuente de verdad).
+## SelectionManager re-emite `GlobalEvents.selection_changed`, así que
+## InspectorCore / bounding_box siguen enterándose igual que antes.
 func _emit_selection_changed() -> void:
-	if GlobalEvents and GlobalEvents.has_signal("selection_changed"):
-		GlobalEvents.emit_safe("selection_changed", selected_shapes.duplicate())
+	if not SelectionManager:
+		if GlobalEvents and GlobalEvents.has_signal("selection_changed"):
+			GlobalEvents.emit_safe("selection_changed", selected_shapes.duplicate())
+		return
+	_pushing_selection = true
+	SelectionManager.set_selection(selected_shapes)
+	# Alinear el espejo con lo que el manager aceptó (p. ej. descarta bloqueados).
+	selected_shapes.assign(SelectionManager.get_selected())
+	_pushing_selection = false
+
+## La selección cambió desde OTRA superficie (panel de capas, atajo global…).
+## Copia al espejo local y reconstruye el bounding box; no reentra.
+func _on_external_selection_changed(nueva: Array = []) -> void:
+	if _pushing_selection:
+		return
+	selected_shapes.assign(nueva.filter(func(s): return is_instance_valid(s)))
+	_update_macro_rect()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
 
 # ── Operaciones sobre la selección — Fase 1 (teclado/portapapeles) ───────────
 # Añadido el 19/08/2026 a partir del informe de interacción avanzada del
@@ -1080,12 +1248,14 @@ func _duplicate_named(original: Node2D, insert_parent: Node) -> Node2D:
 	return clone
 
 func _unique_sibling_name(base_name: String, parent: Node) -> String:
-	if not is_instance_valid(parent) or not parent.has_node(base_name):
-		return base_name
-	var i := 2
-	while parent.has_node("%s_%d" % [base_name, i]):
-		i += 1
-	return "%s_%d" % [base_name, i]
+	# Nombre limpio "Base 2", "Base 3"… (estilo profesional), quitando un sufijo previo.
+	var b := base_name
+	var re := RegEx.new()
+	re.compile("^(.*?)[ _]\\d+$")
+	var m := re.search(b)
+	if m:
+		b = m.get_string(1)
+	return NameUtils.unique_child_name(parent, b)
 
 func duplicate_selected() -> void:
 	if selected_shapes.is_empty() or not target_artboard:
@@ -1112,6 +1282,7 @@ func _commit_add_nodes(action_name: String, new_nodes: Array) -> void:
 	for n in new_nodes:
 		selected_shapes.append(n)
 	_update_macro_rect()
+	_emit_selection_changed()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
@@ -1160,19 +1331,21 @@ func _apply_marquee() -> void:
 		for v_node in dl.get_children():
 			if v_node is Node2D and mr.intersects(_global_rect(v_node)):
 				if subtract:
-					_deselect(v_node)
-				else:
-					_select(v_node)
+					selected_shapes.erase(v_node)
+				elif not selected_shapes.has(v_node):
+					selected_shapes.append(v_node)
 
 	for node in target_artboard.get_children():
 		if not (node is Node2D) or node.name in ["ArtboardTitle", "VectorDrawingLayer"]:
 			continue
 		if mr.intersects(_global_rect(node)):
 			if subtract:
-				_deselect(node)
-			else:
-				_select(node)
+				selected_shapes.erase(node)
+			elif not selected_shapes.has(node):
+				selected_shapes.append(node)
 
+	_update_macro_rect()
+	_emit_selection_changed()   # un solo cambio para todo el marquee
 	canvas.queue_redraw()
 
 # ── Motor de Hit-Testing e Intersección de Precisión Geométrica ───────────────
@@ -1202,21 +1375,80 @@ func _shape_at(gpos: Vector2) -> Node2D:
 	return null
 
 func _shape_at_in(ab: Node2D, gpos: Vector2) -> Node2D:
+	# Se prueban las capas de PRIMER nivel (hijas del artboard o de la
+	# VectorDrawingLayer). Si una es un GRUPO, se comprueba su rama entera y, si
+	# el punto cae dentro, se devuelve el GRUPO (clic sencillo = seleccionar el
+	# grupo, como en un editor profesional). Antes solo se miraban los hijos
+	# directos → una figura dentro de un grupo no se podía coger y el clic
+	# deseleccionaba.
 	var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
 	if dl:
-		var vector_nodes: Array = dl.get_children()
-		for i in range(vector_nodes.size() - 1, -1, -1):
-			var v_node = vector_nodes[i]
-			if v_node is Node2D and _global_rect(v_node).has_point(gpos):
-				return v_node
-	var ab_nodes: Array = ab.get_children()
-	for i in range(ab_nodes.size() - 1, -1, -1):
-		var node = ab_nodes[i]
-		if not (node is Node2D) or node.name in ["ArtboardTitle", "VectorDrawingLayer"]:
+		var h := _hit_top_level(dl, gpos, [])
+		if h:
+			return h
+	return _hit_top_level(ab, gpos, ["ArtboardTitle", "VectorDrawingLayer"])
+
+## Devuelve la primera capa de PRIMER nivel (hija directa de `raiz`) cuya rama
+## contiene `gpos`. Recorre de arriba a abajo en Z (último hijo primero).
+func _hit_top_level(raiz: Node, gpos: Vector2, excluir: Array) -> Node2D:
+	var hijos: Array = raiz.get_children()
+	for i in range(hijos.size() - 1, -1, -1):
+		var n = hijos[i]
+		if not (n is Node2D) or String(n.name) in excluir or String(n.name) == "Contorno_Stroke":
 			continue
-		if _global_rect(node).has_point(gpos):
-			return node
+		if _es_grupo_movetool(n):
+			if _rama_contiene_punto(n, gpos):
+				return n
+		elif _global_rect(n).has_point(gpos):
+			return n
 	return null
+
+## ¿`n` actúa como CONTENEDOR para el hit-test? Sí si:
+##  - es un grupo pelado con hijos, o `shape_type == "group"`, o
+##  - es una FIGURA que ADEMÁS de su geometría tiene otras figuras anidadas
+##    dentro (rectángulo → rectángulo hijo → …). `VectorShape` dibuja por
+##    `_draw()` sin nodos hijos de render, así que cualquier `Node2D` hijo
+##    (que no sea `Contorno_Stroke`) es una figura del usuario.
+func _es_grupo_movetool(n: Node) -> bool:
+	if not (n is Node2D):
+		return false
+	if n.has_meta("shape_type") and String(n.get_meta("shape_type")) == "group":
+		return true
+	for c in n.get_children():
+		if c is Node2D and String(c.name) != "Contorno_Stroke":
+			return true
+	return false
+
+## ¿`n` tiene geometría propia dibujable (para comprobar su cuerpo en el hit-test)?
+func _tiene_cuerpo_propio(n: Node) -> bool:
+	return n is VectorShape or n is Line2D or n is Polygon2D or n is Path2D or n is Sprite2D
+
+## Primera figura de `selected_shapes` que sea descendiente de `grupo`, o null.
+func _primer_seleccionado_en_rama(grupo: Node) -> Node2D:
+	for s in selected_shapes:
+		if not is_instance_valid(s):
+			continue
+		var a: Node = s
+		while a != null:
+			if a == grupo:
+				return s
+			a = a.get_parent()
+	return null
+
+func _rama_contiene_punto(nodo: Node, gpos: Vector2) -> bool:
+	# El CUERPO propio del nodo cuenta (una figura-contenedor sigue siendo
+	# clicable sobre su propio relleno, no solo sobre sus hijos).
+	if _tiene_cuerpo_propio(nodo) and _global_rect(nodo).has_point(gpos):
+		return true
+	for c in nodo.get_children():
+		if not (c is Node2D) or String(c.name) == "Contorno_Stroke":
+			continue
+		if _es_grupo_movetool(c):
+			if _rama_contiene_punto(c, gpos):
+				return true
+		elif _global_rect(c).has_point(gpos):
+			return true
+	return false
 
 # ── Cálculo Dinámico del Bounding Box Pro (Soporte Títulos y Párrafos) ─────────
 
@@ -1305,6 +1537,38 @@ func _global_rect(node: Node2D) -> Rect2:
 		var pad: float = max(MIN_LINE_PAD, line.width * 0.5)
 		return Rect2(g_mn, g_mx - g_mn).grow(pad)
 
+	if node is Sprite2D and (node as Sprite2D).texture:
+		var sp: Sprite2D = node as Sprite2D
+		var lr: Rect2 = sp.get_rect()   # local, respeta centered/region/hframes
+		var corners := [
+			sp.to_global(lr.position),
+			sp.to_global(Vector2(lr.end.x, lr.position.y)),
+			sp.to_global(lr.end),
+			sp.to_global(Vector2(lr.position.x, lr.end.y)),
+		]
+		var g_mn: Vector2 = corners[0]
+		var g_mx: Vector2 = corners[0]
+		for gp in corners:
+			g_mn.x = min(g_mn.x, gp.x); g_mn.y = min(g_mn.y, gp.y)
+			g_mx.x = max(g_mx.x, gp.x); g_mx.y = max(g_mx.y, gp.y)
+		return Rect2(g_mn, g_mx - g_mn)
+
+	# Grupo: caja combinada de los hijos Node2D (recursivo). Cualquier figura con
+	# geometría propia ya salió por una rama anterior, así que aquí solo caen
+	# contenedores reales.
+	if node.get_child_count() > 0:
+		var acc: Rect2 = Rect2()
+		var got := false
+		for ch in node.get_children():
+			if ch is Node2D:
+				var cr: Rect2 = _global_rect(ch)
+				if cr.size == Vector2.ZERO:
+					continue
+				acc = cr if not got else acc.merge(cr)
+				got = true
+		if got:
+			return acc
+
 	return Rect2(node.global_position - Vector2(20, 20), Vector2(40, 40))
 
 func _get_macro_rect() -> Rect2:
@@ -1321,7 +1585,7 @@ func _get_macro_rect() -> Rect2:
 				r = r.merge(_global_rect(shape))
 	return r
 
-# ── Renderizado del Bounding Box Pro (Estilo Figma) ─────────────────────────
+# ── Renderizado del Bounding Box Pro (estilo profesional) ─────────────────────────
 
 func draw_preview(c: Node2D) -> void:
 	if not is_instance_valid(c):
@@ -1338,8 +1602,8 @@ func draw_preview(c: Node2D) -> void:
 	# NOTA: El recuadro principal + handles de resize/rotate ya no se dibujan aquí.
 	# Los renderiza boundingbox.tscn (instancia real del pool), ver bounding_box.gd.
 	if selected_shapes.size() > 1:
-		# Grosor CONSTANTE en pantalla (≈1.25 px) a cualquier zoom — como Figma /
-		# Affinity. El zoom REAL es el del viewport (la cámara no escala el nodo
+		# Grosor CONSTANTE en pantalla (≈1.25 px) a cualquier zoom — como un editor profesional /
+		# editor profesional. El zoom REAL es el del viewport (la cámara no escala el nodo
 		# Canvas, escala el viewport).
 		var vp := c.get_viewport()
 		var zsc: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
@@ -1356,7 +1620,7 @@ func draw_preview(c: Node2D) -> void:
 ## tras cualquier escritura directa a shape.global_position en este archivo.
 ## No toca doc_rotation — cada punto de llamada que cambia rotación decide
 ## explícitamente si usa set_doc_rotation() (precisión doble real) o debe
-## re-sincronizar desde el nativo (ver _apply_rotation/_cancel_blender_transform).
+## re-sincronizar desde el nativo (ver _apply_rotation/_cancel_key_transform).
 func _sync_doc_position_from_native(shape: Node2D) -> void:
 	if shape is VectorShape:
 		shape.doc_position = DVec2.from_v2(shape.position)

@@ -91,7 +91,7 @@ offset_right = 122.0
 offset_bottom = 41.0
 min_value = -100.0
 
-[node name="HSlider2" type="HSlider" parent="BoxContainer/Panel/Label" unique_id=480463696]
+[node name="letras_space" type="HSlider" parent="BoxContainer/Panel/Label" unique_id=480463696]
 layout_mode = 0
 offset_left = 71.0
 offset_top = 91.0
@@ -99,7 +99,7 @@ offset_right = 132.0
 offset_bottom = 107.0
 min_value = -100.0
 
-[node name="VSlider" type="VSlider" parent="BoxContainer/Panel/Label" unique_id=762686032]
+[node name="line_space" type="VSlider" parent="BoxContainer/Panel/Label" unique_id=762686032]
 layout_mode = 0
 offset_left = -22.3375
 offset_top = 32.098
@@ -122,17 +122,17 @@ offset_top = 106.0
 offset_right = 195.0
 offset_bottom = 146.0
 
-[node name="Button" type="Button" parent="BoxContainer/Panel/BoxContainer" unique_id=1004439149 node_paths=PackedStringArray("target_node", "button_toggle")]
+[node name="Button_font" type="Button" parent="BoxContainer/Panel/BoxContainer" unique_id=1004439149 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
 text = "Roboto"
 script = ExtResource("2_ffa5h")
-target_node = NodePath("PanelContainer")
-button_toggle = NodePath(".")
+nodo_disparador = NodePath(".")
+target_nodo = NodePath("Panel_font")
 
-[node name="PanelContainer" type="PanelContainer" parent="BoxContainer/Panel/BoxContainer/Button" unique_id=232960739]
+[node name="Panel_font" type="PanelContainer" parent="BoxContainer/Panel/BoxContainer/Button_font" unique_id=232960739]
 visible = false
 layout_mode = 0
 offset_left = -737.0
@@ -141,261 +141,261 @@ offset_right = -47.0
 offset_bottom = 296.442
 theme_override_styles/panel = SubResource("StyleBoxFlat_v5ojk")
 
-[node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer" unique_id=1552291572]
+[node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font" unique_id=1552291572]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer" unique_id=249341384]
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer" unique_id=249341384]
 layout_mode = 2
 theme_override_constants/separation = 20
 vertical = true
 
-[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer" unique_id=620015805]
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer" unique_id=620015805]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/BoxContainer" unique_id=1562184671]
+[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1562184671]
 layout_mode = 2
 text = "FONT "
 
-[node name="LineEdit" type="LineEdit" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/BoxContainer" unique_id=1470602173]
+[node name="LineEdit" type="LineEdit" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1470602173]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBoxFlat_whss8")
 
-[node name="Button" type="Button" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/BoxContainer" unique_id=1960189354]
+[node name="Button" type="Button" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1960189354]
 layout_mode = 2
 text = "SEARCH"
 
-[node name="GridContainer" type="GridContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer" unique_id=1578370315]
+[node name="GridContainer" type="GridContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer" unique_id=1578370315]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/h_separation = 30
 columns = 3
 
-[node name="ScrollContainer" type="ScrollContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=1589665637]
+[node name="ScrollContainer" type="ScrollContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=1589665637]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer" unique_id=919196168]
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer" unique_id=919196168]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 size_flags_horizontal = 2
 size_flags_vertical = 3
 vertical = true
 
-[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1887842156]
+[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1887842156]
 layout_mode = 2
 text = "font"
 
-[node name="Label2" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1932488994]
+[node name="Label2" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1932488994]
 layout_mode = 2
 text = "font"
 
-[node name="Label3" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1828307605]
+[node name="Label3" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1828307605]
 layout_mode = 2
 text = "font"
 
-[node name="Label4" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1996669916]
+[node name="Label4" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1996669916]
 layout_mode = 2
 text = "font"
 
-[node name="Label5" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1863440811]
+[node name="Label5" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1863440811]
 layout_mode = 2
 text = "font"
 
-[node name="Label6" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=2009273414]
+[node name="Label6" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=2009273414]
 layout_mode = 2
 text = "font"
 
-[node name="Label7" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1003974322]
+[node name="Label7" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1003974322]
 layout_mode = 2
 text = "font"
 
-[node name="Label8" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1091413441]
+[node name="Label8" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1091413441]
 layout_mode = 2
 text = "font"
 
-[node name="Label9" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=652101661]
+[node name="Label9" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=652101661]
 layout_mode = 2
 text = "font"
 
-[node name="Label10" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=470758190]
+[node name="Label10" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=470758190]
 layout_mode = 2
 text = "font"
 
-[node name="Label11" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=215831397]
+[node name="Label11" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=215831397]
 layout_mode = 2
 text = "font"
 
-[node name="Label12" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1474149327]
+[node name="Label12" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1474149327]
 layout_mode = 2
 text = "font"
 
-[node name="Label13" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=908539734]
+[node name="Label13" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=908539734]
 layout_mode = 2
 text = "font"
 
-[node name="Label14" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=7578112]
+[node name="Label14" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=7578112]
 layout_mode = 2
 text = "font"
 
-[node name="Label15" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=335073610]
+[node name="Label15" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=335073610]
 layout_mode = 2
 text = "font"
 
-[node name="Label16" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=996138253]
+[node name="Label16" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=996138253]
 layout_mode = 2
 text = "font"
 
-[node name="Label17" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1789164475]
+[node name="Label17" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1789164475]
 layout_mode = 2
 text = "font"
 
-[node name="Label18" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1694387302]
+[node name="Label18" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1694387302]
 layout_mode = 2
 text = "font"
 
-[node name="Label19" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=217557181]
+[node name="Label19" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=217557181]
 layout_mode = 2
 text = "font"
 
-[node name="Label20" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1690016589]
+[node name="Label20" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1690016589]
 layout_mode = 2
 text = "font"
 
-[node name="Label21" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=964544540]
+[node name="Label21" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=964544540]
 layout_mode = 2
 text = "font"
 
-[node name="Label22" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=911289269]
+[node name="Label22" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=911289269]
 layout_mode = 2
 text = "font"
 
-[node name="Label23" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1032796989]
+[node name="Label23" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=1032796989]
 layout_mode = 2
 text = "font"
 
-[node name="Label24" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=488833538]
+[node name="Label24" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer/BoxContainer" unique_id=488833538]
 layout_mode = 2
 text = "font"
 
-[node name="ScrollContainer2" type="ScrollContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=715855774]
+[node name="ScrollContainer2" type="ScrollContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=715855774]
 custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2" unique_id=1171135616]
+[node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2" unique_id=1171135616]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 size_flags_vertical = 3
 vertical = true
 
-[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1484192758]
+[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1484192758]
 layout_mode = 2
 text = "font"
 
-[node name="Label2" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=594451549]
+[node name="Label2" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=594451549]
 layout_mode = 2
 text = "font"
 
-[node name="Label3" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1803794076]
+[node name="Label3" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1803794076]
 layout_mode = 2
 text = "font"
 
-[node name="Label4" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=39543275]
+[node name="Label4" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=39543275]
 layout_mode = 2
 text = "font"
 
-[node name="Label5" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=618234547]
+[node name="Label5" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=618234547]
 layout_mode = 2
 text = "font"
 
-[node name="Label6" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1749380586]
+[node name="Label6" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1749380586]
 layout_mode = 2
 text = "font"
 
-[node name="Label7" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=665955009]
+[node name="Label7" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=665955009]
 layout_mode = 2
 text = "font"
 
-[node name="Label8" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=382095820]
+[node name="Label8" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=382095820]
 layout_mode = 2
 text = "font"
 
-[node name="Label9" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1078413380]
+[node name="Label9" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1078413380]
 layout_mode = 2
 text = "font"
 
-[node name="Label10" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=347968037]
+[node name="Label10" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=347968037]
 layout_mode = 2
 text = "font"
 
-[node name="Label11" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1184110755]
+[node name="Label11" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1184110755]
 layout_mode = 2
 text = "font"
 
-[node name="Label12" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1987412250]
+[node name="Label12" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1987412250]
 layout_mode = 2
 text = "font"
 
-[node name="Label13" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1270269798]
+[node name="Label13" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1270269798]
 layout_mode = 2
 text = "font"
 
-[node name="Label14" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=231866309]
+[node name="Label14" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=231866309]
 layout_mode = 2
 text = "font"
 
-[node name="Label15" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1834140]
+[node name="Label15" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1834140]
 layout_mode = 2
 text = "font"
 
-[node name="Label16" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=380394437]
+[node name="Label16" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=380394437]
 layout_mode = 2
 text = "font"
 
-[node name="Label17" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=809239285]
+[node name="Label17" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=809239285]
 layout_mode = 2
 text = "font"
 
-[node name="Label18" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=803239589]
+[node name="Label18" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=803239589]
 layout_mode = 2
 text = "font"
 
-[node name="Label19" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1581560849]
+[node name="Label19" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1581560849]
 layout_mode = 2
 text = "font"
 
-[node name="Label20" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=2137958915]
+[node name="Label20" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=2137958915]
 layout_mode = 2
 text = "font"
 
-[node name="Label21" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1625067195]
+[node name="Label21" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1625067195]
 layout_mode = 2
 text = "font"
 
-[node name="Label22" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=759164782]
+[node name="Label22" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=759164782]
 layout_mode = 2
 text = "font"
 
-[node name="Label23" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=568271346]
+[node name="Label23" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=568271346]
 layout_mode = 2
 text = "font"
 
-[node name="Label24" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1674886788]
+[node name="Label24" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer2/BoxContainer" unique_id=1674886788]
 layout_mode = 2
 text = "font"
 
-[node name="BoxContainer2" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer" unique_id=43339225]
+[node name="BoxContainer2" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=43339225]
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 vertical = true
 
-[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=47875227]
+[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=47875227]
 layout_mode = 2
 text = "A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z
 
@@ -403,7 +403,7 @@ a b c d e f g h i j k l m n ñ o p q r s t u v w x y z
 
 "
 
-[node name="RichTextLabel" type="RichTextLabel" parent="BoxContainer/Panel/BoxContainer/Button/PanelContainer/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=736191495]
+[node name="RichTextLabel" type="RichTextLabel" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=736191495]
 layout_mode = 2
 size_flags_vertical = 3
 text = "A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z

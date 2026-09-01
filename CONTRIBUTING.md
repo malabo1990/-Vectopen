@@ -38,7 +38,7 @@ This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Harassment,
 
 1. Open a [GitHub Issue](https://github.com/malabo1990/-Vectopen/issues/new) with the label `enhancement`
 2. Describe the feature and the problem it solves
-3. Reference similar features in other tools (Affinity Designer, Figma, Illustrator) if applicable
+3. Reference similar features in other tools (editor profesional Designer, un editor profesional, vectorial) if applicable
 
 ### Submit Code Changes
 

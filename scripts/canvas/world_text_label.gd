@@ -16,8 +16,14 @@
 extends Label
 class_name WorldTextLabel
 
-## Fuente del mundo: Inter (OFL, con contornos TrueType).
+## Fuente por defecto (fallback si FontCore no está o la familia no resuelve).
 const FONT_PATH := "res://assets/fonts/Inter-Regular.ttf"
+
+## Metas de tipografía que este label respeta (las escribe InspectorCore /
+## el panel de texto vía FontCore).
+const META_FAMILY := "font_family"
+const META_WEIGHT := "font_weight"
+const META_ITALIC := "font_italic"
 
 ## Tamaño de fuente BASE en unidades del mundo (lo que se ve a zoom 1.0).
 @export var base_font_size: int = 24
@@ -47,7 +53,6 @@ var _polys_baked := false   # triangulación hecha (aunque diera vacío) → no 
 ## cada tick re-pedia metrics).
 var _layout_cache_key: String = ""
 var _layout_cache_size: Vector2 = Vector2.ZERO
-var _counted := false   # ya sumado a _live_instances (evita doble conteo)
 
 ## Tamaño "lógico" del texto en el mundo. Los tools cambian esto (CMD+arrastre).
 var world_font_size: int = 0:
@@ -58,14 +63,10 @@ var world_font_size: int = 0:
 			if is_inside_tree():
 				_apply_zoom(_canvas_zoom())
 
-static var _cached_font: Font = null
-static var _manual_rid: RID = RID()
+static var _fallback_font: Font = null
 static var _ts: TextServer = null
-## Contador de instancias vivas: al llegar a 0 liberamos el RID de fuente
-## manual (creado con ts.create_font() para font_get_glyph_contours). Sin
-## esto Godot reporta "1 RID allocations ... leaked at exit" y el proceso
-## termina con código 101 (rompe el exit-code de la suite de tests).
-static var _live_instances: int = 0
+## Fuente actual de ESTA instancia (resuelta por FontCore desde las metas).
+var _font: Font = null
 ## Presupuesto GLOBAL de bakes de contorno por frame. Cuando 200+ labels
 ## cruzan ZOOM_VECTOR_MIN a la vez (zoom extremo de golpe), bakear todos sus
 ## contornos en 1 frame daba un tirón de 8-2 FPS. Repartimos: como máximo
@@ -77,17 +78,11 @@ static var _bakes_this_frame: int = 0
 
 # ------------------------------------------------------------------ lifecycle
 func _ready() -> void:
-	if _cached_font == null:
-		_cached_font = load(FONT_PATH) as Font
-	if _cached_font:
-		add_theme_font_override("font", _cached_font)
+	_apply_font()
 	if base_font_size <= 0:
 		base_font_size = 24
 	if world_font_size <= 0:
 		world_font_size = base_font_size
-	if not _counted:
-		_counted = true
-		_live_instances += 1
 	_last_text = text
 	_last_zoom = 1.0
 	_apply_zoom(1.0)
@@ -106,21 +101,52 @@ func _notification(what: int) -> void:
 		if is_instance_valid(_cached_outline):
 			_cached_outline.free()
 			_cached_outline = null
-		if _counted:
-			_counted = false
-			_live_instances -= 1
-			if _live_instances <= 0:
-				_release_shared_resources()
 
-## Libera el RID de fuente manual compartido (creado en _get_outline_font_rid).
-## Se vuelve a crear solo si aparece otro WorldTextLabel más adelante.
-static func _release_shared_resources() -> void:
-	_live_instances = 0
-	if _manual_rid.is_valid():
-		var ts := _ts if _ts != null else TextServerManager.get_primary_interface()
-		if ts != null:
-			ts.free_rid(_manual_rid)
-	_manual_rid = RID()
+## Dónde viven las metas de tipografía: en este label o en su contenedor
+## (InspectorCore / el serializador escriben en el contenedor de texto).
+func _spec_source() -> Object:
+	if has_meta(META_FAMILY) or has_meta(META_WEIGHT) or has_meta(META_ITALIC):
+		return self
+	var p := get_parent()
+	if p and (p.has_meta(META_FAMILY) or p.has_meta(META_WEIGHT) or p.has_meta(META_ITALIC)):
+		return p
+	return self
+
+func _font_core():
+	var st := Engine.get_main_loop() as SceneTree
+	return st.root.get_node_or_null("FontCore") if st else null
+
+## Resuelve la fuente de esta instancia desde las metas vía FontCore y la aplica.
+## Los RID de contorno los posee y libera FontCore (sin fugas al salir).
+func _apply_font() -> void:
+	var fc = _font_core()
+	if fc and fc.has_method("get_font"):
+		_font = fc.get_font(fc.spec_from_node(_spec_source()))
+	# Tracking (interletra): FontVariation con spacing sobre la fuente resuelta.
+	var ls := int(_spec_source().get_meta("letter_spacing", 0))
+	if ls != 0 and _font:
+		var fv := FontVariation.new()
+		fv.base_font = _font
+		fv.spacing_glyph = ls
+		fv.spacing_space = ls
+		_font = fv
+	if _font == null:
+		if _fallback_font == null:
+			_fallback_font = load(FONT_PATH) as Font
+		_font = _fallback_font
+	if _font:
+		add_theme_font_override("font", _font)
+
+## Llamado por InspectorCore / el panel de texto cuando cambia la familia.
+func apply_font_from_meta() -> void:
+	_apply_font()
+	_outline_dirty = true
+	_polys_baked = false
+	_layout_cache_key = ""
+	_last_eff = -1
+	if is_inside_tree():
+		_refresh_local_rect()
+	queue_redraw()
 
 func _process(_delta: float) -> void:
 	# CULLING: fuera del viewport => no hacemos nada (con 10.000 textos
@@ -408,9 +434,11 @@ func build_outline_path() -> Node2D:
 
 func _build_outline_at(fs_use: int) -> Node2D:
 	var ts := _get_ts()
-	var rid := _get_outline_font_rid(ts)
+	var rid := _make_outline_rid(ts)
 	var font := get_theme_font("font")
 	if not rid.is_valid() or not font:
+		if rid.is_valid():
+			ts.free_rid(rid)
 		return null
 	var container := Node2D.new()
 	container.name = "TextOutline_%s" % name
@@ -439,6 +467,7 @@ func _build_outline_at(fs_use: int) -> Node2D:
 			cx += adv if adv > 0.0 else font.get_char_size(codepoint, fs).x
 		y_offset += line_height
 
+	ts.free_rid(rid)
 	if container.get_child_count() == 0:
 		container.queue_free()
 		return null
@@ -449,17 +478,21 @@ static func _get_ts() -> TextServer:
 		_ts = TextServerManager.get_primary_interface()
 	return _ts
 
-func _get_outline_font_rid(ts) -> RID:
-	if _manual_rid.is_valid():
-		return _manual_rid
-	var bytes := FileAccess.get_file_as_bytes(FONT_PATH)
+## RID de TextServer EFÍMERO con los bytes de la fuente actual (los da FontCore),
+## para leer los contornos de glifo. El llamador (`_build_outline_at`) SIEMPRE lo
+## libera al terminar — así no hay fugas de RID al cerrar.
+func _make_outline_rid(ts) -> RID:
+	var bytes := PackedByteArray()
+	var fc = _font_core()
+	if fc and fc.has_method("font_bytes"):
+		bytes = fc.font_bytes(fc.spec_from_node(_spec_source()))
+	if bytes.is_empty():
+		bytes = FileAccess.get_file_as_bytes(FONT_PATH)
 	if bytes.is_empty():
 		return RID()
 	var r: RID = ts.create_font()
-	if not r.is_valid():
-		return RID()
-	ts.font_set_data(r, bytes)
-	_manual_rid = r
+	if r.is_valid():
+		ts.font_set_data(r, bytes)
 	return r
 
 func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox: float, oy: float) -> void:

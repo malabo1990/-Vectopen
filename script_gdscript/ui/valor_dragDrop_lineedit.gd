@@ -17,7 +17,7 @@ signal value_committed(new_value: float)
 
 @export_group("Componentes del Layout")
 @export var line_edit: LineEdit        # Tu nodo LineEdit interno
-@export var panel: Panel              # Tu nodo Panel que hace de caja contenedora
+@export var panel: Control            # Caja contenedora (Panel o PanelContainer)
 @export var line_edit_size: Vector2 = Vector2(60, 24)
 
 # --- VARIABLES DE CONTROL INTERNO ---
@@ -38,12 +38,11 @@ func _ready() -> void:
 		if maybe_line_edit is LineEdit:
 			line_edit = maybe_line_edit
 	if not panel:
-		# `self` no sirve aquí: el script hace `extends Control`, así que GDScript
-		# rechaza en tiempo de compilación un cast/`is Panel` sobre `self` aunque
-		# el nodo real (donde este script está adjunto) sea un Panel. `get_node(".")`
-		# sí es un `Node` genérico en tiempo de compilación, sin ese problema.
+		# La caja contenedora es el propio nodo raíz del campo (Panel o
+		# PanelContainer, según la versión de boundingbox.tscn). `get_node(".")`
+		# lo da como Control genérico sin problemas de compilación.
 		var maybe_panel: Node = get_node_or_null(".")
-		if maybe_panel is Panel:
+		if maybe_panel is Control:
 			panel = maybe_panel
 	if not line_edit or not panel:
 		push_error("Por favor, asigna el LineEdit y el Panel en el Inspector.")

@@ -128,7 +128,7 @@ func _update_shape_meta_size(shape: Node2D) -> void:
 
 func _create_new_paragraph_at(local_pos: Vector2) -> void:
 	var new_para = Node2D.new()
-	new_para.name = "TextParagraph_Container"
+	new_para.name = NameUtils.unique_child_name(target_artboard, "Párrafo")
 	new_para.set_meta("shape_type", "text_paragraph")
 	new_para.set_meta("width", 350.0)
 	new_para.set_meta("height", 100.0)

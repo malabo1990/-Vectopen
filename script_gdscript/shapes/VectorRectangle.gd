@@ -3,7 +3,46 @@ extends VectorShape
 class_name VectorRectangle
 
 @export var size: Vector2 = Vector2(100, 100)
-@export var corner_radius: float = 0.0
+
+## Radios de esquina independientes (editor profesional). Backing real.
+var _r_tl: float = 0.0
+var _r_tr: float = 0.0
+var _r_br: float = 0.0
+var _r_bl: float = 0.0
+
+## Radio UNIFORME de conveniencia: leer devuelve el promedio; escribir pone los
+## 4 a la vez. Los tools y el serializador antiguo usan esta propiedad.
+@export var corner_radius: float = 0.0:
+	set(v):
+		var r := maxf(0.0, v)
+		_r_tl = r; _r_tr = r; _r_br = r; _r_bl = r
+		queue_redraw()
+	get:
+		return (_r_tl + _r_tr + _r_br + _r_bl) * 0.25
+
+@export var corner_tl: float = 0.0:
+	set(v): _r_tl = maxf(0.0, v); queue_redraw()
+	get: return _r_tl
+@export var corner_tr: float = 0.0:
+	set(v): _r_tr = maxf(0.0, v); queue_redraw()
+	get: return _r_tr
+@export var corner_br: float = 0.0:
+	set(v): _r_br = maxf(0.0, v); queue_redraw()
+	get: return _r_br
+@export var corner_bl: float = 0.0:
+	set(v): _r_bl = maxf(0.0, v); queue_redraw()
+	get: return _r_bl
+
+## Los 4 radios como Vector4 (tl, tr, br, bl) — para el panel de transformación.
+func get_corner_radii() -> Vector4:
+	return Vector4(_r_tl, _r_tr, _r_br, _r_bl)
+
+func set_corner_radii(v: Vector4) -> void:
+	_r_tl = maxf(0.0, v.x)
+	_r_tr = maxf(0.0, v.y)
+	_r_br = maxf(0.0, v.z)
+	_r_bl = maxf(0.0, v.w)
+	queue_redraw()
 
 const ROUNDED_RECT_CORNER_SEGMENTS: int = 16
 
@@ -13,12 +52,16 @@ func _init() -> void:
 func _draw():
 	var rect = Rect2(-size/2, size)
 
-	if corner_radius > 0:
-		_draw_custom_rounded_rect(rect, fill_color, stroke_color, stroke_width, corner_radius)
+	if _r_tl > 0 or _r_tr > 0 or _r_br > 0 or _r_bl > 0:
+		_draw_custom_rounded_rect(rect, fill_color, stroke_color, stroke_width, 0.0)
 	else:
-		# Relleno
-		if fill_color.a > 0:
-			draw_rect(rect, fill_color, true)
+		# Relleno (plano o degradado — draw_fill decide)
+		draw_fill(PackedVector2Array([
+			rect.position,
+			Vector2(rect.end.x, rect.position.y),
+			rect.end,
+			Vector2(rect.position.x, rect.end.y),
+		]))
 
 		# Borde
 		if stroke_width > 0:
@@ -28,11 +71,10 @@ func _draw():
 ## Dibuja el rectángulo redondeado como polígono propio (en vez de StyleBoxFlat,
 ## cuyo border_width/corner_radius son int en el motor y truncarían la precisión
 ## sub-píxel del radio y del grosor de trazo).
-func _draw_custom_rounded_rect(rect: Rect2, f_color: Color, s_color: Color, s_width: float, radius: float):
-	var verts := _generate_rounded_rect_vertices(rect, radius)
+func _draw_custom_rounded_rect(rect: Rect2, _f_color: Color, s_color: Color, s_width: float, _unused: float):
+	var verts := _generate_rounded_rect_vertices(rect)
 
-	if f_color.a > 0:
-		draw_colored_polygon(verts, f_color)
+	draw_fill(verts)
 
 	if s_width > 0:
 		var closed_verts := verts
@@ -40,19 +82,27 @@ func _draw_custom_rounded_rect(rect: Rect2, f_color: Color, s_color: Color, s_wi
 		# sin antialias por-primitiva (rompe el batching); el MSAA 2D lo cubre
 		draw_polyline(closed_verts, s_color, s_width, false)
 
-func _generate_rounded_rect_vertices(rect: Rect2, radius: float) -> PackedVector2Array:
-	var r: float = min(radius, min(rect.size.x, rect.size.y) / 2.0)
+func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
+	var max_r: float = min(rect.size.x, rect.size.y) / 2.0
+	var rtl: float = clampf(_r_tl, 0.0, max_r)
+	var rtr: float = clampf(_r_tr, 0.0, max_r)
+	var rbr: float = clampf(_r_br, 0.0, max_r)
+	var rbl: float = clampf(_r_bl, 0.0, max_r)
 	var corners := [
-		{"center": rect.position + Vector2(r, r), "start": PI},                                    # arriba-izquierda
-		{"center": rect.position + Vector2(rect.size.x - r, r), "start": -PI / 2.0},                # arriba-derecha
-		{"center": rect.position + Vector2(rect.size.x - r, rect.size.y - r), "start": 0.0},        # abajo-derecha
-		{"center": rect.position + Vector2(r, rect.size.y - r), "start": PI / 2.0},                 # abajo-izquierda
+		{"center": rect.position + Vector2(rtl, rtl), "start": PI, "r": rtl},                                # TL
+		{"center": rect.position + Vector2(rect.size.x - rtr, rtr), "start": -PI / 2.0, "r": rtr},           # TR
+		{"center": rect.position + Vector2(rect.size.x - rbr, rect.size.y - rbr), "start": 0.0, "r": rbr},   # BR
+		{"center": rect.position + Vector2(rbl, rect.size.y - rbl), "start": PI / 2.0, "r": rbl},            # BL
 	]
 
 	var verts := PackedVector2Array()
 	for corner in corners:
 		var center: Vector2 = corner["center"]
 		var start_angle: float = corner["start"]
+		var r: float = corner["r"]
+		if r <= 0.0:
+			verts.append(center)   # esquina viva
+			continue
 		for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
 			var angle: float = start_angle + (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
 			verts.append(center + Vector2(cos(angle), sin(angle)) * r)

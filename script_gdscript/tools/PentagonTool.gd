@@ -116,7 +116,7 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 	print("[PentagonTool]: Instanciando VectorPolygon en el Artboard...")
 
 	var new_shape = VectorPolygon.new()
-	new_shape.name = "Pentagono_Vectorial"
+	new_shape.name = NameUtils.unique_child_name(artboard, "Pentágono")
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
 	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_pentagon_points(Vector2.ZERO, radius, rotation_angle)))
 	new_shape.fill_color = FILL_COLOR

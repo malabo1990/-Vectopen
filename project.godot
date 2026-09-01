@@ -23,13 +23,13 @@ run/main_scene="uid://dq780ohbvwe87"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/image="uid://da0xph4mywp4d"
 config/icon="uid://boh0e23xvob1c"
-vectopen/theme_mode="dark"
 vectopen/locale="en"
 
 [autoload]
 
 GlobalEvents="*uid://bgxjosoy21kf3"
 GlobalUI="*uid://cvriwkp6npig3"
+SelectionManager="*res://autoloads/SelectionManager.gd"
 DataRepository="*uid://bavuvw5qyjw1l"
 ProjectManager="*res://autoloads/ProjectManager.gd"
 SessionManager="*res://autoloads/SessionManager.gd"
@@ -52,6 +52,9 @@ HistoryManager="*res://autoloads/HistoryManager.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
 RecentFilesManager="*res://autoloads/RecentFilesManager.gd"
 InspectorCore="*res://autoloads/InspectorCore.gd"
+FontCore="*res://autoloads/FontCore.gd"
+ColorCore="*res://autoloads/ColorCore.gd"
+DebugConsola="*res://script_gdscript/system/DebugConsola.gd"
 
 [debug]
 

@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "themes": {
     "dark": {
-      "name": "macOS Pro",
+      "name": "Vectopen Oscuro",
       "color": {
         "surface": {
           "app_bg": "#121214",
@@ -40,7 +40,7 @@
       }
     },
     "light": {
-      "name": "Studio Light",
+      "name": "Vectopen Claro",
       "color": {
         "surface": {
           "app_bg": "#EFEFF4",

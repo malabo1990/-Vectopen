@@ -1,44 +1,75 @@
 # =============================================================================
-# RUTA: res://scripts/VectorPath.gd
+# RUTA: res://script_gdscript/shapes/VectorPath.gd
+# Trazo Bézier editable (Path2D).
+#
+# El estilo se expone con los MISMOS nombres que VectorShape
+# (fill_color / stroke_color / stroke_width) para que InspectorCore y el panel
+# de trazos lo traten igual que a un rectángulo o un polígono, sin ramas
+# especiales. `closed` mantiene sincronizada la meta "is_closed" que ya usan
+# el serializador y MoveTool.
 # =============================================================================
+@tool
 extends Path2D
 
-const STROKE_COLOR := Color(0, 0, 0, 1) # Negro Vectopen
-const STROKE_WIDTH := 3.0
+@export var fill_color: Color = Color(0.09, 0.37, 0.65, 0.06):
+	set(v):
+		fill_color = v
+		queue_redraw()
+
+@export var stroke_color: Color = Color(0.22, 0.22, 0.22, 1.0):
+	set(v):
+		stroke_color = v
+		queue_redraw()
+
+@export var stroke_width: float = 2.0:
+	set(v):
+		stroke_width = maxf(0.0, v)
+		queue_redraw()
+
+@export var closed: bool = false:
+	set(v):
+		closed = v
+		set_meta("is_closed", v)
+		queue_redraw()
 
 func _ready() -> void:
-	# Conexión limpia a la señal nativa de la curva en Godot 4
-	if curve:
-		if not curve.changed.is_connected(solicitar_redibuja):
-			curve.changed.connect(solicitar_redibuja)
-	solicitar_redibuja()
+	# Compat: los trazos cargados de disco traen el estado como meta.
+	if has_meta("is_closed"):
+		closed = bool(get_meta("is_closed"))
+	if curve and not curve.changed.is_connected(_solicitar_redibuja):
+		curve.changed.connect(_solicitar_redibuja)
+	queue_redraw()
 
-func solicitar_redibuja() -> void:
+func _solicitar_redibuja() -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if not curve or curve.point_count < 2: return
+	if not curve or curve.point_count < 2:
+		return
+	var baked: PackedVector2Array = curve.get_baked_points()
+	if baked.size() < 2:
+		return
 
-	var baked_pts: PackedVector2Array = curve.get_baked_points()
-	if baked_pts.size() < 2: return
+	if closed:
+		# Solo rellenar si el contorno es triangulable: un baked degenerado
+		# (puntos casi colineales / auto-intersección) hace que el servidor de
+		# render emita "triangulation failed". triangulate_polygon lo detecta
+		# sin ruido (devuelve vacío) y así no dibujamos basura.
+		if fill_color.a > 0.0 and baked.size() >= 3 \
+				and not Geometry2D.triangulate_polygon(baked).is_empty():
+			draw_colored_polygon(baked, fill_color)
+		if stroke_width > 0.0:
+			var ring := PackedVector2Array(baked)
+			ring.append(baked[0])
+			draw_polyline(ring, stroke_color, stroke_width, false)
+	elif stroke_width > 0.0:
+		draw_polyline(baked, stroke_color, stroke_width, false)
 
-	# 1. Relleno si la figura está cerrada
-	if get_meta("is_closed", false):
-		var fill_color := Color(0, 0, 0, 0.1)
-		draw_polygon(baked_pts, [fill_color])
+func is_path_closed() -> bool:
+	return closed
 
-		# Cierre visual del trazo
-		var closed_polyline := baked_pts
-		closed_polyline.append(baked_pts[0])
-		draw_polyline(closed_polyline, STROKE_COLOR, STROKE_WIDTH, false)
-	else:
-		# 2. Contorno abierto estándar
-		draw_polyline(baked_pts, STROKE_COLOR, STROKE_WIDTH, false)
-
-## Exporta este path como elemento <path> SVG. Usa los puntos horneados de
-## la curva (misma fuente de datos que _draw()) en vez de reconstruir
-## comandos bezier "C" desde los control points — más simple y consistente
-## visualmente con lo que el usuario ve en el canvas.
+## Exporta este path como elemento <path> SVG a partir de los puntos horneados
+## (misma fuente que _draw()).
 func to_svg() -> String:
 	if not curve or curve.point_count < 2:
 		return ""
@@ -49,12 +80,10 @@ func to_svg() -> String:
 	var d := "M %f,%f " % [position.x + baked_pts[0].x, position.y + baked_pts[0].y]
 	for i in range(1, baked_pts.size()):
 		d += "L %f,%f " % [position.x + baked_pts[i].x, position.y + baked_pts[i].y]
-
-	var is_closed: bool = get_meta("is_closed", false)
-	if is_closed:
+	if closed:
 		d += "Z"
 
-	var fill: String = "rgba(0,0,0,0.1)" if is_closed else "none"
+	var fill: String = fill_color.to_html() if (closed and fill_color.a > 0.0) else "none"
 	return '<path d="%s" fill="%s" stroke="%s" stroke-width="%f" />' % [
-		d, fill, STROKE_COLOR.to_html(), STROKE_WIDTH
+		d, fill, stroke_color.to_html(), stroke_width
 	]

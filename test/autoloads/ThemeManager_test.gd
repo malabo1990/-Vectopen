@@ -5,6 +5,8 @@ const TM := preload("res://script_gdscript/system/ThemeManager.gd")
 func test_theme_manager_aplica_tokens() -> void:
 	var tm := get_node("/root/ThemeManager")
 	assert_object(tm).is_not_null()
+	# No dejar el modo del usuario tocado: `set_mode` escribe user://vectopen_theme.cfg.
+	var _modo_previo: String = tm.current_mode
 	tm.reset_all_custom_colors()
 
 	tm.set_mode("dark")
@@ -19,4 +21,5 @@ func test_theme_manager_aplica_tokens() -> void:
 	assert_that(tm.get_color(TM.Slot.AFFIRMATIVE).is_equal_approx(Color(0.204, 0.78, 0.349))).is_true()
 	assert_that(tm.get_color(TM.Slot.PANEL_TEXT).is_equal_approx(Color(0.11, 0.11, 0.118))).is_true()
 
-	tm.set_mode("dark")
+	# restaurar el modo que tenía el usuario antes del test
+	tm.set_mode(_modo_previo)

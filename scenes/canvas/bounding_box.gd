@@ -20,7 +20,7 @@ signal bounding_box_ready
 
 # Mapeo Panel de handle → código usado por MoveTool.
 #   move_x / move_y → arrastrar mueve la selección SOLO en horizontal / vertical
-#   (los Panels `x` y `Y` del .tscn, antes solo indicadores del modo Blender).
+#   (los Panels `x` y `Y` del .tscn, antes solo indicadores del modo por teclado).
 const _HANDLE_CODES := {
 	"handle_IA": "tl", "handle_DA": "tr", "handle_IB": "bl", "handle_DB": "br",
 	"handle_MA": "tc", "MB": "bc", "handle_IM": "lc", "handle_DM": "rc",
@@ -41,19 +41,19 @@ const _AXIS_GAP_PX: float = 20.0     # separación del borde de la caja (px pant
 const _AXIS_X_COLOR := Color(1, 0, 0, 1)        # rojo  (StyleBoxFlat_gxv5u)
 const _AXIS_Y_COLOR := Color(0, 0.82, 0, 1)     # verde (StyleBoxFlat_lna83)
 
-# ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como Figma / Affinity) ────
+# ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como en un editor profesional) ────
 # Los handles ya NO se ven vía sus StyleBox (el borde es entero y se escala con
 # el canvas → en zoom fuerte/lejano quedaban enormes o invisibles). Ahora:
 #   · el Panel de cada handle queda TRANSPARENTE y solo sirve de zona de clic
 #   · el dibujo real (cuadros + contorno + tallo de rotación) lo hace _draw()
 #     con medidas en PÍXELES DE PANTALLA divididas por el zoom.
 const _OUTLINE_SCREEN_PX: float = 1.25   # grosor del contorno
-const _OUTLINE_COLOR := Color(0.05, 0.55, 0.91, 1.0)   # azul Figma
+const _OUTLINE_COLOR := Color(0.05, 0.55, 0.91, 1.0)   # azul de acento
 const _HANDLE_FILL := Color(1, 1, 1, 1)                # relleno del handle
 const _HANDLE_SCREEN_PX: float = 8.0     # lado visible del handle
 const _HANDLE_HIT_PX: float = 16.0       # lado de la zona de clic (Panel)
 const _ROT_STEM_SCREEN_PX: float = 20.0  # largo del tallo del handle de rotación
-# Puntero del ratón por handle → identidad visual (como Figma / Affinity).
+# Puntero del ratón por handle → identidad visual (como en un editor profesional).
 # Godot no trae cursor de rotación → CROSS para el de rotación.
 const _HANDLE_CURSORS := {
 	"handle_IA": Control.CURSOR_FDIAGSIZE, "handle_DB": Control.CURSOR_FDIAGSIZE,  # ╲ tl/br
@@ -166,7 +166,6 @@ func _apply_zoom_compensation() -> void:
 
 	var hit_half: float = _HANDLE_HIT_PX * 0.5 * f
 	var gap: float = _AXIS_GAP_PX * f
-	var cx: float = size.x * 0.5
 	var cy0: float = size.y * 0.5
 	for handle_name in _handle_base_rects:
 		var p := panel_interactivo.find_child(handle_name, true, false) as Control
@@ -197,7 +196,7 @@ func _apply_zoom_compensation() -> void:
 
 
 ## Dibuja el contorno, los handles y el tallo de rotación con medidas SIEMPRE
-## constantes en pantalla, a cualquier zoom (como Figma / Affinity / Penpot).
+## constantes en pantalla, a cualquier zoom (como en un editor profesional / editor profesional).
 ## `_draw()` corre en el espacio local de la caja, que el canvas escala por el
 ## zoom → cada medida en px de pantalla se divide por ese zoom (`inv`).
 func _draw() -> void:
@@ -256,12 +255,29 @@ func _sync_fields_wrapper_transform() -> void:
 	_fields_wrapper.scale = Vector2(f, f)
 
 func _process(_delta: float) -> void:
+	_heal_stuck_drag()
 	if not visible:
 		return
 	_apply_zoom_compensation()
 	_sync_fields_wrapper_transform()
 	queue_redraw()   # el contorno sigue a la figura (tamaño/rotación) y al zoom
 	_update_axis_lock_indicators()
+
+## Autocuración: al pulsar sobre el interior del gizmo (`_on_drag_panel_gui_input`)
+## ponemos `_is_dragging_canvas_area` y `move_tool.is_dragging_shape` a `true`.
+## Si el gizmo se aleja bajo el cursor mientras arrastras, la SUELTA nunca llega
+## a ese `gui_input` y ambos se quedan atascados → la figura se queda pegada al
+## ratón y NADA más responde (ni el panel de capas ni el arrastre del artboard).
+## Cada frame comprobamos: si decimos estar arrastrando pero el botón izquierdo
+## NO está pulsado de verdad, cerramos el gesto.
+func _heal_stuck_drag() -> void:
+	if not _is_dragging_canvas_area:
+		return
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return
+	_is_dragging_canvas_area = false
+	if is_instance_valid(move_tool_reference) and "is_dragging_shape" in move_tool_reference:
+		move_tool_reference.is_dragging_shape = false
 
 ## Los Panels `x` / `Y` son ahora las ZONAS DE CLIC del gizmo de eje (mover solo
 ## en horizontal / vertical). Siempre visibles mientras haya selección; el
@@ -306,7 +322,11 @@ func _on_handle_gui_input(event: InputEvent, handle_code: String) -> void:
 ## Localiza los campos X/Y (FieldsWrapper/FieldX/FieldY, ver boundingbox.tscn)
 ## y conecta su señal value_committed a los handlers que mueven la figura.
 func _connect_field_signals() -> void:
-	_fields_wrapper = get_node_or_null("PANEL_BOUNDINGBOX/FieldsWrapper")
+	# El wrapper vive bajo PANEL_BOUNDINGBOX/MB (se movió al rediseñar el panel);
+	# se prueba también la ruta antigua por compatibilidad.
+	_fields_wrapper = get_node_or_null("PANEL_BOUNDINGBOX/MB/FieldsWrapper")
+	if not is_instance_valid(_fields_wrapper):
+		_fields_wrapper = get_node_or_null("PANEL_BOUNDINGBOX/FieldsWrapper")
 	if not is_instance_valid(_fields_wrapper):
 		return
 	_field_x = _fields_wrapper.get_node_or_null("FieldX")
@@ -347,7 +367,15 @@ func set_target(new_target: Node2D) -> void:
 	target_node = new_target
 
 func _sincronizar_dimensiones_en_canvas() -> void:
-	# Agrupamos los elementos a calcular según el flujo de origen
+	# El bounding box solo tiene sentido dibujado dentro de un CanvasItem (canvas).
+	# Instancias filtradas / zombis (pool, restos de test) tienen un padre Node
+	# pelado → global_rotation/to_local revientan. Salimos antes.
+	if not (get_parent() is CanvasItem):
+		return
+
+	# Agrupamos los elementos a calcular según el flujo de origen. `MoveTool`
+	# mantiene su `selected_shapes` sincronizado con `SelectionManager` (única
+	# fuente de verdad), así que leerlo aquí sigue reflejando el panel de capas.
 	var shapes_to_calculate: Array[Node2D] = []
 	if is_instance_valid(move_tool_reference) and not move_tool_reference.selected_shapes.is_empty():
 		shapes_to_calculate = move_tool_reference.selected_shapes
@@ -455,6 +483,13 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 				move_tool_reference.is_dragging_shape = false
 
 	elif event is InputEventMouseMotion and _is_dragging_canvas_area:
+		# La SUELTA se pudo perder si el panel se alejó bajo el cursor. Si el botón
+		# izquierdo ya no está en la máscara del evento, cerramos el gesto aquí.
+		if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			_is_dragging_canvas_area = false
+			if "is_dragging_shape" in move_tool_reference:
+				move_tool_reference.is_dragging_shape = false
+			return
 		if move_tool_reference.has_method("_update_transform_logic"):
 			move_tool_reference._update_transform_logic(event.global_position)
 
@@ -632,5 +667,5 @@ func _on_object_selected() -> void:
 func _on_object_transformed() -> void:
 	_sincronizar_dimensiones_en_canvas()
 
-func _on_selection_changed() -> void:
+func _on_selection_changed(_shapes: Array = []) -> void:
 	_sincronizar_dimensiones_en_canvas()

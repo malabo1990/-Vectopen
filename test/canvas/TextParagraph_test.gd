@@ -33,7 +33,7 @@ func test_text_tool_label_y_edit_iguales() -> void:
 	tool._create_new_title_at(Vector2(200, 200))
 	await get_tree().process_frame
 
-	var shape := _find_shape(artboard, "TextTitle_Container")
+	var shape := _find_shape(artboard, "Texto")
 	assert_object(shape).is_not_null()
 	var label := shape.get_node_or_null("DisplayLabel") as Control
 	var edit := shape.get_node_or_null("TitleEdit") as Control
@@ -63,7 +63,7 @@ func test_para_tool_label_wrap_dentro_bbox() -> void:
 	tool._create_new_paragraph_at(Vector2(200, 200))
 	await get_tree().process_frame
 
-	var shape := _find_shape(artboard, "TextParagraph_Container")
+	var shape := _find_shape(artboard, "Párrafo")
 	assert_object(shape).is_not_null()
 	var label := shape.get_node_or_null("DisplayLabel") as Control
 	var edit := shape.get_node_or_null("MultiLineEdit") as Control
@@ -87,7 +87,7 @@ func test_para_tras_editar_texto_largo_bbox_eso_contiene() -> void:
 
 	tool._create_new_paragraph_at(Vector2(200, 200))
 	await get_tree().process_frame
-	var shape := _find_shape(artboard, "TextParagraph_Container")
+	var shape := _find_shape(artboard, "Párrafo")
 
 	var label := shape.get_node_or_null("DisplayLabel") as Control
 	var multi_edit := shape.get_node_or_null("MultiLineEdit") as TextEdit

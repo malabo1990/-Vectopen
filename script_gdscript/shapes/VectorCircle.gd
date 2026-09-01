@@ -15,11 +15,10 @@ func _init() -> void:
 	_register_doc_extent("size")
 
 func _draw() -> void:
-	if fill_color.a <= 0 and stroke_width <= 0:
+	if fill_color.a <= 0 and stroke_width <= 0 and not has_gradient_fill():
 		return
 	var verts := _cached_vertices()
-	if fill_color.a > 0:
-		draw_colored_polygon(verts, fill_color)
+	draw_fill(verts)
 	if stroke_width > 0:
 		var ring := PackedVector2Array(verts)
 		ring.append(verts[0])

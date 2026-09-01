@@ -157,12 +157,35 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		"visible": node.visible,
 	}
 	_add_visual_state(base, node)   # material/shader, clip, máscara, metas de efecto
+
+	# Hijos ANIDADOS (Node2D). Cualquier figura/texto puede contener otras
+	# figuras dentro (anidado profundo, o una máscara de recorte donde la
+	# figura de arriba recorta al resto). Antes solo la rama "group" guardaba
+	# hijos → el anidado se perdía al guardar/recargar.
+	var _kids: Array = []
+	for _ch in node.get_children():
+		if _ch is Node2D:
+			var _ce := _serialize_element(_ch)
+			if not _ce.is_empty():
+				_kids.append(_ce)
+	if not _kids.is_empty():
+		base["children"] = _kids
+
 	# Texto (contenedor Node2D con meta)
 	if node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text_"):
 		base["kind"] = "text"
 		base["text_kind"] = String(node.get_meta("shape_type"))
 		base["text"] = String(node.get_meta("text", ""))
 		base["font_size"] = int(node.get_meta("font_size", 24))
+		if node.has_meta("line_spacing"): base["line_spacing"] = int(node.get_meta("line_spacing"))
+		if node.has_meta("letter_spacing"): base["letter_spacing"] = int(node.get_meta("letter_spacing"))
+		if node.has_meta("font_family"): base["font_family"] = String(node.get_meta("font_family"))
+		if node.has_meta("font_weight"): base["font_weight"] = int(node.get_meta("font_weight"))
+		if node.has_meta("font_italic"): base["font_italic"] = bool(node.get_meta("font_italic"))
+		if node.has_meta("text_color"): base["text_color"] = _col(node.get_meta("text_color"))
+		if node.has_meta("text_outline_color"): base["text_outline_color"] = _col(node.get_meta("text_outline_color"))
+		if node.has_meta("text_outline"): base["text_outline"] = int(node.get_meta("text_outline"))
+		if node.has_meta("text_align"): base["text_align"] = String(node.get_meta("text_align"))
 		if node.has_meta("width"): base["width"] = float(node.get_meta("width"))
 		if node.has_meta("height"): base["height"] = float(node.get_meta("height"))
 		return base
@@ -176,6 +199,9 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["kind"] = "rect"
 		base["size"] = [node.size.x, node.size.y]
 		base["corner"] = node.corner_radius
+		var rr: Vector4 = node.get_corner_radii()
+		if not (rr.x == rr.y and rr.y == rr.z and rr.z == rr.w):
+			base["corners"] = [rr.x, rr.y, rr.z, rr.w]   # tl, tr, br, bl
 		_add_style(base, node)
 		return base
 	if node is VectorPolygon:
@@ -197,12 +223,20 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["in"] = _pv2_to_arr(ins)
 		base["out"] = _pv2_to_arr(outs)
 		base["path_closed"] = bool(node.get_meta("is_closed", false))
+		if "fill_color" in node:
+			base["fill"] = _col(node.get("fill_color"))
+		if "stroke_color" in node:
+			base["stroke"] = _col(node.get("stroke_color"))
+		if "stroke_width" in node:
+			base["stroke_w"] = node.get("stroke_width")
 		return base
 	if node is Line2D:
 		base["kind"] = "line"
 		base["pts"] = _pv2_to_arr(node.points)
 		base["width"] = node.width
 		base["color"] = _col(node.default_color)
+		if node.gradient is Gradient and node.gradient.get_point_count() >= 2:
+			base["fill_grad"] = _grad_to_dict(node.gradient, 0, 0.0)
 		return base
 	if node is Polygon2D:
 		base["kind"] = "polygon2d"
@@ -221,15 +255,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 				base["tex_png_b64"] = Marshalls.raw_to_base64(img.save_png_to_buffer())
 		return base
 	# GRUPO: cualquier Node2D con hijos Node2D que no sea un tipo conocido.
-	var kids: Array = []
-	for ch in node.get_children():
-		if ch is Node2D:
-			var ce := _serialize_element(ch)
-			if not ce.is_empty():
-				kids.append(ce)
-	if not kids.is_empty():
+	if base.has("children"):
 		base["kind"] = "group"
-		base["children"] = kids
 		return base
 	return {}   # tipo no soportado todavía
 
@@ -238,6 +265,8 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 	d["fill"] = _col(s.fill_color)
 	d["stroke"] = _col(s.stroke_color)
 	d["stroke_w"] = s.stroke_width
+	if s.has_gradient_fill():
+		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle))
 	# Efectos (best-effort): array de Effect (Resource) o de dicts {type,params}.
 	var fx := []
 	for e in s.effects:
@@ -248,6 +277,20 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 			fx.append(e)
 	if not fx.is_empty():
 		d["fx"] = fx
+
+
+static func _grad_to_dict(g: Gradient, gtype: int, angle: float) -> Dictionary:
+	var stops := []
+	for i in g.get_point_count():
+		stops.append([g.get_offset(i), _col(g.get_color(i))])
+	return {"type": gtype, "angle": angle, "stops": stops}
+
+static func _grad_from_dict(gd: Dictionary) -> Gradient:
+	var g := Gradient.new()
+	var stops: Array = gd.get("stops", [[0.0, [0, 0, 0, 1]], [1.0, [1, 1, 1, 1]]])
+	g.offsets = PackedFloat32Array(stops.map(func(s): return float(s[0])))
+	g.colors = PackedColorArray(stops.map(func(s): return _to_col(s[1])))
+	return g
 
 
 # ─────────────────────────────────────────── .vtc = contenedor plano (VTC2)
@@ -435,6 +478,19 @@ static func _apply_transform(n: Node2D, d: Dictionary) -> void:
 	n.scale = _arr_to_v2(d.get("scale", [1, 1]))
 	n.visible = d.get("visible", true)
 	_read_visual_state(n, d)
+	# Hijos ANIDADOS (figura dentro de figura / texto, máscara de recorte).
+	# Los añade DESPUÉS de crear el nodo, recursivamente.
+	for cd in d.get("children", []):
+		var cn := _element_from(cd)
+		if cn:
+			n.add_child(cn)
+			_apply_transform(cn, cd)
+	# Máscara stencil de grupo/texto: el contenido ya se reconstruyó anidado bajo
+	# el nodo-máscara (rama "children" recursiva). Aquí solo restauramos las
+	# metas para que el panel de capas sepa que la máscara está activa.
+	if d.get("clip_mask", false):
+		n.set_meta("clip_mask", true)
+		n.set_meta("clip_mask_target", String(d.get("clip_mask_target", "")))
 
 
 # ─────────────────────────────────── estado visual (shaders / clipping / máscaras)
@@ -453,6 +509,10 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 	# CLIPPING / MÁSCARA de recorte (un grupo con clip_children recorta a sus hijos)
 	if "clip_children" in node and int(node.clip_children) != 0:
 		d["clip"] = int(node.clip_children)
+	# MÁSCARA STENCIL de grupo/texto: el contenido se movió bajo un nodo-máscara.
+	if node.has_meta("clip_mask") and bool(node.get_meta("clip_mask")):
+		d["clip_mask"] = true
+		d["clip_mask_target"] = String(node.get_meta("clip_mask_target", ""))
 	# MÁSCARAS de luz / capa de visibilidad
 	if node.light_mask != 1:
 		d["light_mask"] = node.light_mask
@@ -584,6 +644,9 @@ static func _element_from(d: Dictionary) -> Node2D:
 			var r := VectorRectangle.new()
 			r.size = _arr_to_v2(d.get("size", [40, 40]))
 			r.corner_radius = d.get("corner", 0.0)
+			if d.has("corners") and d["corners"] is Array and d["corners"].size() == 4:
+				var cc: Array = d["corners"]
+				r.set_corner_radii(Vector4(cc[0], cc[1], cc[2], cc[3]))
 			_read_style(r, d)
 			r.name = d.get("name", "Rectangulo")
 			return r
@@ -607,6 +670,10 @@ static func _element_from(d: Dictionary) -> Node2D:
 					outs[i] if i < outs.size() else Vector2.ZERO)
 			vp.curve = curve
 			vp.set_meta("is_closed", d.get("path_closed", false))
+			if d.has("fill"): vp.set("fill_color", _to_col(d["fill"]))
+			if d.has("stroke"): vp.set("stroke_color", _to_col(d["stroke"]))
+			if d.has("stroke_w"): vp.set("stroke_width", float(d["stroke_w"]))
+			vp.set("closed", bool(d.get("path_closed", false)))
 			vp.name = d.get("name", "Trazo")
 			return vp
 		"line":
@@ -618,6 +685,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 			l.begin_cap_mode = Line2D.LINE_CAP_ROUND
 			l.end_cap_mode = Line2D.LINE_CAP_ROUND
 			l.antialiased = false
+			if d.has("fill_grad") and d["fill_grad"] is Dictionary:
+				l.gradient = _grad_from_dict(d["fill_grad"])
 			l.name = d.get("name", "Trazo")
 			return l
 		"polygon2d":
@@ -633,11 +702,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 		"group":
 			var g := Node2D.new()
 			g.name = d.get("name", "Grupo")
-			for cd in d.get("children", []):
-				var cn := _element_from(cd)
-				if cn:
-					g.add_child(cn)
-					_apply_transform(cn, cd)
+			g.set_meta("shape_type", "group")   # se re-detecta como grupo aunque quede sin hijos-capa
+			# los hijos los añade _apply_transform (rama "children")
 			return g
 	return null
 
@@ -659,19 +725,43 @@ static func _image_from(d: Dictionary) -> Node2D:
 
 static func _text_from(d: Dictionary) -> Node2D:
 	var cont := Node2D.new()
-	cont.name = d.get("name", "TextTitle_Container")
+	cont.name = d.get("name", "Texto")
 	cont.set_meta("shape_type", d.get("text_kind", "text_title"))
 	cont.set_meta("text", d.get("text", ""))
 	cont.set_meta("font_size", int(d.get("font_size", 24)))
+	if d.has("line_spacing"): cont.set_meta("line_spacing", int(d["line_spacing"]))
+	if d.has("letter_spacing"): cont.set_meta("letter_spacing", int(d["letter_spacing"]))
+	if d.has("font_family"): cont.set_meta("font_family", String(d["font_family"]))
+	if d.has("font_weight"): cont.set_meta("font_weight", int(d["font_weight"]))
+	if d.has("font_italic"): cont.set_meta("font_italic", bool(d["font_italic"]))
+	if d.has("text_color"): cont.set_meta("text_color", _to_col(d["text_color"]))
+	if d.has("text_outline_color"): cont.set_meta("text_outline_color", _to_col(d["text_outline_color"]))
+	if d.has("text_outline"): cont.set_meta("text_outline", int(d["text_outline"]))
+	if d.has("text_align"): cont.set_meta("text_align", String(d["text_align"]))
 	if d.has("width"): cont.set_meta("width", d["width"])
 	if d.has("height"): cont.set_meta("height", d["height"])
 	var label := WorldTextLabel.new()
 	label.name = "DisplayLabel"
 	label.base_font_size = int(d.get("font_size", 24))
 	label.text = d.get("text", "")
-	label.add_theme_color_override("font_color", Color.BLACK)
+	label.add_theme_color_override("font_color", _to_col(d.get("text_color", [0, 0, 0, 1])))
 	label.add_theme_font_size_override("font_size", int(d.get("font_size", 24)))
+	if d.has("line_spacing"):
+		label.add_theme_constant_override("line_spacing", int(d["line_spacing"]))
+	if d.has("text_outline_color"):
+		label.add_theme_color_override("font_outline_color", _to_col(d["text_outline_color"]))
+	if d.has("text_outline"):
+		label.add_theme_constant_override("outline_size", int(d["text_outline"]))
+	if d.has("text_align") and "horizontal_alignment" in label:
+		label.horizontal_alignment = {
+			"left": HORIZONTAL_ALIGNMENT_LEFT, "center": HORIZONTAL_ALIGNMENT_CENTER,
+			"right": HORIZONTAL_ALIGNMENT_RIGHT, "fill": HORIZONTAL_ALIGNMENT_FILL,
+		}.get(String(d["text_align"]), HORIZONTAL_ALIGNMENT_LEFT)
 	cont.add_child(label)
+	# Resuelve la familia guardada (SO o bundled) + tracking vía FontCore.
+	if (d.has("font_family") or d.has("font_weight") or d.has("font_italic") or d.has("letter_spacing")) \
+			and label.has_method("apply_font_from_meta"):
+		label.apply_font_from_meta()
 	return cont
 
 
@@ -679,6 +769,10 @@ static func _read_style(s: VectorShape, d: Dictionary) -> void:
 	s.fill_color = _to_col(d.get("fill", [1, 1, 1, 1]))
 	s.stroke_color = _to_col(d.get("stroke", [0, 0, 0, 1]))
 	s.stroke_width = d.get("stroke_w", 2.0)
+	if d.has("fill_grad") and d["fill_grad"] is Dictionary:
+		s.fill_gradient_type = int(d["fill_grad"].get("type", 0))
+		s.fill_gradient_angle = float(d["fill_grad"].get("angle", 0.0))
+		s.fill_gradient = _grad_from_dict(d["fill_grad"])
 	# Efectos (best-effort): reconstruye recursos Effect desde los datos.
 	if d.has("fx") and ClassDB.class_exists("Resource"):
 		s.effects = []

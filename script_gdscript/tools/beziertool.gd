@@ -7,7 +7,7 @@ extends ToolBase
 
 # ── Referencias ───────────────────────────────────────────────────────────────
 var target_artboard: Node2D = null
-var current_path: BezierRenderPath = null
+var current_path: Path2D = null
 
 # ── Estado de la Pluma ────────────────────────────────────────────────────────
 var is_creating: bool = false
@@ -29,32 +29,12 @@ const HANDLE_SIZE: float = 4.0
 const BEZIER_STROKE_WIDTH: float = 1.5
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SUBCLASE DE RENDERIZADO
-# Nodo Path2D que se dibuja a sí mismo correctamente.
+# NODO DE RENDERIZADO
+# El trazo persistente es un Path2D con VectorPath.gd — el MISMO tipo que produce
+# el cargador del serializador, y con estilo editable desde el Inspector
+# (fill_color / stroke_color / stroke_width / closed).
 # ═══════════════════════════════════════════════════════════════════════════════
-class BezierRenderPath extends Path2D:
-	var is_closed: bool = false
-
-	func _ready() -> void:
-		if curve:
-			curve.changed.connect(queue_redraw)
-
-	func _draw() -> void:
-		if not curve or curve.point_count < 2:
-			return
-		var baked := curve.get_baked_points()
-		if baked.size() < 2:
-			return
-
-		if is_closed:
-			# Relleno semitransparente
-			draw_polygon(baked, [Color(0.09, 0.37, 0.65, 0.06)])
-			# Trazo cerrado
-			var closed_pts := PackedVector2Array(baked)
-			closed_pts.append(baked[0])
-			draw_polyline(closed_pts, Color(0.22, 0.22, 0.22, 1.0), 1.5, true)
-		else:
-			draw_polyline(baked, Color(0.22, 0.22, 0.22, 1.0), 1.5, true)
+const VectorPathScript := preload("res://script_gdscript/shapes/VectorPath.gd")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CICLO DE VIDA
@@ -193,7 +173,7 @@ func _close_path() -> void:
 	var fo := c.get_point_out(0)
 	c.add_point(fp, fi, fo)
 
-	current_path.is_closed = true
+	current_path.closed = true
 	_sync()
 	_finalize(true)
 
@@ -273,10 +253,11 @@ func _start_new_path() -> void:
 	close_snap_active = false
 	is_dragging_handle = false
 
-	current_path = BezierRenderPath.new()
-	current_path.name = "VectorPath_%d" % Time.get_ticks_msec()
+	current_path = Path2D.new()
+	current_path.set_script(VectorPathScript)
+	current_path.name = NameUtils.unique_child_name(target_artboard, "Trazo")
 	current_path.curve = Curve2D.new()
-	current_path.is_closed = false
+	current_path.closed = false
 
 	var layer := target_artboard.get_node_or_null("VectorDrawingLayer")
 	if layer:
@@ -308,7 +289,7 @@ func _update_close_snap(local: Vector2) -> void:
 
 func _finalize(was_closed: bool) -> void:
 	if is_creating and is_instance_valid(current_path):
-		current_path.is_closed = was_closed
+		current_path.closed = was_closed
 		_sync()
 
 	_reset_state()

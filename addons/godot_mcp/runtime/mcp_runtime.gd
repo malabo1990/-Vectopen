@@ -212,6 +212,14 @@ func _build_input_event(desc: Dictionary) -> InputEvent:
 				mb.global_position = mb.position
 			if desc.has("double_click"):
 				mb.double_click = bool(desc["double_click"])
+			if desc.has("shift"): mb.shift_pressed = bool(desc["shift"])
+			if desc.has("ctrl"): mb.ctrl_pressed = bool(desc["ctrl"])
+			if desc.has("alt"): mb.alt_pressed = bool(desc["alt"])
+			if desc.has("meta"): mb.meta_pressed = bool(desc["meta"])
+			var bmb := int(desc.get("button_mask", 0))
+			if bmb == 0 and mb.pressed:
+				bmb = 1 << (mb.button_index - 1)
+			mb.button_mask = bmb
 			return mb
 		"mouse_motion":
 			var mm := InputEventMouseMotion.new()
@@ -220,6 +228,14 @@ func _build_input_event(desc: Dictionary) -> InputEvent:
 				mm.global_position = mm.position
 			if desc.has("relative"):
 				mm.relative = _to_vec2(desc["relative"])
+			var bm := int(desc.get("button_mask", 0))
+			if bm == 0 and desc.has("buttons") and desc["buttons"] is Array:
+				for b in desc["buttons"]:
+					bm |= 1 << (int(b) - 1)
+			mm.button_mask = bm
+			if desc.has("shift"): mm.shift_pressed = bool(desc["shift"])
+			if desc.has("ctrl"): mm.ctrl_pressed = bool(desc["ctrl"])
+			if desc.has("alt"): mm.alt_pressed = bool(desc["alt"])
 			return mm
 		"action":
 			var act := InputEventAction.new()

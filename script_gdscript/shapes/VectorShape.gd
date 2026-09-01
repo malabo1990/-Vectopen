@@ -7,8 +7,106 @@ class_name VectorShape
 @export var stroke_color: Color = Color.BLACK
 @export var stroke_width: float = 2.0
 
+## ── Relleno con degradado (opcional) ──────────────────────────────────────
+## Si `fill_gradient` tiene >= 2 puntos, el relleno se dibuja como degradado
+## (lineal o radial) en vez del `fill_color` plano. Todas las figuras dibujan
+## su relleno con `draw_fill(points)`, así que el degradado funciona en
+## rectángulo, círculo, polígono y cualquier figura nueva sin tocarlas.
+@export var fill_gradient: Gradient = null:
+	set(v):
+		if fill_gradient and fill_gradient.changed.is_connected(_on_fill_gradient_changed):
+			fill_gradient.changed.disconnect(_on_fill_gradient_changed)
+		fill_gradient = v
+		if fill_gradient and not fill_gradient.changed.is_connected(_on_fill_gradient_changed):
+			fill_gradient.changed.connect(_on_fill_gradient_changed)
+		_grad_tex = null
+		queue_redraw()
+## 0 = lineal, 1 = radial.
+@export var fill_gradient_type: int = 0:
+	set(v):
+		fill_gradient_type = v
+		_grad_tex = null
+		queue_redraw()
+## Ángulo del degradado lineal, en radianes (0 = izquierda→derecha).
+@export var fill_gradient_angle: float = 0.0:
+	set(v):
+		fill_gradient_angle = v
+		queue_redraw()
+
+var _grad_tex: GradientTexture2D = null
+
 var is_selected: bool = false
 var effects: Array = []
+
+func _on_fill_gradient_changed() -> void:
+	_grad_tex = null
+	queue_redraw()
+
+func has_gradient_fill() -> bool:
+	return fill_gradient != null and fill_gradient.get_point_count() >= 2
+
+func clear_fill_gradient() -> void:
+	fill_gradient = null
+
+## Dibuja el relleno del polígono dado: degradado si hay `fill_gradient`,
+## si no el `fill_color` plano. Las subclases lo llaman desde su `_draw()`.
+func draw_fill(points: PackedVector2Array) -> void:
+	if points.size() < 3:
+		return
+	if has_gradient_fill():
+		draw_colored_polygon(points, Color.WHITE, _gradient_uvs(points), _ensure_grad_tex())
+	elif fill_color.a > 0.0:
+		draw_colored_polygon(points, fill_color)
+
+func _ensure_grad_tex() -> GradientTexture2D:
+	if _grad_tex == null and fill_gradient:
+		_grad_tex = GradientTexture2D.new()
+		_grad_tex.gradient = fill_gradient
+		if fill_gradient_type == 1:
+			_grad_tex.width = 128
+			_grad_tex.height = 128
+			_grad_tex.fill = GradientTexture2D.FILL_RADIAL
+			_grad_tex.fill_from = Vector2(0.5, 0.5)
+			_grad_tex.fill_to = Vector2(1.0, 0.5)
+		else:
+			_grad_tex.width = 256
+			_grad_tex.height = 1
+			_grad_tex.fill = GradientTexture2D.FILL_LINEAR
+			_grad_tex.fill_from = Vector2(0.0, 0.0)
+			_grad_tex.fill_to = Vector2(1.0, 0.0)
+	return _grad_tex
+
+func _gradient_uvs(points: PackedVector2Array) -> PackedVector2Array:
+	var bb := _points_bounds(points)
+	var uvs := PackedVector2Array()
+	if fill_gradient_type == 1:
+		var c := bb.get_center()
+		var sx := maxf(bb.size.x, 0.001)
+		var sy := maxf(bb.size.y, 0.001)
+		for p in points:
+			uvs.append(Vector2(0.5 + (p.x - c.x) / sx, 0.5 + (p.y - c.y) / sy))
+	else:
+		var dir := Vector2(cos(fill_gradient_angle), sin(fill_gradient_angle))
+		var projs := PackedFloat32Array()
+		var pmin := INF
+		var pmax := -INF
+		for p in points:
+			var pr: float = (p - bb.position).dot(dir)
+			projs.append(pr)
+			pmin = minf(pmin, pr)
+			pmax = maxf(pmax, pr)
+		var span := maxf(pmax - pmin, 0.001)
+		for pr in projs:
+			uvs.append(Vector2((pr - pmin) / span, 0.0))
+	return uvs
+
+func _points_bounds(points: PackedVector2Array) -> Rect2:
+	if points.is_empty():
+		return Rect2()
+	var r := Rect2(points[0], Vector2.ZERO)
+	for i in range(1, points.size()):
+		r = r.expand(points[i])
+	return r
 
 ## ── Coordenadas de documento en doble precisión (64 bits) ──────────────────
 ## Fuente de verdad para posición/rotación/tamaño/vértices. Los campos nativos

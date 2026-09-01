@@ -87,10 +87,11 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_20pc6")
 script = ExtResource("1_r22ju")
 nodo_color_rect = NodePath("MarginContainer/BoxContainer/BoxContainer/ColorRect_fill")
 
-[node name="Control parametros color" type="Control" parent="." unique_id=1762439603]
+[node name="palleteColor" type="Control" parent="." unique_id=1762439603]
+visible = false
 layout_mode = 2
 
-[node name="Panel" type="Panel" parent="Control parametros color" unique_id=1577625883 node_paths=PackedStringArray("slider_palette_size", "label_palette_count", "container_samples", "nodo_color_rect")]
+[node name="Panel_ multicolor" type="Panel" parent="palleteColor" unique_id=1577625883 node_paths=PackedStringArray("slider_palette_size", "label_palette_count", "container_samples", "nodo_color_rect")]
 layout_mode = 0
 offset_left = -497.0
 offset_right = -37.0
@@ -102,7 +103,7 @@ label_palette_count = NodePath("MarginContainer/BoxContainer/BoxContainer/BoxCon
 container_samples = NodePath("MarginContainer/BoxContainer/PanelContainer/FlowContainer")
 nodo_color_rect = NodePath("../../MarginContainer/BoxContainer/BoxContainer/ColorRect_fill")
 
-[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel" unique_id=902298038]
+[node name="MarginContainer" type="MarginContainer" parent="palleteColor/Panel_ multicolor" unique_id=902298038]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -114,28 +115,28 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer" unique_id=1996496247]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer" unique_id=1996496247]
 layout_mode = 2
 alignment = 1
 vertical = true
 
-[node name="Titulo_Colorpallete" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=2029225970]
+[node name="Titulo_Colorpallete" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer" unique_id=2029225970]
 layout_mode = 2
 text = "Color Palette"
 horizontal_alignment = 1
 
-[node name="PanelContainer" type="PanelContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=1039148401]
+[node name="PanelContainer" type="PanelContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer" unique_id=1039148401]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="FlowContainer" type="FlowContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer" unique_id=319239673]
+[node name="FlowContainer" type="FlowContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer" unique_id=319239673]
 layout_mode = 2
 
-[node name="ColorRect" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=751304133]
+[node name="ColorRect" type="ColorRect" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=751304133]
 custom_minimum_size = Vector2(70, 70)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect" unique_id=1953924879]
+[node name="MarginContainer" type="MarginContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect" unique_id=1953924879]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
@@ -144,26 +145,26 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer" unique_id=167826106]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer" unique_id=167826106]
 layout_mode = 2
 
-[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=1438553150]
+[node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=1438553150]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 8
 text = "HEX"
 
-[node name="numeros" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=336686691]
+[node name="numeros" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=336686691]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 8
 text = "234453"
 
-[node name="ColorRect2" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=812765833]
+[node name="ColorRect2" type="ColorRect" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=812765833]
 custom_minimum_size = Vector2(70, 70)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2" unique_id=952732531]
+[node name="MarginContainer" type="MarginContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2" unique_id=952732531]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
@@ -172,27 +173,27 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer" unique_id=1052520726]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer" unique_id=1052520726]
 layout_mode = 2
 
-[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2106937800]
+[node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2106937800]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 8
 text = "HEX"
 
-[node name="Label" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2114950031]
+[node name="Label" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2114950031]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 8
 text = "234453"
 
-[node name="ColorRect3" type="ColorRect" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=998091081]
+[node name="ColorRect3" type="ColorRect" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=998091081]
 custom_minimum_size = Vector2(70, 70)
 layout_mode = 2
 color = Color(0, 0, 0, 1)
 
-[node name="MarginContainer" type="MarginContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3" unique_id=353917706]
+[node name="MarginContainer" type="MarginContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3" unique_id=353917706]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
@@ -201,52 +202,52 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer" unique_id=919385551]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer" unique_id=919385551]
 layout_mode = 2
 
-[node name="hex" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=2027175994]
+[node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=2027175994]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 8
 text = "HEX"
 
-[node name="Label" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=1832974163]
+[node name="Label" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=1832974163]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 8
 text = "234453"
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer" unique_id=1505895862]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer" unique_id=1505895862]
 layout_mode = 2
 vertical = true
 
-[node name="BoxContainer" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1847309548]
+[node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer" unique_id=1847309548]
 layout_mode = 2
 
-[node name="Color" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=195419261]
+[node name="Color" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=195419261]
 layout_mode = 2
 text = "Color:"
 
-[node name="Label2" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1218262012]
+[node name="Label2" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1218262012]
 layout_mode = 2
 
-[node name="BoxContainer2" type="BoxContainer" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=488971003]
+[node name="BoxContainer2" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer" unique_id=488971003]
 layout_mode = 2
 
-[node name="Numero palette" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=381505612]
+[node name="Numero palette" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=381505612]
 layout_mode = 2
 text = "Palette Count"
 
-[node name="HSlider" type="HSlider" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=523960063]
+[node name="HSlider" type="HSlider" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=523960063]
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 size_flags_vertical = 1
 
-[node name="Label2" type="Label" parent="Control parametros color/Panel/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=1246691864]
+[node name="Label2" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=1246691864]
 layout_mode = 2
 text = "2"
 
-[node name="Node" type="Node" parent="Control parametros color/Panel/MarginContainer" unique_id=856123940]
+[node name="Node" type="Node" parent="palleteColor/Panel_ multicolor/MarginContainer" unique_id=856123940]
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=656170820]
 layout_mode = 2
@@ -391,7 +392,7 @@ line_edit = NodePath("../../../../BoxContainer/LineEdit_dataColor")
 light_slider = NodePath("../../Circle_color_opasity/VSlider_brillo")
 alpha_slider = NodePath("../../Circle_colorWB/VSlider transparente")
 
-[node name="Button_add_palleteColor" type="Button" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=2067596415]
+[node name="Button_palleteColor" type="Button" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=2067596415 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 1
 anchors_preset = 7
@@ -412,6 +413,8 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_r22ju")
 icon = ExtResource("7_t0q1y")
 icon_alignment = 1
 script = ExtResource("3_xpdcy")
+nodo_disparador = NodePath(".")
+target_nodo = NodePath("../../../../../../palleteColor")
 
 [node name="save_color" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=1538927672]
 layout_mode = 2

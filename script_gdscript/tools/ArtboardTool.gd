@@ -10,7 +10,7 @@ class_name ArtboardTool
 var start_pos: Vector2 = Vector2.ZERO
 var current_pos: Vector2 = Vector2.ZERO
 
-# Paleta de color corporativa y minimalista para la previsualización (Estilo Apple / Figma)
+# Paleta de color corporativa y minimalista para la previsualización (Estilo minimalista)
 const PREVIEW_FILL_COLOR := Color(0.05, 0.55, 0.91, 0.04)   # Azul sutil semitransparente
 const PREVIEW_LINE_COLOR := Color(0.05, 0.55, 0.91, 0.70)   # Línea de precisión definida
 const MIN_CREATION_SIZE  := 30.0                             # Umbral para ignorar clicks accidentales
@@ -94,9 +94,9 @@ func _create_and_register_artboard(global_pos: Vector2, artboard_size: Vector2) 
 	new_ab.global_position = global_pos
 	new_ab.artboard_size = artboard_size
 	
-	# Generar un ID único basado en milisegundos para evitar colisiones de nombres en el árbol
-	new_ab.name = "Artboard_" + str(Time.get_ticks_msec())
-	
+	# Nombre limpio y único ("Artboard", luego "Artboard 2", "Artboard 3"…).
+	new_ab.name = NameUtils.unique_child_name(canvas.artboards_container if canvas else null, "Artboard")
+
 	# 3. Anclar el nodo dentro del contenedor jerárquico del Canvas asignado en 'canvas.tscn'
 	if canvas.artboards_container:
 		canvas.artboards_container.add_child(new_ab)
@@ -121,7 +121,7 @@ func _switch_to_move_tool_safe() -> void:
 		# Esto limpia la cola de eventos evitando que MoveTool reciba pulsaciones fantasma.
 		canvas.call_deferred("change_tool", move_tool_instance)
 
-# ── Renderizado en Pantalla del Rectángulo de Guía (Figma/Sketch style) ──────
+# ── Renderizado en Pantalla del Rectángulo de Guía (editor profesional style) ──────
 
 func draw_preview(c: Node2D) -> void:
 	# Esta función debe ser invocada desde el método _draw() de tu nodo Canvas

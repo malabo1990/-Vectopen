@@ -21,6 +21,11 @@ func _ready() -> void:
 	if target_node:
 		target_node.visible = false
 	_conectar_botones()
+	_conectar_trazos()
+	# Re-sincronizar los campos del panel cuando cambie la selección / estilo.
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_signal("changed") and not ic.changed.is_connected(_sincronizar_trazos):
+		ic.changed.connect(_sincronizar_trazos)
 
 const _ALIGN_TOOLS := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/TOOLS ALINEACION/VBoxContainer"
 # Fila de iconos: distribuir-h, alinear-izq, alinear-centro-h, distribuir-h, alinear-der.
@@ -71,6 +76,49 @@ func _conectar_botones() -> void:
 			var op: Array = mapa[rel]
 			if ab and not ab.pressed.is_connected(_on_align.bind(op[0], op[1])):
 				ab.pressed.connect(_on_align.bind(op[0], op[1]))
+
+# ── Panel de trazos (Panel_trazos) → InspectorCore ───────────────────────────
+const _TRAZOS_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_trazos"
+const _TRAZOS_COLOR := _TRAZOS_BASE + "/MarginContainer/BoxContainer/BoxContainer/ColorPickerButton"
+const _TRAZOS_SIZE := _TRAZOS_BASE + "/MarginContainer/BoxContainer/BoxContainer2/SpinBox"
+
+var _sync_trazos_guard := false
+
+func _conectar_trazos() -> void:
+	var cp := get_node_or_null(_TRAZOS_COLOR) as ColorPickerButton
+	if cp and not cp.color_changed.is_connected(_on_trazo_color):
+		cp.color_changed.connect(_on_trazo_color)
+	var sb := get_node_or_null(_TRAZOS_SIZE)
+	if sb and sb.has_signal("value_changed") and not sb.value_changed.is_connected(_on_trazo_size):
+		sb.value_changed.connect(_on_trazo_size)
+
+func _on_trazo_color(c: Color) -> void:
+	if _sync_trazos_guard:
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic:
+		ic.apply("stroke_color", c)
+
+func _on_trazo_size(v: float) -> void:
+	if _sync_trazos_guard:
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic:
+		ic.apply("stroke_width", v)
+
+## Refleja en el panel los valores de la selección (sin re-disparar apply()).
+func _sincronizar_trazos(props: Dictionary) -> void:
+	_sync_trazos_guard = true
+	var cp := get_node_or_null(_TRAZOS_COLOR) as ColorPickerButton
+	if cp and props.has("stroke_color") and not props["stroke_color"]["mixed"]:
+		cp.color = props["stroke_color"]["value"]
+	var sb := get_node_or_null(_TRAZOS_SIZE)
+	if sb and props.has("stroke_width") and not props["stroke_width"]["mixed"]:
+		if sb.has_method("set_value"):
+			sb.set_value(float(props["stroke_width"]["value"]))
+		else:
+			sb.value = float(props["stroke_width"]["value"])
+	_sync_trazos_guard = false
 
 ## Editor inline del nombre de la figura seleccionada (selección única).
 func _on_rename() -> void:

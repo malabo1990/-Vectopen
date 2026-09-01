@@ -179,6 +179,35 @@ func test_marquee_selects_only_shapes_intersecting_the_drag_rect() -> void:
 
 	assert_array(tool.selected_shapes).contains_exactly([inside_shape])
 
+## Una figura DENTRO de un grupo debe poder cogerse con el ratón: el hit-test
+## recorre la rama y devuelve el GRUPO de primer nivel (clic sencillo). Antes
+## solo miraba hijos directos → clic en el relleno de un hijo lo deseleccionaba.
+func test_hit_test_encuentra_figura_dentro_de_grupo() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var grupo: Node2D = auto_free(Node2D.new())
+	grupo.set_meta("shape_type", "group")
+	artboard.add_child(grupo)
+	var hijo: VectorRectangle = auto_free(VectorRectangle.new())
+	grupo.add_child(hijo)
+	hijo.global_position = Vector2(100, 100)
+	hijo.size = Vector2(40, 40)   # AABB global: (80,80)-(120,120)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+
+	var hit = tool._shape_at(Vector2(100, 100))
+	assert_object(hit).is_same(grupo)   # el grupo, no el hijo
+
+	# Pero si el hijo YA está seleccionado, el clic arrastra el hijo.
+	tool.selected_shapes = [hijo]
+	assert_object(tool._primer_seleccionado_en_rama(grupo)).is_same(hijo)
+
+
 ## Regresión: Alt durante el marquee debe RESTAR de la selección actual las
 ## figuras que toca, no reemplazarla ni sumarlas.
 func test_marquee_with_alt_subtracts_touched_shapes_from_selection() -> void:
@@ -340,3 +369,61 @@ func test_on_release_does_not_emit_object_transformed_without_a_transform() -> v
 	GlobalEvents.object_transformed.disconnect(callback)
 
 	assert_bool(recibido[0]).is_false()
+
+
+# ── Autocuración de gesto atascado ───────────────────────────────────────────
+
+## REGRESIÓN CRÍTICA: `bounding_box._on_drag_panel_gui_input` pone
+## `is_dragging_shape = true` al pulsar el gizmo; si la SUELTA no llega (el
+## panel se alejó bajo el cursor), el flag se queda atascado y `_on_motion`
+## consume TODOS los eventos → el editor entero se bloquea (ni panel de capas
+## ni arrastre de artboard). `_heal_stuck_gesture` lo cierra si el botón
+## izquierdo NO está pulsado de verdad.
+func test_heal_stuck_gesture_cierra_arrastre_sin_boton_pulsado() -> void:
+	var root: Node2D = auto_free(Node2D.new()); add_child(root)
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+
+	# Simula el estado zombi dejado por el gizmo: arrastrando pero sin botón.
+	tool.is_dragging_shape = true
+	tool.is_marquee = true
+	tool.is_resizing = true
+	tool.transform_initial_states = {root: {}}
+
+	# Asegura que el botón izquierdo NO consta como pulsado.
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	Input.parse_input_event(up)
+	Input.flush_buffered_events()
+
+	tool._heal_stuck_gesture()
+
+	assert_bool(tool.is_dragging_shape).is_false()
+	assert_bool(tool.is_marquee).is_false()
+	assert_bool(tool.is_resizing).is_false()
+	assert_bool(tool.transform_initial_states.is_empty()).is_true()
+
+
+## El gesto legítimo (botón izquierdo pulsado de verdad) NO se cancela.
+func test_heal_stuck_gesture_respeta_arrastre_con_boton_pulsado() -> void:
+	var root: Node2D = auto_free(Node2D.new()); add_child(root)
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.is_dragging_shape = true
+
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	Input.parse_input_event(down)
+	Input.flush_buffered_events()
+
+	tool._heal_stuck_gesture()
+	assert_bool(tool.is_dragging_shape).is_true()   # sigue arrastrando
+
+	# limpieza: soltar el botón para no contaminar otros tests
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	Input.parse_input_event(up)
+	Input.flush_buffered_events()

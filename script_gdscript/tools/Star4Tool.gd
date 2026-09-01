@@ -133,7 +133,7 @@ func _spawn_shape(local_center: Vector2, radius_out: float, rotation_angle: floa
 	print("[Star4Tool]: Instanciando VectorPolygon en el Artboard...")
 
 	var new_shape = VectorPolygon.new()
-	new_shape.name = "Estrella_4_Puntas"
+	new_shape.name = NameUtils.unique_child_name(artboard, "Estrella")
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
 	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_star_points(Vector2.ZERO, radius_out, rotation_angle)))
 	new_shape.fill_color = FILL_COLOR

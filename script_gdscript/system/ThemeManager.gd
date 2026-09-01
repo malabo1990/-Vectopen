@@ -2,13 +2,13 @@ extends Node
 
 ## Vectopen Pro ThemeManager
 ## Genera el Theme de runtime desde los tokens de diseño (docs/design/design-tokens.json).
-## Modos: dark (macOS Pro) / light (Studio). Overrides de usuario en user://vectopen_theme.cfg.
+## Modos: dark (Vectopen Oscuro) / light (Vectopen Claro). Preferencia y overrides
+## de color del usuario en user://vectopen_theme.cfg. Por defecto: CLARO.
 
 signal theme_changed(mode: String)
 signal color_slot_changed(slot_name: String, color: Color)
 
 const CONFIG_PATH := "user://vectopen_theme.cfg"
-const SETTINGS_KEY := "application/vectopen/theme_mode"
 
 enum Slot {
 	PANEL_BG,
@@ -33,6 +33,8 @@ enum Slot {
 	BORDER,
 	TEXT_SECONDARY,
 	TEXT_DISABLED,
+	SURFACE_RAISED,  # chip/fila resaltada (barra de herramientas, selección suave)
+	ACCENT_SOFT,     # tinte de acento a baja opacidad (relleno de selección)
 }
 
 const SLOT_NAMES: Dictionary = {
@@ -58,6 +60,8 @@ const SLOT_NAMES: Dictionary = {
 	Slot.BORDER: "border",
 	Slot.TEXT_SECONDARY: "text_secondary",
 	Slot.TEXT_DISABLED: "text_disabled",
+	Slot.SURFACE_RAISED: "surface_raised",
+	Slot.ACCENT_SOFT: "accent_soft",
 }
 
 # ============================================================================
@@ -87,6 +91,8 @@ const DARK_PALETTE: Dictionary = {
 	Slot.BORDER: Color(1, 1, 1, 0.12),
 	Slot.TEXT_SECONDARY: Color(1, 1, 1, 0.55),
 	Slot.TEXT_DISABLED: Color(1, 1, 1, 0.25),
+	Slot.SURFACE_RAISED: Color(1, 1, 1, 0.10),
+	Slot.ACCENT_SOFT: Color(0.039, 0.518, 1.0, 0.20),
 }
 
 # ============================================================================
@@ -116,22 +122,36 @@ const LIGHT_PALETTE: Dictionary = {
 	Slot.BORDER: Color(0.82, 0.82, 0.84, 1.0),
 	Slot.TEXT_SECONDARY: Color(0.424, 0.424, 0.439, 1.0),
 	Slot.TEXT_DISABLED: Color(0.557, 0.557, 0.576, 1.0),
+	Slot.SURFACE_RAISED: Color(0.902, 0.902, 0.922, 1.0),
+	Slot.ACCENT_SOFT: Color(0.0, 0.478, 1.0, 0.14),
 }
 
-var current_mode: String = "dark"
+var current_mode: String = "light"
 var _overrides: Dictionary = {}
 
 func _ready() -> void:
-	var saved = ProjectSettings.get_setting(SETTINGS_KEY, "dark")
 	_load_overrides()
-	_apply(saved)
+	# La preferencia de tema vive SOLO en user:// (elección del usuario), no en
+	# project.godot: el editor reescribe el ProjectSetting y ganaba tira y afloja.
+	# Por defecto: CLARO. Oscuro solo si el usuario lo eligió en configuración.
+	_apply(_leer_modo_guardado())
+
+func _leer_modo_guardado() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(CONFIG_PATH) == OK:
+		var m := String(cfg.get_value("theme", "mode", "light"))
+		if m == "dark" or m == "light":
+			return m
+	return "light"
 
 func set_mode(mode: String) -> void:
 	if mode == current_mode:
 		return
 	_apply(mode)
-	ProjectSettings.set_setting(SETTINGS_KEY, current_mode)
-	ProjectSettings.save()
+	var cfg := ConfigFile.new()
+	cfg.load(CONFIG_PATH)   # preserva los overrides de color
+	cfg.set_value("theme", "mode", current_mode)
+	cfg.save(CONFIG_PATH)
 
 func toggle() -> void:
 	set_mode("light" if current_mode == "dark" else "dark")
@@ -298,7 +318,7 @@ func _build_theme() -> Theme:
 	theme.set_stylebox("grab", "ScrollBar", grab_sb)
 	theme.set_stylebox("grab_highlight", "ScrollBar", grab_hover)
 
-	# --- CheckButton / CheckBox: toggle estilo macOS ---
+	# --- CheckButton / CheckBox: toggle elegante ---
 	var toggle_on := _load_sized("res://assets/icons/toggle_on.png", 34, 20)
 	var toggle_off := _load_sized("res://assets/icons/toggle_off.png", 34, 20)
 	if toggle_on and toggle_off:
@@ -345,6 +365,9 @@ func _pressed(color: Color) -> Color:
 
 func _save_overrides() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(CONFIG_PATH)   # preserva [theme] mode= y demás secciones
+	if cfg.has_section("colors"):
+		cfg.erase_section("colors")
 	for slot in _overrides:
 		cfg.set_value("colors", str(slot), _overrides[slot])
 	cfg.save(CONFIG_PATH)

@@ -2,7 +2,7 @@
 
 ![Vectopen Logo](icon/logo/logo_vectopen.svg)
 
-**Vectopen** is an open-source vector graphics editor built with **Godot Engine 4.7**. It is designed for designers, developers, and creatives who need a lightweight, cross-platform alternative to proprietary tools like Adobe Illustrator or Affinity Designer.
+**Vectopen** is an open-source vector graphics editor built with **Godot Engine 4.7**. It is designed for designers, developers, and creatives who need a lightweight, cross-platform alternative to proprietary tools like formato vectorial (.ai) or editor profesional Designer.
 
 ## Features
 
@@ -25,7 +25,7 @@
 |----------|--------|
 | Windows | ✅ Supported (CI builds) |
 | Linux | ✅ Supported (CI builds) |
-| macOS | ✅ Supported (CI builds) |
+| estándar | ✅ Supported (CI builds) |
 | Web (HTML5) | ✅ Export preset configured |
 
 ## Screenshots
@@ -58,7 +58,7 @@ The main scene is `res://scenes/canvas/canvas.tscn`.
 godot --headless --export-debug "Windows" ./build/vectopen.exe
 ```
 
-See `export_presets.cfg` for all available presets (Windows, Linux, macOS, Web).
+See `export_presets.cfg` for all available presets (Windows, Linux, estándar, Web).
 
 ## Project Structure
 
@@ -130,4 +130,4 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 - Built with [Godot Engine](https://godotengine.org/)
 - Testing via [gdUnit4](https://github.com/MikeSchulze/gdUnit4)
-- Inspired by Affinity Designer, Figma, and Inkscape
+- Inspired by editor profesional Designer, un editor profesional, and estándar

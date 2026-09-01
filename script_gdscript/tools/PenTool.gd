@@ -65,7 +65,7 @@ func handle_input(event: InputEvent) -> bool:
 
 func _start_new_line(start_pos: Vector2) -> void:
 	active_line = Line2D.new()
-	active_line.name = "BezierPath_%d" % (target_artboard.get_child_count() + 1)
+	active_line.name = NameUtils.unique_child_name(target_artboard, "Trazo")
 	active_line.width = LINE_WIDTH
 	active_line.default_color = LINE_COLOR
 	active_line.antialiased = true

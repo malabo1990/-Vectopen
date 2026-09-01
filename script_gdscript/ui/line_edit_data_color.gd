@@ -11,8 +11,26 @@ func _ready():
 		return
 	# Conectar señales
 	line_edit.text_changed.connect(_on_line_edit_text_changed)
+	line_edit.text_submitted.connect(_on_line_edit_submitted)
 	# Establecer color inicial
 	update_line_edit_from_color()
+	# Sincronía con ColorCore (aplica a la selección con undo).
+	var cc := get_node_or_null("/root/ColorCore")
+	if cc and cc.has_signal("changed") and not cc.changed.is_connected(_on_colorcore_changed):
+		cc.changed.connect(_on_colorcore_changed)
+
+func _on_line_edit_submitted(txt: String) -> void:
+	var c := Color.from_string(txt.strip_edges(), color_rect.color if color_rect else Color.WHITE)
+	if color_rect:
+		color_rect.color = c
+	var cc := get_node_or_null("/root/ColorCore")
+	if cc and cc.has_method("set_color"):
+		cc.set_color(c)
+
+func _on_colorcore_changed(fill: Color, _stroke: Color, _target: String) -> void:
+	if color_rect and color_rect.color != fill:
+		color_rect.color = fill
+		update_line_edit_from_color()
 
 # Actualiza el ColorRect cuando cambia el texto del LineEdit en tiempo real
 func _on_line_edit_text_changed(new_text: String):

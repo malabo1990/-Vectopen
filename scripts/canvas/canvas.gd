@@ -17,7 +17,7 @@ var toolbar_ui: Control
 @export_group("Camera Settings")
 @export var zoom_speed: float = 0.05
 @export var zoom_min: float = 0.05
-## 50000.0 (5.000.000%) — a pedido explícito, por encima del techo de Figma
+## 50000.0 (5.000.000%) — a pedido explícito, por encima del techo de un editor profesional
 ## (256/25600%). camera.zoom sigue siendo float32 (como todo en Godot sin
 ## build de doble precisión), así que a este nivel el propio Transform2D de
 ## la cámara puede perder precisión visible en coordenadas grandes — es el
@@ -111,7 +111,7 @@ func _registrar_herramientas_iniciales() -> void:
 	if RectangleTool_Script: registrar_herramienta("m", RectangleTool_Script)
 	# "p" abre la Pluma Bézier profesional (nodos + handles simétricos/libres,
 	# cierre de trazo), no PenTool_Script (solo polilínea recta sin curvas) —
-	# alineado con el atajo "P" de Figma/Illustrator que pidió el usuario.
+	# alineado con el atajo "P" de editor vectorial que pidió el usuario.
 	if BezierTool_Script:    registrar_herramienta("p", BezierTool_Script)
 	if ArtboardTool_Script:  registrar_herramienta("a", ArtboardTool_Script)
 	if TextTool_Script:      registrar_herramienta("t", TextTool_Script)

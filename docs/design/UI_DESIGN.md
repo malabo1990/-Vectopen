@@ -1,6 +1,6 @@
 # Vectopen Pro — UI Design Document
 
-> Sistema de diseño estilo macOS (Apple / Sketch / Rive) para Vectopen.
+> Sistema de diseño elegante (Apple / Sketch / Rive) para Vectopen.
 > Versión 2.0 — Paleta semántica oscura + tema claro Studio.
 
 ---
@@ -13,7 +13,7 @@
 - **Tipografía SF Pro**: primaria `#F5F5F7`, secundaria 55% blanco, deshabilitada 25% blanco.
 - **Contraste garantizado**: texto blanco sobre acentos verdes/rojos (oscuro), texto blanco/negro según superficie (claro).
 
-## 2. Paleta — Modo Oscuro (macOS Pro)
+## 2. Paleta — Modo Oscuro (Vectopen Oscuro)
 
 | Token | Valor | Uso |
 |---|---|---|

@@ -17,7 +17,7 @@ What you would like to see implemented.
 Any alternative solutions or features you've considered.
 
 **Reference**
-Does this feature exist in other tools? (Affinity Designer, Figma, Illustrator, Inkscape)
+Does this feature exist in other tools? (editor profesional Designer, un editor profesional, vectorial, estándar)
 
 **Additional Context**
 Add any other context, mockups, or screenshots here.

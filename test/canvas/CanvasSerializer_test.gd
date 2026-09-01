@@ -22,6 +22,7 @@ func _poblar(ab: ArtboardEditor) -> void:
 
 	var r := VectorRectangle.new()
 	r.name = "R1"; r.size = Vector2(80, 40); r.corner_radius = 6.0
+	r.set_corner_radii(Vector4(10, 2, 8, 0))   # radios independientes
 	r.fill_color = Color(0, 0.5, 1, 1)
 	ab.add_child(r); r.position = Vector2(200, 150); r.rotation = 0.3
 
@@ -38,6 +39,10 @@ func _poblar(ab: ArtboardEditor) -> void:
 	var txt := Node2D.new()
 	txt.name = "T1"; txt.set_meta("shape_type", "text_title")
 	txt.set_meta("text", "Hola Vectopen"); txt.set_meta("font_size", 28)
+	txt.set_meta("line_spacing", 12)
+	txt.set_meta("font_family", "Inter"); txt.set_meta("font_weight", 700)
+	txt.set_meta("text_color", Color(0.9, 0.2, 0.1)); txt.set_meta("text_align", "center")
+	txt.set_meta("text_outline_color", Color.BLACK); txt.set_meta("text_outline", 2)
 	var lbl := WorldTextLabel.new(); lbl.name = "DisplayLabel"; lbl.text = "Hola Vectopen"
 	txt.add_child(lbl)
 	ab.add_child(txt); txt.position = Vector2(120, 400)
@@ -90,7 +95,11 @@ func test_roundtrip_contenido_lienzo() -> void:
 	var r: VectorRectangle = by_name.get("R1")
 	assert_object(r).is_not_null()
 	assert_vector(r.size).is_equal(Vector2(80, 40))
-	assert_float(r.corner_radius).is_equal_approx(6.0, 0.01)
+	var rr: Vector4 = r.get_corner_radii()
+	assert_float(rr.x).is_equal_approx(10.0, 0.01)
+	assert_float(rr.y).is_equal_approx(2.0, 0.01)
+	assert_float(rr.z).is_equal_approx(8.0, 0.01)
+	assert_float(rr.w).is_equal_approx(0.0, 0.01)
 	assert_float(r.rotation).is_equal_approx(0.3, 0.001)
 
 	# polígono
@@ -108,9 +117,20 @@ func test_roundtrip_contenido_lienzo() -> void:
 	var t: Node2D = by_name.get("T1")
 	assert_object(t).is_not_null()
 	assert_str(String(t.get_meta("text"))).is_equal("Hola Vectopen")
+	assert_int(int(t.get_meta("line_spacing"))).is_equal(12)
+	assert_str(String(t.get_meta("font_family"))).is_equal("Inter")
+	assert_int(int(t.get_meta("font_weight"))).is_equal(700)
+	assert_str(String(t.get_meta("text_align"))).is_equal("center")
+	assert_that(t.get_meta("text_color")).is_equal(Color(0.9, 0.2, 0.1))
 	var lbl := t.get_node_or_null("DisplayLabel") as WorldTextLabel
 	assert_object(lbl).is_not_null()
 	assert_str(lbl.text).is_equal("Hola Vectopen")
+	assert_int(lbl.get_theme_constant("line_spacing")).is_equal(12)
+	assert_int(lbl.horizontal_alignment).is_equal(HORIZONTAL_ALIGNMENT_CENTER)
+	assert_that(lbl.get_theme_color("font_color")).is_equal(Color(0.9, 0.2, 0.1))
+	assert_int(lbl.get_theme_constant("outline_size")).is_equal(2)
+	# la fuente resuelta debe ser la variación de peso 700 de Inter
+	assert_object(lbl.get_theme_font("font")).is_same(FontCore.get_font(FontCore.spec_from_node(t)))
 
 	# 2º artboard + figura
 	var ab2_b: ArtboardEditor = cont_b.get_child(1)
@@ -251,3 +271,127 @@ func test_roundtrip_shaders_clipping_mascaras() -> void:
 	var g_b := ab_b.get_node_or_null("GrupoRecorte")
 	assert_object(g_b).is_not_null()
 	assert_int(int(g_b.clip_children)).is_equal(int(CanvasItem.CLIP_CHILDREN_AND_DRAW))
+
+
+## Una FIGURA con figuras ANIDADAS dentro (rect > rect > círculo) y un TEXTO con
+## una figura hija sobreviven al round-trip. Antes el serializador salía antes en
+## cada `kind` y los hijos se perdían.
+func test_roundtrip_figuras_anidadas_y_texto_con_hijo() -> void:
+	var cont_a := _container()
+	await get_tree().process_frame
+	var ab: ArtboardEditor = cont_a.get_child(0)
+
+	var padre := VectorRectangle.new(); padre.name = "Padre"; padre.size = Vector2(200, 200)
+	ab.add_child(padre); padre.position = Vector2(100, 100)
+	var hijo := VectorRectangle.new(); hijo.name = "Hijo"; hijo.size = Vector2(100, 100)
+	padre.add_child(hijo); hijo.position = Vector2(20, 20)
+	var nieto := VectorCircle.new(); nieto.name = "Nieto"; nieto.size = Vector2(40, 40)
+	hijo.add_child(nieto); nieto.position = Vector2(10, 10)
+
+	var txt := Node2D.new(); txt.name = "Titulo"
+	txt.set_meta("shape_type", "text_title"); txt.set_meta("text", "Hola")
+	txt.set_meta("width", 150.0); txt.set_meta("height", 40.0)
+	ab.add_child(txt); txt.position = Vector2(400, 100)
+	var deco := VectorCircle.new(); deco.name = "Deco"; deco.size = Vector2(30, 30)
+	txt.add_child(deco); deco.position = Vector2(5, 5)
+	await get_tree().process_frame
+
+	var data := CS.serialize_container(cont_a)
+	var cont_b := _container()
+	await get_tree().process_frame
+	CS.rebuild_container(cont_b, data)
+	await get_tree().process_frame
+	var ab_b: ArtboardEditor = cont_b.get_child(0)
+
+	var padre_b := ab_b.get_node_or_null("Padre")
+	assert_object(padre_b).is_not_null()
+	var hijo_b := padre_b.get_node_or_null("Hijo")
+	assert_object(hijo_b).is_not_null()
+	assert_object(hijo_b.get_node_or_null("Nieto")).is_not_null()
+
+	var txt_b := ab_b.get_node_or_null("Titulo")
+	assert_object(txt_b).is_not_null()
+	assert_object(txt_b.get_node_or_null("Deco")).is_not_null()
+
+
+## Un TRAZO BÉZIER conserva su estilo editable (fill/stroke/grosor/closed) al
+## guardar y recargar — antes el path se dibujaba con constantes fijas.
+func test_roundtrip_trazo_bezier_con_estilo() -> void:
+	var cont_a := _container()
+	await get_tree().process_frame
+	var ab: ArtboardEditor = cont_a.get_child(0)
+
+	var vp := Path2D.new()
+	vp.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
+	vp.name = "Bezier1"
+	var cu := Curve2D.new()
+	cu.add_point(Vector2(0, 0), Vector2.ZERO, Vector2(20, 0))
+	cu.add_point(Vector2(60, 40), Vector2(-20, 0), Vector2.ZERO)
+	vp.curve = cu
+	vp.set("stroke_color", Color(0.9, 0.1, 0.2, 1))
+	vp.set("stroke_width", 7.5)
+	vp.set("fill_color", Color(0.1, 0.9, 0.3, 0.4))
+	vp.set("closed", true)
+	ab.add_child(vp); vp.position = Vector2(120, 120)
+	await get_tree().process_frame
+
+	var data := CS.serialize_container(cont_a)
+	var cont_b := _container()
+	await get_tree().process_frame
+	CS.rebuild_container(cont_b, data)
+	await get_tree().process_frame
+
+	var vp_b := (cont_b.get_child(0) as ArtboardEditor).get_node_or_null("Bezier1")
+	assert_object(vp_b).is_not_null()
+	assert_that(vp_b.get("stroke_color")).is_equal(Color(0.9, 0.1, 0.2, 1))
+	assert_float(vp_b.get("stroke_width")).is_equal_approx(7.5, 0.01)
+	assert_that(vp_b.get("fill_color")).is_equal(Color(0.1, 0.9, 0.3, 0.4))
+	assert_bool(bool(vp_b.get("closed"))).is_true()
+	assert_int(vp_b.curve.point_count).is_equal(2)
+
+
+## Relleno con degradado (lineal en un rect, radial en un círculo) sobrevive al
+## round-trip: stops, tipo y ángulo.
+func test_roundtrip_relleno_degradado() -> void:
+	var cont_a := _container()
+	await get_tree().process_frame
+	var ab: ArtboardEditor = cont_a.get_child(0)
+
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([Color.RED, Color.YELLOW, Color.BLUE])
+	var r := VectorRectangle.new()
+	r.name = "GradRect"; r.size = Vector2(80, 40)
+	r.fill_gradient_type = 0
+	r.fill_gradient_angle = deg_to_rad(30)
+	r.fill_gradient = g
+	ab.add_child(r); r.position = Vector2(150, 150)
+
+	var g2 := Gradient.new()
+	g2.offsets = PackedFloat32Array([0.0, 1.0])
+	g2.colors = PackedColorArray([Color.WHITE, Color.BLACK])
+	var c := VectorCircle.new()
+	c.name = "GradCircle"; c.size = Vector2(50, 50)
+	c.fill_gradient_type = 1
+	c.fill_gradient = g2
+	ab.add_child(c); c.position = Vector2(300, 150)
+	await get_tree().process_frame
+
+	var data := CS.serialize_container(cont_a)
+	var cont_b := _container()
+	await get_tree().process_frame
+	CS.rebuild_container(cont_b, data)
+	await get_tree().process_frame
+	var ab_b: ArtboardEditor = cont_b.get_child(0)
+
+	var r_b := ab_b.get_node_or_null("GradRect") as VectorRectangle
+	assert_object(r_b).is_not_null()
+	assert_bool(r_b.has_gradient_fill()).is_true()
+	assert_int(r_b.fill_gradient.get_point_count()).is_equal(3)
+	assert_that(r_b.fill_gradient.get_color(1)).is_equal(Color.YELLOW)
+	assert_float(r_b.fill_gradient_angle).is_equal_approx(deg_to_rad(30), 0.001)
+
+	var c_b := ab_b.get_node_or_null("GradCircle") as VectorCircle
+	assert_object(c_b).is_not_null()
+	assert_bool(c_b.has_gradient_fill()).is_true()
+	assert_int(int(c_b.fill_gradient_type)).is_equal(1)

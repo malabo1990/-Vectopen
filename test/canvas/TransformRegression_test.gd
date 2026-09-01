@@ -398,10 +398,10 @@ func test_cancelar_transformacion_a_medias() -> void:
 	var s0 := _state(r)
 
 	t.selected_shapes.assign([r])
-	t._start_blender_mode(t.BlenderMode.SCALE)
+	t._start_key_mode(t.KeyMode.SCALE)
 	# simula un escalado a medias
 	r.set("size", Vector2(300, 300))
 	r.global_position += Vector2(50, 50)
-	t._cancel_blender_transform()
+	t._cancel_key_transform()
 
 	_assert_state(_state(r), s0, "cancelado")

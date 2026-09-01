@@ -60,7 +60,7 @@ func deactivate() -> void:
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
-# ── Entrada de Eventos y Atajos de Teclado (Blender Style) ───────────────────
+# ── Entrada de Eventos y Atajos de Teclado (Key Style) ───────────────────
 
 func handle_input(event: InputEvent) -> bool:
 	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
@@ -178,7 +178,7 @@ func _on_press(path_local_mouse: Vector2) -> bool:
 			canvas.queue_redraw()
 			return true
 
-	# Opción C: Combar segmento directamente (Estilo Affinity / Adobe)
+	# Opción C: Combar segmento directamente (Estilo editor profesional / estándar)
 	var closest_path_local = curve.get_closest_point(path_local_mouse)
 	if path_local_mouse.distance_to(closest_path_local) <= tolerance * 1.5:
 		var target_idx = _find_segment_index_by_point(closest_path_local)
@@ -283,7 +283,7 @@ func _on_motion(path_local_mouse: Vector2) -> bool:
 	_sync()
 	return true
 
-# ── OPCIÓN 2: Modo Grab (G) con Restricciones de Sistema (Blender Style) ──────
+# ── OPCIÓN 2: Modo Grab (G) con Restricciones de Sistema (Key Style) ──────
 
 func _start_grab_mode(path_local_mouse: Vector2) -> void:
 	current_mode = EditMode.GRAB_MODE
@@ -378,7 +378,7 @@ func draw_preview(c: Node2D) -> void:
 	var r_handle: float = HANDLE_RADIUS / scale
 	var thickness: float = 1.2 / scale
 
-	# Dibujar líneas guía estilo Blender
+	# Dibujar líneas guía por teclado
 	if current_mode == EditMode.GRAB_MODE and grab_axis != "":
 		var origin_canvas = c.to_local(edit_path.to_global(grab_origin_mouse_local))
 		if grab_axis == "x":

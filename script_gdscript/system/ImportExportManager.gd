@@ -9,7 +9,7 @@ extends Node
 ## - Progress notifications via GlobalEvents
 ## 
 ## Supported Export Formats:
-## - SVG: Vector graphics export (optimized with Inkscape math calculations)
+## - SVG: Vector graphics export (optimized with estándar math calculations)
 ## - PDF: Portable Document Format (basic vector support)
 ## - PNG: Raster image export
 ## - JPEG: Raster image export
@@ -22,18 +22,18 @@ extends Node
 ## - JSON: Project data export
 ## 
 ## Unsupported Export Formats (will emit export_error):
-## - AI: Adobe Illustrator format
+## - AI: formato vectorial (.ai) format
 ## - DXF: AutoCAD Drawing Exchange Format
 ## 
 ## Supported Import Formats:
-## - SVG: Vector graphics import (strong math calculations, Inkscape compatible)
+## - SVG: Vector graphics import (strong math calculations, estándar)
 ## - PNG, JPEG: Raster image import (converted to Sprite2D, not vectorized)
 ## - EPS: Encapsulated PostScript (import only)
 ## - TSCN, SCN: Godot scene formats
 ## - VOP: Vectopen proprietary format
 ## 
 ## Unsupported Import Formats (will emit import_error):
-## - AI: Adobe Illustrator format
+## - AI: formato vectorial (.ai) format
 ## - PDF: Portable Document Format
 ## - DXF: AutoCAD Drawing Exchange Format
 ## - JPEG XL, WEBP: Import not yet implemented

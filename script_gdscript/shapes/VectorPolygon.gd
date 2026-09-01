@@ -11,8 +11,7 @@ func _init() -> void:
 func _draw() -> void:
 	if vertices.is_empty():
 		return
-	if fill_color.a > 0:
-		draw_colored_polygon(vertices, fill_color)
+	draw_fill(vertices)
 	if stroke_width > 0:
 		var stroke_verts := PackedVector2Array(vertices)
 		if closed:

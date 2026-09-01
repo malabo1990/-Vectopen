@@ -128,7 +128,7 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 	print("[TriangleTool]: Instanciando VectorPolygon en el Artboard...")
 
 	var new_shape = VectorPolygon.new()
-	new_shape.name = "Triangulo_Vectorial"
+	new_shape.name = NameUtils.unique_child_name(artboard, "Triángulo")
 	new_shape.set_doc_position(DVec2.from_v2(local_pos))
 	new_shape.set_doc_vertices(DVec2.array_from_v2(PackedVector2Array([
 		Vector2(size.x / 2.0, 0),

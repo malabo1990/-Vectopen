@@ -11,7 +11,7 @@ class_name ColorPaletteTool
 @export var container_samples: FlowContainer   # Contenedor auto-ajustable
 @export var nodo_color_rect: ColorRect         # Tu color plano activo de referencia
 
-# --- CONFIGURACIÓN DE DISEÑO MINIMALISTA (Estilo macOS/Figma) ---
+# --- CONFIGURACIÓN DE DISEÑO MINIMALISTA (Estilo estándar/un editor profesional) ---
 @export var sample_min_size: Vector2 = Vector2(75, 95)
 @export var font_size_hex: int = 11
 

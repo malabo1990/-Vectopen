@@ -12,7 +12,7 @@ description: >
 
 ## Resumen Ejecutivo
 
-Vectopen es un editor vectorial 2D (similar a Illustrator / Figma) construido en **Godot 4.7** con **GDScript** (~98%) y **C# .NET 8** (~2%). Usa renderer `gl_compatibility`.
+Vectopen es un editor vectorial 2D (similar a vectorial / un editor profesional) construido en **Godot 4.7** con **GDScript** (~98%) y **C# .NET 8** (~2%). Usa renderer `gl_compatibility`.
 
 - **Versión:** 0.1.1
 - **Escena principal:** `res://scenes/canvas/canvas.tscn`

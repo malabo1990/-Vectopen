@@ -44,7 +44,7 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("1_i3p5f")
-metadata/_edit_horizontal_guides_ = [54.0]
+metadata/_edit_horizontal_guides_ = [54.0, 98.0]
 metadata/_edit_vertical_guides_ = [62.0, 16.0]
 
 [node name="PANEL_BOUNDINGBOX" type="Panel" parent="." unique_id=617994779]
@@ -189,6 +189,59 @@ offset_right = 8.0
 offset_bottom = 37.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_lna83")
 
+[node name="FieldsWrapper" type="Control" parent="PANEL_BOUNDINGBOX/MB" unique_id=1221772338]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -61.5
+offset_top = 51.0
+offset_right = 61.5
+offset_bottom = 75.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="FieldX" type="PanelContainer" parent="PANEL_BOUNDINGBOX/MB/FieldsWrapper" unique_id=689589884 node_paths=PackedStringArray("line_edit", "panel")]
+layout_mode = 0
+offset_right = 56.0
+offset_bottom = 22.0
+script = ExtResource("2_htxwg")
+min_value = -100000.0
+max_value = 100000.0
+decimals = 4
+line_edit = NodePath("LineEdit")
+panel = NodePath("")
+line_edit_size = Vector2(56, 20)
+
+[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/MB/FieldsWrapper/FieldX" unique_id=1308530085]
+custom_minimum_size = Vector2(56, 20)
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 10
+text = "0.0000"
+alignment = 1
+
+[node name="FieldY" type="PanelContainer" parent="PANEL_BOUNDINGBOX/MB/FieldsWrapper" unique_id=977879011 node_paths=PackedStringArray("line_edit", "panel")]
+layout_mode = 0
+offset_left = 67.0
+offset_right = 123.0
+offset_bottom = 22.0
+script = ExtResource("2_htxwg")
+min_value = -100000.0
+max_value = 100000.0
+decimals = 4
+line_edit = NodePath("LineEdit")
+panel = NodePath("")
+line_edit_size = Vector2(56, 20)
+
+[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/MB/FieldsWrapper/FieldY" unique_id=542418919]
+custom_minimum_size = Vector2(56, 20)
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 10
+text = "0.0000"
+alignment = 1
+
 [node name="x" type="Panel" parent="PANEL_BOUNDINGBOX" unique_id=1893613951]
 layout_mode = 0
 offset_left = 70.0
@@ -196,73 +249,3 @@ offset_top = 16.0
 offset_right = 78.0
 offset_bottom = 24.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_gxv5u")
-
-[node name="FieldsWrapper" type="Control" parent="PANEL_BOUNDINGBOX" unique_id=1221772338]
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = -8.0
-offset_top = 59.0
-offset_right = 128.0
-offset_bottom = 83.0
-grow_vertical = 0
-mouse_filter = 2
-
-[node name="FieldX" type="Panel" parent="PANEL_BOUNDINGBOX/FieldsWrapper" unique_id=983150660 node_paths=PackedStringArray("line_edit", "panel")]
-layout_mode = 0
-offset_right = 60.0
-offset_bottom = 24.0
-script = ExtResource("2_htxwg")
-min_value = -100000.0
-max_value = 100000.0
-decimals = 4
-line_edit = NodePath("LineEdit")
-panel = NodePath(".")
-line_edit_size = Vector2(56, 20)
-
-[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/FieldsWrapper/FieldX" unique_id=1308530085]
-custom_minimum_size = Vector2(56, 20)
-layout_mode = 0
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -10.0
-offset_right = 40.5
-offset_bottom = 21.0
-mouse_filter = 2
-text = "0.0000"
-alignment = 1
-
-[node name="FieldY" type="Panel" parent="PANEL_BOUNDINGBOX/FieldsWrapper" unique_id=677210457 node_paths=PackedStringArray("line_edit", "panel")]
-layout_mode = 0
-offset_left = 64.0
-offset_right = 124.0
-offset_bottom = 24.0
-script = ExtResource("2_htxwg")
-min_value = -100000.0
-max_value = 100000.0
-decimals = 4
-line_edit = NodePath("LineEdit")
-panel = NodePath(".")
-line_edit_size = Vector2(56, 20)
-
-[node name="LineEdit" type="LineEdit" parent="PANEL_BOUNDINGBOX/FieldsWrapper/FieldY" unique_id=542418919]
-custom_minimum_size = Vector2(56, 20)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -28.0
-offset_top = -10.0
-offset_right = 40.5
-offset_bottom = 21.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "0.0000"
-alignment = 1

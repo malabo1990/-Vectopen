@@ -10,7 +10,7 @@ extends Control
 var stops: Array[StopHandle] = []
 var selected_handle: StopHandle = null
 
-# Configuración de comportamiento Avanzado (Estilo Figma/Illustrator)
+# Configuración de comportamiento Avanzado (Estilo editor vectorial)
 const SNAP_THRESHOLD: float = 0.025 # Distancia magnética para el Snap (2.5%)
 const SNAP_VALUES: Array[float] = [0.0, 0.25, 0.5, 0.75, 1.0]
 
@@ -45,7 +45,7 @@ class StopHandle extends Control:
 				drag_offset = event.position.x
 				grabbed.emit(self)
 				
-				# Clonar estilo Illustrator/Figma: Alt / Option presionado al arrastrar
+				# Clonar estilo vectorial/un editor profesional: Alt / Option presionado al arrastrar
 				if event.alt_pressed:
 					duplicate_requested.emit(self)
 			else:
@@ -69,7 +69,7 @@ class StopHandle extends Control:
 			pos_ratio = (target_x + size.x * 0.5) / parent.size.x
 			moved.emit(self, pos_ratio)
 
-	# Dibujo estético del Handle (Estilo Figma Premium Blanco)
+	# Dibujo estético del Handle (premium Blanco)
 	func _draw() -> void:
 		var center := size * 0.5
 		
@@ -158,7 +158,7 @@ func _on_color_rect_gui_input(event: InputEvent) -> void:
 			var new_handle = _create_stop_node(target_ratio, sample_color)
 			_select_stop(new_handle)
 			color_rect.queue_redraw()
-			GlobalEvents.gradient_changed.emit(get_gradient())
+			_emit_gradient()
 
 func _on_grabber_moved(handle: StopHandle, raw_pos: float) -> void:
 	# Sistema de SNAP Magnético (0%, 25%, 50%, 75%, 100%)
@@ -193,7 +193,7 @@ func _on_color_changed(new_color: Color) -> void:
 	if is_instance_valid(selected_handle):
 		selected_handle.color = new_color
 		color_rect.queue_redraw()
-		GlobalEvents.gradient_changed.emit(get_gradient())
+		_emit_gradient()
 
 func _add_new_stop_at_center() -> void:
 	var new_handle = _create_stop_node(0.5, color_picker.color)
@@ -263,6 +263,19 @@ func _sample_gradient_at(ratio: float) -> Color:
 			var t = (ratio - s1.pos_ratio) / (s2.pos_ratio - s1.pos_ratio)
 			return s1.color.lerp(s2.color, t)
 	return Color.WHITE
+
+## Ángulo del degradado lineal en radianes (editable por fuera si se quiere).
+var gradient_angle: float = 0.0
+
+## Difunde el degradado actual: al bus global (compatibilidad) y a ColorCore,
+## que lo aplica al relleno de la selección con undo.
+func _emit_gradient() -> void:
+	var g := get_gradient()
+	if GlobalEvents.has_signal("gradient_changed"):
+		GlobalEvents.gradient_changed.emit(g)
+	var cc := get_node_or_null("/root/ColorCore")
+	if cc and cc.has_method("set_paint"):
+		cc.set_paint(cc.make_linear(g, gradient_angle), "fill")
 
 # ── Exportar Recurso Nativo Sincronizado (Sin Advertencias C++) ────────────────
 func get_gradient() -> Gradient:

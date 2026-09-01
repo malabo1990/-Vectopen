@@ -99,7 +99,7 @@ func test_escaneo_1000_objetos_rapido() -> void:
 	cam.queue_free()
 	mundo.queue_free()
 
-# 5. OBJETIVO 10.000 elementos (paridad con Inkscape): el escaneo global de
+# 5. OBJETIVO 10.000 elementos (paridad con estándar): el escaneo global de
 #    culling debe seguir acotado por frame y dejar solo lo visible activo.
 func test_escaneo_10000_objetos_acotado() -> void:
 	var mundo := Node2D.new()
