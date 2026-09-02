@@ -388,6 +388,35 @@ func test_bbox_multiseleccion_rota_con_el_gesto() -> void:
 	HistoryManager.clear()
 
 
+## El snapshot ahora también captura el estado NO-geométrico (visibilidad /
+## bloqueo / recorte / z-order) vía NodeState: cancelar una transformación que
+## ADEMÁS tocó esas props las restaura también (antes solo volvía la geometría).
+func test_cancelar_restaura_tambien_estado_no_geometrico() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t := _tool(s)
+	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
+	var r := _rect(ab, Vector2(200, 200), Vector2(80, 80))
+	r.z_index = 2
+	await get_tree().process_frame
+	var s0 := _state(r)
+
+	t.selected_shapes.assign([r])
+	t._start_key_mode(t.KeyMode.SCALE)          # → snapshot con _ns
+	# muta geometría Y estado no-geométrico a medias
+	r.set("size", Vector2(300, 300))
+	r.global_position += Vector2(50, 50)
+	r.visible = false
+	r.set_meta("locked", true)
+	r.z_index = 99
+
+	t._cancel_key_transform()
+
+	_assert_state(_state(r), s0, "geometría cancelada")
+	assert_bool(r.visible).is_true()
+	assert_bool(r.get_meta("locked", false)).is_false()
+	assert_int(r.z_index).is_equal(2)
+
+
 ## Cancelar (Escape) una transformación a medias deja la figura en su sitio.
 func test_cancelar_transformacion_a_medias() -> void:
 	var s := _scene(); await get_tree().process_frame

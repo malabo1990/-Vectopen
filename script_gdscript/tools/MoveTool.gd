@@ -610,6 +610,8 @@ func _snap_equal(a: Dictionary, b: Dictionary) -> bool:
 		return false
 	if a.has("h") and b.has("h") and not is_equal_approx(a["h"], b["h"]):
 		return false
+	if not NodeState.equal(a.get("_ns", {}), b.get("_ns", {})):
+		return false
 	return true
 
 
@@ -680,6 +682,9 @@ func _restore_transform(shape: Node2D, snap: Dictionary) -> void:
 			cv.set_point_position(i, lpp)
 			cv.set_point_in(i, shape.to_local(nd[i]["in"]) - lpp)
 			cv.set_point_out(i, shape.to_local(nd[i]["out"]) - lpp)
+	# 9) estado no-geométrico (visibilidad / bloqueo / recorte / z-order)
+	if snap.has("_ns"):
+		NodeState.restore(shape, snap["_ns"])
 	_sync_doc_position_from_native(shape)
 	if shape.has_method("queue_redraw"):
 		shape.queue_redraw()
@@ -1785,7 +1790,11 @@ func _sync_doc_position_from_native(shape: Node2D) -> void:
 func _snapshot(shape: Node2D) -> Dictionary:
 	var snap: Dictionary = {
 		"gpos": shape.global_position,
-		"grot": shape.global_rotation
+		"grot": shape.global_rotation,
+		# Estado NO-geométrico (visibilidad / bloqueo / recorte / z-order). Aditivo:
+		# así un undo de transform que ADEMÁS tocó estas props las restaura, y el
+		# cancelar (Escape) devuelve el estado completo. Ver NodeState.
+		"_ns": NodeState.capture(shape),
 	}
 
 	# Captura en doble precisión para figuras VectorShape (Rectángulo/Círculo/
