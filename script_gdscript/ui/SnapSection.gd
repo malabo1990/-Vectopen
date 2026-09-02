@@ -3,6 +3,7 @@ extends BoxContainer
 @export var grid_check: CheckButton
 @export var grid_size_spin: Node
 @export var object_check: CheckButton
+@export var guide_check: CheckButton
 
 func _ready() -> void:
 	var sm: Node = get_node_or_null("/root/SnapManager")
@@ -17,6 +18,9 @@ func _ready() -> void:
 	if object_check:
 		object_check.button_pressed = sm.snap_to_objects
 		object_check.toggled.connect(_on_object_toggled)
+	if guide_check:
+		guide_check.button_pressed = sm.snap_to_guides
+		guide_check.toggled.connect(_on_guide_toggled)
 
 func _get_sm() -> Node:
 	return get_node_or_null("/root/SnapManager")
@@ -35,3 +39,8 @@ func _on_object_toggled(enabled: bool) -> void:
 	var sm := _get_sm()
 	if sm and sm.has_method("set_snap_to_objects"):
 		sm.set_snap_to_objects(enabled)
+
+func _on_guide_toggled(enabled: bool) -> void:
+	var sm := _get_sm()
+	if sm and sm.has_method("set_snap_to_guides"):
+		sm.set_snap_to_guides(enabled)

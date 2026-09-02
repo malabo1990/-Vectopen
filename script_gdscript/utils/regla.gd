@@ -75,9 +75,9 @@ func _input(event: InputEvent) -> void:
 		
 		if indice_guia_activa >= 0:
 			if moviendo_guia_h and camera and indice_guia_activa < guias_horizontales.size():
-				guias_horizontales[indice_guia_activa] = _pantalla_a_lienzo_y(mouse_pantalla.y)
+				guias_horizontales[indice_guia_activa] = _snap_guia(_pantalla_a_lienzo_y(mouse_pantalla.y))
 			elif moviendo_guia_v and camera and indice_guia_activa < guias_verticales.size():
-				guias_verticales[indice_guia_activa] = _pantalla_a_lienzo_x(mouse_pantalla.x)
+				guias_verticales[indice_guia_activa] = _snap_guia(_pantalla_a_lienzo_x(mouse_pantalla.x))
 			
 		_actualizar_vistas()
 
@@ -98,13 +98,13 @@ func _input(event: InputEvent) -> void:
 			# --- ACCIÓN AL SOLTAR EL CLIC ---
 			if arrastrando_nueva_h and camera:
 				if mouse_pantalla.y > regla_horizontal.size.y:
-					guias_horizontales.append(_pantalla_a_lienzo_y(mouse_pantalla.y))
+					guias_horizontales.append(_snap_guia(_pantalla_a_lienzo_y(mouse_pantalla.y)))
 					_lanzar_flash(true, color_flash_crear)
 				arrastrando_nueva_h = false
-				
+
 			elif arrastrando_nueva_v and camera:
 				if mouse_pantalla.x > regla_vertical.size.x:
-					guias_verticales.append(_pantalla_a_lienzo_x(mouse_pantalla.x))
+					guias_verticales.append(_snap_guia(_pantalla_a_lienzo_x(mouse_pantalla.x)))
 					_lanzar_flash(false, color_flash_crear)
 				arrastrando_nueva_v = false
 				
@@ -269,8 +269,43 @@ func _draw() -> void:
 	# Previsualización dinámica al crear
 	if arrastrando_nueva_h:
 		draw_line(Vector2(0, mouse_pantalla.y), Vector2(view_size.x, mouse_pantalla.y), color_guia_previsualizacion, 1.0)
+		_etiqueta_coord(true, mouse_pantalla.y, _pantalla_a_lienzo_y(mouse_pantalla.y))
 	if arrastrando_nueva_v:
 		draw_line(Vector2(mouse_pantalla.x, 0), Vector2(mouse_pantalla.x, view_size.y), color_guia_previsualizacion, 1.0)
+		_etiqueta_coord(false, mouse_pantalla.x, _pantalla_a_lienzo_x(mouse_pantalla.x))
+
+	# Etiqueta de coordenada al mover una guía existente (estilo Figma/Illustrator)
+	if moviendo_guia_h and indice_guia_activa >= 0 and indice_guia_activa < guias_horizontales.size():
+		var sy: float = (guias_horizontales[indice_guia_activa] - lienzo_start.y) * zoom.y
+		_etiqueta_coord(true, sy, guias_horizontales[indice_guia_activa])
+	if moviendo_guia_v and indice_guia_activa >= 0 and indice_guia_activa < guias_verticales.size():
+		var sx: float = (guias_verticales[indice_guia_activa] - lienzo_start.x) * zoom.x
+		_etiqueta_coord(false, sx, guias_verticales[indice_guia_activa])
+
+## Pastilla con la coordenada de mundo junto a la guía que se arrastra.
+func _etiqueta_coord(es_horizontal: bool, screen_pos: float, world_coord: float) -> void:
+	var font := ThemeDB.fallback_font
+	if not font:
+		return
+	var txt := str(roundi(world_coord))
+	var fs := 10
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var pad := Vector2(6, 3)
+	var origen: Vector2
+	if es_horizontal:
+		origen = Vector2(28, screen_pos - 8 - pad.y * 2)
+	else:
+		origen = Vector2(screen_pos + 8, 28)
+	var caja := Rect2(origen, Vector2(tw + pad.x * 2, fs + pad.y * 2))
+	draw_rect(caja, Color(0.12, 0.12, 0.14, 0.92), true)
+	draw_string(font, origen + Vector2(pad.x, fs + pad.y - 1), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+
+## Redondea la coord de una guía: al paso de cuadrícula si está activa, si no al píxel.
+func _snap_guia(world_coord: float) -> float:
+	var sm := get_node_or_null("/root/SnapManager")
+	if sm and sm.grid_enabled and sm.grid_size > 0.0:
+		return round(world_coord / sm.grid_size) * sm.grid_size
+	return round(world_coord)
 
 func idx_activo(idx: int, es_h: bool) -> bool:
 	return indice_guia_activa == idx and hover_es_horizontal == es_h
@@ -291,6 +326,15 @@ func _actualizar_vistas() -> void:
 	if regla_horizontal: regla_horizontal.queue_redraw()
 	if regla_vertical: regla_vertical.queue_redraw()
 	queue_redraw()
+	_publicar_guias_al_snap()
+
+## Publica las guías (coords de mundo) al SnapManager para que las figuras
+## puedan imantarse a ellas al arrastrar. `guias_verticales` = coords X (líneas
+## verticales); `guias_horizontales` = coords Y (líneas horizontales).
+func _publicar_guias_al_snap() -> void:
+	var sm := get_node_or_null("/root/SnapManager")
+	if sm and sm.has_method("set_guides"):
+		sm.set_guides(guias_verticales, guias_horizontales)
 
 # ==============================================================================
 # CONVERSIONES MATEMÁTICAS
@@ -325,6 +369,14 @@ func clear_all_guides() -> void:
 	guias_horizontales.clear()
 	guias_verticales.clear()
 	queue_redraw()
+	_publicar_guias_al_snap()
+
+## Guías activas en coords de mundo (para el imán / API externa).
+func get_guides_x() -> Array:
+	return guias_verticales.duplicate()
+
+func get_guides_y() -> Array:
+	return guias_horizontales.duplicate()
 
 func toggle_guides_visible(v: bool) -> void:
 	if not v:

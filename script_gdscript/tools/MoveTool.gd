@@ -81,7 +81,8 @@ const COLOR_BBOX: Color = Color(0.05, 0.55, 0.91, 1.0)        # azul de acento
 const COLOR_HANDLE_F: Color = Color(1.0, 1.0, 1.0, 1.0)      # Fondo tiradores
 const COLOR_MARQUEE_F: Color = Color(0.05, 0.55, 0.91, 0.07)  # Relleno marquee
 const COLOR_MARQUEE_S: Color = Color(0.05, 0.55, 0.91, 0.60)  # Contorno marquee
-const COLOR_SNAP_GUIDE: Color = Color(1.0, 0.19, 0.42, 0.95)  # magenta de la guía del imán
+const COLOR_SNAP_GUIDE: Color = Color(1.0, 0.19, 0.42, 0.95)  # magenta: alineación con figuras
+const COLOR_SNAP_RULE: Color = Color(0.20, 0.60, 1.0, 0.98)   # azul: enganche a guía de regla
 
 # ── Métodos del Ciclo de Vida ────────────────────────────────────────────────
 
@@ -770,7 +771,7 @@ func _on_motion(gm: Vector2) -> bool:
 		_snap_guides.clear()
 		_snap_spacing.clear()
 		var _sm := _snap_manager()
-		if _sm and _sm.has_method("smart_snap") and _sm.snap_to_objects \
+		if _sm and _sm.has_method("smart_snap") and (_sm.snap_to_objects or _sm.snap_to_guides) \
 				and not _sm.grid_enabled and _axis_move == "" \
 				and not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_ALT) \
 				and not Input.is_key_pressed(KEY_CTRL):
@@ -1695,14 +1696,16 @@ func _dibujar_guias_iman(c: Node2D) -> void:
 		var coord: float = g["coord"]
 		var lo: float = minf(g["a"], g["b"])
 		var hi: float = maxf(g["a"], g["b"])
+		var col: Color = COLOR_SNAP_RULE if g.get("guide", false) else COLOR_SNAP_GUIDE
+		var gw2: float = lw * (1.4 if g.get("guide", false) else 1.0)
 		if String(g["axis"]) == "x":
-			c.draw_line(c.to_local(Vector2(coord, lo - ext)), c.to_local(Vector2(coord, hi + ext)), COLOR_SNAP_GUIDE, lw)
-			c.draw_line(c.to_local(Vector2(coord - tick, g["a"])), c.to_local(Vector2(coord + tick, g["a"])), COLOR_SNAP_GUIDE, lw)
-			c.draw_line(c.to_local(Vector2(coord - tick, g["b"])), c.to_local(Vector2(coord + tick, g["b"])), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(coord, lo - ext)), c.to_local(Vector2(coord, hi + ext)), col, gw2)
+			c.draw_line(c.to_local(Vector2(coord - tick, g["a"])), c.to_local(Vector2(coord + tick, g["a"])), col, lw)
+			c.draw_line(c.to_local(Vector2(coord - tick, g["b"])), c.to_local(Vector2(coord + tick, g["b"])), col, lw)
 		else:
-			c.draw_line(c.to_local(Vector2(lo - ext, coord)), c.to_local(Vector2(hi + ext, coord)), COLOR_SNAP_GUIDE, lw)
-			c.draw_line(c.to_local(Vector2(g["a"], coord - tick)), c.to_local(Vector2(g["a"], coord + tick)), COLOR_SNAP_GUIDE, lw)
-			c.draw_line(c.to_local(Vector2(g["b"], coord - tick)), c.to_local(Vector2(g["b"], coord + tick)), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(lo - ext, coord)), c.to_local(Vector2(hi + ext, coord)), col, gw2)
+			c.draw_line(c.to_local(Vector2(g["a"], coord - tick)), c.to_local(Vector2(g["a"], coord + tick)), col, lw)
+			c.draw_line(c.to_local(Vector2(g["b"], coord - tick)), c.to_local(Vector2(g["b"], coord + tick)), col, lw)
 
 	var col_sp := Color(1.0, 0.36, 0.46, 0.98)
 	for s in _snap_spacing:

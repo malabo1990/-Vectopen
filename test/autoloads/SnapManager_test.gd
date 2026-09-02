@@ -6,19 +6,31 @@ extends GdUnitTestSuite
 var _prev_obj: bool
 var _prev_center: bool
 var _prev_grid: bool
+var _prev_guides: bool
+var _prev_gx: Array
+var _prev_gy: Array
 
 func before_test() -> void:
 	_prev_obj = SnapManager.snap_to_objects
 	_prev_center = SnapManager.snap_to_center
 	_prev_grid = SnapManager.grid_enabled
+	_prev_guides = SnapManager.snap_to_guides
+	_prev_gx = SnapManager.guide_x.duplicate()
+	_prev_gy = SnapManager.guide_y.duplicate()
 	SnapManager.snap_to_objects = true
 	SnapManager.snap_to_center = true
 	SnapManager.grid_enabled = false
+	SnapManager.snap_to_guides = true
+	SnapManager.guide_x = []
+	SnapManager.guide_y = []
 
 func after_test() -> void:
 	SnapManager.snap_to_objects = _prev_obj
 	SnapManager.snap_to_center = _prev_center
 	SnapManager.grid_enabled = _prev_grid
+	SnapManager.snap_to_guides = _prev_guides
+	SnapManager.guide_x = _prev_gx
+	SnapManager.guide_y = _prev_gy
 
 func test_sin_candidatos_no_ajusta() -> void:
 	var r := SnapManager.smart_snap(Rect2(0, 0, 50, 50), [], 1.0)
@@ -95,6 +107,22 @@ func test_distribucion_fuera_de_rango_no_actua() -> void:
 	var r := SnapManager.smart_snap(moving, cand, 1.0)
 	assert_vector(r["offset"]).is_equal(Vector2.ZERO)
 	assert_int((r["spacing"] as Array).size()).is_equal(0)
+
+func test_engancha_a_una_guia_de_regla_vertical() -> void:
+	SnapManager.guide_x = [200.0]          # línea vertical en x=200
+	var moving := Rect2(196, 300, 40, 40)  # left 196 → dx = +4
+	var r := SnapManager.smart_snap(moving, [], 1.0)
+	assert_float(r["offset"].x).is_equal_approx(4.0, 0.001)
+	assert_int((r["guides"] as Array).size()).is_equal(1)
+	assert_bool(r["guides"][0].get("guide", false)).is_true()
+	assert_float(r["guides"][0]["coord"]).is_equal_approx(200.0, 0.001)
+
+func test_guias_desactivadas_no_enganchan() -> void:
+	SnapManager.snap_to_guides = false
+	SnapManager.guide_x = [200.0]
+	var moving := Rect2(196, 300, 40, 40)
+	var r := SnapManager.smart_snap(moving, [], 1.0)
+	assert_vector(r["offset"]).is_equal(Vector2.ZERO)
 
 func test_igualar_separacion_replica_un_hueco_existente() -> void:
 	# Candidatos a-b con un hueco de 40 (a.right=100 .. b.left=140 ; b.right=190).

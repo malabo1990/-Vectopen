@@ -9,7 +9,18 @@ var grid_enabled: bool = false
 var grid_size: float = 10.0
 var snap_to_objects: bool = true
 var snap_to_center: bool = true
+var snap_to_guides: bool = true
 var show_guides: bool = true
+
+## Guías de regla (coords de MUNDO). Las publica `regla.gd`:
+##   guide_x = líneas VERTICALES (una coord X cada una)
+##   guide_y = líneas HORIZONTALES (una coord Y cada una)
+var guide_x: Array = []
+var guide_y: Array = []
+
+func set_guides(vertical_x: Array, horizontal_y: Array) -> void:
+	guide_x = vertical_x.duplicate()
+	guide_y = horizontal_y.duplicate()
 
 ## Umbral del imán, en píxeles de PANTALLA (constante a cualquier zoom).
 const SMART_SNAP_PX := 11.0
@@ -39,7 +50,11 @@ func snap_position(pos: Vector2) -> Vector2:
 ##   spacing = { axis, perp, segs: [[lo,hi], ...], gap } (barras de separación)
 func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 	var res := { "offset": Vector2.ZERO, "guides": [], "spacing": [] }
-	if not snap_to_objects or candidates.is_empty() or moving.size == Vector2.ZERO:
+	if moving.size == Vector2.ZERO:
+		return res
+	var usar_obj: bool = snap_to_objects and not candidates.is_empty()
+	var usar_guias: bool = snap_to_guides and (not guide_x.is_empty() or not guide_y.is_empty())
+	if not usar_obj and not usar_guias:
 		return res
 	var z: float = maxf(zoom, 0.0001)
 	var thr: float = SMART_SNAP_PX / z
@@ -53,24 +68,44 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 	var best_dy: float = INF
 	var line_y: Dictionary = {}
 
-	for cand in candidates:
-		var c: Rect2 = cand
-		if c.size == Vector2.ZERO:
-			continue
-		var cx := [c.position.x, c.position.x + c.size.x * 0.5, c.end.x]
-		var cy := [c.position.y, c.position.y + c.size.y * 0.5, c.end.y]
-		for ai in 3:
-			for bi in 3:
-				if not snap_to_center and (ai == 1 or bi == 1):
+	if usar_obj:
+		for cand in candidates:
+			var c: Rect2 = cand
+			if c.size == Vector2.ZERO:
+				continue
+			var cx := [c.position.x, c.position.x + c.size.x * 0.5, c.end.x]
+			var cy := [c.position.y, c.position.y + c.size.y * 0.5, c.end.y]
+			for ai in 3:
+				for bi in 3:
+					if not snap_to_center and (ai == 1 or bi == 1):
+						continue
+					var d: float = cx[bi] - mx[ai]
+					if absf(d) <= thr and absf(d) < absf(best_dx):
+						best_dx = d
+						line_x = { "coord": cx[bi], "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y) }
+					var e: float = cy[bi] - my[ai]
+					if absf(e) <= thr and absf(e) < absf(best_dy):
+						best_dy = e
+						line_y = { "coord": cy[bi], "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x) }
+
+	# ── Guías de regla (línea vertical → eje X ; horizontal → eje Y) ──
+	if usar_guias:
+		for gx in guide_x:
+			for ai in 3:
+				if not snap_to_center and ai == 1:
 					continue
-				var d: float = cx[bi] - mx[ai]
+				var d: float = float(gx) - mx[ai]
 				if absf(d) <= thr and absf(d) < absf(best_dx):
 					best_dx = d
-					line_x = { "coord": cx[bi], "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y) }
-				var e: float = cy[bi] - my[ai]
+					line_x = { "coord": float(gx), "a": moving.position.y, "b": moving.end.y, "guide": true }
+		for gy in guide_y:
+			for ai in 3:
+				if not snap_to_center and ai == 1:
+					continue
+				var e: float = float(gy) - my[ai]
 				if absf(e) <= thr and absf(e) < absf(best_dy):
 					best_dy = e
-					line_y = { "coord": cy[bi], "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x) }
+					line_y = { "coord": float(gy), "a": moving.position.x, "b": moving.end.x, "guide": true }
 
 	if best_dx != INF:
 		res["offset"].x = best_dx
@@ -207,6 +242,11 @@ func set_snap_to_center(enabled: bool) -> void:
 	_save_config()
 	snap_mode_changed.emit("center", enabled)
 
+func set_snap_to_guides(enabled: bool) -> void:
+	snap_to_guides = enabled
+	_save_config()
+	snap_mode_changed.emit("guides", enabled)
+
 func _load_config() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(CONFIG_PATH) != OK:
@@ -215,6 +255,7 @@ func _load_config() -> void:
 	grid_size = cfg.get_value("snap", "grid_size", 10.0)
 	snap_to_objects = cfg.get_value("snap", "snap_to_objects", true)
 	snap_to_center = cfg.get_value("snap", "snap_to_center", true)
+	snap_to_guides = cfg.get_value("snap", "snap_to_guides", true)
 	show_guides = cfg.get_value("snap", "show_guides", true)
 
 func _save_config() -> void:
@@ -223,5 +264,6 @@ func _save_config() -> void:
 	cfg.set_value("snap", "grid_size", grid_size)
 	cfg.set_value("snap", "snap_to_objects", snap_to_objects)
 	cfg.set_value("snap", "snap_to_center", snap_to_center)
+	cfg.set_value("snap", "snap_to_guides", snap_to_guides)
 	cfg.set_value("snap", "show_guides", show_guides)
 	cfg.save(CONFIG_PATH)

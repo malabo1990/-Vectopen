@@ -377,6 +377,7 @@ script = ExtResource("2_g1lqb")
 grid_check = NodePath("GridRow/GridCheck")
 grid_size_spin = NodePath("SizeRow/SizeSpin")
 object_check = NodePath("ObjectRow/ObjectCheck")
+guide_check = NodePath("GuideRow/GuideCheck")
 
 [node name="HeaderLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1373442547]
 layout_mode = 2
@@ -391,6 +392,17 @@ size_flags_horizontal = 3
 text = "Smart Snap (objects)"
 
 [node name="ObjectCheck" type="CheckButton" parent="MarginContainer/BoxContainer/Container/snap_section/ObjectRow" unique_id=1960017302]
+layout_mode = 2
+
+[node name="GuideRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1960017310]
+layout_mode = 2
+
+[node name="GuideLabel" type="Label" parent="MarginContainer/BoxContainer/Container/snap_section/GuideRow" unique_id=1960017311]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Snap to Guides"
+
+[node name="GuideCheck" type="CheckButton" parent="MarginContainer/BoxContainer/Container/snap_section/GuideRow" unique_id=1960017312]
 layout_mode = 2
 
 [node name="GridRow" type="HBoxContainer" parent="MarginContainer/BoxContainer/Container/snap_section" unique_id=1960017221]
