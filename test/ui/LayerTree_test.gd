@@ -195,3 +195,63 @@ func test_drag_nodes_descarta_descendientes_de_otros_arrastrados() -> void:
 	t.mover_capas([g], root, 0)
 	assert_object(hijo.get_parent()).is_same(g)
 	HistoryManager.clear()
+
+
+## ANIDADO PROFUNDO + CADENA de reparents: root > A > B > C > D.
+## op1: sacar D hasta A ; op2: mover B (con C dentro) a root.
+## undo×2 → árbol original exacto ; redo×2 → estado final exacto.
+## Comprueba padre + posición GLOBAL en cada paso (local/global no debe romperse
+## al reparentar niveles distintos) y que el subárbol B>C viaja intacto.
+func test_reparent_profundo_encadenado_undo_redo() -> void:
+	var t := _tree()
+	var root: Node2D = auto_free(Node2D.new()); add_child(root)
+	var A := _n(root, "A"); A.global_position = Vector2(20, 20)
+	var B := _n(A, "B");    B.global_position = Vector2(40, 40)
+	var C := _n(B, "C");    C.global_position = Vector2(60, 60)
+	var D := _n(C, "D");    D.global_position = Vector2(100, 200)
+	await get_tree().process_frame
+	HistoryManager.clear()
+
+	var gD := D.global_position
+	var gC := C.global_position
+	var gB := B.global_position
+
+	# op1 — D: C → A
+	t.mover_capas([D], A, A.get_child_count())
+	assert_object(D.get_parent()).is_same(A)
+	assert_vector(D.global_position).is_equal_approx(gD, Vector2(0.01, 0.01))
+
+	# op2 — B (subárbol B>C): A → root
+	t.mover_capas([B], root, root.get_child_count())
+	assert_object(B.get_parent()).is_same(root)
+	assert_object(C.get_parent()).is_same(B)                 # el subárbol viaja intacto
+	assert_vector(B.global_position).is_equal_approx(gB, Vector2(0.01, 0.01))
+	assert_vector(C.global_position).is_equal_approx(gC, Vector2(0.01, 0.01))
+
+	# undo op2 → B vuelve bajo A
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_object(B.get_parent()).is_same(A)
+	assert_object(C.get_parent()).is_same(B)
+	assert_vector(B.global_position).is_equal_approx(gB, Vector2(0.01, 0.01))
+
+	# undo op1 → D vuelve bajo C → ÁRBOL ORIGINAL
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_object(D.get_parent()).is_same(C)
+	assert_object(C.get_parent()).is_same(B)
+	assert_object(B.get_parent()).is_same(A)
+	assert_object(A.get_parent()).is_same(root)
+	assert_vector(D.global_position).is_equal_approx(gD, Vector2(0.01, 0.01))
+
+	# redo op1 → D bajo A
+	HistoryManager.redo(); await get_tree().process_frame
+	assert_object(D.get_parent()).is_same(A)
+	assert_vector(D.global_position).is_equal_approx(gD, Vector2(0.01, 0.01))
+
+	# redo op2 → B bajo root → ESTADO FINAL
+	HistoryManager.redo(); await get_tree().process_frame
+	assert_object(B.get_parent()).is_same(root)
+	assert_object(D.get_parent()).is_same(A)
+	assert_object(C.get_parent()).is_same(B)
+	assert_vector(D.global_position).is_equal_approx(gD, Vector2(0.01, 0.01))
+	assert_vector(C.global_position).is_equal_approx(gC, Vector2(0.01, 0.01))
+	HistoryManager.clear()
