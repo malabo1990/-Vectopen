@@ -202,6 +202,55 @@ func test_arrastrar_figura_a_otro_artboard_la_reparenta() -> void:
 	HistoryManager.clear()
 
 
+## REPARENT entre artboards: undo Y redo deben dejar la figura en el mismo sitio
+## (padre + posición global + índice / z-order). Antes redo la re-adjuntaba SIEMPRE
+## al final del artboard destino (asimetría con undo, que sí restauraba el índice).
+func test_reparent_entre_artboards_undo_redo_conserva_indice_y_global() -> void:
+	var s := _scene()
+	await get_tree().process_frame
+	var mgr := _mgr(s)
+	var container: Node2D = s.get_node("ArtboardsContainer")
+	var ab1: ArtboardEditor = mgr.all_artboards()[0]
+	ab1.global_position = Vector2.ZERO
+	ab1.artboard_size = Vector2(500, 500)
+	var ab2 := _nuevo_artboard(container, Vector2(1000, 0), Vector2(500, 500))
+	await get_tree().process_frame
+
+	# ab2 ya tiene 2 figuras fijas (hermanas) → probamos el índice de verdad.
+	var fijo_a := VectorRectangle.new(); auto_free(fijo_a); ab2.add_child(fijo_a); fijo_a.global_position = Vector2(1100, 100)
+	var fijo_b := VectorRectangle.new(); auto_free(fijo_b); ab2.add_child(fijo_b); fijo_b.global_position = Vector2(1300, 300)
+
+	var fig := VectorRectangle.new(); auto_free(fig); fig.name = "Viajera"
+	ab1.add_child(fig)
+	fig.global_position = Vector2(250, 250)
+	await get_tree().process_frame
+	HistoryManager.clear()
+	var idx_ab1: int = fig.get_index()
+
+	var t := _move_tool_en(s)
+	t.selected_shapes.assign([fig])
+	t.transform_initial_states = {fig: {"gpos": Vector2(250, 250), "grot": 0.0}}
+	t.is_dragging_shape = true
+	fig.global_position = Vector2(1250, 250)     # soltada dentro de ab2
+	t._on_release(Vector2(1250, 250))
+	await get_tree().process_frame
+
+	assert_object(fig.get_parent()).is_same(ab2)
+	var idx_ab2: int = fig.get_index()
+	var g_ab2 := fig.global_position
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_object(fig.get_parent()).is_same(ab1)
+	assert_int(fig.get_index()).is_equal(idx_ab1)
+	assert_vector(fig.global_position).is_equal_approx(Vector2(250, 250), Vector2(0.5, 0.5))
+
+	HistoryManager.redo(); await get_tree().process_frame
+	assert_object(fig.get_parent()).is_same(ab2)
+	assert_int(fig.get_index()).is_equal(idx_ab2)          # <- el fix: z-order idéntico
+	assert_vector(fig.global_position).is_equal_approx(g_ab2, Vector2(0.5, 0.5))
+	HistoryManager.clear()
+
+
 func test_arrastrar_figura_fuera_de_todo_la_vuelve_suelta() -> void:
 	var s := _scene()
 	await get_tree().process_frame

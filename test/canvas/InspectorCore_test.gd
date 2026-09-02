@@ -543,6 +543,30 @@ func _pv2_bounds(pts: PackedVector2Array) -> Rect2:
 	return r
 
 
+## FUENTE DE VERDAD: el Inspector debe seguir a `SelectionManager` directamente,
+## sin depender de que MoveTool sea la herramienta activa ni de su espejo
+## `selected_shapes`. Selección hecha SOLO por el manager (como el panel de capas)
+## → el Inspector la ve.
+func test_inspector_sigue_a_selection_manager_sin_movetool() -> void:
+	var s := _scene(); await get_tree().process_frame
+	# Cambiar a una herramienta que NO es MoveTool para que no haya espejo.
+	s.switch_tool("bezier"); await get_tree().process_frame
+	var r := _rect(_ab(s), Vector2(210, 140), Vector2(90, 70))
+	await get_tree().process_frame
+
+	SelectionManager.set_selection([r])
+	InspectorCore._sync_selection()
+	assert_int(InspectorCore.selection().size()).is_equal(1)
+	var p := InspectorCore.current_props()
+	assert_float(p["width"]["value"]).is_equal_approx(90.0, 0.5)
+
+	# Y al limpiar en el manager, el Inspector se vacía.
+	SelectionManager.clear()
+	InspectorCore._sync_selection()
+	assert_int(InspectorCore.selection().size()).is_equal(0)
+	s.switch_tool("move")
+
+
 ## Invariante I6: el Inspector y el bounding box muestran el mismo valor.
 func test_inspector_y_bounding_box_coinciden_en_pos() -> void:
 	var s := _scene(); await get_tree().process_frame

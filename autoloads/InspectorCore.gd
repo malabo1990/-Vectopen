@@ -63,17 +63,20 @@ func _get_move_tool():
 	return null
 
 func _sync_selection() -> void:
-	_mt = _get_move_tool()
+	_mt = _get_move_tool()   # solo para helpers de geometría (_global_rect, …)
 	var prev := _selection.size()
-	# `MoveTool.selected_shapes` es un espejo de `SelectionManager` (única fuente
-	# de verdad) que MoveTool mantiene sincronizado — leerlo aquí ya refleja la
-	# selección hecha desde el panel de capas. Si no hay MoveTool activo, se cae
-	# a `SelectionManager` directamente.
-	if _mt and "selected_shapes" in _mt:
-		_selection = _mt.selected_shapes.filter(func(s): return is_instance_valid(s))
+	# FUENTE DE VERDAD: SelectionManager. `MoveTool.selected_shapes` es únicamente
+	# un espejo que la herramienta mantiene; leerlo antes acoplaba el Inspector a
+	# la herramienta activa y podía mostrar una selección desincronizada. Se lee
+	# el manager directamente; el espejo de MoveTool queda solo como red de
+	# seguridad para el caso (no real) de que el autoload no esté disponible.
+	var sm := get_node_or_null("/root/SelectionManager")
+	var sm_sel: Array = sm.get_selected() if (sm and sm.has_method("get_selected")) else []
+	var mt_sel: Array = _mt.selected_shapes if (_mt and "selected_shapes" in _mt) else []
+	if not sm_sel.is_empty() or mt_sel.is_empty():
+		_selection = sm_sel.filter(func(s): return is_instance_valid(s))
 	else:
-		var sm := get_node_or_null("/root/SelectionManager")
-		_selection = sm.get_selected() if (sm and sm.has_method("get_selected")) else []
+		_selection = mt_sel.filter(func(s): return is_instance_valid(s))
 	if _selection.size() != prev:
 		selection_size_changed.emit(_selection.size())
 

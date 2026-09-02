@@ -557,7 +557,7 @@ func _commit_transform(action_name: String, nodes: Array, solo_transform: bool) 
 			continue
 		recs.append({
 			"n": n, "before": before, "after": after,
-			"op": old_parent, "oi": n.get_index(), "np": new_parent,
+			"op": old_parent, "oi": n.get_index(), "np": new_parent, "ni": -1,
 		})
 	if recs.is_empty():
 		return
@@ -568,16 +568,26 @@ func _commit_transform(action_name: String, nodes: Array, solo_transform: bool) 
 	_do_apply_transform(recs, false)
 
 
+## Aplica (redo) o revierte (undo) el conjunto de transformaciones+reparent.
+## El índice dentro del padre se restaura en AMBAS direcciones: en undo al
+## `oi` original, en redo al `ni` que se memoriza en la primera aplicación —
+## así redo deja el z-order idéntico a la operación original, no "al final".
 func _do_apply_transform(recs: Array, undo: bool) -> void:
 	for r in recs:
 		var n: Node2D = r["n"]
 		if not is_instance_valid(n):
 			continue
 		var parent: Node = r["op"] if undo else r["np"]
-		if is_instance_valid(parent) and n.get_parent() != parent:
+		if not is_instance_valid(parent):
+			_restore_transform(n, r["before"] if undo else r["after"])
+			continue
+		if n.get_parent() != parent:
 			n.reparent(parent, true)
-			if undo:
-				parent.move_child(n, mini(int(r["oi"]), parent.get_child_count() - 1))
+		var idx: int = int(r["oi"]) if undo else int(r.get("ni", -1))
+		if idx >= 0:
+			parent.move_child(n, clampi(idx, 0, parent.get_child_count() - 1))
+		elif not undo:
+			r["ni"] = n.get_index()   # primera aplicación: recuerda dónde cae
 		_restore_transform(n, r["before"] if undo else r["after"])
 	_update_bounding_box()
 	if is_instance_valid(canvas):
