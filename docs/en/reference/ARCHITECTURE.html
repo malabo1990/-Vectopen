@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectopen Architecture</title>
+<meta name="description" content="System architecture of the Vectopen vector editor (Godot 4.7)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+*{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+:root{
+  --paper:#F4F5F8;
+  --panel:#FFFFFF;
+  --panel-2:#FBFBFD;
+  --ink:#191C23;
+  --muted:#5C6370;
+  --faint:#899;
+  --faint-2:#8A909C;
+  --line:#E0E3E8;
+  --line-strong:#C9CED6;
+  --accent:#D2472A;
+  --accent-soft:rgba(210,71,42,.10);
+  --tab-ui:#3568D4;
+  --tab-tool:#7A4FDF;
+  --tab-data:#18946A;
+  --tab-view:#BE7A24;
+  --tab-doc:#5C6370;
+  --bg-ui:rgba(53,104,212,.045);
+  --bg-tool:rgba(122,79,223,.045);
+  --bg-data:rgba(24,148,106,.05);
+  --bg-view:rgba(190,122,36,.055);
+  --bg-bus:rgba(210,71,42,.055);
+  --bg-doc:rgba(92,99,112,.045);
+  --grid-dot:rgba(25,28,35,.055);
+  --shadow:0 1px 2px rgba(20,23,33,.05), 0 12px 28px -16px rgba(20,23,33,.14);
+  --shadow-sm:0 1px 2px rgba(20,23,33,.06);
+  --radius:11px;
+  --radius-sm:8px;
+  --maxw:1120px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#101216;
+    --panel:#181B21;
+    --panel-2:#15181D;
+    --ink:#E7E9ED;
+    --muted:#9AA1AD;
+    --faint:#6b7280;
+    --faint-2:#7A828F;
+    --line:#282C34;
+    --line-strong:#3A3F49;
+    --accent:#F0603F;
+    --accent-soft:rgba(240,96,63,.14);
+    --tab-ui:#5E8CF0;
+    --tab-tool:#A182F0;
+    --tab-data:#3DBB8C;
+    --tab-view:#DEA24C;
+    --tab-doc:#9AA1AD;
+    --bg-ui:rgba(94,140,240,.08);
+    --bg-tool:rgba(161,130,240,.08);
+    --bg-data:rgba(61,187,140,.09);
+    --bg-view:rgba(222,162,76,.09);
+    --bg-bus:rgba(240,96,63,.09);
+    --bg-doc:rgba(154,161,173,.07);
+    --grid-dot:rgba(231,233,237,.06);
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 16px 34px -18px rgba(0,0,0,.55);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101216;
+  --panel:#181B21;
+  --panel-2:#15181D;
+  --ink:#E7E9ED;
+  --muted:#9AA1AD;
+  --faint:#6b7280;
+  --faint-2:#7A828F;
+  --line:#282C34;
+  --line-strong:#3A3F49;
+  --accent:#F0603F;
+  --accent-soft:rgba(240,96,63,.14);
+  --tab-ui:#5E8CF0;
+  --tab-tool:#A182F0;
+  --tab-data:#3DBB8C;
+  --tab-view:#DEA24C;
+  --tab-doc:#9AA1AD;
+  --bg-ui:rgba(94,140,240,.08);
+  --bg-tool:rgba(161,130,240,.08);
+  --bg-data:rgba(61,187,140,.09);
+  --bg-view:rgba(222,162,76,.09);
+  --bg-bus:rgba(240,96,63,.09);
+  --bg-doc:rgba(154,161,173,.07);
+  --grid-dot:rgba(231,233,237,.06);
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 16px 34px -18px rgba(0,0,0,.55);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+h1,h2,h3{font-family:"Archivo",system-ui,sans-serif;margin:0;line-height:1.15;letter-spacing:-.01em}
+a{color:var(--accent);text-underline-offset:2px}
+
+/* ---------- header / title block ---------- */
+header{
+  border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(var(--grid-dot) 1px, transparent 1.4px) 0 0/22px 22px,
+    var(--panel-2);
+}
+.titleblock{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:28px;
+  align-items:end;
+  padding:52px 0 34px;
+}
+.eyebrow{
+  font-family:"Archivo",sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.28em;
+  font-size:11px;
+  font-weight:700;
+  color:var(--accent);
+  margin-bottom:14px;
+}
+h1{font-size:clamp(2.1rem,5.2vw,3.4rem);font-weight:800;text-wrap:balance}
+.lede{margin:14px 0 0;max-width:52ch;color:var(--muted);font-size:1.02rem}
+.specs{
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm);
+  background:var(--panel);
+  box-shadow:var(--shadow-sm);
+  font-family:"IBM Plex Mono",monospace;
+  font-size:12px;
+  min-width:230px;
+}
+.specs .row{
+  display:flex;justify-content:space-between;gap:20px;
+  padding:8px 14px;border-bottom:1px solid var(--line);
+}
+.specs .row:last-child{border-bottom:0}
+.specs .k{color:var(--faint-2);text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}
+.specs .v{color:var(--ink);font-weight:500}
+
+/* ---------- legend ---------- */
+.legend{
+  display:flex;flex-wrap:wrap;gap:8px 18px;
+  padding:16px 0 4px;
+  font-size:12.5px;color:var(--muted);
+}
+.legend b{color:var(--ink);font-weight:600;font-family:"Archivo",sans-serif;letter-spacing:.02em}
+.swatch{display:inline-flex;align-items:center;gap:7px}
+.swatch i{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+
+section{padding:40px 0}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.sec-head h2{font-size:1.5rem;font-weight:700}
+.sec-num{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);
+  border:1px solid var(--accent);border-radius:5px;padding:2px 7px;font-weight:600;
+}
+.sec-head p{margin:0;color:var(--muted);font-size:13.5px}
+
+/* ---------- the stack ---------- */
+.stack{
+  padding:26px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:
+    radial-gradient(var(--grid-dot) 1px, transparent 1.4px) 0 0/22px 22px,
+    var(--panel-2);
+  position:relative;
+}
+.band{
+  border:1px solid var(--line-strong);
+  border-left:3px solid var(--tab,var(--line-strong));
+  border-radius:var(--radius-sm);
+  background:var(--band-bg,var(--panel));
+  box-shadow:var(--shadow-sm);
+  padding:14px 16px 16px;
+}
+.band.ui{--tab:var(--tab-ui);--band-bg:var(--bg-ui)}
+.band.tool{--tab:var(--tab-tool);--band-bg:var(--bg-tool)}
+.band.data{--tab:var(--tab-data);--band-bg:var(--bg-data)}
+.band.view{--tab:var(--tab-view);--band-bg:var(--bg-view)}
+.band.doc{--tab:var(--tab-doc);--band-bg:var(--bg-doc)}
+.band.bus{
+  --tab:var(--accent);--band-bg:var(--bg-bus);
+  border-color:var(--accent);border-left-width:3px;
+}
+.band-head{display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap}
+.band-tag{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  color:var(--tab,var(--muted));border:1px solid currentColor;border-radius:4px;
+  padding:1px 6px;letter-spacing:.04em;opacity:.9;
+}
+.band-title{font-family:"Archivo",sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em}
+.band-note{color:var(--muted);font-size:12px;margin-left:auto}
+.band .band-note{font-family:"IBM Plex Mono",monospace}
+
+.mods{display:flex;flex-wrap:wrap;gap:9px}
+.mod{
+  flex:1 1 168px;
+  min-width:0;
+  border:1px solid var(--line);
+  background:var(--panel);
+  border-radius:7px;
+  padding:9px 11px;
+  box-shadow:var(--shadow-sm);
+}
+.mod .n{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:600;color:var(--ink);word-break:break-word}
+.mod .d{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.mod.wide{flex-basis:100%}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  border:1px solid var(--line);border-radius:6px;padding:4px 8px;
+  background:var(--panel);color:var(--muted);
+}
+.chip b{color:var(--ink);font-weight:600}
+
+/* connectors */
+.link{
+  --lc:var(--line-strong);
+  height:40px;display:flex;align-items:center;justify-content:center;position:relative;
+}
+.link::before{
+  content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;
+  transform:translateX(-50%);
+  background:repeating-linear-gradient(var(--lc) 0 5px, transparent 5px 9px);
+}
+.link .lbl{
+  position:relative;z-index:1;
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
+  padding:2px 10px;
+}
+.link.accent{--lc:var(--accent)}
+.link.accent .lbl{color:var(--accent);border-color:var(--accent)}
+
+/* the two-column zone: bus feeds tools+view on one side, data on the other */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.split{grid-template-columns:1fr}}
+
+/* ---------- pipeline ---------- */
+.pipe{
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);
+  gap:14px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x proximity;
+}
+.pipe .step{
+  scroll-snap-align:start;
+  border:1px solid var(--line-strong);border-radius:var(--radius-sm);
+  background:var(--panel);box-shadow:var(--shadow-sm);
+  padding:16px 15px;position:relative;
+}
+.pipe .step .num{
+  font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;
+  color:var(--accent);line-height:1;opacity:.9;
+}
+.pipe .step h3{font-size:14px;font-weight:700;margin:8px 0 5px}
+.pipe .step p{margin:0;font-size:12.5px;color:var(--muted)}
+.pipe .step code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink);background:var(--accent-soft);padding:1px 4px;border-radius:4px}
+@media (max-width:720px){
+  .pipe{grid-auto-flow:row;grid-auto-columns:auto}
+}
+
+/* ---------- table ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+th{font-family:"Archivo",sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint-2);background:var(--panel-2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink);white-space:nowrap}
+td:last-child{color:var(--muted)}
+tbody tr:hover{background:var(--accent-soft)}
+
+/* ---------- rules ---------- */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.rule{
+  border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:var(--radius-sm);background:var(--panel);
+  padding:13px 15px;box-shadow:var(--shadow-sm);
+}
+.rule h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.rule p{margin:0;font-size:12.5px;color:var(--muted)}
+.rule code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink)}
+
+footer{
+  border-top:1px solid var(--line);
+  padding:28px 0 60px;
+  color:var(--faint-2);font-size:12px;
+  font-family:"IBM Plex Mono",monospace;
+}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+/* draw-in animation */
+@media (prefers-reduced-motion:no-preference){
+  .band,.pipe .step,.rule{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+  .stack .band:nth-child(2){animation-delay:.02s}
+  .stack .band:nth-child(4){animation-delay:.06s}
+  .stack .band:nth-child(6){animation-delay:.10s}
+  .stack .band:nth-child(8){animation-delay:.14s}
+  .stack .band:nth-child(10){animation-delay:.18s}
+  .stack .band:nth-child(12){animation-delay:.22s}
+  .link::before{animation:grow .5s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+  @keyframes grow{from{opacity:0}to{opacity:1}}
+}
+
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .titleblock{grid-template-columns:1fr;gap:20px;padding:38px 0 26px}
+  .specs{width:100%}
+  .stack{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="titleblock">
+      <div>
+        <div class="eyebrow">System Architecture</div>
+        <h1>Vectopen</h1>
+        <p class="lede">A 2D vector graphics editor built on Godot&nbsp;4.7. Signal-driven, MVC-like: the UI never touches the model directly &mdash; every mutation travels the event bus and lands in one place, so undo/redo is uniform.</p>
+      </div>
+      <div class="specs" aria-label="project facts">
+        <div class="row"><span class="k">Engine</span><span class="v">Godot 4.7 &middot; mobile</span></div>
+        <div class="row"><span class="k">Language</span><span class="v">GDScript ~98%</span></div>
+        <div class="row"><span class="k">Version</span><span class="v">0.1.1</span></div>
+        <div class="row"><span class="k">Scripts</span><span class="v">207 .gd</span></div>
+        <div class="row"><span class="k">Autoloads</span><span class="v">29 singletons</span></div>
+        <div class="row"><span class="k">Tests</span><span class="v">41 suites (gdUnit4)</span></div>
+        <div class="row"><span class="k">Format</span><span class="v">.vectopen (JSON)</span></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="swatch"><i style="background:var(--tab-ui)"></i><b>UI</b></span>
+      <span class="swatch"><i style="background:var(--accent)"></i><b>Event bus</b></span>
+      <span class="swatch"><i style="background:var(--tab-tool)"></i><b>Tools</b></span>
+      <span class="swatch"><i style="background:var(--tab-data)"></i><b>Model / data</b></span>
+      <span class="swatch"><i style="background:var(--tab-view)"></i><b>Canvas / view</b></span>
+      <span class="swatch"><i style="background:var(--tab-doc)"></i><b>Document tree</b></span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>The stack</h2>
+      <p>Top&nbsp;=&nbsp;the user's hands. Bottom&nbsp;=&nbsp;the disk. Everything in between is wired through <span class="mono">GlobalEvents</span>.</p>
+    </div>
+
+    <div class="stack">
+
+      <div class="band ui">
+        <div class="band-head">
+          <span class="band-tag">L0</span>
+          <span class="band-title">Input &amp; cursor</span>
+          <span class="band-note">keyboard &middot; mouse &middot; tablet</span>
+        </div>
+        <div class="mods">
+          <div class="mod"><div class="n">VectopenInput</div><div class="d">Input map + user shortcuts, loaded from <span class="mono">user://vectopen_inputmap.cfg</span></div></div>
+          <div class="mod"><div class="n">SmartCursor</div><div class="d">Context cursor state &amp; smart-snap crosshair</div></div>
+          <div class="mod"><div class="n">DrawPreferences</div><div class="d">Default stroke / fill for new shapes</div></div>
+        </div>
+      </div>
+
+      <div class="link"><span class="lbl">gui_input &rarr;</span></div>
+
+      <div class="band ui">
+        <div class="band-head">
+          <span class="band-tag">L1</span>
+          <span class="band-title">UI &mdash; <span class="mono" style="font-weight:600">scenes/ui/ &middot; main.tscn</span></span>
+          <span class="band-note">overlay CanvasLayer inside canvas.tscn</span>
+        </div>
+        <div class="mods">
+          <div class="mod"><div class="n">tool.tscn</div><div class="d">Vertical tools toolbar (<span class="mono">toolbar.gd</span>)</div></div>
+          <div class="mod"><div class="n">layers_system.gd</div><div class="d">Layers panel + <span class="mono">Layertree</span>, clip masks, search</div></div>
+          <div class="mod"><div class="n">InspectorCore panel</div><div class="d">Transform / geometry / paint of the selection</div></div>
+          <div class="mod"><div class="n">FileFlowLayout</div><div class="d">Export + recent / recover / files browser</div></div>
+          <div class="mod"><div class="n">regla.gd</div><div class="d">Rulers &amp; drag-out guides</div></div>
+          <div class="mod"><div class="n">Snap / Theme panels</div><div class="d">Settings window (<span class="mono">manager_windws_regla</span>)</div></div>
+        </div>
+      </div>
+
+      <div class="link accent"><span class="lbl">&#8597; typed signals (emit_safe)</span></div>
+
+      <div class="band bus">
+        <div class="band-head">
+          <span class="band-tag" style="color:var(--accent)">L2</span>
+          <span class="band-title">GlobalEvents &mdash; the event bus</span>
+          <span class="band-note">68 typed signals</span>
+        </div>
+        <div class="mods">
+          <div class="mod wide"><div class="n">GlobalEvents.emit_safe(name, &hellip;)</div><div class="d">Single nervous system. UI emits intent, model &amp; view subscribe. No panel calls another panel; no tool calls the UI.</div></div>
+          <div class="mod"><div class="n">GlobalUI</div><div class="d">Live "is the mouse over real UI?" &mdash; gates canvas zoom / drag</div></div>
+          <div class="mod"><div class="n">ErrorHandler</div><div class="d">Central error routing &amp; user-facing surfacing</div></div>
+        </div>
+      </div>
+
+      <div class="split" style="margin-top:14px">
+        <div>
+          <div class="link accent" style="height:24px"><span class="lbl">intent</span></div>
+          <div class="band tool">
+            <div class="band-head">
+              <span class="band-tag">L3</span>
+              <span class="band-title">Tool system</span>
+            </div>
+            <div class="mods">
+              <div class="mod"><div class="n">ToolManager</div><div class="d">Active tool, switching, input forwarding</div></div>
+              <div class="mod"><div class="n">ToolFactory</div><div class="d">Builds tool instances</div></div>
+              <div class="mod"><div class="n">ToolBase &rarr; 15 tools</div><div class="d">Move &middot; Bezier &middot; Pen &middot; Text &middot; Paragraph &middot; Artboard &middot; Circle / Rect / Polygon / Star / Triangle &middot; Brush</div></div>
+              <div class="mod"><div class="n">SelectionManager</div><div class="d">Single source of truth for the live selection; <span class="mono">MoveTool.selected_shapes</span> mirrors it</div></div>
+              <div class="mod"><div class="n">SnapManager</div><div class="d">Grid + smart magnet (edge / center / spacing) + ruler-guide snap</div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="link accent" style="height:24px"><span class="lbl">intent</span></div>
+          <div class="band data">
+            <div class="band-head">
+              <span class="band-tag">L4</span>
+              <span class="band-title">Model / data</span>
+            </div>
+            <div class="mods">
+              <div class="mod wide"><div class="n">DataRepository</div><div class="d">Thin facade &rarr; delegates to <span class="mono">ProjectManager</span> (project CRUD) + <span class="mono">SessionManager</span> (session state, autosave)</div></div>
+              <div class="mod"><div class="n">HistoryManager</div><div class="d">The single undo / redo stack</div></div>
+              <div class="mod"><div class="n">SaveManager</div><div class="d">.vectopen load / save, recovery</div></div>
+              <div class="mod"><div class="n">RecentFilesManager</div><div class="d">Recents list &amp; thumbnails</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="link"><span class="lbl">ToolManager forwards input &middot; canvas.queue_redraw()</span></div>
+
+      <div class="band view">
+        <div class="band-head">
+          <span class="band-tag">L5</span>
+          <span class="band-title">Canvas / view &mdash; <span class="mono" style="font-weight:600">canvas.tscn &rarr; /root/CanvasRoot</span></span>
+          <span class="band-note">dirty-region redraw</span>
+        </div>
+        <div class="mods">
+          <div class="mod"><div class="n">canvas.gd</div><div class="d">Input routing, camera / zoom-at-pointer, <span class="mono">_draw()</span> dispatch</div></div>
+          <div class="mod"><div class="n">ArtboardManager</div><div class="d">Sole authority for multi-artboard: <span class="mono">get_active_artboard</span> / <span class="mono">artboard_at_point</span> / <span class="mono">owning_artboard</span></div></div>
+          <div class="mod"><div class="n">ShapeManager</div><div class="d">Shape lifecycle on the canvas</div></div>
+          <div class="mod"><div class="n">CullManager</div><div class="d">Viewport culling for large scenes</div></div>
+          <div class="mod"><div class="n">BoundingBox (+ overlay)</div><div class="d">Selection gizmo: handles, resize, rotate</div></div>
+          <div class="mod"><div class="n">WorldTextLabel</div><div class="d">Text &rarr; vector outline (Inter, TrueType)</div></div>
+          <div class="mod"><div class="n">canvas_serializer.gd</div><div class="d">Scene tree &harr; JSON, recursive children + clip masks</div></div>
+        </div>
+      </div>
+
+      <div class="link"><span class="lbl">add_child / reparent</span></div>
+
+      <div class="band doc">
+        <div class="band-head">
+          <span class="band-tag">L6</span>
+          <span class="band-title">Document &mdash; the live scene tree</span>
+        </div>
+        <div class="mods">
+          <div class="mod"><div class="n">ArtboardEditor</div><div class="d">Frame &rarr; <span class="mono">VectorDrawingLayer</span> holds the artwork</div></div>
+          <div class="mod"><div class="n">VectorShape</div><div class="d">Base for <span class="mono">VectorCircle</span> &middot; <span class="mono">VectorRectangle</span> &middot; <span class="mono">VectorPolygon</span> &middot; <span class="mono">VectorPath</span></div></div>
+          <div class="mod"><div class="n">Groups &amp; text nodes</div><div class="d">Bare <span class="mono">Node2D</span> containers; stencil clip masks via <span class="mono">clip_children</span></div></div>
+        </div>
+      </div>
+
+      <div class="link"><span class="lbl">SaveManager &middot; ImportExportManager</span></div>
+
+      <div class="band doc">
+        <div class="band-head">
+          <span class="band-tag">L7</span>
+          <span class="band-title">Persistence</span>
+        </div>
+        <div class="chips">
+          <span class="chip"><b>.vectopen</b> &mdash; JSON project files</span>
+          <span class="chip"><b>user://</b> vectopen_theme.cfg</span>
+          <span class="chip"><b>user://</b> vectopen_snap.cfg</span>
+          <span class="chip"><b>user://</b> vectopen_inputmap.cfg</span>
+          <span class="chip"><b>user://</b> recent + autosave / recovery</span>
+          <span class="chip">PNG &middot; SVG &middot; PDF &middot; Web export presets</span>
+        </div>
+      </div>
+
+      <div style="margin-top:22px;border-top:1px dashed var(--line-strong);padding-top:14px">
+        <div class="band-head" style="margin-bottom:9px">
+          <span class="band-tag" style="color:var(--muted)">&#8943;</span>
+          <span class="band-title">Cross-cutting autoloads &mdash; always on, wired to the bus</span>
+        </div>
+        <div class="chips">
+          <span class="chip"><b>ThemeManager</b> light/dark tokens</span>
+          <span class="chip"><b>ColorCore</b> paint &amp; fill</span>
+          <span class="chip"><b>FontCore</b> typography</span>
+          <span class="chip"><b>InspectorCore</b> property system</span>
+          <span class="chip"><b>ImportExportManager</b></span>
+          <span class="chip"><b>LanguageManager</b> i18n</span>
+          <span class="chip"><b>PluginManager</b></span>
+          <span class="chip"><b>PerformanceManager</b> quality tiers</span>
+          <span class="chip"><b>ObjectPool</b> gizmo reuse</span>
+          <span class="chip"><b>ExportCache</b></span>
+          <span class="chip"><b>DebugConsola</b> invariant watchdog</span>
+          <span class="chip"><b>MCPRuntime</b> in-game agent bridge</span>
+        </div>
+      </div>
+
+      <div class="titleblock-mini" style="margin-top:22px;display:flex;justify-content:flex-end">
+        <div class="specs" style="min-width:0">
+          <div class="row"><span class="k">Main scene</span><span class="v">canvas.tscn</span></div>
+          <div class="row"><span class="k">Renderer</span><span class="v">GL Compatibility</span></div>
+          <div class="row"><span class="k">Window</span><span class="v">1920&times;1080</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Anatomy of an edit</h2>
+      <p>Why every change is undoable: the path a single canvas drag takes.</p>
+    </div>
+    <div class="pipe">
+      <div class="step">
+        <div class="num">1</div>
+        <h3>Grab</h3>
+        <p><code>MoveTool</code> hit-tests, takes a full <code>_snapshot()</code> of every selected shape (position, rotation, geometry, parent).</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3>Drag live</h3>
+        <p>Motion applies the delta straight to <code>global_position</code>; <code>SnapManager.smart_snap()</code> nudges it; guides draw in <code>draw_preview()</code>.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3>Release &rarr; record</h3>
+        <p><code>_commit_transform()</code> builds a do / undo closure with the before &amp; after snapshots plus any reparent.</p>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <h3>Push once</h3>
+        <p><code>ProjectManager</code> registers it on <code>HistoryManager</code> &mdash; one action, one stack. <code>DataRepository</code> now holds the new state.</p>
+      </div>
+      <div class="step">
+        <div class="num">5</div>
+        <h3>Broadcast</h3>
+        <p><code>GlobalEvents</code> fires. Layers panel, Inspector and the canvas region all refresh &mdash; independently, off the bus.</p>
+      </div>
+      <div class="step">
+        <div class="num">6</div>
+        <h3>Undo</h3>
+        <p>Ctrl+Z in <code>canvas.gd</code> &rarr; <code>HistoryManager.undo()</code> replays the closure. Same path, in reverse.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Where things live</h2>
+      <p><span class="mono">script_gdscript/</span> is current; <span class="mono">scripts/</span> is legacy and shrinking.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Path</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>autoloads/GlobalEvents.gd</td><td>Central signal bus &mdash; 68 typed signals, <span class="mono">emit_safe()</span></td></tr>
+          <tr><td>autoloads/DataRepository.gd</td><td>Model facade over ProjectManager + SessionManager</td></tr>
+          <tr><td>autoloads/HistoryManager.gd</td><td>The one undo / redo stack</td></tr>
+          <tr><td>autoloads/ToolManager.gd</td><td>Tool switching &amp; input forwarding</td></tr>
+          <tr><td>autoloads/SelectionManager.gd</td><td>Live-selection source of truth</td></tr>
+          <tr><td>autoloads/SnapManager.gd</td><td>Grid + smart magnet + ruler-guide snapping</td></tr>
+          <tr><td>scripts/canvas/canvas.gd</td><td>Canvas root: input routing, camera, redraw</td></tr>
+          <tr><td>scripts/canvas/canvas_serializer.gd</td><td>Scene tree &harr; .vectopen JSON</td></tr>
+          <tr><td>scenes/canvas/artboard_manager.gd</td><td>Multi-artboard authority (<span class="mono">class_name ArtboardManager</span>)</td></tr>
+          <tr><td>script_gdscript/tools/MoveTool.gd</td><td>Select / move / resize / rotate + snapping</td></tr>
+          <tr><td>script_gdscript/shapes/VectorShape.gd</td><td>Base class for every drawable shape</td></tr>
+          <tr><td>script_gdscript/ui/layers_system.gd</td><td>Layers panel controller + clip masks</td></tr>
+          <tr><td>script_gdscript/system/ThemeManager.gd</td><td>Runtime theme from design tokens (light default)</td></tr>
+          <tr><td>tools/ToolBase.gd</td><td><span class="mono">activate() / deactivate() / handle_input()</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Ground rules</h2>
+      <p>The conventions that keep the wiring predictable.</p>
+    </div>
+    <div class="rules">
+      <div class="rule">
+        <h3>Mutations go through the model</h3>
+        <p>Every data change routes via <code>DataRepository</code> / <code>ProjectManager</code> so undo/redo stays uniform.</p>
+      </div>
+      <div class="rule">
+        <h3>Talk on the bus</h3>
+        <p>Prefer <code>GlobalEvents.emit_safe()</code> over direct <code>emit_signal()</code>. Panels don't call panels.</p>
+      </div>
+      <div class="rule">
+        <h3>Nodes by unique name</h3>
+        <p><code>%UniqueName</code> access, not <code>get_node()</code> path strings.</p>
+      </div>
+      <div class="rule">
+        <h3>Tools share one contract</h3>
+        <p>Every tool implements <code>activate()</code>, <code>deactivate()</code>, <code>handle_input(event) -&gt; bool</code>.</p>
+      </div>
+      <div class="rule">
+        <h3>Static typing, always</h3>
+        <p>All function signatures are statically typed &mdash; inferred-Variant is treated as an error.</p>
+      </div>
+      <div class="rule">
+        <h3>Draw via redraw</h3>
+        <p>Canvas rendering is <code>queue_redraw()</code> + <code>_draw()</code>, scoped to dirty regions.</p>
+      </div>
+      <div class="rule">
+        <h3>Don't hand-edit .tscn</h3>
+        <p>Scene files change through editor / MCP scene tools. UID files are tracked in git.</p>
+      </div>
+      <div class="rule">
+        <h3>New code in <span class="mono">script_gdscript/</span></h3>
+        <p><code>scripts/</code> and <code>Scene/</code> are legacy. 100% GDScript &mdash; no C#, no .NET.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Vectopen &middot; system architecture</span>
+    <span>Godot 4.7 &middot; GDScript &middot; v0.1.1</span>
+  </div>
+</footer>
+
+</body>
+</html>
