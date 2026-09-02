@@ -12,7 +12,11 @@ var snap_to_center: bool = true
 var show_guides: bool = true
 
 ## Umbral del imán, en píxeles de PANTALLA (constante a cualquier zoom).
-const SMART_SNAP_PX := 7.0
+const SMART_SNAP_PX := 11.0
+## Umbral (px pantalla) para igualar separaciones / distribuir.
+const SPACING_SNAP_PX := 9.0
+## Tolerancia (px mundo) al comparar dos separaciones "iguales".
+const SPACING_MATCH_EPS := 1.5
 
 func _ready() -> void:
 	_load_config()
@@ -23,18 +27,23 @@ func snap_position(pos: Vector2) -> Vector2:
 		pos.y = round(pos.y / grid_size) * grid_size
 	return pos
 
-## Imán inteligente: ajusta el rect global arrastrado (`moving`) a los rects
-## candidatos por bordes izquierda/centro/derecha y arriba/centro/abajo. Todo en
-## coordenadas de MUNDO; `zoom` es la escala del viewport (para que el umbral sea
-## constante en pantalla). Devuelve:
-##   { "offset": Vector2, "guides": Array }
-## donde cada guía es { "axis": "x"|"y", "coord": float, "a": float, "b": float }
-## (segmento perpendicular que une los bordes alineados).
+## Imán inteligente. Ajusta el rect global arrastrado (`moving`, coords de MUNDO)
+## contra `candidates` con TRES estrategias, en orden de prioridad por eje:
+##   1. Alineación de bordes (izq/der, arr/ab) y centros con otras figuras.
+##   2. Igualar separación: si el hueco a un vecino coincide con OTRO hueco ya
+##      existente entre dos figuras, engancha a esa misma distancia.
+##   3. Distribución: centra la figura entre su vecino de un lado y el del otro.
+## `zoom` = escala del viewport (umbral constante en pantalla). Devuelve:
+##   { "offset": Vector2, "guides": Array, "spacing": Array }
+##   guide   = { axis, coord, a, b }                    (línea de alineación)
+##   spacing = { axis, perp, segs: [[lo,hi], ...], gap } (barras de separación)
 func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
-	var res := { "offset": Vector2.ZERO, "guides": [] }
+	var res := { "offset": Vector2.ZERO, "guides": [], "spacing": [] }
 	if not snap_to_objects or candidates.is_empty() or moving.size == Vector2.ZERO:
 		return res
-	var thr: float = SMART_SNAP_PX / maxf(zoom, 0.0001)
+	var z: float = maxf(zoom, 0.0001)
+	var thr: float = SMART_SNAP_PX / z
+	var thr_sp: float = SPACING_SNAP_PX / z
 
 	var mx := [moving.position.x, moving.position.x + moving.size.x * 0.5, moving.end.x]
 	var my := [moving.position.y, moving.position.y + moving.size.y * 0.5, moving.end.y]
@@ -50,22 +59,18 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 			continue
 		var cx := [c.position.x, c.position.x + c.size.x * 0.5, c.end.x]
 		var cy := [c.position.y, c.position.y + c.size.y * 0.5, c.end.y]
-		for a in mx:
-			for b in cx:
-				if not snap_to_center and (a == mx[1] or b == cx[1]):
+		for ai in 3:
+			for bi in 3:
+				if not snap_to_center and (ai == 1 or bi == 1):
 					continue
-				var d: float = b - a
+				var d: float = cx[bi] - mx[ai]
 				if absf(d) <= thr and absf(d) < absf(best_dx):
 					best_dx = d
-					line_x = { "coord": b, "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y) }
-		for a in my:
-			for b in cy:
-				if not snap_to_center and (a == my[1] or b == cy[1]):
-					continue
-				var d: float = b - a
-				if absf(d) <= thr and absf(d) < absf(best_dy):
-					best_dy = d
-					line_y = { "coord": b, "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x) }
+					line_x = { "coord": cx[bi], "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y) }
+				var e: float = cy[bi] - my[ai]
+				if absf(e) <= thr and absf(e) < absf(best_dy):
+					best_dy = e
+					line_y = { "coord": cy[bi], "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x) }
 
 	if best_dx != INF:
 		res["offset"].x = best_dx
@@ -75,7 +80,106 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 		res["offset"].y = best_dy
 		line_y["axis"] = "y"
 		res["guides"].append(line_y)
+
+	# ── Separación (solo en el eje que NO se alineó por borde) ──
+	var mv := Rect2(moving.position + res["offset"], moving.size)
+	if best_dx == INF:
+		var sx := _spacing_snap(mv, candidates, true, thr_sp)
+		if not sx.is_empty():
+			res["offset"].x += sx["delta"]
+			res["spacing"].append(sx["info"])
+	if best_dy == INF:
+		var sy := _spacing_snap(mv, candidates, false, thr_sp)
+		if not sy.is_empty():
+			res["offset"].y += sy["delta"]
+			res["spacing"].append(sy["info"])
 	return res
+
+## Vecinos de `mv` en un eje (horizontal=true → izquierda/derecha). Devuelve
+## {} o { "delta": float, "info": Dictionary }.
+func _spacing_snap(mv: Rect2, candidates: Array, horizontal: bool, thr: float) -> Dictionary:
+	var m_lo: float = mv.position.x if horizontal else mv.position.y
+	var m_hi: float = mv.end.x if horizontal else mv.end.y
+	var p_lo: float = mv.position.y if horizontal else mv.position.x
+	var p_hi: float = mv.end.y if horizontal else mv.end.x
+	var size: float = m_hi - m_lo
+
+	var left_hi: float = -INF   # borde interno del vecino del lado bajo
+	var right_lo: float = INF   # borde interno del vecino del lado alto
+	# huecos ya existentes entre pares de candidatos (para "igualar separación")
+	var edges_lo: Array[float] = []
+	var edges_hi: Array[float] = []
+
+	for cand in candidates:
+		var c: Rect2 = cand
+		if c.size == Vector2.ZERO:
+			continue
+		var c_plo: float = c.position.y if horizontal else c.position.x
+		var c_phi: float = c.end.y if horizontal else c.end.x
+		if c_phi <= p_lo or c_plo >= p_hi:
+			continue  # no comparten "fila"/"columna"
+		var c_lo: float = c.position.x if horizontal else c.position.y
+		var c_hi: float = c.end.x if horizontal else c.end.y
+		if c_hi <= m_lo:
+			if c_hi > left_hi:
+				left_hi = c_hi
+			if edges_lo.size() < 32:
+				edges_hi.append(c_hi)
+				edges_lo.append(c_lo)
+		elif c_lo >= m_hi:
+			if c_lo < right_lo:
+				right_lo = c_lo
+			if edges_lo.size() < 32:
+				edges_hi.append(c_hi)
+				edges_lo.append(c_lo)
+
+	# 1. Distribución: centrado entre ambos vecinos.
+	if left_hi != -INF and right_lo != INF and (right_lo - left_hi) > size:
+		var gap: float = (right_lo - left_hi - size) * 0.5
+		var target_lo: float = left_hi + gap
+		var delta: float = target_lo - m_lo
+		if absf(delta) <= thr:
+			return { "delta": delta,
+				"info": {
+					"axis": "x" if horizontal else "y",
+					"perp": (p_lo + p_hi) * 0.5,
+					"gap": gap,
+					"segs": [[left_hi, target_lo], [target_lo + size, right_lo]],
+				} }
+
+	# 2. Igualar separación: replicar un hueco existente hacia el vecino más cercano.
+	var existing: Array[float] = []
+	for i in edges_lo.size():
+		for j in edges_hi.size():
+			var g: float = edges_lo[i] - edges_hi[j]
+			if g > 1.0:
+				existing.append(g)
+	if not existing.is_empty():
+		if left_hi != -INF:
+			for g in existing:
+				var target_lo: float = left_hi + g
+				var delta: float = target_lo - m_lo
+				if absf(delta) <= thr:
+					return { "delta": delta,
+						"info": {
+							"axis": "x" if horizontal else "y",
+							"perp": (p_lo + p_hi) * 0.5,
+							"gap": g,
+							"segs": [[left_hi, target_lo]],
+						} }
+		if right_lo != INF:
+			for g in existing:
+				var target_hi: float = right_lo - g
+				var delta: float = target_hi - m_hi
+				if absf(delta) <= thr:
+					return { "delta": delta,
+						"info": {
+							"axis": "x" if horizontal else "y",
+							"perp": (p_lo + p_hi) * 0.5,
+							"gap": g,
+							"segs": [[target_hi, right_lo]],
+						} }
+	return {}
 
 func snap_value(value: float) -> float:
 	if grid_enabled and grid_size > 0:

@@ -60,6 +60,7 @@ var artboard_drag_start_pos: Vector2 = Vector2.ZERO
 
 # ── Imán inteligente (líneas guía mientras se arrastra) ────────────────────────
 var _snap_guides: Array = []
+var _snap_spacing: Array = []
 
 # ── Modos de transformación por teclado ────────────────────────────────────
 enum KeyMode { NONE, TRANSLATE, SCALE, ROTATE }
@@ -518,6 +519,7 @@ func _on_release(_gm: Vector2) -> bool:
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
 	_snap_guides.clear()
+	_snap_spacing.clear()
 
 	if hubo_transformacion and GlobalEvents:
 		GlobalEvents.emit_safe("object_transformed")
@@ -698,6 +700,7 @@ func _heal_stuck_gesture() -> void:
 	artboard_resize_edge = Vector2.ZERO
 	transform_initial_states.clear()
 	_snap_guides.clear()
+	_snap_spacing.clear()
 	if is_instance_valid(_bounding_box) and "_is_dragging_canvas_area" in _bounding_box:
 		_bounding_box._is_dragging_canvas_area = false
 	if is_instance_valid(canvas):
@@ -765,6 +768,7 @@ func _on_motion(gm: Vector2) -> bool:
 
 		# ── Imán inteligente: alinear con bordes/centros de otras figuras ──
 		_snap_guides.clear()
+		_snap_spacing.clear()
 		var _sm := _snap_manager()
 		if _sm and _sm.has_method("smart_snap") and _sm.snap_to_objects \
 				and not _sm.grid_enabled and _axis_move == "" \
@@ -776,6 +780,7 @@ func _on_motion(gm: Vector2) -> bool:
 				var snap_res: Dictionary = _sm.smart_snap(moving_now, _snap_candidates(), _viewport_zoom())
 				delta += snap_res["offset"] as Vector2
 				_snap_guides = snap_res["guides"]
+				_snap_spacing = snap_res.get("spacing", [])
 
 		for s in selected_shapes:
 			if is_instance_valid(s) and transform_initial_states.has(s):
@@ -1672,6 +1677,54 @@ func _es_seleccion_o_pariente(n: Node) -> bool:
 			return true
 	return false
 
+## Dibuja las guías del imán: líneas de alineación (bordes/centros) que cruzan
+## toda la vista + marcas en los bordes exactos, y las barras de separación
+## (distribución / hueco igualado) con la distancia en px.
+func _dibujar_guias_iman(c: Node2D) -> void:
+	var vpg := c.get_viewport()
+	var zg: float = vpg.get_canvas_transform().get_scale().x if vpg else 1.0
+	zg = maxf(zg, 0.0002)
+	var k: float = 1.0 / zg                 # unidades de mundo por píxel de pantalla
+	var lw: float = 1.3 * k
+	var tick: float = 4.0 * k
+	var ext: float = 4000.0                 # prolongación de la línea (mundo)
+	var font := ThemeDB.fallback_font
+	var fs: int = maxi(1, int(round(11.0 * k)))
+
+	for g in _snap_guides:
+		var coord: float = g["coord"]
+		var lo: float = minf(g["a"], g["b"])
+		var hi: float = maxf(g["a"], g["b"])
+		if String(g["axis"]) == "x":
+			c.draw_line(c.to_local(Vector2(coord, lo - ext)), c.to_local(Vector2(coord, hi + ext)), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(coord - tick, g["a"])), c.to_local(Vector2(coord + tick, g["a"])), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(coord - tick, g["b"])), c.to_local(Vector2(coord + tick, g["b"])), COLOR_SNAP_GUIDE, lw)
+		else:
+			c.draw_line(c.to_local(Vector2(lo - ext, coord)), c.to_local(Vector2(hi + ext, coord)), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(g["a"], coord - tick)), c.to_local(Vector2(g["a"], coord + tick)), COLOR_SNAP_GUIDE, lw)
+			c.draw_line(c.to_local(Vector2(g["b"], coord - tick)), c.to_local(Vector2(g["b"], coord + tick)), COLOR_SNAP_GUIDE, lw)
+
+	var col_sp := Color(1.0, 0.36, 0.46, 0.98)
+	for s in _snap_spacing:
+		var perp: float = s["perp"]
+		var gap_txt := str(roundi(s["gap"]))
+		for seg in s["segs"]:
+			var a0: float = seg[0]
+			var a1: float = seg[1]
+			var mid: float = (a0 + a1) * 0.5
+			if String(s["axis"]) == "x":
+				c.draw_line(c.to_local(Vector2(a0, perp)), c.to_local(Vector2(a1, perp)), col_sp, lw)
+				c.draw_line(c.to_local(Vector2(a0, perp - tick)), c.to_local(Vector2(a0, perp + tick)), col_sp, lw)
+				c.draw_line(c.to_local(Vector2(a1, perp - tick)), c.to_local(Vector2(a1, perp + tick)), col_sp, lw)
+				if font:
+					c.draw_string(font, c.to_local(Vector2(mid, perp - tick * 2.0)), gap_txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, col_sp)
+			else:
+				c.draw_line(c.to_local(Vector2(perp, a0)), c.to_local(Vector2(perp, a1)), col_sp, lw)
+				c.draw_line(c.to_local(Vector2(perp - tick, a0)), c.to_local(Vector2(perp + tick, a0)), col_sp, lw)
+				c.draw_line(c.to_local(Vector2(perp - tick, a1)), c.to_local(Vector2(perp + tick, a1)), col_sp, lw)
+				if font:
+					c.draw_string(font, c.to_local(Vector2(perp + tick * 2.0, mid)), gap_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col_sp)
+
 # ── Renderizado del Bounding Box Pro (estilo profesional) ─────────────────────────
 
 func draw_preview(c: Node2D) -> void:
@@ -1687,20 +1740,8 @@ func draw_preview(c: Node2D) -> void:
 		return
 
 	# Guías del imán inteligente (solo mientras se arrastra una figura)
-	if is_dragging_shape and not _snap_guides.is_empty():
-		var vpg := c.get_viewport()
-		var zg: float = vpg.get_canvas_transform().get_scale().x if vpg else 1.0
-		var gw: float = 1.0 / maxf(zg, 0.0002)
-		for g in _snap_guides:
-			var p1: Vector2
-			var p2: Vector2
-			if String(g["axis"]) == "x":
-				p1 = c.to_local(Vector2(g["coord"], g["a"]))
-				p2 = c.to_local(Vector2(g["coord"], g["b"]))
-			else:
-				p1 = c.to_local(Vector2(g["a"], g["coord"]))
-				p2 = c.to_local(Vector2(g["b"], g["coord"]))
-			c.draw_line(p1, p2, COLOR_SNAP_GUIDE, gw)
+	if is_dragging_shape and (not _snap_guides.is_empty() or not _snap_spacing.is_empty()):
+		_dibujar_guias_iman(c)
 
 	# NOTA: El recuadro principal + handles de resize/rotate ya no se dibujan aquí.
 	# Los renderiza boundingbox.tscn (instancia real del pool), ver bounding_box.gd.
