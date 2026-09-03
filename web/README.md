@@ -1,41 +1,84 @@
 # Vectopen website
 
-The public landing page for Vectopen — `index.html`, a single self-contained
-file (HTML + CSS, fonts from Google Fonts, all SVG inline). No build step.
+Static site for Vectopen. No build step — plain HTML, CSS and vanilla JS.
+Fonts come from Google Fonts; the devlog renders Markdown with `marked` from a
+CDN. Everything else ships in this folder.
+
+```
+web/
+├── index.html            landing page
+├── assets/
+│   ├── site.css          shared shell (tokens, nav, footer, prose)
+│   ├── site.js           theme toggle + i18n engine
+│   ├── i18n.js           translation dictionary  ← add languages here
+│   └── blog.js           tiny static blog engine
+├── blog/
+│   ├── index.html        post list
+│   ├── post.html         single post  (?p=<slug>)
+│   ├── posts.json        manifest (newest first is not required — it sorts)
+│   └── posts/<slug>.md   post bodies (Markdown)
+└── logo.svg / logo.png   the mark, as raw assets
+```
 
 ## Preview locally
 
-Open `web/index.html` in a browser, or serve the folder:
-
 ```sh
-cd web && python -m http.server 8080   # then open http://localhost:8080
+cd web && python -m http.server 8080   # http://localhost:8080
 ```
+
+(Open it over HTTP, not `file://` — the devlog uses `fetch`.)
 
 ## Deploy
 
-**GitHub Pages** — Settings → Pages → *Deploy from a branch* → `main` / `/web`.
-The page is then live at `https://malabo1990.github.io/-Vectopen/`.
+**GitHub Pages** → Settings → Pages → *Deploy from a branch* → `main` / `/web`.
+Live at `https://malabo1990.github.io/-Vectopen/`. Or any static host.
 
-Or drop `index.html` on any static host (Netlify, Cloudflare Pages, a plain
-`nginx` root). Nothing server-side is required.
+## Theme
 
-## Editing
+`site.js` cycles **system → light → dark**, stored in `localStorage`, applied as
+`data-theme` on `<html>`. A tiny inline script in each page's `<head>` sets it
+before first paint to avoid a flash.
 
-- **Content**: everything is inline in `index.html` — hero copy, the feature
-  grid, the download cards, the roadmap columns and the docs links.
-- **Design tokens**: the `:root` block at the top of the `<style>` — one palette
-  for light, redefined under `@media (prefers-color-scheme: dark)` and
-  `:root[data-theme="dark"]`. Change `--accent` (`#E24E2B`) to reskin.
-- **Fonts**: Bricolage Grotesque (display), Inter (body), IBM Plex Mono
-  (identifiers).
-- **The hero mock** is a hand-drawn SVG "mini editor" (`svg.scene`) — a bezier
-  path with control handles, a selection box and a snap guide, coloured via the
-  `.scene .s-*` CSS rules and animated on load.
+## Translations
+
+`assets/i18n.js` holds one dictionary per language. To add one (e.g. German):
+
+1. In `names`, add `de: "Deutsch"`.
+2. Copy the whole `en: { … }` block to `de: { … }` and translate the *values* —
+   keep every key.
+
+The switcher and `<html lang>` update automatically. Text in the HTML is the
+English fallback (`data-i18n="key"` on the element). Devlog **posts** are not
+auto-translated — add `posts/<slug>.<lang>.md` and `post.html` picks it up for
+that language, falling back to `<slug>.md`.
+
+## Writing a devlog post
+
+1. Create `blog/posts/<slug>.md` — start with a paragraph, use `##` for
+   headings (the title comes from the manifest, don't repeat it as `#`).
+2. Add an entry to `blog/posts.json`:
+
+   ```json
+   { "slug": "2026-10-devlog-02", "title": "…", "date": "2026-10-01",
+     "summary": "one or two sentences", "tags": ["…"] }
+   ```
+
+   Set `"draft": true` to hide a post while writing it.
+
+The landing page shows the newest three; `blog/` lists them all.
+
+Post Markdown is rendered as-is (no sanitising) — it's authored by the repo
+owner, so that's fine. Don't paste untrusted HTML into a post.
 
 ## Keep in sync
 
-When the version, roadmap or feature set changes, update:
+When the version, roadmap or feature set changes: the `v0.1.1` tag and the stat
+block in `index.html`, the roadmap keys in `i18n.js` (mirror `ROADMAP.md`), and
+the docs cards.
 
-- the `v0.1.1` tag in the hero and the stat block
-- the three roadmap columns (mirror `ROADMAP.md`)
-- the docs cards (paths under `docs/en/`)
+## Donation links
+
+`index.html` → the **Support the project** section points at
+`github.com/sponsors/malabo1990`, `ko-fi.com/vectopen` and
+`liberapay.com/vectopen`. **Create/verify those accounts** (or change the URLs)
+before publishing — right now they may 404.

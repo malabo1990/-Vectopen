@@ -1,0 +1,9 @@
+[
+  {
+    "slug": "2026-09-devlog-01",
+    "title": "Devlog #1 — Artboards, layers, and a magnet",
+    "date": "2026-09-03",
+    "summary": "The recent stretch in one place: the multi-artboard rewrite, the professional layer panel with clip masks, the smart snap system, formal undo state, and a fresh website.",
+    "tags": ["architecture", "layers", "snapping", "undo"]
+  }
+]

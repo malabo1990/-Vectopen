@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectopen — Devlog</title>
+<meta name="description" content="A Vectopen devlog post.">
+<script>try{var t=localStorage.getItem('vectopen-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='268.5 499 34.5 29'%3E%3Cpath fill='%23141414' d='M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z'/%3E%3C/svg%3E">
+<style>
+.post-wrap{padding:52px 0 90px}
+.post-back{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--ink-2);margin-bottom:26px}
+.post-back:hover{color:var(--ink)}
+.post-meta{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-3);margin-bottom:6px}
+.post-tags{margin-top:26px;display:flex;gap:6px;flex-wrap:wrap}
+.post-tags span{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);border:1px solid var(--line);border-radius:5px;padding:2px 7px}
+#err{color:var(--ink-3)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="../">
+      <svg class="logomark" viewBox="0 0 35 31" aria-hidden="true"><g transform="translate(-268.083 -498.615)"><path class="lm-swoosh" d="M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z"/><path class="lm-line" d="M284.811,524.256L293.701,517.917"/><path class="lm-line" d="M282.229,522.133L272.651,520.59" transform="translate(2.25866 2.12231)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" transform="matrix(0.282308,0,0,0.282308,215.263,368.353)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" transform="matrix(0.282308,0,0,0.282308,192.632,374.146)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" transform="matrix(0.356531,0,0,0.356531,183.24,337.342)"/></g></svg>
+      Vectopen
+    </a>
+    <nav class="nav-links">
+      <a href="../#features" data-i18n="nav.features">Features</a>
+      <a href="../#download" data-i18n="nav.download">Download</a>
+      <a href="../#docs" data-i18n="nav.docs">Docs</a>
+      <a href="../#roadmap" data-i18n="nav.roadmap">Roadmap</a>
+      <a href="./" data-i18n="nav.blog">Devlog</a>
+    </nav>
+    <div class="nav-tools">
+      <button id="themeBtn" class="icon-btn" type="button" aria-label="Toggle theme">
+        <svg class="ti ti-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4" stroke-linecap="round"/></svg>
+        <svg class="ti ti-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+        <svg class="ti ti-dark" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </button>
+      <select id="langSel" class="lang-sel" aria-label="Language"></select>
+      <a class="nav-gh" href="https://github.com/malabo1990/-Vectopen" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="post-wrap">
+  <div class="wrap">
+    <a class="post-back" href="./"><span data-i18n="blog.back">&larr; All posts</span></a>
+    <article class="prose">
+      <p class="post-meta" id="pmeta"></p>
+      <div id="pbody"><p id="err" hidden data-i18n="blog.loaderr">Couldn't load this post.</p></div>
+      <div class="post-tags" id="ptags"></div>
+    </article>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap foot-in">
+    <span class="brand" style="font-size:15px;color:var(--ink-2)">
+      <svg class="logomark" viewBox="0 0 35 31" width="20" height="20" aria-hidden="true"><g transform="translate(-268.083 -498.615)"><path class="lm-swoosh" d="M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z"/></g></svg>
+      <span data-i18n="foot.brand">Vectopen &mdash; open-source vector editor</span>
+    </span>
+    <div class="foot-links">
+      <a href="./" data-i18n="nav.blog">Devlog</a>
+      <a href="https://github.com/malabo1990/-Vectopen" target="_blank" rel="noopener" data-i18n="foot.gh">GitHub</a>
+      <a href="https://t.me/vectopen" target="_blank" rel="noopener" data-i18n="foot.tg">Telegram</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="../assets/i18n.js"></script>
+<script src="../assets/site.js"></script>
+<script src="../assets/blog.js"></script>
+<script>
+(function () {
+  var slug = new URLSearchParams(location.search).get("p") || "";
+  var bodyEl = document.getElementById("pbody");
+  var metaEl = document.getElementById("pmeta");
+  var tagsEl = document.getElementById("ptags");
+
+  function fail() {
+    var e = document.getElementById("err");
+    if (e) { e.hidden = false; bodyEl.innerHTML = ""; bodyEl.appendChild(e); }
+    document.dispatchEvent(new CustomEvent("vectopen:lang", { detail: { lang: (window.VECTOPEN_LANG ? window.VECTOPEN_LANG() : "en") } }));
+  }
+  if (!slug) return fail();
+
+  var lang = window.VECTOPEN_LANG ? window.VECTOPEN_LANG() : "en";
+
+  VectopenBlog.meta(slug, "").then(function (m) {
+    document.title = m.title + " — Vectopen Devlog";
+    return VectopenBlog.body(slug, "", lang).then(function (md) {
+      metaEl.textContent = VectopenBlog.fmtDate(m.date);
+      var html = window.marked ? marked.parse(md, { gfm: true, breaks: false }) : ("<pre>" + VectopenBlog.esc(md) + "</pre>");
+      bodyEl.innerHTML = "<h1>" + VectopenBlog.esc(m.title) + "</h1>" + html;
+      tagsEl.innerHTML = (m.tags || []).map(function (t) { return "<span>" + VectopenBlog.esc(t) + "</span>"; }).join("");
+    });
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>
