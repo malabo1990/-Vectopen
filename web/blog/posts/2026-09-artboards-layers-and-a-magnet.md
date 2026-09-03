@@ -1,5 +1,13 @@
+---
+title: "Artboards, layers, and a magnet"
+date: 2026-09-03
+summary: "The recent stretch in one place: the multi-artboard rewrite, the professional layer panel with clip masks, the smart snap system, formal undo state, and a fresh website."
+tags: [architecture, layers, snapping, undo]
+draft: false
+---
+
 Vectopen has been quiet on the outside and busy on the inside. This is the
-first devlog — a catch-up on what landed over the last stretch, roughly in the
+first post — a catch-up on what landed over the last stretch, roughly in the
 order it happened.
 
 ## Multi-artboard, done properly

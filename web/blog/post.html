@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vectopen — Devlog</title>
-<meta name="description" content="A Vectopen devlog post.">
+<title>Vectopen — Blog</title>
+<meta name="description" content="A Vectopen blog post.">
 <script>try{var t=localStorage.getItem('vectopen-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +34,7 @@
       <a href="../#download" data-i18n="nav.download">Download</a>
       <a href="../#docs" data-i18n="nav.docs">Docs</a>
       <a href="../#roadmap" data-i18n="nav.roadmap">Roadmap</a>
-      <a href="./" data-i18n="nav.blog">Devlog</a>
+      <a href="./" data-i18n="nav.blog">Blog</a>
     </nav>
     <div class="nav-tools">
       <button id="themeBtn" class="icon-btn" type="button" aria-label="Toggle theme">
@@ -69,7 +69,7 @@
       <span data-i18n="foot.brand">Vectopen &mdash; open-source vector editor</span>
     </span>
     <div class="foot-links">
-      <a href="./" data-i18n="nav.blog">Devlog</a>
+      <a href="./" data-i18n="nav.blog">Blog</a>
       <a href="https://github.com/malabo1990/-Vectopen" target="_blank" rel="noopener" data-i18n="foot.gh">GitHub</a>
       <a href="https://t.me/vectopen" target="_blank" rel="noopener" data-i18n="foot.tg">Telegram</a>
     </div>
@@ -96,14 +96,15 @@
 
   var lang = window.VECTOPEN_LANG ? window.VECTOPEN_LANG() : "en";
 
-  VectopenBlog.meta(slug, "").then(function (m) {
-    document.title = m.title + " — Vectopen Devlog";
-    return VectopenBlog.body(slug, "", lang).then(function (md) {
-      metaEl.textContent = VectopenBlog.fmtDate(m.date);
-      var html = window.marked ? marked.parse(md, { gfm: true, breaks: false }) : ("<pre>" + VectopenBlog.esc(md) + "</pre>");
-      bodyEl.innerHTML = "<h1>" + VectopenBlog.esc(m.title) + "</h1>" + html;
-      tagsEl.innerHTML = (m.tags || []).map(function (t) { return "<span>" + VectopenBlog.esc(t) + "</span>"; }).join("");
-    });
+  VectopenBlog.post(slug, "", lang).then(function (p) {
+    var m = p.meta || {};
+    var title = m.title || slug;
+    document.title = title + " — Vectopen Blog";
+    metaEl.textContent = VectopenBlog.fmtDate(m.date || "");
+    var html = window.marked ? marked.parse(p.body, { gfm: true, breaks: false }) : ("<pre>" + VectopenBlog.esc(p.body) + "</pre>");
+    bodyEl.innerHTML = "<h1>" + VectopenBlog.esc(title) + "</h1>" + html;
+    var tags = Array.isArray(m.tags) ? m.tags : (m.tags ? [m.tags] : []);
+    tagsEl.innerHTML = tags.map(function (t) { return "<span>" + VectopenBlog.esc(t) + "</span>"; }).join("");
   }).catch(fail);
 })();
 </script>

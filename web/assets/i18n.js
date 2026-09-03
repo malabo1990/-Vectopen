@@ -11,7 +11,7 @@ window.VECTOPEN_I18N = {
       "nav.download": "Download",
       "nav.docs": "Docs",
       "nav.roadmap": "Roadmap",
-      "nav.blog": "Devlog",
+      "nav.blog": "Blog",
 
       "hero.title": "The vector editor<br>that's <em>actually</em> open.",
       "hero.sub": "Bezier paths, multi-artboard documents, a professional layer system and a magnet that snaps to everything. Built on Godot &mdash; small, fast, cross-platform.",
@@ -100,16 +100,16 @@ window.VECTOPEN_I18N = {
       "oss.version": "Version", "oss.tests": "Tests", "oss.format": "Format",
 
       "foot.brand": "Vectopen &mdash; open-source vector editor",
-      "foot.gh": "GitHub", "foot.blog": "Devlog", "foot.roadmap": "Roadmap",
+      "foot.gh": "GitHub", "foot.blog": "Blog", "foot.roadmap": "Roadmap",
       "foot.licence": "MIT Licence", "foot.tg": "Telegram",
 
-      "blog.eyebrow": "Devlog",
-      "blog.h": "Work diary.",
-      "blog.lead": "Notes from building Vectopen &mdash; what shipped, what broke, and why. Like Godot's devblog or Blender's weeklies, but smaller.",
+      "blog.eyebrow": "Blog",
+      "blog.h": "Notes from the workshop.",
+      "blog.lead": "Posts about building Vectopen &mdash; what shipped, what broke, and why. In the spirit of Godot's and Blender's dev blogs.",
       "blog.back": "&larr; All posts",
       "blog.readmore": "Read &rarr;",
       "blog.empty": "No posts yet. Check back soon.",
-      "blog.loaderr": "Couldn't load this post. It may have moved &mdash; see the <a href=\"./\">post list</a>."
+      "blog.loaderr": "Couldn't load this post. It may have moved &mdash; see the <a href=\"./\">blog</a>."
     },
 
     // ─────────────────────────────  ESPAÑOL  ─────────────────────────────
@@ -118,7 +118,7 @@ window.VECTOPEN_I18N = {
       "nav.download": "Descargar",
       "nav.docs": "Docs",
       "nav.roadmap": "Hoja de ruta",
-      "nav.blog": "Diario",
+      "nav.blog": "Blog",
 
       "hero.title": "El editor vectorial<br>que <em>de verdad</em> es libre.",
       "hero.sub": "Trazados bézier, documentos multi-mesa de trabajo, un sistema de capas profesional y un imán que se pega a todo. Hecho sobre Godot &mdash; ligero, rápido, multiplataforma.",
@@ -207,16 +207,16 @@ window.VECTOPEN_I18N = {
       "oss.version": "Versión", "oss.tests": "Pruebas", "oss.format": "Formato",
 
       "foot.brand": "Vectopen &mdash; editor vectorial open source",
-      "foot.gh": "GitHub", "foot.blog": "Diario", "foot.roadmap": "Hoja de ruta",
+      "foot.gh": "GitHub", "foot.blog": "Blog", "foot.roadmap": "Hoja de ruta",
       "foot.licence": "Licencia MIT", "foot.tg": "Telegram",
 
-      "blog.eyebrow": "Diario de desarrollo",
-      "blog.h": "Diario de trabajo.",
-      "blog.lead": "Notas de construir Vectopen &mdash; qué salió, qué se rompió y por qué. Como el devblog de Godot o los semanales de Blender, pero más pequeño.",
+      "blog.eyebrow": "Blog",
+      "blog.h": "Notas del taller.",
+      "blog.lead": "Entradas sobre construir Vectopen &mdash; qué salió, qué se rompió y por qué. En el espíritu de los blogs de desarrollo de Godot y Blender.",
       "blog.back": "&larr; Todas las entradas",
       "blog.readmore": "Leer &rarr;",
       "blog.empty": "Aún no hay entradas. Vuelve pronto.",
-      "blog.loaderr": "No se pudo cargar esta entrada. Puede haberse movido &mdash; mira la <a href=\"./\">lista de entradas</a>."
+      "blog.loaderr": "No se pudo cargar esta entrada. Puede haberse movido &mdash; mira el <a href=\"./\">blog</a>."
     }
   }
 };

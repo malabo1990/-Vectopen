@@ -107,7 +107,7 @@ h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);paddi
 .doc p{font-size:13px;color:var(--ink-2)}
 @media (max-width:820px){.docs-grid{grid-template-columns:1fr}}
 
-/* ---------- devlog teaser ---------- */
+/* ---------- blog teaser ---------- */
 .dev-wrap{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .dev-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 .dev-all{font-weight:600;font-size:14px;color:var(--accent-deep);white-space:nowrap}
@@ -177,7 +177,7 @@ h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);paddi
       <a href="#download" data-i18n="nav.download">Download</a>
       <a href="#docs" data-i18n="nav.docs">Docs</a>
       <a href="#roadmap" data-i18n="nav.roadmap">Roadmap</a>
-      <a href="blog/" data-i18n="nav.blog">Devlog</a>
+      <a href="blog/" data-i18n="nav.blog">Blog</a>
     </nav>
     <div class="nav-tools">
       <button id="themeBtn" class="icon-btn" type="button" data-i18n-aria="theme.label" aria-label="Toggle theme">
@@ -414,13 +414,13 @@ h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);paddi
   </div>
 </section>
 
-<div class="dev-wrap" id="devlog">
+<div class="dev-wrap" id="blog-latest">
   <section>
     <div class="wrap">
-      <div class="sec-eyebrow" data-i18n="blog.eyebrow">Devlog</div>
+      <div class="sec-eyebrow" data-i18n="blog.eyebrow">Blog</div>
       <div class="dev-head">
         <div>
-          <h2 class="sec-h" data-i18n="blog.h">Work diary.</h2>
+          <h2 class="sec-h" data-i18n="blog.h">Blog</h2>
           <p class="sec-lead" data-i18n="blog.lead">Notes from building Vectopen &mdash; what shipped, what broke, and why. Like Godot's devblog or Blender's weeklies, but smaller.</p>
         </div>
         <a class="dev-all" href="blog/"><span data-i18n="blog.back">&larr; All posts</span></a>
@@ -491,7 +491,7 @@ h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);paddi
     </span>
     <div class="foot-links">
       <a href="https://github.com/malabo1990/-Vectopen" target="_blank" rel="noopener" data-i18n="foot.gh">GitHub</a>
-      <a href="blog/" data-i18n="foot.blog">Devlog</a>
+      <a href="blog/" data-i18n="foot.blog">Blog</a>
       <a href="https://github.com/malabo1990/-Vectopen/blob/main/ROADMAP.md" target="_blank" rel="noopener" data-i18n="foot.roadmap">Roadmap</a>
       <a href="https://github.com/malabo1990/-Vectopen/blob/main/LICENSE" target="_blank" rel="noopener" data-i18n="foot.licence">MIT Licence</a>
       <a href="https://t.me/vectopen" target="_blank" rel="noopener" data-i18n="foot.tg">Telegram</a>
@@ -503,7 +503,7 @@ h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);paddi
 <script src="assets/site.js"></script>
 <script src="assets/blog.js"></script>
 <script>
-/* landing devlog teaser: newest 3 posts */
+/* landing blog teaser: newest 3 posts */
 (function(){
   if (!window.VectopenBlog) return;
   VectopenBlog.list("blog/").then(function(posts){

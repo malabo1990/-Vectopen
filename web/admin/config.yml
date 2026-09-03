@@ -1,0 +1,45 @@
+# Vectopen blog CMS — Decap CMS (https://decapcms.org)
+#
+# ── Local editing (zero setup) ────────────────────────────────────────────────
+#   1.  npx decap-server            # from the repo root, leave it running
+#   2.  serve the site:  (cd web && python -m http.server 8080)
+#   3.  open  http://localhost:8080/admin/   →  "Login" (local backend)
+#   Edits write straight to web/blog/posts/*.md. Commit them with git as usual.
+#
+# ── Hosted editing (edit from anywhere at <site>/admin/) ──────────────────────
+#   Needs a GitHub OAuth app + a small OAuth proxy (Decap can't do the OAuth
+#   handshake from a static page alone). See web/README.md. Then set
+#   `local_backend: false` and fill in `backend.base_url`.
+
+backend:
+  name: github
+  repo: malabo1990/-Vectopen
+  branch: main                     # branch the site is published from
+  # base_url: https://<your-oauth-proxy>   # uncomment once the proxy is up
+
+local_backend: true
+
+media_folder: "web/blog/media"
+public_folder: "/blog/media"
+publish_mode: simple
+show_preview_links: false
+
+collections:
+  - name: blog
+    label: "Blog"
+    label_singular: "Post"
+    description: "Posts for the Vectopen blog."
+    folder: "web/blog/posts"
+    create: true
+    slug: "{{year}}-{{month}}-{{slug}}"
+    extension: md
+    format: frontmatter
+    summary: "{{date | date('YYYY-MM-DD')}} — {{title}}"
+    sortable_fields: [date, title]
+    fields:
+      - { name: title, label: "Title", widget: string }
+      - { name: date, label: "Date", widget: datetime, date_format: "YYYY-MM-DD", time_format: false, picker_utc: true }
+      - { name: summary, label: "Summary", widget: text, hint: "One or two sentences — shown in the list and on the homepage teaser." }
+      - { name: tags, label: "Tags", widget: list, default: [], required: false }
+      - { name: draft, label: "Draft (hide from the site)", widget: boolean, default: false, required: false }
+      - { name: body, label: "Body", widget: markdown }

@@ -1,0 +1,36 @@
+name: Blog manifest
+
+# Regenerates web/blog/posts.json whenever a post is added/edited/removed,
+# so the static site can list posts without a directory index.
+
+on:
+  push:
+    paths:
+      - "web/blog/posts/**"
+      - "web/blog/build-manifest.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Regenerate manifest
+        run: node web/blog/build-manifest.mjs
+      - name: Commit if changed
+        run: |
+          if ! git diff --quiet -- web/blog/posts.json; then
+            git config user.name "vectopen-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add web/blog/posts.json
+            git commit -m "chore(blog): regenerate posts.json"
+            git push
+          else
+            echo "manifest already up to date"
+          fi
