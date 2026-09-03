@@ -11,63 +11,64 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 22C10 22 12 8 20 8s8 14 8 14' fill='none' stroke='%23E24E2B' stroke-width='3' stroke-linecap='round'/%3E%3Crect x='1.5' y='19.5' width='5' height='5' fill='%23fff' stroke='%2322305C' stroke-width='2'/%3E%3Crect x='17.5' y='5.5' width='5' height='5' fill='%23fff' stroke='%2322305C' stroke-width='2'/%3E%3Crect x='25.5' y='19.5' width='5' height='5' fill='%23fff' stroke='%2322305C' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='268.5 499 34.5 29'%3E%3Cpath fill='%23141414' d='M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z'/%3E%3C/svg%3E">
 
 <style>
 *{margin:0;box-sizing:border-box}
 img,svg{max-width:100%}
 [hidden]{display:none!important}
 
+/* Identidad monocroma: negro · gris · blanco. Sin color. */
 :root{
-  --paper:#F5F5F3;
+  --paper:#F4F4F2;
   --surface:#FFFFFF;
-  --surface-2:#FAFAF8;
-  --ink:#17191E;
-  --ink-2:#4A4F58;
-  --ink-3:#7B818C;
-  --line:#E5E4DF;
-  --line-2:#D3D2CB;
-  --accent:#E24E2B;
-  --accent-deep:#C23C1D;
-  --accent-wash:#FBEDE8;
-  --node:#22305C;
-  --node-wash:#EBEEF6;
-  --grid:rgba(23,25,30,.055);
+  --surface-2:#F9F9F7;
+  --ink:#141414;
+  --ink-2:#565656;
+  --ink-3:#8A8A8A;
+  --line:#E4E4E1;
+  --line-2:#CFCFCB;
+  --accent:#141414;        /* "acento" = negro: CTAs, marca, énfasis */
+  --accent-deep:#000000;
+  --accent-wash:#EEEEEB;    /* teja gris clara */
+  --node:#565656;           /* manijas bézier: gris medio (secundario) */
+  --node-wash:#EEEEEB;
+  --grid:rgba(20,20,20,.05);
   --radius:14px;
   --radius-sm:10px;
-  --shadow-sm:0 1px 2px rgba(23,25,30,.05);
-  --shadow:0 2px 4px rgba(23,25,30,.04), 0 18px 44px -22px rgba(23,25,30,.24);
+  --shadow-sm:0 1px 2px rgba(20,20,20,.05);
+  --shadow:0 2px 4px rgba(20,20,20,.04), 0 18px 44px -22px rgba(20,20,20,.20);
   --maxw:1140px;
   color-scheme:light dark;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --paper:#101113;
-    --surface:#191B1F;
-    --surface-2:#151619;
-    --ink:#ECEBE7;
-    --ink-2:#AAAEB5;
-    --ink-3:#7D828B;
-    --line:#292B30;
-    --line-2:#3A3D44;
-    --accent:#F26B47;
-    --accent-deep:#E24E2B;
-    --accent-wash:rgba(242,107,71,.13);
-    --node:#8FA2DE;
-    --node-wash:rgba(143,162,222,.13);
-    --grid:rgba(236,235,231,.06);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
-    --shadow:0 2px 4px rgba(0,0,0,.3), 0 22px 50px -24px rgba(0,0,0,.6);
+    --paper:#0E0E0E;
+    --surface:#171717;
+    --surface-2:#121212;
+    --ink:#EDEDEA;
+    --ink-2:#A2A2A0;
+    --ink-3:#6E6E6E;
+    --line:#282828;
+    --line-2:#3A3A3A;
+    --accent:#EDEDEA;       /* en oscuro el "acento" es blanco */
+    --accent-deep:#FFFFFF;
+    --accent-wash:rgba(255,255,255,.06);
+    --node:#A2A2A0;
+    --node-wash:rgba(255,255,255,.06);
+    --grid:rgba(237,237,234,.055);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.45);
+    --shadow:0 2px 4px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.65);
   }
 }
 :root[data-theme="dark"]{
-  --paper:#101113;--surface:#191B1F;--surface-2:#151619;
-  --ink:#ECEBE7;--ink-2:#AAAEB5;--ink-3:#7D828B;
-  --line:#292B30;--line-2:#3A3D44;
-  --accent:#F26B47;--accent-deep:#E24E2B;--accent-wash:rgba(242,107,71,.13);
-  --node:#8FA2DE;--node-wash:rgba(143,162,222,.13);--grid:rgba(236,235,231,.06);
-  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
-  --shadow:0 2px 4px rgba(0,0,0,.3), 0 22px 50px -24px rgba(0,0,0,.6);
+  --paper:#0E0E0E;--surface:#171717;--surface-2:#121212;
+  --ink:#EDEDEA;--ink-2:#A2A2A0;--ink-3:#6E6E6E;
+  --line:#282828;--line-2:#3A3A3A;
+  --accent:#EDEDEA;--accent-deep:#FFFFFF;--accent-wash:rgba(255,255,255,.06);
+  --node:#A2A2A0;--node-wash:rgba(255,255,255,.06);--grid:rgba(237,237,234,.055);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.45);
+  --shadow:0 2px 4px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.65);
 }
 
 body{
@@ -82,7 +83,7 @@ body{
 .mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
 h1,h2,h3,h4{font-family:"Bricolage Grotesque","Inter",sans-serif;line-height:1.08;letter-spacing:-.018em;font-weight:700}
 a{color:inherit;text-decoration:none}
-::selection{background:var(--accent);color:#fff}
+::selection{background:var(--accent);color:var(--paper)}
 
 /* ---------- top nav ---------- */
 header.nav{
@@ -96,8 +97,12 @@ header.nav{
 .nav-in{display:flex;align-items:center;gap:26px;height:62px}
 .brand{display:flex;align-items:center;gap:11px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:19px;letter-spacing:-.02em}
 .brand svg{width:26px;height:26px;flex:none}
-.mark path{stroke:var(--accent)}
-.mark rect{fill:var(--surface);stroke:var(--node)}
+/* logo original (icon/logo/logo_vectopen.svg) — recoloreado por tema.
+   non-scaling-stroke: grosor constante en px pese a las matrices de escala. */
+.logomark{overflow:visible}
+.logomark .lm-swoosh{fill:var(--accent)}
+.logomark .lm-line{fill:none;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.logomark .lm-node{fill:var(--surface);stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .nav-links{display:flex;gap:22px;margin-left:auto;font-size:14.5px;color:var(--ink-2);font-weight:500}
 .nav-links a:hover{color:var(--ink)}
 .nav-gh{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:600;color:var(--ink)}
@@ -124,7 +129,7 @@ header.nav{
 .tag b{color:var(--ink)}
 .tag .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
 h1.hero-h{font-size:clamp(2.7rem,6.4vw,4.5rem);font-weight:800;letter-spacing:-.03em}
-h1.hero-h em{font-style:normal;color:var(--accent)}
+h1.hero-h em{font-style:normal;background:var(--accent);color:var(--paper);padding:0 .14em;border-radius:.07em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .hero p.sub{margin:20px 0 0;font-size:1.16rem;color:var(--ink-2);max-width:34ch}
 .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
 .btn{
@@ -133,7 +138,7 @@ h1.hero-h em{font-style:normal;color:var(--accent)}
   border:1px solid transparent;transition:transform .08s ease;
 }
 .btn:active{transform:translateY(1px)}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 18px -6px color-mix(in srgb,var(--accent) 60%, transparent)}
+.btn-primary{background:var(--accent);color:var(--paper);box-shadow:0 6px 18px -8px rgba(20,20,20,.4)}
 .btn-primary:hover{background:var(--accent-deep)}
 .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-2)}
 .btn-ghost:hover{border-color:var(--ink-3)}
@@ -156,12 +161,12 @@ h1.hero-h em{font-style:normal;color:var(--accent)}
   radial-gradient(var(--grid) 1px, transparent 1.4px) 0 0/20px 20px, var(--surface-2)}
 .scene .s-artboard{fill:var(--surface);stroke:var(--line-2)}
 .scene .s-dim{fill:var(--ink-3)}
-.scene .s-guide{stroke:var(--accent);opacity:.8}
-.scene .s-guide-t{fill:var(--accent-deep)}
-.scene .s-select{stroke:var(--node);opacity:.55}
+.scene .s-guide{stroke:var(--ink-3);opacity:.9}
+.scene .s-guide-t{fill:var(--ink-3)}
+.scene .s-select{stroke:var(--ink-3);opacity:.6}
 .scene .s-path{stroke:var(--accent)}
-.scene .s-hline{stroke:var(--node);opacity:.7}
-.scene .s-handle{fill:var(--surface);stroke:var(--node)}
+.scene .s-hline{stroke:var(--ink-3);opacity:.85}
+.scene .s-handle{fill:var(--surface);stroke:var(--ink-2)}
 .scene .s-anchor{fill:var(--surface);stroke:var(--accent)}
 .scene .s-anchor-on{fill:var(--accent)}
 
@@ -191,9 +196,10 @@ h2.sec-h{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:700;max-width:20ch}
 .feat .ico{
   width:38px;height:38px;border-radius:9px;
   display:grid;place-items:center;margin-bottom:14px;
-  background:var(--accent-wash);color:var(--accent-deep);
+  background:var(--accent-wash);color:var(--ink);
+  border:1px solid var(--line);
 }
-.feat.node .ico{background:var(--node-wash);color:var(--node)}
+.feat.node .ico{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .feat .ico svg{width:20px;height:20px}
 .feat h3{font-size:1.02rem;font-weight:700;margin-bottom:5px}
 .feat p{font-size:13.6px;color:var(--ink-2);line-height:1.5}
@@ -222,8 +228,10 @@ h2.sec-h{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:700;max-width:20ch}
 .road{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
 .col{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;box-shadow:var(--shadow-sm)}
 .col-h{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--line);font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:14px}
-.col-h .pip{width:9px;height:9px;border-radius:50%}
-.pip.done{background:#3aa35f}.pip.prog{background:var(--accent)}.pip.plan{background:var(--ink-3)}
+.col-h .pip{width:9px;height:9px;border-radius:50%;flex:none}
+.pip.done{background:var(--ink)}
+.pip.prog{background:var(--ink);opacity:.45}
+.pip.plan{background:transparent;border:1.5px solid var(--line-2)}
 .col ul{list-style:none;padding:12px 18px 18px}
 .col li{font-size:13.4px;color:var(--ink-2);padding:7px 0;border-bottom:1px dashed var(--line);line-height:1.45}
 .col li:last-child{border-bottom:0}
@@ -245,13 +253,15 @@ h2.sec-h{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:700;max-width:20ch}
 
 /* ---------- open source band ---------- */
 .oss{
-  background:#17191E;color:#F2F1ED;border-radius:var(--radius);
+  background:#141414;color:#EDEDEA;border-radius:var(--radius);
   padding:44px;display:grid;grid-template-columns:1.2fr .8fr;gap:36px;align-items:center;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .oss{background:#000;border:1px solid var(--line)}
 }
 :root[data-theme="dark"] .oss{background:#000;border:1px solid var(--line)}
+.oss .btn-primary{background:#EDEDEA;color:#141414;box-shadow:none}
+.oss .btn-primary:hover{background:#fff}
 .oss h2{color:#fff;font-size:clamp(1.6rem,3vw,2.2rem)}
 .oss p{color:#B9B7B0;margin-top:12px;font-size:.98rem}
 .oss .stats{display:flex;flex-direction:column;gap:2px}
@@ -294,11 +304,15 @@ footer{border-top:1px solid var(--line);padding:36px 0 60px;color:var(--ink-3);f
 <header class="nav">
   <div class="wrap nav-in">
     <a class="brand" href="#top">
-      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M4 23C10.5 23 12 8 20 8s8 15 8 15" fill="none" stroke-width="3" stroke-linecap="round"/>
-        <rect x="1.5" y="20.5" width="5" height="5" stroke-width="2"/>
-        <rect x="17.5" y="5.5" width="5" height="5" stroke-width="2"/>
-        <rect x="25.5" y="20.5" width="5" height="5" stroke-width="2"/>
+      <svg class="logomark" viewBox="0 0 35 31" aria-hidden="true">
+        <g transform="translate(-268.083 -498.615)">
+          <path class="lm-swoosh" d="M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z"/>
+          <path class="lm-line" d="M284.811,524.256L293.701,517.917" stroke-width="0.93"/>
+          <path class="lm-line" d="M282.229,522.133L272.651,520.59" stroke-width="0.93" transform="translate(2.25866 2.12231)"/>
+          <circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="3.29" transform="matrix(0.282308,0,0,0.282308,215.263,368.353)"/>
+          <circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="3.29" transform="matrix(0.282308,0,0,0.282308,192.632,374.146)"/>
+          <circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="2.61" transform="matrix(0.356531,0,0,0.356531,183.24,337.342)"/>
+        </g>
       </svg>
       Vectopen
     </a>
@@ -569,7 +583,7 @@ footer{border-top:1px solid var(--line);padding:36px 0 60px;color:var(--ink-3);f
 <footer>
   <div class="wrap foot-in">
     <span class="brand">
-      <svg class="mark" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><path d="M4 23C10.5 23 12 8 20 8s8 15 8 15" fill="none" stroke-width="3" stroke-linecap="round"/></svg>
+      <svg class="logomark" viewBox="0 0 35 31" width="20" height="20" aria-hidden="true"><g transform="translate(-268.083 -498.615)"><path class="lm-swoosh" d="M282.118,523.24C281.195,520.222 277.013,515.111 275.044,513.419C274.945,513.334 273.04,511.481 270.881,511.072C270.503,511 270.557,510.899 270.23,510.617C270.393,510.469 270.498,510.265 270.661,510.117C270.667,510.112 271.728,509.793 272.892,509.882C277.366,510.222 281.733,513.812 284.248,517.571C285.167,515.396 286.308,512.985 287.583,510.872C290.112,506.679 294.107,501.703 300.722,500.449C300.795,500.435 300.873,500.382 300.942,500.409C301.254,500.529 301.195,500.632 301.505,500.752C301.344,500.9 301.323,501.163 301.162,501.312C300.923,501.533 296.197,502.223 292.169,508.513C289.34,512.929 287.609,518.8 286.423,523.234C286.435,523.896 286.318,524.489 286.055,524.984C284.748,527.441 281.627,526.228 281.897,524.005C281.905,523.937 281.981,523.667 282.118,523.24Z"/><path class="lm-line" d="M284.811,524.256L293.701,517.917" stroke-width="0.93"/><path class="lm-line" d="M282.229,522.133L272.651,520.59" stroke-width="0.93" transform="translate(2.25866 2.12231)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="3.29" transform="matrix(0.282308,0,0,0.282308,215.263,368.353)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="3.29" transform="matrix(0.282308,0,0,0.282308,192.632,374.146)"/><circle class="lm-node" cx="283.98" cy="524.256" r="7.468" stroke-width="2.61" transform="matrix(0.356531,0,0,0.356531,183.24,337.342)"/></g></svg>
       Vectopen &mdash; open-source vector editor
     </span>
     <div class="foot-links">
