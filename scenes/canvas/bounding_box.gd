@@ -841,6 +841,7 @@ func _draw_gradient_annotator(data: Dictionary, inv: float) -> void:
 	var is_diamond: bool = (data.type == 3)
 	var is_box: bool = (data.type == 4)
 	var is_spiral: bool = (data.type == 5)
+	var is_reflected: bool = (data.type == 6)
 	var stops: Array = data.stops
 	var num_stops: int = stops.size()
 	var last_idx: int = num_stops - 1
@@ -896,11 +897,18 @@ func _draw_gradient_annotator(data: Dictionary, inv: float) -> void:
 			spiral_pts.append(p0 + Vector2(cos(cur_ang), sin(cur_ang)) * cur_r)
 		draw_polyline(spiral_pts, Color(0, 0, 0, 0.45), 2.8 * inv, true)
 		draw_polyline(spiral_pts, Color(1.0, 0.65, 0.15, 0.95), 1.4 * inv, true)
+	elif is_reflected:
+		var p_mirror: Vector2 = p0 - data.dir * data.span
+		draw_line(p0, p_mirror, Color(0, 0, 0, 0.4), 2.4 * inv, true)
+		draw_line(p0, p_mirror, Color(1, 1, 1, 0.85), 1.2 * inv, true)
+		var perp: Vector2 = Vector2(-data.dir.y, data.dir.x) * (data.span * 0.75)
+		draw_line(p0 - perp, p0 + perp, Color(0, 0, 0, 0.5), 2.8 * inv, true)
+		draw_line(p0 - perp, p0 + perp, Color(0.25, 0.75, 1.0, 0.95), 1.4 * inv, true)
 
 	# 3. Handle inicial (p0) — Stop 0
 	var c0: Color = stops[0].color if not stops.is_empty() else Color.WHITE
 	var is_p0_sel: bool = (_selected_gradient_stop_idx == 0)
-	if is_radial or is_conic or is_diamond or is_box or is_spiral:
+	if is_radial or is_conic or is_diamond or is_box or is_spiral or is_reflected:
 		# Centro focal circular
 		var r0_circ: float = (7.2 if is_p0_sel else 5.4) * inv
 		draw_circle(p0, r0_circ + 2.0 * inv, Color(0, 0, 0, 0.45))
@@ -1118,8 +1126,6 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 						_commit_annotator_undo()
 				else:
 					_commit_annotator_undo()
-				var was_drag_new := (_annotator_drag_mode == "drag_new")
-				var had_moved := _line_drag_has_moved
 				_annotator_drag_mode = ""
 				_annotator_drag_stop_idx = -1
 				_line_drag_has_moved = false

@@ -309,6 +309,8 @@ func _emit_gradient() -> void:
 			p = cc.make_box(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
 		elif gradient_type == 5:
 			p = cc.make_spiral(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
+		elif gradient_type == 6:
+			p = cc.make_reflected(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
 		else:
 			p = cc.make_linear(g, gradient_angle, gradient_p0, gradient_p1)
 		cc.set_paint(p, "fill")
@@ -322,10 +324,10 @@ const PRESETS: Dictionary = {
 	"Vignette": [Color(0.1, 0.1, 0.1, 0.0), Color(0.05, 0.05, 0.05, 0.85)]
 }
 
-func apply_preset(name: String) -> void:
-	if not PRESETS.has(name):
+func apply_preset(preset_name: String) -> void:
+	if not PRESETS.has(preset_name):
 		return
-	var colors: Array = PRESETS[name]
+	var colors: Array = PRESETS[preset_name]
 	var g := Gradient.new()
 	for i in range(colors.size()):
 		var off := float(i) / float(colors.size() - 1) if colors.size() > 1 else 0.0

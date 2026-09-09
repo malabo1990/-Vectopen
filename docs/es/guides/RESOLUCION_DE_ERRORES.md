@@ -275,4 +275,42 @@ Tras corregir los dos casos anteriores (§6), se auditó el resto del código pr
 > En Godot 4, jamás invocar `get_tree()` en un `Node` sin verificar antes `is_inside_tree()`. De lo contrario el motor C++ emite errores `Parameter "data.tree" is null`.
 
 ---
+
+## 9. Selector Triangular con Opacidad/Ajedrezado y los 8 Tipos de Degradado (Círculo Euclidiano, Rombo, Cubino, Reflexionado)
+
+### 9.1 Problemas Detectados
+1. **Falta de Slider de Transparencia y Visualización de Alfa**:
+   El selector triangular (`hsl_colorpickr.gd`) carecía de un slider horizontal para controlar la opacidad / canal alfa ($A$). Además, los colores transparentes se mostraban planos sin un patrón ajedrezado (*checkerboard* de cuadros gris claro y oscuro) que evidenciara la transparencia.
+2. **Deformación y Ensanchamiento Excesivo del Panel**:
+   Los botones de tipos de degradado en `HeaderContainer` ("Sólido", "Lineal", "Radial", "Espiral", etc.) tenían texto largo que ensanchaba el panel más allá de sus 192 px de diseño, desalineando los controles y saturando la interfaz.
+3. **Distorsión Elíptica en Degradados Radiales**:
+   En figuras rectangulares o alargadas (ej. 420×200 px), el degradado radial se estiraba según la relación de aspecto de la caja contenedora, convirtiéndose en una elipse en lugar de un círculo euclidiano geométricamente perfecto.
+4. **Degradados Faltantes o No Diferenciados**:
+   Faltaban implementaciones diferenciadas para Rombo/Diamante (distancia Manhattan), Cubino/Caja (distancia Chebyshev) y Reflexionado/Espejo (simetría bilateral con eje de espejo).
+
+### 9.2 Solución Aplicada
+- **Slider de Alfa con Ajedrezado (`hsl_colorpickr.gd`)**:
+  - Se añadió cálculo de `_alpha_rect` en la base del selector.
+  - Implementado `_draw_alpha_bar()` que dibuja un patrón ajedrezado de cuadros gris claro (`#D1D1D1`) y gris oscuro (`#A6A6A6`), superpone el gradiente de alfa del color actual y un tirador circular interactivo.
+  - Creado el componente reutilizable `CheckerboardRect` (`checkerboard_rect.gd`) para previsualizaciones de color en muestras (`ColorRect_fill`).
+- **8 Iconos Vectoriales SVG sin Texto**:
+  - Creados e importados 8 iconos SVG de 21×22 px en `res://icon/UI/`: `paint_solid.svg`, `paint_linear.svg`, `paint_radial.svg`, `paint_conic.svg`, `paint_diamond.svg`, `paint_box.svg`, `paint_spiral.svg` y `paint_reflected.svg`.
+  - Panel ajustado estrictamente a 192 px de ancho sin estiramientos.
+- **Círculo Euclidiano Puro en Degradado Radial (`VectorShape.gd`)**:
+  - Se normaliza la distancia en píxeles de canvas compensando el ancho y alto del bounding box (`bb_w`, `bb_h`). Todo punto a la misma distancia euclidiana en píxeles de pantalla tiene idéntico color, garantizando un círculo exacto sin importar la relación de aspecto de la figura.
+- **Degradados Rombo, Cubino y Reflexionado**:
+  - **Rombo / Diamante (Tipo 3)**: Procedural con distancia Manhattan $d = |x'| + |y'|$.
+  - **Cubino / Caja (Tipo 4)**: Procedural con distancia Chebyshev $d = \max(|x'|, |y'|)$.
+  - **Reflexionado / Espejo (Tipo 6)**: Simetría bilateral a ambos lados de $P_0$ con directriz y eje perpendicular de espejo en `bounding_box.gd`.
+
+### 9.3 Reglas Críticas para Evitar Futuros Errores
+> [!IMPORTANT]
+> **REGLA 6 (Círculo Euclidiano vs Mapeo UV)**:
+> En motores gráficos 2D, mapear directamente coordenadas UV $(0..1)$ a degradados radiales genera elipses si el bounding box no es cuadrado. Para obtener un círculo verdadero, se debe calcular la distancia euclidiana real en píxeles de pantalla compensando las dimensiones del elemento.
+
+> [!IMPORTANT]
+> **REGLA 7 (Identidad Visual Compacta en Barras de Herramientas)**:
+> Nunca usar etiquetas de texto extensas en pestañas o cabeceras de paneles laterales con ancho acotado (192 px). Utilizar iconos vectoriales SVG limpios con tooltips descriptivos.
+
+---
 *Documentado por: Agente de Desarrollo — Septiembre 2026*

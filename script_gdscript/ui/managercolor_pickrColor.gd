@@ -13,6 +13,10 @@ class_name GestorColor
 @export var tab_linear: Button
 @export var tab_radial: Button
 @export var tab_conic: Button
+@export var tab_diamond: Button
+@export var tab_box: Button
+@export var tab_spiral: Button
+@export var tab_reflected: Button
 @export var mode_dropdown: Button
 @export var btn_mode_circle: Button
 @export var btn_mode_triangle: Button
@@ -53,6 +57,10 @@ func _conectar_controles_ui() -> void:
 	if tab_linear: tab_linear.pressed.connect(_on_tab_pressed.bind("linear"))
 	if tab_radial: tab_radial.pressed.connect(_on_tab_pressed.bind("radial"))
 	if tab_conic: tab_conic.pressed.connect(_on_tab_pressed.bind("conic"))
+	if tab_diamond: tab_diamond.pressed.connect(_on_tab_pressed.bind("diamond"))
+	if tab_box: tab_box.pressed.connect(_on_tab_pressed.bind("box"))
+	if tab_spiral: tab_spiral.pressed.connect(_on_tab_pressed.bind("spiral"))
+	if tab_reflected: tab_reflected.pressed.connect(_on_tab_pressed.bind("reflected"))
 
 	if mode_dropdown:
 		if mode_dropdown is OptionButton:
@@ -123,8 +131,16 @@ func _on_tab_pressed(tab_name: String) -> void:
 			var g_type: int = 0
 			if current_tab == "radial":
 				g_type = 1
-			elif current_tab in ["conic", "spiral", "angular", "sweep"]:
+			elif current_tab in ["conic", "angular", "sweep"]:
 				g_type = 2
+			elif current_tab == "diamond":
+				g_type = 3
+			elif current_tab in ["box", "square"]:
+				g_type = 4
+			elif current_tab == "spiral":
+				g_type = 5
+			elif current_tab in ["reflected", "reflexionado"]:
+				g_type = 6
 			gradient_editor.gradient_type = g_type
 			# Si venimos de sólido y tenemos un color base, inicializamos el degradado desde ese color
 			if prev_tab == "solid" and is_instance_valid(nodo_color_rect):
@@ -210,6 +226,9 @@ func _apply_btn_style(btn: Button, is_active: bool) -> void:
 		btn.add_theme_stylebox_override("normal", sb)
 		btn.add_theme_stylebox_override("hover", sb)
 		btn.add_theme_stylebox_override("pressed", style_tab_active if style_tab_active else sb)
+	btn.add_theme_color_override("icon_normal_color", Color(0.12, 0.12, 0.16, 1.0) if is_active else Color(0.50, 0.52, 0.58, 1.0))
+	btn.add_theme_color_override("icon_hover_color", Color(0.04, 0.52, 1.0, 1.0))
+	btn.add_theme_color_override("icon_pressed_color", Color(0.04, 0.52, 1.0, 1.0))
 	btn.add_theme_color_override("font_color", Color(0.12, 0.12, 0.16, 1.0) if is_active else Color(0.40, 0.42, 0.46, 1.0))
 	btn.add_theme_font_size_override("font_size", 11)
 
@@ -218,7 +237,15 @@ func _update_tab_styles() -> void:
 	_apply_btn_style(tab_linear, current_tab == "linear")
 	_apply_btn_style(tab_radial, current_tab == "radial")
 	if is_instance_valid(tab_conic):
-		_apply_btn_style(tab_conic, current_tab in ["conic", "spiral", "angular", "sweep"])
+		_apply_btn_style(tab_conic, current_tab in ["conic", "angular", "sweep"])
+	if is_instance_valid(tab_diamond):
+		_apply_btn_style(tab_diamond, current_tab == "diamond")
+	if is_instance_valid(tab_box):
+		_apply_btn_style(tab_box, current_tab in ["box", "square"])
+	if is_instance_valid(tab_spiral):
+		_apply_btn_style(tab_spiral, current_tab == "spiral")
+	if is_instance_valid(tab_reflected):
+		_apply_btn_style(tab_reflected, current_tab in ["reflected", "reflexionado"])
 
 func _update_mode_styles() -> void:
 	if not is_instance_valid(picker_panel) or not picker_panel.has_method("get_picker_mode"):
@@ -263,6 +290,8 @@ func _on_colorcore_paint_changed(paint: Dictionary) -> void:
 		norm_tab = "conic"
 	elif ptype in ["square"]:
 		norm_tab = "box"
+	elif ptype in ["mirror", "reflexionado"]:
+		norm_tab = "reflected"
 	if norm_tab != current_tab:
 		current_tab = norm_tab
 		_update_tab_styles()
@@ -290,6 +319,8 @@ func _on_colorcore_paint_changed(paint: Dictionary) -> void:
 				g_type = 4
 			elif current_tab == "spiral":
 				g_type = 5
+			elif current_tab in ["reflected", "reflexionado"]:
+				g_type = 6
 			gradient_editor.gradient_type = g_type
 			var ang: float = float(paint.get("angle", 0.0))
 			var p0: Vector2 = paint.get("p0", Vector2(-1, -1))

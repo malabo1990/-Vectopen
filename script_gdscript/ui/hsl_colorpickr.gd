@@ -39,8 +39,9 @@ var _tri_v2: Vector2
 var _figma_sv_rect: Rect2
 var _figma_hue_rect: Rect2
 var _figma_alpha_rect: Rect2
+var _alpha_rect: Rect2
 
-enum DragTarget { NONE, RING, SQUARE, TRIANGLE, FIGMA_SV, FIGMA_HUE, FIGMA_ALPHA }
+enum DragTarget { NONE, RING, SQUARE, TRIANGLE, FIGMA_SV, FIGMA_HUE, ALPHA }
 var _drag: int = DragTarget.NONE
 var _sync_guard := false
 
@@ -53,7 +54,8 @@ func _ready() -> void:
 	if line_edit:
 		line_edit.text_submitted.connect(_on_hex_submitted)
 
-	resized.connect(_recalc_geometry)
+	if not resized.is_connected(_recalc_geometry):
+		resized.connect(_recalc_geometry)
 	_recalc_geometry()
 
 	var cc := get_node_or_null("/root/ColorCore")
@@ -64,33 +66,41 @@ func _ready() -> void:
 
 # ── geometría ────────────────────────────────────────────────────────────────
 func _recalc_geometry() -> void:
-	center = size * 0.5
-	_outer_r = minf(size.x, size.y) * 0.5 - 2.0
-	_ring_w = clampf(_outer_r * 0.16, 10.0, 22.0)
-	var inner := _outer_r - _ring_w - 6.0
-
-	# 1. Cuadro inscrito en el círculo (Modo Círculo)
-	var s := inner * sqrt(2.0)
-	_sq = Rect2(center - Vector2(s, s) * 0.5, Vector2(s, s))
-
-	# 2. Triángulo equilátero interior (Modo Triángulo)
-	var r_tri := inner - 2.0
-	var a0 := current_h * TAU - PI / 2.0
-	_tri_v0 = center + Vector2(cos(a0), sin(a0)) * r_tri
-	_tri_v1 = center + Vector2(cos(a0 + TAU / 3.0), sin(a0 + TAU / 3.0)) * r_tri
-	_tri_v2 = center + Vector2(cos(a0 + 2.0 * TAU / 3.0), sin(a0 + 2.0 * TAU / 3.0)) * r_tri
-
-	# 3. Cuadrado y barras estilo Figma (Modo Cuadrado) - Completa Ancho
 	var bar_h := 12.0
 	var spacing := 8.0
-	var pad_x := 1.0
+	var pad_x := 4.0
 	var pad_y := 2.0
-	var full_w := size.x - pad_x * 2.0
-	var sv_h := maxf(100.0, size.y - (bar_h * 2.0 + spacing * 2.0 + pad_y * 2.0 + 4.0))
-	_figma_sv_rect = Rect2(Vector2(pad_x, pad_y), Vector2(full_w, sv_h))
-	var bar_y := _figma_sv_rect.end.y + spacing
-	_figma_hue_rect = Rect2(Vector2(pad_x, bar_y), Vector2(full_w, bar_h))
-	_figma_alpha_rect = Rect2(Vector2(pad_x, bar_y + bar_h + spacing), Vector2(full_w, bar_h))
+	var full_w := maxf(size.x - pad_x * 2.0, 20.0)
+
+	if current_mode == PickerMode.SQUARE:
+		var sv_h := maxf(100.0, size.y - (bar_h * 2.0 + spacing * 2.0 + pad_y * 2.0 + 4.0))
+		_figma_sv_rect = Rect2(Vector2(pad_x, pad_y), Vector2(full_w, sv_h))
+		var bar_y := _figma_sv_rect.end.y + spacing
+		_figma_hue_rect = Rect2(Vector2(pad_x, bar_y), Vector2(full_w, bar_h))
+		_alpha_rect = Rect2(Vector2(pad_x, bar_y + bar_h + spacing), Vector2(full_w, bar_h))
+		_figma_alpha_rect = _alpha_rect
+	else:
+		# CIRCLE y TRIANGLE: barra de opacidad horizontal con ajedrezado abajo
+		var alpha_y := size.y - bar_h - 4.0
+		_alpha_rect = Rect2(Vector2(pad_x, alpha_y), Vector2(full_w, bar_h))
+		_figma_alpha_rect = _alpha_rect
+
+		var top_avail_h := maxf(alpha_y - spacing, 20.0)
+		center = Vector2(size.x * 0.5, top_avail_h * 0.5 + 2.0)
+		_outer_r = maxf(minf(size.x * 0.5 - 2.0, top_avail_h * 0.5 - 2.0), 10.0)
+		_ring_w = clampf(_outer_r * 0.16, 10.0, 20.0)
+		var inner := _outer_r - _ring_w - 4.0
+
+		# 1. Cuadro inscrito en el círculo (Modo Círculo)
+		var s := inner * sqrt(2.0)
+		_sq = Rect2(center - Vector2(s, s) * 0.5, Vector2(s, s))
+
+		# 2. Triángulo equilátero interior (Modo Triángulo)
+		var r_tri := inner - 2.0
+		var a0 := current_h * TAU - PI / 2.0
+		_tri_v0 = center + Vector2(cos(a0), sin(a0)) * r_tri
+		_tri_v1 = center + Vector2(cos(a0 + TAU / 3.0), sin(a0 + TAU / 3.0)) * r_tri
+		_tri_v2 = center + Vector2(cos(a0 + 2.0 * TAU / 3.0), sin(a0 + 2.0 * TAU / 3.0)) * r_tri
 
 	queue_redraw()
 
@@ -132,6 +142,9 @@ func _draw_mode_circle() -> void:
 	draw_circle(sp, 5.0, Color.WHITE)
 	draw_circle(sp, 3.5, _final_color())
 
+	# Barra de opacidad con ajedrezado
+	_draw_alpha_bar(_alpha_rect)
+
 func _draw_mode_triangle() -> void:
 	# 1. Fondo blanco puro absoluto para todo el disco y el interior
 	var inner_r := _outer_r - _ring_w
@@ -166,6 +179,9 @@ func _draw_mode_triangle() -> void:
 	draw_circle(tp, 5.0, Color.WHITE)
 	draw_circle(tp, 3.5, _final_color())
 
+	# 5. Barra de opacidad con ajedrezado
+	_draw_alpha_bar(_alpha_rect)
+
 func _draw_mode_square_figma() -> void:
 	# 1. Cuadro principal Saturación x Valor
 	var quad := PackedVector2Array([
@@ -198,12 +214,6 @@ func _draw_mode_square_figma() -> void:
 
 	# 3. Barra horizontal de Opacidad (Alpha)
 	_draw_alpha_bar(_figma_alpha_rect)
-	# Marcador de Alpha
-	var ax := _figma_alpha_rect.position.x + current_a * _figma_alpha_rect.size.x
-	var ay := _figma_alpha_rect.get_center().y
-	draw_circle(Vector2(ax, ay), 7.0, Color(0, 0, 0, 0.35))
-	draw_circle(Vector2(ax, ay), 6.0, Color.WHITE)
-	draw_circle(Vector2(ax, ay), 4.5, _final_color())
 
 func _draw_hue_ring() -> void:
 	var seg := 72
@@ -268,6 +278,13 @@ func _draw_alpha_bar(rect: Rect2) -> void:
 	draw_polygon(poly, PackedColorArray([c_trans, c_solid, c_solid, c_trans]))
 	draw_rect(rect, Color(0, 0, 0, 0.15), false, 1.0)
 
+	# Marcador de Alpha (thumb indicador)
+	var ax := rect.position.x + current_a * rect.size.x
+	var ay := rect.get_center().y
+	draw_circle(Vector2(ax, ay), 7.0, Color(0, 0, 0, 0.35))
+	draw_circle(Vector2(ax, ay), 6.0, Color.WHITE)
+	draw_circle(Vector2(ax, ay), 4.5, _final_color())
+
 var _grad_cache := {}
 func _gt(a: Color, b: Color, vertical: bool) -> GradientTexture2D:
 	var key := "%s|%s|%d" % [a, b, 1 if vertical else 0]
@@ -293,31 +310,39 @@ func _gui_input(event: InputEvent) -> void:
 			var lp: Vector2 = mb.position
 			match current_mode:
 				PickerMode.CIRCLE:
-					var d: float = lp.distance_to(center)
-					if d <= _outer_r and d >= _outer_r - _ring_w:
-						_drag = DragTarget.RING
-						_pick_ring(lp)
-					elif _sq.has_point(lp):
-						_drag = DragTarget.SQUARE
-						_pick_square(lp)
+					if _alpha_rect.has_point(lp):
+						_drag = DragTarget.ALPHA
+						_pick_alpha(lp)
+					else:
+						var d: float = lp.distance_to(center)
+						if d <= _outer_r and d >= _outer_r - _ring_w:
+							_drag = DragTarget.RING
+							_pick_ring(lp)
+						elif _sq.has_point(lp):
+							_drag = DragTarget.SQUARE
+							_pick_square(lp)
 				PickerMode.TRIANGLE:
-					var d: float = lp.distance_to(center)
-					if d <= _outer_r and d >= _outer_r - _ring_w:
-						_drag = DragTarget.RING
-						_pick_ring(lp)
-					elif _is_point_in_triangle(lp, _tri_v0, _tri_v1, _tri_v2):
-						_drag = DragTarget.TRIANGLE
-						_pick_triangle(lp)
+					if _alpha_rect.has_point(lp):
+						_drag = DragTarget.ALPHA
+						_pick_alpha(lp)
+					else:
+						var d: float = lp.distance_to(center)
+						if d <= _outer_r and d >= _outer_r - _ring_w:
+							_drag = DragTarget.RING
+							_pick_ring(lp)
+						elif _is_point_in_triangle(lp, _tri_v0, _tri_v1, _tri_v2):
+							_drag = DragTarget.TRIANGLE
+							_pick_triangle(lp)
 				PickerMode.SQUARE:
-					if _figma_sv_rect.has_point(lp):
+					if _figma_alpha_rect.has_point(lp):
+						_drag = DragTarget.ALPHA
+						_pick_alpha(lp)
+					elif _figma_sv_rect.has_point(lp):
 						_drag = DragTarget.FIGMA_SV
 						_pick_figma_sv(lp)
 					elif _figma_hue_rect.has_point(lp):
 						_drag = DragTarget.FIGMA_HUE
 						_pick_figma_hue(lp)
-					elif _figma_alpha_rect.has_point(lp):
-						_drag = DragTarget.FIGMA_ALPHA
-						_pick_figma_alpha(lp)
 		else:
 			_drag = DragTarget.NONE
 	elif event is InputEventMouseMotion and _drag != DragTarget.NONE:
@@ -333,8 +358,8 @@ func _gui_input(event: InputEvent) -> void:
 				_pick_figma_sv(mm.position)
 			DragTarget.FIGMA_HUE:
 				_pick_figma_hue(mm.position)
-			DragTarget.FIGMA_ALPHA:
-				_pick_figma_alpha(mm.position)
+			DragTarget.ALPHA:
+				_pick_alpha(mm.position)
 
 func _pick_ring(p: Vector2) -> void:
 	current_h = fposmod((p - center).angle() + PI / 2.0, TAU) / TAU
@@ -354,9 +379,14 @@ func _pick_figma_hue(p: Vector2) -> void:
 	current_h = clampf((p.x - _figma_hue_rect.position.x) / _figma_hue_rect.size.x, 0.0, 1.0)
 	_emit()
 
+func _pick_alpha(p: Vector2) -> void:
+	var rect := _alpha_rect if current_mode != PickerMode.SQUARE else _figma_alpha_rect
+	if rect.size.x > 0.0:
+		current_a = clampf((p.x - rect.position.x) / rect.size.x, 0.0, 1.0)
+		_emit()
+
 func _pick_figma_alpha(p: Vector2) -> void:
-	current_a = clampf((p.x - _figma_alpha_rect.position.x) / _figma_alpha_rect.size.x, 0.0, 1.0)
-	_emit()
+	_pick_alpha(p)
 
 func _pick_triangle(p: Vector2) -> void:
 	var b := _barycentric(p, _tri_v0, _tri_v1, _tri_v2)

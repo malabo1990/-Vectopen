@@ -879,6 +879,18 @@ func test_gradient_extended_types_data_and_rendering() -> void:
 	assert_that(tex_spiral).is_not_null()
 	assert_int(tex_spiral.get_width()).is_equal(512)
 
+	# Probar Reflected (6)
+	shape.fill_gradient_type = 6
+	var tex_reflected = shape._ensure_grad_tex()
+	assert_that(tex_reflected).is_not_null()
+	assert_int(tex_reflected.get_width()).is_equal(512)
+
+	# Probar Circle / Radial Euclidiano (1)
+	shape.fill_gradient_type = 1
+	var tex_circle = shape._ensure_grad_tex()
+	assert_that(tex_circle).is_not_null()
+	assert_int(tex_circle.get_width()).is_equal(512)
+
 func test_gradient_alt_drag_duplicates_stop() -> void:
 	var root: Node2D = auto_free(Node2D.new())
 	add_child(root)

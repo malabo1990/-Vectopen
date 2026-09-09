@@ -267,4 +267,41 @@ After correcting the two previous cases (§6), the rest of the project's own cod
 > In Godot 4, always check `is_inside_tree()` before calling `get_tree()` on any Node.
 
 ---
+
+## 9. Triangle Color Picker with Opacity/Checkerboard and the 8 Gradient Types (Euclidean Circle, Diamond, Box, Reflected)
+
+### 9.1 Issues Identified
+1. **Missing Transparency Slider and Alpha Visualization**:
+   The triangle color picker (`hsl_colorpickr.gd`) lacked a dedicated alpha slider. Transparent colors appeared flat without a checkerboard pattern (alternating light/dark gray squares) indicating alpha transparency.
+2. **Excessive Panel Width Stretching**:
+   Text buttons in `HeaderContainer` ("Sólido", "Lineal", "Radial", "Espiral", etc.) caused the color panel to stretch far wider than its designed 192 px width.
+3. **Elliptical Distortion of Radial Gradients**:
+   On oblong/rectangular shapes (e.g. 420×200 px), radial gradients stretched along the bounding box aspect ratio, rendering as an ellipse instead of a true Euclidean circle.
+4. **Missing / Undifferentiated Gradient Types**:
+   Missing distinct implementations for Diamond/Rombo (Manhattan distance), Box/Cubino (Chebyshev distance), and Reflected/Mirror (bilateral reflection with perpendicular mirror axis).
+
+### 9.2 Applied Solution
+- **Alpha Slider with Checkerboard (`hsl_colorpickr.gd`)**:
+  - Added `_alpha_rect` geometry and `_draw_alpha_bar()` with light (`#D1D1D1`) and dark (`#A6A6A6`) gray checkerboard pattern, alpha gradient preview, and interactive thumb handle.
+  - Added reusable `CheckerboardRect` (`checkerboard_rect.gd`) for live color swatch transparency preview (`ColorRect_fill`).
+- **8 Compact SVG Vector Icon Buttons**:
+  - Created 8 vector icons (21×22 px) in `res://icon/UI/`: `paint_solid.svg`, `paint_linear.svg`, `paint_radial.svg`, `paint_conic.svg`, `paint_diamond.svg`, `paint_box.svg`, `paint_spiral.svg`, and `paint_reflected.svg`.
+  - Header fits comfortably within the 192 px panel width without stretching.
+- **True Euclidean Circle in Radial Gradients (`VectorShape.gd`)**:
+  - Distance is calculated in canvas pixels compensating for `bb_w` and `bb_h`. Points equidistant in screen space receive identical colors, rendering a perfect Euclidean circle regardless of shape aspect ratio.
+- **Diamond, Box, and Reflected Gradients**:
+  - **Diamond / Rombo (Type 3)**: Rotated Manhattan distance $d = |x'| + |y'|$.
+  - **Box / Cubino (Type 4)**: Rotated Chebyshev distance $d = \max(|x'|, |y'|)$.
+  - **Reflected / Mirror (Type 6)**: Bilateral reflection across $P_0$ with perpendicular mirror plane gizmo in `bounding_box.gd`.
+
+### 9.3 Critical Rules to Prevent Future Errors
+> [!IMPORTANT]
+> **RULE 6 (Euclidean Circle vs UV Mapping)**:
+> In 2D graphic pipelines, direct UV $(0..1)$ mapping creates ellipses on non-square bounding boxes. True circles require canvas pixel aspect compensation.
+
+> [!IMPORTANT]
+> **RULE 7 (Compact Toolbars)**:
+> Never use long text labels on fixed-width side panels (192 px). Always use vector SVG icons with informative tooltips.
+
+---
 *Documented by: Development Agent — September 2026*

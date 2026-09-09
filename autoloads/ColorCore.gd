@@ -178,6 +178,12 @@ func make_spiral(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0:
 	if p1 != Vector2(-1, -1): d["p1"] = p1
 	return d
 
+func make_reflected(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "reflected", "center": center, "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
 var _clipboard_gradient_style: Dictionary = {}
 
 func copy_gradient_style(shape: Node2D) -> void:

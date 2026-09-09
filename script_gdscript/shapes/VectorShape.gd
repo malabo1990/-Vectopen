@@ -88,7 +88,7 @@ func get_gradient_p0_norm() -> Vector2:
 	if fill_gradient_p0 != Vector2(-1, -1):
 		return fill_gradient_p0
 	var dir := Vector2(cos(fill_gradient_angle), sin(fill_gradient_angle))
-	if fill_gradient_type in [1, 2, 3, 4, 5]:
+	if fill_gradient_type in [1, 2, 3, 4, 5, 6]:
 		return Vector2(0.5, 0.5)
 	return Vector2(0.5, 0.5) - dir * 0.45
 
@@ -107,7 +107,7 @@ func set_gradient_endpoint_0(norm_p0: Vector2) -> void:
 		_internal_point_update = true
 		fill_gradient_angle = diff.angle()
 		_internal_point_update = false
-	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 1, 2]:
+	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 2]:
 		_grad_tex.fill_from = norm_p0
 		_grad_tex.fill_to = cur_p1
 	else:
@@ -123,7 +123,7 @@ func set_gradient_endpoint_1(norm_p1: Vector2) -> void:
 		_internal_point_update = true
 		fill_gradient_angle = diff.angle()
 		_internal_point_update = false
-	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 1, 2]:
+	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 2]:
 		_grad_tex.fill_from = cur_p0
 		_grad_tex.fill_to = norm_p1
 	else:
@@ -138,7 +138,7 @@ func set_gradient_points(p0_norm: Vector2, p1_norm: Vector2) -> void:
 		_internal_point_update = true
 		fill_gradient_angle = diff.angle()
 		_internal_point_update = false
-	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 1, 2]:
+	if _grad_tex is GradientTexture2D and fill_gradient_type in [0, 2]:
 		_grad_tex.fill_from = p0_norm
 		_grad_tex.fill_to = p1_norm
 	else:
@@ -427,19 +427,13 @@ func _draw_ring_double(ring: PackedVector2Array, rend_col: Color = Color(-1, -1,
 
 func _ensure_grad_tex() -> Texture2D:
 	if _grad_tex == null and fill_gradient:
-		if fill_gradient_type in [3, 4, 5]:
+		if fill_gradient_type in [1, 3, 4, 5, 6]:
 			_grad_tex = _generate_procedural_texture(fill_gradient_type)
 		else:
 			var gt := GradientTexture2D.new()
 			gt.gradient = fill_gradient
 			gt.repeat = GradientTexture2D.REPEAT_NONE
-			if fill_gradient_type == 1:
-				gt.width = 1024
-				gt.height = 1024
-				gt.fill = GradientTexture2D.FILL_RADIAL
-				gt.fill_from = get_gradient_p0_norm()
-				gt.fill_to = get_gradient_p1_norm()
-			elif fill_gradient_type == 2:
+			if fill_gradient_type == 2:
 				gt.width = 1024
 				gt.height = 1024
 				gt.fill = GradientTexture2D.FILL_CONIC
@@ -452,11 +446,11 @@ func _ensure_grad_tex() -> Texture2D:
 				gt.fill_from = get_gradient_p0_norm()
 				gt.fill_to = get_gradient_p1_norm()
 			_grad_tex = gt
-	elif _grad_tex and fill_gradient_type in [0, 1, 2]:
+	elif _grad_tex and fill_gradient_type in [0, 2]:
 		if _grad_tex is GradientTexture2D:
 			_grad_tex.fill_from = get_gradient_p0_norm()
 			_grad_tex.fill_to = get_gradient_p1_norm()
-	elif fill_gradient_type in [3, 4, 5]:
+	elif fill_gradient_type in [1, 3, 4, 5, 6]:
 		_grad_tex = _generate_procedural_texture(fill_gradient_type)
 	return _grad_tex
 
@@ -467,29 +461,57 @@ func _generate_procedural_texture(type: int) -> ImageTexture:
 	var img := Image.create(res, res, false, Image.FORMAT_RGBA8)
 	var p0 := get_gradient_p0_norm()
 	var p1 := get_gradient_p1_norm()
-	var radius := maxf(p0.distance_to(p1), 0.001)
-	var dir := (p1 - p0) / radius
-	var ang := dir.angle()
+
+	var bb_w := 1.0
+	var bb_h := 1.0
+	var verts = get("vertices")
+	if verts is PackedVector2Array and verts.size() > 0:
+		var bb := _points_bounds(verts)
+		bb_w = maxf(bb.size.x, 1.0)
+		bb_h = maxf(bb.size.y, 1.0)
+	else:
+		var sz = get("size")
+		if sz is Vector2:
+			bb_w = maxf(sz.x, 1.0)
+			bb_h = maxf(sz.y, 1.0)
+
+	var p0_px := Vector2(p0.x * bb_w, p0.y * bb_h)
+	var p1_px := Vector2(p1.x * bb_w, p1.y * bb_h)
+	var radius_px := maxf(p0_px.distance_to(p1_px), 0.001)
+	var dir_px := (p1_px - p0_px) / radius_px
+	var ang := dir_px.angle()
 	var cos_a := cos(-ang)
 	var sin_a := sin(-ang)
 
 	for y in range(res):
+		var py := (float(y) / float(res - 1)) * bb_h
+		var dy_px := py - p0_px.y
 		for x in range(res):
-			var uv := Vector2(float(x) / float(res - 1), float(y) / float(res - 1))
-			var diff := uv - p0
-			var rot_diff := Vector2(diff.x * cos_a - diff.y * sin_a, diff.x * sin_a + diff.y * cos_a)
+			var px := (float(x) / float(res - 1)) * bb_w
+			var dx_px := px - p0_px.x
+			var diff_px := Vector2(dx_px, dy_px)
+
 			var t: float = 0.0
-			if type == 3: # Diamante / Rombo
+			if type == 1: # Círculo euclidiano perfecto (NUNCA elipse)
+				var dist_px := diff_px.length()
+				t = clampf(dist_px / radius_px, 0.0, 1.0)
+			elif type == 3: # Diamante / Rombo
+				var rot_diff := Vector2(diff_px.x * cos_a - diff_px.y * sin_a, diff_px.x * sin_a + diff_px.y * cos_a)
 				var d := absf(rot_diff.x) + absf(rot_diff.y)
-				t = clampf(d / radius, 0.0, 1.0)
-			elif type == 4: # Cuadrado / Box
+				t = clampf(d / radius_px, 0.0, 1.0)
+			elif type == 4: # Cuadrado / Box (Cubino)
+				var rot_diff := Vector2(diff_px.x * cos_a - diff_px.y * sin_a, diff_px.x * sin_a + diff_px.y * cos_a)
 				var d := maxf(absf(rot_diff.x), absf(rot_diff.y))
-				t = clampf(d / radius, 0.0, 1.0)
-			elif type == 5: # Espiral
-				var r := diff.length()
-				var angle := diff.angle() - ang
+				t = clampf(d / radius_px, 0.0, 1.0)
+			elif type == 5: # Espiral de Arquímedes
+				var r := diff_px.length()
+				var angle := diff_px.angle() - ang
 				var norm_angle := fposmod(angle / TAU, 1.0)
-				t = fposmod(norm_angle + (r / radius) * 2.0, 1.0)
+				t = fposmod(norm_angle + (r / radius_px) * 2.0, 1.0)
+			elif type == 6: # Reflexionado (Espejo simétrico a ambos lados de P0)
+				var rot_diff := Vector2(diff_px.x * cos_a - diff_px.y * sin_a, diff_px.x * sin_a + diff_px.y * cos_a)
+				t = clampf(absf(rot_diff.x) / radius_px, 0.0, 1.0)
+
 			img.set_pixel(x, y, fill_gradient.sample(t))
 	return ImageTexture.create_from_image(img)
 

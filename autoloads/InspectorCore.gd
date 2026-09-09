@@ -261,6 +261,8 @@ func _read_fill_paint(shape) -> Variant:
 			g_kind = "box"
 		elif int(shape.fill_gradient_type) == 5:
 			g_kind = "spiral"
+		elif int(shape.fill_gradient_type) == 6:
+			g_kind = "reflected"
 		return {
 			"type": g_kind,
 			"angle": float(shape.fill_gradient_angle),
@@ -659,6 +661,8 @@ func _write_fill_paint(shape, value) -> void:
 			shape.fill_gradient_type = 4
 		elif kind == "spiral":
 			shape.fill_gradient_type = 5
+		elif kind in ["reflected", "reflexionado", "mirror"]:
+			shape.fill_gradient_type = 6
 		else:
 			shape.fill_gradient_type = 0
 		if value.has("p0") and value["p0"] is Vector2 and value["p0"] != Vector2(-1, -1):

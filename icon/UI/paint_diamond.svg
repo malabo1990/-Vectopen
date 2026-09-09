@@ -1,0 +1,9 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="diaGrad" cx="10" cy="10" r="6" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E2E2E6"/>
+      <stop offset="100%" stop-color="#1E1E20"/>
+    </radialGradient>
+  </defs>
+  <polygon points="10,3 17,10 10,17 3,10" fill="url(#diaGrad)" stroke="#8C8D94" stroke-width="1"/>
+</svg>

@@ -11,6 +11,15 @@
 [ext_resource type="Script" uid="uid://cg3wt1uxiwwr1" path="res://script_gdscript/ui/PaletteSaveGrid.gd" id="9_xsbdh"]
 [ext_resource type="PackedScene" uid="uid://bfr7c44tm1acr" path="res://scenes/ui/gradient.tscn" id="10_gradient"]
 [ext_resource type="Texture2D" path="res://icon/UI/rgb.svg" id="13_rgb"]
+[ext_resource type="Texture2D" uid="uid://blskkyhfirwb4" path="res://icon/UI/paint_solid.svg" id="14_solid"]
+[ext_resource type="Texture2D" uid="uid://d0p3sk7p64f2g" path="res://icon/UI/paint_linear.svg" id="15_linear"]
+[ext_resource type="Texture2D" uid="uid://vg7vpwnjw858" path="res://icon/UI/paint_radial.svg" id="16_radial"]
+[ext_resource type="Texture2D" uid="uid://dkjpxakp2hrve" path="res://icon/UI/paint_conic.svg" id="17_conic"]
+[ext_resource type="Texture2D" uid="uid://chlhph3fc0fgq" path="res://icon/UI/paint_diamond.svg" id="18_diamond"]
+[ext_resource type="Texture2D" uid="uid://bgiqx71y2x7eq" path="res://icon/UI/paint_box.svg" id="19_box"]
+[ext_resource type="Texture2D" uid="uid://h8euya37aq6f" path="res://icon/UI/paint_spiral.svg" id="20_spiral"]
+[ext_resource type="Texture2D" uid="uid://c2woismmr2xjh" path="res://icon/UI/paint_reflected.svg" id="21_reflected"]
+[ext_resource type="Script" path="res://script_gdscript/ui/checkerboard_rect.gd" id="22_checkerboard"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_btn"]
 content_margin_left = 6.0
@@ -243,7 +252,7 @@ corner_radius_bottom_left = 120
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_culnu"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="PanelContainer" type="PanelContainer" unique_id=1111087050 node_paths=PackedStringArray("nodo_color_rect", "picker_panel", "gradient_editor", "tab_solid", "tab_linear", "tab_radial", "tab_conic", "mode_dropdown")]
+[node name="PanelContainer" type="PanelContainer" unique_id=1111087050 node_paths=PackedStringArray("nodo_color_rect", "picker_panel", "gradient_editor", "tab_solid", "tab_linear", "tab_radial", "tab_conic", "tab_diamond", "tab_box", "tab_spiral", "tab_reflected", "mode_dropdown")]
 custom_minimum_size = Vector2(192, 0)
 offset_left = 0.0
 offset_top = 0.0
@@ -260,7 +269,11 @@ tab_solid = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabSolid")
 tab_linear = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabLinear")
 tab_radial = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabRadial")
 tab_conic = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabConic")
-mode_dropdown = NodePath("MarginContainer/BoxContainer/HeaderContainer/ModeDropdown")
+tab_diamond = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabDiamond")
+tab_box = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabBox")
+tab_spiral = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabSpiral")
+tab_reflected = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabReflected")
+mode_dropdown = NodePath("MarginContainer/BoxContainer/BoxContainer/ModeDropdown")
 style_tab_active = SubResource("StyleBoxFlat_tab_btn_active")
 style_tab_inactive = SubResource("StyleBoxFlat_tab_btn")
 style_circle_panel = SubResource("StyleBoxFlat_circle_panel")
@@ -455,67 +468,108 @@ theme_override_constants/separation = 2
 alignment = 0
 
 [node name="TabSolid" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123403]
-custom_minimum_size = Vector2(0, 22)
+custom_minimum_size = Vector2(21, 22)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
-theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
-text = "Sólido"
-
-[node name="TabLinear" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123404]
-custom_minimum_size = Vector2(0, 22)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
-text = "Lineal"
-
-[node name="TabRadial" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123405]
-custom_minimum_size = Vector2(0, 22)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
-text = "Radial"
-
-[node name="TabConic" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123407]
-custom_minimum_size = Vector2(0, 22)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
-text = "Espiral"
-
-[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123406]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="ModeDropdown" type="MenuButton" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123408]
-custom_minimum_size = Vector2(24, 22)
-layout_mode = 2
-focus_mode = 0
-tooltip_text = "Modo de Color"
+tooltip_text = "Sólido"
 theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
 theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
-icon = ExtResource("13_rgb")
+icon = ExtResource("14_solid")
 icon_alignment = 1
 expand_icon = true
-item_count = 3
-popup/item_0/text = "◯ Círculo"
-popup/item_0/id = 0
-popup/item_1/text = "△ Triángulo"
-popup/item_1/id = 1
-popup/item_2/text = "▢ Cuadrado"
-popup/item_2/id = 2
+
+[node name="TabLinear" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123404]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Lineal"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("15_linear")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabRadial" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123405]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Círculo (Radial)"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("16_radial")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabConic" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123407]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Ángulo / Barrido"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("17_conic")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabDiamond" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123409]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Rombo (Diamante)"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("18_diamond")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabBox" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123410]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Cubino (Caja)"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("19_box")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabSpiral" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123412]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Espiral"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("20_spiral")
+icon_alignment = 1
+expand_icon = true
+
+[node name="TabReflected" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123413]
+custom_minimum_size = Vector2(21, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+tooltip_text = "Reflexionado"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("21_reflected")
+icon_alignment = 1
+expand_icon = true
 
 [node name="GradientEditor" parent="MarginContainer/BoxContainer" unique_id=987123411 instance=ExtResource("10_gradient")]
 visible = false
@@ -524,11 +578,22 @@ layout_mode = 2
 [node name="BoxContainer" type="HBoxContainer" parent="MarginContainer/BoxContainer" unique_id=161180296]
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="ColorRect_fill" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=289654244]
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
+
+[node name="Checkerboard" type="Control" parent="MarginContainer/BoxContainer/BoxContainer/ColorRect_fill" unique_id=289654246]
+show_behind_parent = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("22_checkerboard")
 
 [node name="BorderFrame" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer/ColorRect_fill" unique_id=289654245]
 layout_mode = 1
@@ -559,7 +624,7 @@ color_rect = NodePath("../ColorRect_fill")
 line_edit = NodePath(".")
 
 [node name="Button" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1645723762 node_paths=PackedStringArray("button_pega", "button_copia", "lineedit")]
-custom_minimum_size = Vector2(26, 24)
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 focus_mode = 0
 tooltip_text = "Copiar Hex"
@@ -573,6 +638,25 @@ script = ExtResource("4_krkro")
 button_pega = NodePath("../Button2")
 button_copia = NodePath(".")
 lineedit = NodePath("../LineEdit_dataColor")
+
+[node name="ModeDropdown" type="MenuButton" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=987123408]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Modo de Color"
+theme_override_styles/normal = SubResource("StyleBoxFlat_copy_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_copy_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_copy_btn_pressed")
+icon = ExtResource("13_rgb")
+icon_alignment = 1
+expand_icon = true
+item_count = 3
+popup/item_0/text = "◯ Círculo"
+popup/item_0/id = 0
+popup/item_1/text = "△ Triángulo"
+popup/item_1/id = 1
+popup/item_2/text = "▢ Cuadrado"
+popup/item_2/id = 2
 
 [node name="Button2" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1220966854]
 visible = false
