@@ -1,4 +1,4 @@
-﻿extends GdUnitTestSuite
+extends GdUnitTestSuite
 
 ## REGRESION — WorldTextLabel (Label base SIEMPRE visible + overlay vectorial):
 ## 1. Geometria en EL MUNDO constante a cualquier zoom (_apply_zoom).
@@ -129,3 +129,48 @@ func test_artboard_titulo_es_world_text_label() -> void:
 	assert_object(label).is_not_null()
 	assert_that(label is WorldTextLabel).is_true()
 	scene.queue_free()
+
+# 7. Alineaciones horizontal y vertical dentro de la caja de mundo (bounding box)
+func test_world_text_label_alineaciones_horizontal_y_vertical_bounding_box() -> void:
+	var l := _nuevo_label(24, "Hola")
+	add_child(l)
+	l.set_world_size(Vector2(400, 100))
+	await get_tree().process_frame
+
+	# A) Left / Top
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	l.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var out_topleft: Node2D = l._build_outline_at(24, true)
+	assert_object(out_topleft).is_not_null()
+	var g0_tl = out_topleft.get_child(0)
+	var x0_tl: float = float(g0_tl.get_meta("x0", -1.0))
+	var y0_tl: float = float(g0_tl.get_meta("baseline_y", -1.0))
+	assert_that(x0_tl).is_equal_approx(0.0, 0.01)
+
+	# B) Center / Middle
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var out_center: Node2D = l._build_outline_at(24, true)
+	assert_object(out_center).is_not_null()
+	var g0_c = out_center.get_child(0)
+	var x0_c: float = float(g0_c.get_meta("x0", -1.0))
+	var y0_c: float = float(g0_c.get_meta("baseline_y", -1.0))
+	assert_that(x0_c).is_greater(100.0) # en una caja de 400, "Hola" centrado empieza sobre 150-170
+	assert_that(y0_c).is_greater(y0_tl + 10.0) # desplazado hacia abajo para centrarse en 100px
+
+	# C) Right / Bottom
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	var out_botright: Node2D = l._build_outline_at(24, true)
+	assert_object(out_botright).is_not_null()
+	var g0_br = out_botright.get_child(0)
+	var x0_br: float = float(g0_br.get_meta("x0", -1.0))
+	var y0_br: float = float(g0_br.get_meta("baseline_y", -1.0))
+	assert_that(x0_br).is_greater(x0_c) # a la derecha del centro
+	assert_that(y0_br).is_greater(y0_c) # más abajo que el centro
+
+	out_topleft.free()
+	out_center.free()
+	out_botright.free()
+	l.queue_free()
+

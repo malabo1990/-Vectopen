@@ -3,11 +3,16 @@
 [ext_resource type="Script" path="res://script_gdscript/ui/panels/effects/fx/drop_shadow.gd" id="1_script"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.94921875, 0.94921875, 0.94921875, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+bg_color = Color(0.96, 0.96, 0.98, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.9, 0.9, 0.93, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [node name="DropShadow" type="PanelContainer"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -32,7 +37,7 @@ unique_name_in_owner = true
 layout_mode = 2
 button_pressed = true
 text = "Drop Shadow"
-theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
 
 [node name="Spacer" type="Control" parent="MarginContainer/VBoxContainer/Header"]
 layout_mode = 2
@@ -40,9 +45,13 @@ size_flags_horizontal = 3
 
 [node name="Remove" type="Button" parent="MarginContainer/VBoxContainer/Header"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 0, 1)
-text = "x"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.55, 1)
+theme_override_colors/font_hover_color = Color(0.9, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 11
+text = "✕"
+flat = true
 
 [node name="OffsetXRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2

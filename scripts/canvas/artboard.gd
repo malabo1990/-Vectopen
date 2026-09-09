@@ -7,7 +7,22 @@ class_name ArtboardEditor
 @export var artboard_size := Vector2(794, 1123):  # A4 a 96dpi
 	set(v):
 		artboard_size = v
+		_sync_full_rect_children()
 		queue_redraw()
+
+func _sync_full_rect_children() -> void:
+	for child in get_children():
+		if not is_instance_valid(child):
+			continue
+		if child.has_meta("anchor_preset") and child.get_meta("anchor_preset") == "full_rect":
+			child.global_position = global_position
+			if child is VectorShape and child.has_method("set_doc_position") and child.has_method("set_doc_extent"):
+				child.set_doc_position(DVec2.new(0, 0))
+				child.set_doc_extent(DVec2.from_v2(artboard_size))
+			elif "size" in child:
+				child.position = Vector2.ZERO
+				child.size = artboard_size
+
 
 var is_selected := false:
 	set(v):

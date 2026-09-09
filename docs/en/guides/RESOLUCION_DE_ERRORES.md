@@ -210,4 +210,61 @@ After correcting the two previous cases (§6), the rest of the project's own cod
 🟡 Decision pending: apply `is_connected()` guard to cases in §7.2 (active in scenes). The orphans in §7.3 do not require an immediate fix since they are not connected to any scene, but could be cleaned up or removed as part of the duplicate code consolidation already recommended in `SYSTEM_REVIEW.md` §9.
 
 ---
-*Documented by: Development Agent — July 2026*
+
+## 8. Selection Tool Architecture, Gradient Locking, and Solid Color Fixes (September 2026)
+
+### 8.1 Reported Issues
+1. **Drag Blocked in Selection Mode over Gradient Shapes**: Selecting a shape with gradient using `MoveTool` prevented dragging/moving the shape by its fill, mistakenly altering the gradient instead.
+2. **Solid Color Picker Blocked**: Picking a solid color in `managercolor_pickrColor.gd` failed to update the active shape and left the UI unresponsive.
+3. **Lack of Fluidity in Gradient Endpoints ($P_0, P_1$)**: Dragging gradient endpoints caused noticeable micro-stutters and GPU VRAM spikes due to recreating 1024×1024 textures on every subpixel delta.
+4. **Disconnect when Dragging Handles Outside BoundingBox and Returning**: Moving endpoints far outside the shape boundaries prevented dragging them back in due to inverted camera transforms.
+
+### 8.2 Root Causes Identified
+- **Inadvertent Gradient Mode Injection (`MoveTool.gd:298`)**:
+  When selecting an element with a gradient, `ColorCore` fired `paint_changed` with `type != "solid"`. The handler was forcefully enabling `is_gradient_mode = true`, hijacking mouse control.
+- **BoundingBox Delegating Authority to Shape Fill Type (`bounding_box.gd:731`)**:
+  `is_gradient_active()` checked whether the shape had a gradient fill, ignoring that `MoveTool` was in standard selection mode.
+- **Missing Snapshot and Dispatch in Inner Drag Panel (`bounding_box.gd:_on_drag_panel_gui_input`)**:
+  Pressing the mouse button on the gizmo did not populate `transform_initial_states` and did not invoke `_on_motion`/`_on_release` on `MoveTool`.
+- **Race Condition in Solid Color Manager (`managercolor_pickrColor.gd:108`)**:
+  `_on_picker_color_changed` assigned `nodo_color_rect.color = new_color` before calling `establecer_color()`, causing the equality check to fail and never dispatch to `ColorCore`.
+- **GPU Texture Destruction on Motion (`VectorShape.gd`)**:
+  Setting `_grad_tex = null` on every mouse motion recreated textures each frame.
+- **Unguarded `get_tree()` Calls (`MoveTool.gd`)**:
+  Calling `get_tree()` when `not is_inside_tree()` triggered C++ engine errors `Parameter "data.tree" is null`.
+
+### 8.3 Professional Standard Solution
+- **Strict Mode Separation**:
+  - **Selection Mode (`V`)**: `is_gradient_mode == false`. The gradient annotator is **100% locked and hidden**. Dragging the fill moves the shape and preserves gradient endpoints and colors.
+  - **Gradient Mode (`G`)**: Only pressing `G` (or picking the gradient tool) displays the interactive annotator line, endpoints, and color stops.
+  - **Immediate Exit (`V`, `G`, `Escape`)**: Instantly locks and hides the annotator, returning control to shape selection and translation.
+- **In-Place Mutation of Gradient Textures**:
+  Modifying `fill_from` and `fill_to` directly on the existing `GradientTexture2D` provides smooth 60+ FPS manipulation.
+- **Full Gesture Life Cycle with Undo**:
+  `_on_drag_panel_gui_input` takes snapshots on press, updates deltas on motion, and commits undo actions to `HistoryManager` on release.
+- **Scene Tree Guarding**:
+  All `get_tree()` calls guarded with `if is_inside_tree() else null`.
+
+### 8.4 Critical Rules to Prevent Future Errors
+> [!IMPORTANT]
+> **RULE 1 (No tool mode mutation in data listeners)**:
+> Never toggle tool mode (`is_gradient_mode`) inside global data callbacks (`ColorCore.paint_changed`, `SelectionManager.changed`). Mode transitions must only occur from explicit user input (shortcuts `G`, `V`, `Escape` or toolbar clicks).
+
+> [!IMPORTANT]
+> **RULE 2 (Sole authority belongs to the active tool)**:
+> Visual gizmos (`BoundingBox`) must never decide tool activation based on shape properties (`has_gradient_fill()`). Authority belongs strictly to `move_tool_reference.is_gradient_mode`.
+
+> [!IMPORTANT]
+> **RULE 3 (Full gesture cycle with Snapshots and Undo)**:
+> Any control that intercepts mouse events over shapes must implement the full cycle: snapshot on press, delta on motion, undo registration on release.
+
+> [!IMPORTANT]
+> **RULE 4 (In-place mutation for continuous drags)**:
+> Never destroy and rebuild GPU textures or materials during live drags. Mutate float properties in-place.
+
+> [!IMPORTANT]
+> **RULE 5 (Guard `is_inside_tree()`)**:
+> In Godot 4, always check `is_inside_tree()` before calling `get_tree()` on any Node.
+
+---
+*Documented by: Development Agent — September 2026*

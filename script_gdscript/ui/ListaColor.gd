@@ -23,9 +23,13 @@ func _conectar_muestras() -> void:
 
 func _on_muestra_gui_input(event: InputEvent, muestra: ColorRect) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var ic := get_node_or_null("/root/InspectorCore")
-		if ic:
-			ic.apply("stroke_color" if apply_to == "stroke" else "fill_color", muestra.color)
+		var cc := (get_tree().root.get_node_or_null("ColorCore") if is_inside_tree() else null) if get_tree() else get_node_or_null("/root/ColorCore")
+		if cc and cc.has_method("set_color"):
+			cc.set_color(muestra.color, apply_to)
+		else:
+			var ic := (get_tree().root.get_node_or_null("InspectorCore") if is_inside_tree() else null) if get_tree() else get_node_or_null("/root/InspectorCore")
+			if ic:
+				ic.apply("stroke_color" if apply_to == "stroke" else "fill_color", muestra.color)
 
 func actualizar_colores_hsl_extendido() -> void:
 	var hijos = get_children().filter(func(node): return node is ColorRect)

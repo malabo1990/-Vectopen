@@ -29,8 +29,13 @@ const PROPS := [
 	"fill_color", "stroke_color", "stroke_width", "opacity", "corner_radius", "visible",
 	"font_size", "line_spacing", "letter_spacing",
 	"font_family", "font_weight", "font_italic",
-	"fill_paint", "text_align", "text",
+	"fill_paint", "text_align", "text_valign", "text",
 	"corner_tl", "corner_tr", "corner_br", "corner_bl",
+	"stroke_cap_start", "stroke_cap_end", "stroke_style",
+	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
+	"stroke_dash_len", "stroke_dash_gap",
+	"letter_proportions",
+	"effects",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -150,6 +155,9 @@ func _read(shape, prop):
 		"text_align":
 			if _is_text(shape): return String(shape.get_meta("text_align", "left"))
 			return null
+		"text_valign":
+			if _is_text(shape): return String(shape.get_meta("text_valign", "top"))
+			return null
 		"text":
 			if _is_text(shape): return String(shape.get_meta("text", ""))
 			return null
@@ -186,8 +194,52 @@ func _read(shape, prop):
 		"font_italic":
 			if _is_text(shape): return bool(shape.get_meta("font_italic", false))
 			return null
+		"letter_proportions":
+			if _is_text(shape):
+				return shape.get_meta("letter_proportions", {})
+			return null
 		"fill_paint":
 			return _read_fill_paint(shape)
+		"stroke_cap_start":
+			if "stroke_cap_start" in shape: return int(shape.stroke_cap_start)
+			if shape is Line2D: return int(shape.begin_cap_mode)
+			if shape.has_meta("stroke_cap_start"): return int(shape.get_meta("stroke_cap_start"))
+			return 0
+		"stroke_cap_end":
+			if "stroke_cap_end" in shape: return int(shape.stroke_cap_end)
+			if shape is Line2D: return int(shape.end_cap_mode)
+			if shape.has_meta("stroke_cap_end"): return int(shape.get_meta("stroke_cap_end"))
+			return 0
+		"stroke_style":
+			if "stroke_style" in shape: return int(shape.stroke_style)
+			if shape.has_meta("stroke_style"): return int(shape.get_meta("stroke_style"))
+			return 0
+		"stroke_pointer_start":
+			if "stroke_pointer_start" in shape: return int(shape.stroke_pointer_start)
+			if shape.has_meta("stroke_pointer_start"): return int(shape.get_meta("stroke_pointer_start"))
+			return 0
+		"stroke_pointer_end":
+			if "stroke_pointer_end" in shape: return int(shape.stroke_pointer_end)
+			if shape.has_meta("stroke_pointer_end"): return int(shape.get_meta("stroke_pointer_end"))
+			return 0
+		"stroke_align":
+			if "stroke_align" in shape: return int(shape.stroke_align)
+			if shape.has_meta("stroke_align"): return int(shape.get_meta("stroke_align"))
+			return 0
+		"stroke_dash_len":
+			if "stroke_dash_len" in shape: return float(shape.stroke_dash_len)
+			if shape.has_meta("stroke_dash_len"): return float(shape.get_meta("stroke_dash_len"))
+			return 12.0
+		"stroke_dash_gap":
+			if "stroke_dash_gap" in shape: return float(shape.stroke_dash_gap)
+			if shape.has_meta("stroke_dash_gap"): return float(shape.get_meta("stroke_dash_gap"))
+			return 8.0
+		"effects":
+			if "effects" in shape and shape.effects is Array:
+				return shape.effects.duplicate(true)
+			if shape.has_meta("effects") and shape.get_meta("effects") is Array:
+				return shape.get_meta("effects").duplicate(true)
+			return []
 	return null
 
 ## Devuelve el relleno como {type:"solid"|"linear"|"radial", ...}. null si la
@@ -198,9 +250,22 @@ func _read_fill_paint(shape) -> Variant:
 		var stops: Array = []
 		for i in g.get_point_count():
 			stops.append([g.get_offset(i), g.get_color(i)])
+		var g_kind := "linear"
+		if int(shape.fill_gradient_type) == 1:
+			g_kind = "radial"
+		elif int(shape.fill_gradient_type) == 2:
+			g_kind = "conic"
+		elif int(shape.fill_gradient_type) == 3:
+			g_kind = "diamond"
+		elif int(shape.fill_gradient_type) == 4:
+			g_kind = "box"
+		elif int(shape.fill_gradient_type) == 5:
+			g_kind = "spiral"
 		return {
-			"type": "radial" if int(shape.fill_gradient_type) == 1 else "linear",
+			"type": g_kind,
 			"angle": float(shape.fill_gradient_angle),
+			"p0": shape.get_gradient_p0_norm(),
+			"p1": shape.get_gradient_p1_norm(),
 			"stops": stops,
 		}
 	if shape is Line2D and shape.gradient is Gradient and shape.gradient.get_point_count() >= 2:
@@ -209,6 +274,8 @@ func _read_fill_paint(shape) -> Variant:
 		for i in lg.get_point_count():
 			ls.append([lg.get_offset(i), lg.get_color(i)])
 		return {"type": "linear", "angle": 0.0, "stops": ls}
+	if _is_text(shape):
+		return {"type": "solid", "color": _text_label_color(shape, "font_color", Color.BLACK)}
 	if "fill_color" in shape:
 		return {"type": "solid", "color": shape.fill_color}
 	if shape is Polygon2D:
@@ -246,6 +313,8 @@ func _approx_eq(a, b) -> bool:
 	if a is int and b is int: return a == b
 	if a is Vector2 and b is Vector2: return a.is_equal_approx(b)
 	if a is Color and b is Color: return a.is_equal_approx(b)
+	if a is Array and b is Array: return a == b
+	if a is Dictionary and b is Dictionary: return a == b
 	return a == b
 
 # ── escritura (con undo) ─────────────────────────────────────────────────────
@@ -258,8 +327,12 @@ func apply(prop: String, value) -> void:
 	var recs := []
 	for s in _selection:
 		var before = _read(s, prop)
-		if before == null or _approx_eq(before, value):
+		if before == null:
 			continue
+		var has_grad: bool = (s is VectorShape and s.has_gradient_fill()) or (s is Line2D and s.gradient is Gradient)
+		if not (prop == "fill_color" and has_grad):
+			if _approx_eq(before, value):
+				continue
 		recs.append({"s": s, "before": before})
 	if recs.is_empty():
 		return
@@ -274,6 +347,43 @@ func apply(prop: String, value) -> void:
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
 		hm.register_action("Inspector · %s" % prop)
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+	do_fn.call()
+
+## Aplica un conjunto de propiedades en UNA sola acción de undo.
+func apply_multi(props_values: Dictionary, action_name: String = "Inspector · transform") -> void:
+	_sync_selection()
+	if _selection.is_empty() or props_values.is_empty():
+		return
+	var recs := []
+	for p in props_values:
+		if not (p in PROPS):
+			continue
+		var val = props_values[p]
+		for s in _selection:
+			var before = _read(s, p)
+			if before == null:
+				continue
+			var has_grad: bool = (s is VectorShape and s.has_gradient_fill()) or (s is Line2D and s.gradient is Gradient)
+			if not (p == "fill_color" and has_grad):
+				if _approx_eq(before, val):
+					continue
+			recs.append({"s": s, "prop": p, "before": before, "after": val})
+	if recs.is_empty():
+		return
+	var do_fn := func() -> void:
+		for r in recs:
+			_write(r["s"], r["prop"], r["after"])
+		_post_write()
+	var undo_fn := func() -> void:
+		for r in recs:
+			_write(r["s"], r["prop"], r["before"])
+		_post_write()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action(action_name)
 		hm.add_do(do_fn)
 		hm.add_undo(undo_fn)
 		hm.commit()
@@ -306,6 +416,38 @@ func commit_live(prop: String, before: Dictionary) -> void:
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
 		hm.register_action("Inspector · %s" % prop)
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+
+## Registra UNA acción de undo conjunta para múltiples propiedades YA aplicadas en vivo.
+## `props_before`: {prop_name: {figura: valor_previo}}
+func commit_live_multi(props_before: Dictionary, action_name: String = "Inspector · transform") -> void:
+	var recs := []
+	for p in props_before:
+		if not (p in PROPS):
+			continue
+		var before: Dictionary = props_before[p]
+		for s in before:
+			if not is_instance_valid(s):
+				continue
+			var aft = _read(s, p)
+			if aft == null or _approx_eq(before[s], aft):
+				continue
+			recs.append({"s": s, "prop": p, "before": before[s], "after": aft})
+	if recs.is_empty():
+		return
+	var do_fn := func() -> void:
+		for r in recs:
+			_write(r["s"], r["prop"], r["after"])
+		_post_write()
+	var undo_fn := func() -> void:
+		for r in recs:
+			_write(r["s"], r["prop"], r["before"])
+		_post_write()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action(action_name)
 		hm.add_do(do_fn)
 		hm.add_undo(undo_fn)
 		hm.commit()
@@ -375,6 +517,8 @@ func _write(shape, prop, value) -> void:
 			_write_fill_paint(shape, value)
 		"text_align":
 			_write_text_align(shape, value)
+		"text_valign":
+			_write_text_valign(shape, value)
 		"text":
 			_write_text_content(shape, String(value))
 		"font_size":
@@ -389,6 +533,47 @@ func _write(shape, prop, value) -> void:
 					dl2.apply_font_from_meta()
 		"font_family", "font_weight", "font_italic":
 			_write_font_face(shape, prop, value)
+		"letter_proportions":
+			_write_letter_proportions(shape, value)
+		"stroke_cap_start":
+			var ival := int(value)
+			if "stroke_cap_start" in shape: shape.stroke_cap_start = ival
+			elif shape is Line2D: shape.begin_cap_mode = clampi(ival, 0, 2) as Line2D.LineCapMode
+			shape.set_meta("stroke_cap_start", ival)
+		"stroke_cap_end":
+			var ival := int(value)
+			if "stroke_cap_end" in shape: shape.stroke_cap_end = ival
+			elif shape is Line2D: shape.end_cap_mode = clampi(ival, 0, 2) as Line2D.LineCapMode
+			shape.set_meta("stroke_cap_end", ival)
+		"stroke_style":
+			var ival := int(value)
+			if "stroke_style" in shape: shape.stroke_style = ival
+			shape.set_meta("stroke_style", ival)
+		"stroke_pointer_start":
+			var ival := int(value)
+			if "stroke_pointer_start" in shape: shape.stroke_pointer_start = ival
+			shape.set_meta("stroke_pointer_start", ival)
+		"stroke_pointer_end":
+			var ival := int(value)
+			if "stroke_pointer_end" in shape: shape.stroke_pointer_end = ival
+			shape.set_meta("stroke_pointer_end", ival)
+		"stroke_align":
+			var ival := int(value)
+			if "stroke_align" in shape: shape.stroke_align = ival
+			shape.set_meta("stroke_align", ival)
+		"stroke_dash_len":
+			var fval := maxf(1.0, float(value))
+			if "stroke_dash_len" in shape: shape.stroke_dash_len = fval
+			shape.set_meta("stroke_dash_len", fval)
+		"stroke_dash_gap":
+			var fval := maxf(1.0, float(value))
+			if "stroke_dash_gap" in shape: shape.stroke_dash_gap = fval
+			shape.set_meta("stroke_dash_gap", fval)
+		"effects":
+			var eff_arr: Array = value if value is Array else []
+			if "effects" in shape:
+				shape.effects = eff_arr.duplicate(true)
+			shape.set_meta("effects", eff_arr.duplicate(true))
 	if shape.has_method("queue_redraw"):
 		shape.queue_redraw()
 
@@ -428,6 +613,9 @@ func _write_fill_paint(shape, value) -> void:
 	var kind := String(value.get("type", "solid"))
 	if kind == "solid":
 		var c: Color = value.get("color", Color.WHITE)
+		if _is_text(shape):
+			_write_text_color(shape, "font_color", c)
+			return
 		if shape is VectorShape and shape.has_gradient_fill():
 			shape.clear_fill_gradient()
 		elif shape is Line2D and shape.gradient is Gradient:
@@ -435,21 +623,60 @@ func _write_fill_paint(shape, value) -> void:
 		if "fill_color" in shape: shape.fill_color = c
 		elif shape is Polygon2D: shape.color = c
 		elif shape is Line2D: shape.default_color = c
+		if shape.has_method("queue_redraw"):
+			shape.queue_redraw()
 		return
 	# degradado
 	var g := Gradient.new()
-	var stops: Array = value.get("stops", [[0.0, Color.BLACK], [1.0, Color.WHITE]])
-	g.offsets = PackedFloat32Array(stops.map(func(s): return float(s[0])))
-	g.colors = PackedColorArray(stops.map(func(s): return s[1]))
+	var stops_val = value.get("stops", [])
+	if stops_val is Gradient:
+		g = stops_val
+	elif stops_val is Array and not stops_val.is_empty():
+		var offsets: Array[float] = []
+		var colors: Array[Color] = []
+		for i in range(stops_val.size()):
+			var s = stops_val[i]
+			if s is Array and s.size() >= 2:
+				offsets.append(float(s[0]))
+				colors.append(s[1] if s[1] is Color else Color.WHITE)
+			elif s is Dictionary:
+				offsets.append(float(s.get("offset", 0.0)))
+				colors.append(s.get("color", Color.WHITE) if s.get("color") is Color else Color.WHITE)
+			elif s is Color:
+				offsets.append(0.0 if stops_val.size() < 2 else float(i) / float(stops_val.size() - 1))
+				colors.append(s)
+		if offsets.size() >= 2:
+			g.offsets = PackedFloat32Array(offsets)
+			g.colors = PackedColorArray(colors)
 	if shape is VectorShape:
-		shape.fill_gradient_type = 1 if kind == "radial" else 0
-		shape.fill_gradient_angle = float(value.get("angle", 0.0))
+		if kind == "radial":
+			shape.fill_gradient_type = 1
+		elif kind in ["conic", "angular", "sweep"]:
+			shape.fill_gradient_type = 2
+		elif kind == "diamond":
+			shape.fill_gradient_type = 3
+		elif kind in ["box", "square"]:
+			shape.fill_gradient_type = 4
+		elif kind == "spiral":
+			shape.fill_gradient_type = 5
+		else:
+			shape.fill_gradient_type = 0
+		if value.has("p0") and value["p0"] is Vector2 and value["p0"] != Vector2(-1, -1):
+			shape.fill_gradient_p0 = value["p0"]
+		if value.has("p1") and value["p1"] is Vector2 and value["p1"] != Vector2(-1, -1):
+			shape.fill_gradient_p1 = value["p1"]
+		if value.has("angle"):
+			shape._internal_point_update = true
+			shape.fill_gradient_angle = float(value["angle"])
+			shape._internal_point_update = false
 		shape.fill_gradient = g
 	elif shape is Line2D:
 		shape.gradient = g
 	elif shape is Polygon2D:
 		shape.color = Color.WHITE
 		shape.texture = _grad_tex_for(g)
+	if shape.has_method("queue_redraw"):
+		shape.queue_redraw()
 
 func _grad_tex_for(g: Gradient) -> GradientTexture2D:
 	var t := GradientTexture2D.new()
@@ -496,10 +723,34 @@ func _write_text_align(shape, value) -> void:
 	shape.set_meta("text_align", mode)
 	var dl := _text_label(shape)
 	if dl and "horizontal_alignment" in dl:
-		dl.horizontal_alignment = {
+		var ha: HorizontalAlignment = {
 			"left": HORIZONTAL_ALIGNMENT_LEFT, "center": HORIZONTAL_ALIGNMENT_CENTER,
 			"right": HORIZONTAL_ALIGNMENT_RIGHT, "fill": HORIZONTAL_ALIGNMENT_FILL,
 		}.get(mode, HORIZONTAL_ALIGNMENT_LEFT)
+		dl.horizontal_alignment = ha
+		if dl is WorldTextLabel:
+			dl._outline_dirty = true
+			dl._polys_baked = false
+			dl._refresh_local_rect()
+		dl.queue_redraw()
+
+## Alineación vertical del texto: "top"|"middle"|"bottom".
+func _write_text_valign(shape, value) -> void:
+	if not _is_text(shape):
+		return
+	var mode := String(value)
+	shape.set_meta("text_valign", mode)
+	var dl := _text_label(shape)
+	if dl and "vertical_alignment" in dl:
+		var va: VerticalAlignment = {
+			"top": VERTICAL_ALIGNMENT_TOP, "middle": VERTICAL_ALIGNMENT_CENTER,
+			"bottom": VERTICAL_ALIGNMENT_BOTTOM,
+		}.get(mode, VERTICAL_ALIGNMENT_TOP)
+		dl.vertical_alignment = va
+		if dl is WorldTextLabel:
+			dl._outline_dirty = true
+			dl._polys_baked = false
+			dl._refresh_local_rect()
 		dl.queue_redraw()
 
 ## Interlineado de una figura de texto: meta + constante de tema en la etiqueta
@@ -533,6 +784,21 @@ func _write_font_size(shape, value) -> void:
 	if me:
 		me.add_theme_font_size_override("font_size", fs)
 
+func _write_letter_proportions(shape, value) -> void:
+	if not _is_text(shape):
+		return
+	if value == null or (value is Dictionary and value.is_empty()):
+		if shape.has_meta("letter_proportions"):
+			shape.remove_meta("letter_proportions")
+	elif value is Dictionary:
+		shape.set_meta("letter_proportions", value)
+	var dl: Control = shape.get_node_or_null("DisplayLabel")
+	if dl:
+		if dl.has_method("set_letter_proportions"):
+			dl.set_letter_proportions(value if value is Dictionary else {})
+		elif dl.has_method("queue_redraw"):
+			dl.queue_redraw()
+
 func _write_extent(shape, prop: String, v: float) -> void:
 	if _is_text(shape):
 		var w := float(shape.get_meta("width", 350.0))
@@ -543,6 +809,20 @@ func _write_extent(shape, prop: String, v: float) -> void:
 		shape.set_meta("height", h)
 		if _mt and _mt.has_method("_update_text_node_sizes"):
 			_mt._update_text_node_sizes(shape, w, h)
+		else:
+			var dl: Control = shape.get_node_or_null("DisplayLabel")
+			var me: Control = shape.get_node_or_null("MultiLineEdit")
+			if not me: me = shape.get_node_or_null("LineEdit")
+			if not me: me = shape.get_node_or_null("TitleEdit")
+			if dl:
+				if dl is WorldTextLabel:
+					dl.set_world_size(Vector2(w, h))
+				else:
+					dl.custom_minimum_size = Vector2(w, h)
+					dl.size = Vector2(w, h)
+			if me:
+				me.custom_minimum_size = Vector2(w, h)
+				me.size = Vector2(w, h)
 		return
 	if "size" in shape:
 		var sz: Vector2 = shape.get("size")
@@ -652,6 +932,9 @@ func align(modes) -> void:
 	if ref.size == Vector2.ZERO:
 		return
 	var lista: Array = modes if modes is Array else [modes]
+	if "full_rect" in lista or "full_size" in lista:
+		_align_full_rect(ref)
+		return
 	var moves := []
 	for s in _selection:
 		var r: Rect2 = _mt._global_rect(s)
@@ -667,6 +950,61 @@ func align(modes) -> void:
 		if d != Vector2.ZERO:
 			moves.append({"s": s, "before": s.global_position, "after": s.global_position + d})
 	_commit_moves("Alinear " + "+".join(lista), moves)
+
+func _align_full_rect(ref: Rect2) -> void:
+	var recs := []
+	for s in _selection:
+		if not is_instance_valid(s):
+			continue
+		var before_pos: Vector2 = s.global_position
+		var before_size: Vector2 = Vector2.ZERO
+		if "size" in s:
+			before_size = s.size
+		elif s is VectorShape and s.has_doc_extent():
+			before_size = s.get_doc_extent().to_v2()
+		var before_meta = s.get_meta("anchor_preset", "")
+		var after_pos: Vector2 = ref.position
+		var after_size: Vector2 = ref.size
+		recs.append({
+			"s": s,
+			"before_pos": before_pos, "after_pos": after_pos,
+			"before_size": before_size, "after_size": after_size,
+			"before_meta": before_meta, "after_meta": "full_rect"
+		})
+	if recs.is_empty():
+		return
+	var apply_rec := func(r: Dictionary, is_after: bool) -> void:
+		var s = r["s"]
+		if not is_instance_valid(s):
+			return
+		var pos: Vector2 = r["after_pos"] if is_after else r["before_pos"]
+		var sz: Vector2 = r["after_size"] if is_after else r["before_size"]
+		var meta: String = r["after_meta"] if is_after else r["before_meta"]
+		s.global_position = pos
+		if meta != "":
+			s.set_meta("anchor_preset", meta)
+		elif s.has_meta("anchor_preset"):
+			s.remove_meta("anchor_preset")
+		if sz != Vector2.ZERO:
+			_write_extent(s, "width", sz.x)
+			_write_extent(s, "height", sz.y)
+		_sync_doc(s)
+	var do_fn := func() -> void:
+		for r in recs:
+			apply_rec.call(r, true)
+		_post_write()
+	var undo_fn := func() -> void:
+		for r in recs:
+			apply_rec.call(r, false)
+		_post_write()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Alinear Todo Tamaño")
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+	do_fn.call()
+
 
 ## axis: h | v — espaciado uniforme entre bordes (necesita 3+ figuras).
 func distribute(axis: String) -> void:

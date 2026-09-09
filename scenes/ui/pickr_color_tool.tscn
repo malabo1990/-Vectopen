@@ -9,16 +9,183 @@
 [ext_resource type="Script" uid="uid://bxg3cc1a4ig4t" path="res://script_gdscript/ui/button_copypaste.gd" id="4_krkro"]
 [ext_resource type="Texture2D" uid="uid://dkkpi0tbh41la" path="res://icon/UI/palette.svg" id="7_t0q1y"]
 [ext_resource type="Script" uid="uid://cg3wt1uxiwwr1" path="res://script_gdscript/ui/PaletteSaveGrid.gd" id="9_xsbdh"]
+[ext_resource type="PackedScene" uid="uid://bfr7c44tm1acr" path="res://scenes/ui/gradient.tscn" id="10_gradient"]
+[ext_resource type="Texture2D" path="res://icon/UI/rgb.svg" id="13_rgb"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_btn"]
+content_margin_left = 6.0
+content_margin_top = 3.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
+bg_color = Color(0.95, 0.95, 0.97, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.88, 0.88, 0.9, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_btn_hover"]
+content_margin_left = 6.0
+content_margin_top = 3.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
+bg_color = Color(0.9, 0.91, 0.94, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.82, 0.86, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_btn_active"]
+content_margin_left = 6.0
+content_margin_top = 3.0
+content_margin_right = 6.0
+content_margin_bottom = 3.0
+bg_color = Color(0.85, 0.85, 0.88, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.75, 0.76, 0.8, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_swatch_border"]
+draw_center = false
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0, 0, 0, 0.15)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hex_normal"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+bg_color = Color(0.96, 0.96, 0.97, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.86, 0.86, 0.89, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hex_focus"]
+content_margin_left = 6.0
+content_margin_top = 2.0
+content_margin_right = 6.0
+content_margin_bottom = 2.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.04, 0.52, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_copy_btn"]
+content_margin_left = 4.0
+content_margin_top = 3.0
+content_margin_right = 4.0
+content_margin_bottom = 3.0
+bg_color = Color(0.96, 0.96, 0.97, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.86, 0.86, 0.89, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_copy_btn_hover"]
+content_margin_left = 4.0
+content_margin_top = 3.0
+content_margin_right = 4.0
+content_margin_bottom = 3.0
+bg_color = Color(0.9, 0.91, 0.94, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.82, 0.86, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_copy_btn_pressed"]
+content_margin_left = 4.0
+content_margin_top = 3.0
+content_margin_right = 4.0
+content_margin_bottom = 3.0
+bg_color = Color(0.85, 0.86, 0.89, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.75, 0.76, 0.8, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_circle_panel"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 100
+corner_radius_top_right = 100
+corner_radius_bottom_right = 100
+corner_radius_bottom_left = 100
+shadow_color = Color(0, 0, 0, 0.10)
+shadow_size = 6
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_picker"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_20pc6"]
-bg_color = Color(0.94921875, 0.94921875, 0.94921875, 1)
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.88, 0.88, 0.90, 1)
 corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_krkro"]
-bg_color = Color(0, 0, 0, 1)
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.88, 0.88, 0.90, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xpdcy"]
 bg_color = Color(0.921875, 0.921875, 0.921875, 1)
@@ -76,16 +243,28 @@ corner_radius_bottom_left = 120
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_culnu"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="PanelContainer" type="PanelContainer" unique_id=1111087050 node_paths=PackedStringArray("nodo_color_rect")]
-offset_left = 7.0
-offset_top = 3.0
-offset_right = 204.0
+[node name="PanelContainer" type="PanelContainer" unique_id=1111087050 node_paths=PackedStringArray("nodo_color_rect", "picker_panel", "gradient_editor", "tab_solid", "tab_linear", "tab_radial", "tab_conic", "mode_dropdown")]
+custom_minimum_size = Vector2(192, 0)
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 192.0
 offset_bottom = 376.0
-size_flags_horizontal = 0
+size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_styles/panel = SubResource("StyleBoxFlat_20pc6")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_picker")
 script = ExtResource("1_r22ju")
 nodo_color_rect = NodePath("MarginContainer/BoxContainer/BoxContainer/ColorRect_fill")
+picker_panel = NodePath("MarginContainer/BoxContainer/BoxContainer2/Panel/Panel/Panel3")
+gradient_editor = NodePath("MarginContainer/BoxContainer/GradientEditor")
+tab_solid = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabSolid")
+tab_linear = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabLinear")
+tab_radial = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabRadial")
+tab_conic = NodePath("MarginContainer/BoxContainer/HeaderContainer/TabConic")
+mode_dropdown = NodePath("MarginContainer/BoxContainer/HeaderContainer/ModeDropdown")
+style_tab_active = SubResource("StyleBoxFlat_tab_btn_active")
+style_tab_inactive = SubResource("StyleBoxFlat_tab_btn")
+style_circle_panel = SubResource("StyleBoxFlat_circle_panel")
+style_empty_panel = SubResource("StyleBoxEmpty_picker")
 
 [node name="palleteColor" type="Control" parent="." unique_id=1762439603]
 visible = false
@@ -122,6 +301,8 @@ vertical = true
 
 [node name="Titulo_Colorpallete" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer" unique_id=2029225970]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.12, 0.16, 1)
+theme_override_font_sizes/font_size = 12
 text = "Color Palette"
 horizontal_alignment = 1
 
@@ -151,13 +332,13 @@ layout_mode = 2
 [node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=1438553150]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "HEX"
 
 [node name="numeros" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect/MarginContainer/BoxContainer" unique_id=336686691]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "234453"
 
 [node name="ColorRect2" type="ColorRect" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=812765833]
@@ -179,13 +360,13 @@ layout_mode = 2
 [node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2106937800]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "HEX"
 
 [node name="Label" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect2/MarginContainer/BoxContainer" unique_id=2114950031]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "234453"
 
 [node name="ColorRect3" type="ColorRect" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer" unique_id=998091081]
@@ -208,13 +389,13 @@ layout_mode = 2
 [node name="hex" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=2027175994]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "HEX"
 
 [node name="Label" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/PanelContainer/FlowContainer/ColorRect3/MarginContainer/BoxContainer" unique_id=1832974163]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 11
 text = "234453"
 
 [node name="BoxContainer" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer" unique_id=1505895862]
@@ -226,16 +407,22 @@ layout_mode = 2
 
 [node name="Color" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=195419261]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.38, 0.45, 1)
+theme_override_font_sizes/font_size = 11
 text = "Color:"
 
 [node name="Label2" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer" unique_id=1218262012]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.12, 0.16, 1)
+theme_override_font_sizes/font_size = 11
 
 [node name="BoxContainer2" type="BoxContainer" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer" unique_id=488971003]
 layout_mode = 2
 
 [node name="Numero palette" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=381505612]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.38, 0.45, 1)
+theme_override_font_sizes/font_size = 11
 text = "Palette Count"
 
 [node name="HSlider" type="HSlider" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=523960063]
@@ -245,28 +432,113 @@ size_flags_vertical = 1
 
 [node name="Label2" type="Label" parent="palleteColor/Panel_ multicolor/MarginContainer/BoxContainer/BoxContainer/BoxContainer2" unique_id=1246691864]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.12, 0.16, 1)
+theme_override_font_sizes/font_size = 11
 text = "2"
 
 [node name="Node" type="Node" parent="palleteColor/Panel_ multicolor/MarginContainer" unique_id=856123940]
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=656170820]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
 
 [node name="BoxContainer" type="BoxContainer" parent="MarginContainer" unique_id=2059737965]
 layout_mode = 2
 vertical = true
 
-[node name="BoxContainer" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=161180296]
-custom_minimum_size = Vector2(0, 20)
+[node name="HeaderContainer" type="HBoxContainer" parent="MarginContainer/BoxContainer" unique_id=987123401]
+layout_mode = 2
+theme_override_constants/separation = 2
+alignment = 0
+
+[node name="TabSolid" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123403]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+text = "Sólido"
+
+[node name="TabLinear" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123404]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+text = "Lineal"
+
+[node name="TabRadial" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123405]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+text = "Radial"
+
+[node name="TabConic" type="Button" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123407]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+text = "Espiral"
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123406]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ModeDropdown" type="MenuButton" parent="MarginContainer/BoxContainer/HeaderContainer" unique_id=987123408]
+custom_minimum_size = Vector2(24, 22)
+layout_mode = 2
+focus_mode = 0
+tooltip_text = "Modo de Color"
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tab_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tab_btn_active")
+icon = ExtResource("13_rgb")
+icon_alignment = 1
+expand_icon = true
+item_count = 3
+popup/item_0/text = "◯ Círculo"
+popup/item_0/id = 0
+popup/item_1/text = "△ Triángulo"
+popup/item_1/id = 1
+popup/item_2/text = "▢ Cuadrado"
+popup/item_2/id = 2
+
+[node name="GradientEditor" parent="MarginContainer/BoxContainer" unique_id=987123411 instance=ExtResource("10_gradient")]
+visible = false
 layout_mode = 2
 
-[node name="ColorRect_fill" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=289654244]
-custom_minimum_size = Vector2(30, 20)
+[node name="BoxContainer" type="HBoxContainer" parent="MarginContainer/BoxContainer" unique_id=161180296]
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ColorRect_fill" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=289654244]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+
+[node name="BorderFrame" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer/ColorRect_fill" unique_id=289654245]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_swatch_border")
 
 [node name="ColorRect2_stroke" type="ColorRect" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1978820660]
 visible = false
@@ -274,21 +546,29 @@ custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 
 [node name="LineEdit_dataColor" type="LineEdit" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=595257323 node_paths=PackedStringArray("color_rect", "line_edit")]
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_xpdcy")
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.12, 0.12, 0.14, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_hex_normal")
+theme_override_styles/focus = SubResource("StyleBoxFlat_hex_focus")
+alignment = 1
 script = ExtResource("1_8fblk")
 color_rect = NodePath("../ColorRect_fill")
 line_edit = NodePath(".")
 
-[node name="VSeparator" type="VSeparator" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1185809217]
-layout_mode = 2
-theme_override_constants/separation = 20
-
 [node name="Button" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1645723762 node_paths=PackedStringArray("button_pega", "button_copia", "lineedit")]
+custom_minimum_size = Vector2(26, 24)
 layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_8fblk")
+focus_mode = 0
+tooltip_text = "Copiar Hex"
+theme_override_styles/normal = SubResource("StyleBoxFlat_copy_btn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_copy_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_copy_btn_pressed")
 icon = ExtResource("1_p78ec")
+icon_alignment = 1
+expand_icon = true
 script = ExtResource("4_krkro")
 button_pega = NodePath("../Button2")
 button_copia = NodePath(".")
@@ -297,7 +577,7 @@ lineedit = NodePath("../LineEdit_dataColor")
 [node name="Button2" type="Button" parent="MarginContainer/BoxContainer/BoxContainer" unique_id=1220966854]
 visible = false
 layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_8fblk")
+theme_override_styles/normal = SubResource("StyleBoxFlat_copy_btn")
 icon = ExtResource("1_p78ec")
 
 [node name="BoxContainer2" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=808849073]
@@ -305,7 +585,7 @@ custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 
 [node name="Panel" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2" unique_id=749412172]
-custom_minimum_size = Vector2(1, 250)
+custom_minimum_size = Vector2(1, 245)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_5vvyt")
@@ -365,26 +645,19 @@ value = 1.0
 
 [node name="Panel" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel" unique_id=306889160]
 layout_mode = 0
-offset_left = -2.0
-offset_top = 27.0
-offset_right = 179.0
-offset_bottom = 208.0
+offset_left = 0.0
+offset_top = 6.0
+offset_right = 187.0
+offset_bottom = 200.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_p78ec")
 
 [node name="Panel3" type="Panel" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=1912450663 node_paths=PackedStringArray("color_rect", "line_edit", "light_slider", "alpha_slider")]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -82.50001
-offset_top = -82.5
-offset_right = 105.77835
-offset_bottom = 105.77835
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(0.876362, 0.876362)
 theme_override_styles/panel = SubResource("StyleBoxFlat_t0q1y")
 script = ExtResource("1_nsy8b")
 color_rect = NodePath("../../../../BoxContainer/ColorRect_fill")
@@ -393,17 +666,17 @@ light_slider = NodePath("../../Circle_color_opasity/VSlider_brillo")
 alpha_slider = NodePath("../../Circle_colorWB/VSlider transparente")
 
 [node name="Button_palleteColor" type="Button" parent="MarginContainer/BoxContainer/BoxContainer2/Panel/Panel" unique_id=2067596415 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
-custom_minimum_size = Vector2(30, 30)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -15.0
-offset_top = -9.0
-offset_right = 15.0
-offset_bottom = 22.0
+offset_left = -14.0
+offset_top = 8.0
+offset_right = 14.0
+offset_bottom = 36.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
@@ -429,6 +702,7 @@ script = ExtResource("9_xsbdh")
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
 theme_override_styles/normal = SubResource("StyleBoxFlat_culnu")
 text = "+"
 

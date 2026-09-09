@@ -147,3 +147,103 @@ func test_dial_de_esquina_pone_radio_independiente() -> void:
 	HistoryManager.undo(); await get_tree().process_frame
 	assert_float(r.corner_tl).is_equal_approx(0.0, 0.01)
 	HistoryManager.clear()
+
+
+func test_field_evalua_expresiones_matematicas() -> void:
+	assert_float(TransformPanel.eval_math("50 + 25", 0.0)).is_equal_approx(75.0, 0.01)
+	assert_float(TransformPanel.eval_math("+30", 100.0)).is_equal_approx(130.0, 0.01)
+	assert_float(TransformPanel.eval_math("*2", 40.0)).is_equal_approx(80.0, 0.01)
+	assert_float(TransformPanel.eval_math("/2", 80.0)).is_equal_approx(40.0, 0.01)
+
+
+func test_aspect_ratio_lock_mantiene_proporcion() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var r := _rect(_ab(s))
+	await get_tree().process_frame
+	var panel = auto_free(load(PANEL).instantiate())
+	add_child(panel)
+	await get_tree().process_frame
+	t.selected_shapes.assign([r]); InspectorCore._sync_selection()
+	InspectorCore.changed.emit(InspectorCore.current_props())
+	HistoryManager.clear()
+
+	panel._toggle_aspect_lock()
+	assert_bool(panel._aspect_locked).is_true()
+
+	var fw = panel._fields["width"]
+	fw.drag_started.emit()
+	fw.value = 160.0
+	fw.value_changed.emit(160.0)
+	fw.drag_ended.emit()
+	await get_tree().process_frame
+
+	assert_float(r.size.x).is_equal_approx(160.0, 1.0)
+	assert_float(r.size.y).is_equal_approx(120.0, 1.0)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_float(r.size.x).is_equal_approx(80.0, 1.0)
+	assert_float(r.size.y).is_equal_approx(60.0, 1.0)
+	HistoryManager.clear()
+
+
+func test_corners_linked_actualiza_todas_las_esquinas() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var r := _rect(_ab(s))
+	await get_tree().process_frame
+	var panel = auto_free(load(PANEL).instantiate())
+	add_child(panel)
+	await get_tree().process_frame
+	t.selected_shapes.assign([r]); InspectorCore._sync_selection()
+	InspectorCore.changed.emit(InspectorCore.current_props())
+	HistoryManager.clear()
+
+	panel._toggle_link_corners()
+	assert_bool(panel._corners_linked).is_true()
+
+	var d = panel._corners["corner_tl"]
+	d.drag_started.emit()
+	d.value = 15.0
+	d.value_changed.emit(15.0)
+	d.drag_ended.emit()
+	await get_tree().process_frame
+
+	assert_float(r.corner_tl).is_equal_approx(15.0, 0.01)
+	assert_float(r.corner_tr).is_equal_approx(15.0, 0.01)
+	assert_float(r.corner_br).is_equal_approx(15.0, 0.01)
+	assert_float(r.corner_bl).is_equal_approx(15.0, 0.01)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_float(r.corner_tl).is_equal_approx(0.0, 0.01)
+	assert_float(r.corner_tr).is_equal_approx(0.0, 0.01)
+	HistoryManager.clear()
+
+
+func test_rotacion_rapida_90_grados() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var r := _rect(_ab(s))
+	await get_tree().process_frame
+	var panel = auto_free(load(PANEL).instantiate())
+	add_child(panel)
+	await get_tree().process_frame
+	t.selected_shapes.assign([r]); InspectorCore._sync_selection()
+	InspectorCore.changed.emit(InspectorCore.current_props())
+	HistoryManager.clear()
+
+	panel.rotate_cw()
+	await get_tree().process_frame
+	assert_float(rad_to_deg(r.get_doc_rotation())).is_equal_approx(90.0, 0.5)
+
+	panel.rotate_cw()
+	await get_tree().process_frame
+	assert_float(rad_to_deg(r.get_doc_rotation())).is_equal_approx(180.0, 0.5)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_float(rad_to_deg(r.get_doc_rotation())).is_equal_approx(90.0, 0.5)
+
+	panel.rotate_ccw()
+	await get_tree().process_frame
+	assert_float(rad_to_deg(r.get_doc_rotation())).is_equal_approx(0.0, 0.5)
+	HistoryManager.clear()

@@ -315,6 +315,12 @@ func _handle_keyboard(event: InputEventKey) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Permitir que la herramienta activa procese atajos específicos (ej. G para degradado en MoveTool, o Delete en stops)
+	if current_tool and current_tool.has_method("handle_input"):
+		if current_tool.handle_input(event):
+			get_viewport().set_input_as_handled()
+			return
+
 	# ── Fase 1 del informe de interacción avanzada (19/08/2026) ────────────
 	# Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/mover con flechas.
 	# VectopenInput.gd ya declaraba estos atajos pero nada los escuchaba —

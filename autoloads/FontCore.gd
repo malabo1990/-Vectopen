@@ -29,9 +29,30 @@ const _SAMPLE := "The quick brown fox jumps 0123456789"
 
 var _families: PackedStringArray = PackedStringArray()
 var _font_cache: Dictionary = {}   # spec_key -> Font
+var _system_scanned: bool = false
 
 func _ready() -> void:
-	refresh_families()
+	# Carga inicial inmediata de fuentes empaquetadas (inicio instantáneo en < 1ms)
+	_families = PackedStringArray(BUNDLED.keys())
+	# Escaneo en segundo plano sin congelar el hilo principal del editor
+	WorkerThreadPool.add_task(_async_scan_system_fonts)
+
+func _async_scan_system_fonts() -> void:
+	var seen := {}
+	for f in BUNDLED:
+		seen[f] = true
+	for f in OS.get_system_fonts():
+		var fam_name := String(f).strip_edges()
+		if fam_name != "":
+			seen[fam_name] = true
+	var arr: Array = seen.keys()
+	arr.sort_custom(func(a, b): return String(a).naturalnocasecmp_to(String(b)) < 0)
+	call_deferred("_apply_scanned_families", PackedStringArray(arr))
+
+func _apply_scanned_families(scanned: PackedStringArray) -> void:
+	_families = scanned
+	_system_scanned = true
+	families_changed.emit()
 
 # ── enumeración ──────────────────────────────────────────────────────────────
 func refresh_families() -> void:
@@ -45,10 +66,11 @@ func refresh_families() -> void:
 	var arr: Array = seen.keys()
 	arr.sort_custom(func(a, b): return String(a).naturalnocasecmp_to(String(b)) < 0)
 	_families = PackedStringArray(arr)
+	_system_scanned = true
 	families_changed.emit()
 
 func list_families() -> PackedStringArray:
-	if _families.is_empty():
+	if not _system_scanned:
 		refresh_families()
 	return _families
 

@@ -172,3 +172,93 @@ Verified and documented this session: `Viewport.get_mouse_position()` (and thus
 (`Input.parse_input_event` / MCP `send_input`). Canvas clicks/drags and `Tree`
 drag & drop **cannot** be verified live over MCP — validate them with unit tests
 + real-mouse confirmation from the user.
+
+---
+
+## 7. Stroke Panel and Bézier Curve Profile Editor (`scenes/ui/panel_trazos.tscn`, `panel_trazos.gd`)
+
+Complete redesign following the Studio aesthetic with monochromatic gray chips:
+
+### Separated Color and Thickness Rows
+- **Before**: `ColorPickerButton` and `SpinBox` shared the same tight row, resulting in an overly cramped thickness input.
+- **Now**:
+  - `RowColor`: "Color" label on the left and `ColorPickerButton` on the right.
+  - `RowGrosor`: "Grosor" label on the left and `SpinBox` (`spin_box.tscn`) below on its own independent row with a natural 68px width, free from compression.
+
+### Monochromatic Gray Chip Palette (Zero Blue)
+- Following the visual convention established in `tool.tscn` and `layout.tscn`:
+  - **Active State**: Raised neutral gray chip `SURFACE_RAISED` (`#D8D8DC` / `Color(0.85, 0.85, 0.88)`), subtle border (`Color(0.70, 0.71, 0.75)`), dark graphite/black icon (`Color(0.10, 0.10, 0.12)`).
+  - **Inactive State**: Light chip (`Color(0.95, 0.95, 0.97)`), very soft border (`Color(0.86, 0.87, 0.90)`), medium gray icon (`Color(0.44, 0.44, 0.47)`).
+  - **Lower Curve Button**: `BtnToggleCurve` ("▼ Editor Perfil Cónico") adopts a rounded gray chip, transitioning to dark gray when expanded.
+  - **Bézier Editor**: Linear, curved, and polygon presets styled with neutral grays without jarring blue saturations.
+
+---
+
+## 8. Typography Panel (`scenes/ui/panel_tooltext.tscn`, `rich_text_label_slider_size.gd`)
+
+Redesigned to a clean Studio white surface while 100% preserving hierarchy and technical structure:
+
+### Structure Preservation
+- Rigorously kept all identifiers, node names, paths, and exported scripts (`Panel/Label/HSlider`, `Button_font/Panel_font`, `BoxContainer2`, `BoxContainer4`, etc.).
+
+### Studio Surface Aesthetics
+- Main container in pure white with 12px rounded corners, subtle 1px border, and soft Apple drop shadow.
+- "A" preview frame with a clean light background and subtle outline.
+- **Font Browser (`Panel_font`)**: Pure white popup with soft shadow, clean search field, and typography list with high-contrast, readable black text.
+- **Alignment and Format Chips**: Horizontal alignment buttons (`left`, `center`, `fill`, `right`), case transforms (`AA`, `Aa`, `aa`, `aA`), and style (`Regular`, `Bold`, etc.) with monochromatic gray chips.
+
+---
+
+## 9. Home Panel / Context Menu (`scenes/ui/tool_in_mouse.tscn`, `clickrigth_nodo.gd`)
+
+Comprehensive overhaul of the right-click context menu (Tab 0):
+
+### Semantic Icon Correction
+- Fixed legacy issue where `dribbble.svg` was mistakenly assigned to both **Duplicate** and **Remove**.
+- **Duplicate**: Assigned to `res://icon/UI/copy.svg`.
+- **Remove**: Assigned to `res://icon/UI/trash.svg`. Features soft destructive hover styling (subtle pink background `#FDE8E8`, border `#F8B4B4`, typography `#D9383A`).
+- **Rename**: Assigned to `res://icon/UI/design-pencil.svg`.
+- **Name**: Assigned to `res://icon/UI/text-square.svg`.
+
+### String Cleanliness and Gray Chips
+- Stripped residual trailing newlines (`\n`) from button text labels.
+- All action buttons use 6px rounded chips with `#F5F5F7` background, `#E5E5EA` border, and dark graphite `#1E1E22` typography.
+
+---
+
+## 10. Alignment and Distribution Panel (`TOOLS ALINEACION`)
+
+Modernization of Tab 1 in `tool_in_mouse.tscn`:
+
+### SVG Vector Icons Replacing `ColorRect`s
+- The 4×4 matrix (`GridContainer`) replaced crude `ColorRect`s with interactive buttons equipped with clean SVG icons:
+  - Borders and corners: `border-tl.svg`, `border-top.svg`, `border-tr.svg`, `border-left.svg`, `border-right.svg`, `border-bl.svg`, `border-bottom.svg`, `border-br.svg`.
+  - Inner points and center: `border-inner.svg`, `center-align.svg`, etc.
+  - 30×30px chip cells with 4px corners and grayscale hover/pressed states.
+
+### Alignment and Distribution Rows
+- **Horizontal Row (`HBoxContainer4`)**: Align Left, Center Horizontal, Right, and Distribute Horizontal.
+- **Vertical Row (`HBoxContainer5`)**: Align Top, Center Vertical (Middle), Bottom, and Distribute Vertical.
+- Removed obsolete empty containers (`HBoxContainer2` and `HBoxContainer3`).
+- Full integration with `InspectorCore.align()` and `InspectorCore.distribute()`, supporting atomic Undo/Redo with `Ctrl+Z` / `Ctrl+Y`.
+
+---
+
+## 11. Top Tab Bar (`button_tab_tools2`)
+
+- **Alignment Icon**: Replaced legacy `exclude.svg` on Tab 1 with `res://icon/UI/align-center-horizontal.svg`.
+- **Active Tab Highlight**: Active tab is highlighted with an active gray chip `#D8D8DC` and border `#B0B0B8`, while inactive tabs remain in `#F5F5F7`.
+
+---
+
+## 12. Automated & Real-Time Verification (September 2026)
+
+- **GdUnit4 CLI**:
+  - `test/ui/ContextMenu_test.gd`: **9 out of 9 tests passed (0 failures, 0 errors, exit code 0)**.
+  - Verifications covered: context menu wiring, deletion via `MoveTool`, stroke thickness/color sync with undo, font size slider, font browser, text alignment, home icons, alignment/distribution matrix operations, and visual tab switching.
+- **Standalone Live Execution (Godot 4.7 + Vulkan)**:
+  - Verification scenes created: `scenes/test_stroke_realtime.tscn` and `scenes/test_mouse_menu_realtime.tscn`.
+  - Real-time engine screenshots captured and validated.
+- **Godot MCP Server**:
+  - Live WebSocket server on port 6515 / 6520 (`VectopenMCPServer.gd`).
+  - Seamless filesystem resync via `rescan_filesystem`.

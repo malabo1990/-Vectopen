@@ -112,7 +112,7 @@ layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 
-[node name="Button" type="Button" parent="PanelContainer/Control" unique_id=1736281642]
+[node name="Button" type="Button" parent="PanelContainer/Control" unique_id=1736281642 node_paths=PackedStringArray("trigger_node", "target_node")]
 custom_minimum_size = Vector2(10, 10)
 layout_mode = 0
 offset_left = 16.0
@@ -124,6 +124,8 @@ theme_override_styles/normal = SubResource("StyleBoxFlat_2wqk4")
 icon = ExtResource("8_dvidw")
 expand_icon = true
 script = ExtResource("9_tjsby")
+trigger_node = NodePath(".")
+target_node = NodePath("../Configuracion de Capas")
 
 [node name="Configuracion de Capas" type="PanelContainer" parent="PanelContainer/Control" unique_id=2059243774]
 visible = false

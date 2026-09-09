@@ -6,11 +6,24 @@
 bg_color = Color(1, 1, 1, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_njakn"]
-bg_color = Color(0.890625, 0.890625, 0.890625, 1)
+content_margin_left = 4.0
+content_margin_top = 2.0
+content_margin_right = 4.0
+content_margin_bottom = 2.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.86, 0.87, 0.90, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [node name="gradient" type="PanelContainer" unique_id=1233818797 node_paths=PackedStringArray("color_rect", "btn_add", "btn_remove", "color_picker")]
 size_flags_horizontal = 3
-size_flags_vertical = 3
+size_flags_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_leyds")
 script = ExtResource("1_w4gr8")
 color_rect = NodePath("BoxContainer/ColorRect")
@@ -23,32 +36,38 @@ layout_mode = 2
 vertical = true
 
 [node name="ColorRect" type="ColorRect" parent="BoxContainer" unique_id=1483288297]
-custom_minimum_size = Vector2(0, 32)
+custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
 color = Color(1, 0.193948, 0.644478, 1)
 
 [node name="HBoxContainer" type="HBoxContainer" parent="BoxContainer" unique_id=417619517]
 layout_mode = 2
-
-[node name="remove" type="Button" parent="BoxContainer/HBoxContainer" unique_id=1923607088]
-custom_minimum_size = Vector2(50, 50)
-layout_mode = 2
-size_flags_horizontal = 0
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_njakn")
-text = "-"
+alignment = 2
 
 [node name="add" type="Button" parent="BoxContainer/HBoxContainer" unique_id=1529708382]
-custom_minimum_size = Vector2(50, 50)
+custom_minimum_size = Vector2(24, 20)
 layout_mode = 2
 size_flags_horizontal = 0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
 theme_override_styles/normal = SubResource("StyleBoxFlat_njakn")
 text = "+"
 
+[node name="remove" type="Button" parent="BoxContainer/HBoxContainer" unique_id=1923607088]
+custom_minimum_size = Vector2(24, 20)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_njakn")
+text = "-"
+
 [node name="ColorPickerButton" type="ColorPickerButton" parent="BoxContainer/HBoxContainer" unique_id=1626090876]
-custom_minimum_size = Vector2(50, 50)
+visible = false
+custom_minimum_size = Vector2(24, 20)
 layout_mode = 2
 
 [node name="HSlider" type="HSlider" parent="BoxContainer" unique_id=1673047775]
+visible = false
 layout_mode = 2
+

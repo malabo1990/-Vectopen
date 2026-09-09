@@ -6,44 +6,129 @@
 [ext_resource type="Texture2D" uid="uid://1choc82jbrat" path="res://icon/UI/align-center.svg" id="4_exxby"]
 [ext_resource type="Texture2D" uid="uid://cxmk2hdb00fdu" path="res://icon/UI/align-justify.svg" id="5_af2l7"]
 [ext_resource type="Texture2D" uid="uid://chyop38moooop" path="res://icon/UI/align-right.svg" id="6_oieaq"]
+[ext_resource type="Texture2D" path="res://icon/UI/text_valign_top.svg" id="7_vtop"]
+[ext_resource type="Texture2D" path="res://icon/UI/text_valign_middle.svg" id="8_vmid"]
+[ext_resource type="Texture2D" path="res://icon/UI/text_valign_bottom.svg" id="9_vbot"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6rvsi"]
-bg_color = Color(0.831373, 0.831373, 0.831373, 0)
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_panel"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_oev0d"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_preview_panel"]
 bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fs7lr"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dark_preview"]
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
+bg_color = Color(0.09, 0.09, 0.11, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_chip_normal"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.95, 0.95, 0.97, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.86, 0.87, 0.9, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_chip_hover"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.9, 0.91, 0.94, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.81, 0.85, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_chip_active"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.85, 0.85, 0.88, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.7, 0.71, 0.75, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_font_popup"]
 bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.84, 0.85, 0.88, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.12)
+shadow_size = 12
+shadow_offset = Vector2(0, 4)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_v5ojk"]
-bg_color = Color(0, 0, 0, 1)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_whss8"]
-bg_color = Color(0.101562, 0.101562, 0.101562, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_search"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.94, 0.94, 0.96, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.86, 0.87, 0.9, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="Panel_tooltext" type="PanelContainer" unique_id=1470562139]
-theme_override_styles/panel = SubResource("StyleBoxFlat_6rvsi")
+custom_minimum_size = Vector2(192, 0)
+theme_override_styles/panel = SubResource("StyleBoxEmpty_panel")
 
 [node name="BoxContainer" type="BoxContainer" parent="." unique_id=1012399025]
-custom_minimum_size = Vector2(0, 200)
+custom_minimum_size = Vector2(192, 330)
 layout_mode = 2
 vertical = true
 script = ExtResource("1_nw6td")
 
 [node name="Label" type="Label" parent="BoxContainer" unique_id=1768594166]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-text = "Text"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_font_sizes/font_size = 12
+text = "TIPOGRAFÍA / TEXT"
 
 [node name="Panel" type="Panel" parent="BoxContainer" unique_id=820389485]
-custom_minimum_size = Vector2(0, 100)
+custom_minimum_size = Vector2(192, 280)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_oev0d")
+theme_override_styles/panel = SubResource("StyleBoxFlat_preview_panel")
 
 [node name="Control" type="Control" parent="BoxContainer/Panel" unique_id=605100170]
 visible = false
@@ -75,59 +160,53 @@ text = "A"
 
 [node name="Label" type="Label" parent="BoxContainer/Panel" unique_id=2116176833]
 layout_mode = 0
-offset_left = 61.3083
-offset_top = -17.8193
-offset_right = 127.308
-offset_bottom = 119.181
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_font_sizes/font_size = 100
+offset_left = 50.0
+offset_top = 0.0
+offset_right = 100.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(0.18, 0.18, 0.22, 1)
+theme_override_font_sizes/font_size = 56
 text = "A"
 
 [node name="HSlider" type="HSlider" parent="BoxContainer/Panel/Label" unique_id=1430874328]
 layout_mode = 0
-offset_left = 46.0
-offset_top = 25.0
-offset_right = 122.0
-offset_bottom = 41.0
+offset_left = 38.0
+offset_top = 8.0
+offset_right = 110.0
+offset_bottom = 24.0
 min_value = -100.0
 
 [node name="letras_space" type="HSlider" parent="BoxContainer/Panel/Label" unique_id=480463696]
 layout_mode = 0
-offset_left = 71.0
-offset_top = 91.0
-offset_right = 132.0
-offset_bottom = 107.0
+offset_left = 38.0
+offset_top = 38.0
+offset_right = 110.0
+offset_bottom = 54.0
 min_value = -100.0
 
 [node name="line_space" type="VSlider" parent="BoxContainer/Panel/Label" unique_id=762686032]
 layout_mode = 0
-offset_left = -22.3375
-offset_top = 32.098
-offset_right = -6.33754
-offset_bottom = 105.098
-min_value = -100.0
-
-[node name="VSlider2" type="VSlider" parent="BoxContainer/Panel/Label" unique_id=195479694]
-layout_mode = 0
-offset_left = -42.0977
-offset_top = 33.1011
-offset_right = -26.0977
-offset_bottom = 106.101
+offset_left = -22.0
+offset_top = 8.0
+offset_right = -6.0
+offset_bottom = 54.0
 min_value = -100.0
 
 [node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel" unique_id=1715339505]
 layout_mode = 0
-offset_left = 1.0
-offset_top = 106.0
-offset_right = 195.0
-offset_bottom = 146.0
+offset_left = 0.0
+offset_top = 68.0
+offset_right = 192.0
+offset_bottom = 96.0
 
 [node name="Button_font" type="Button" parent="BoxContainer/Panel/BoxContainer" unique_id=1004439149 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
-custom_minimum_size = Vector2(100, 0)
+custom_minimum_size = Vector2(92, 24)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
-text = "Roboto"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+text = "Inter"
 script = ExtResource("2_ffa5h")
 nodo_disparador = NodePath(".")
 target_nodo = NodePath("Panel_font")
@@ -135,11 +214,11 @@ target_nodo = NodePath("Panel_font")
 [node name="Panel_font" type="PanelContainer" parent="BoxContainer/Panel/BoxContainer/Button_font" unique_id=232960739]
 visible = false
 layout_mode = 0
-offset_left = -737.0
-offset_top = -182.558
-offset_right = -47.0
-offset_bottom = 296.442
-theme_override_styles/panel = SubResource("StyleBoxFlat_v5ojk")
+offset_left = -650.0
+offset_top = -180.0
+offset_right = -10.0
+offset_bottom = 300.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_font_popup")
 
 [node name="MarginContainer" type="MarginContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font" unique_id=1552291572]
 layout_mode = 2
@@ -158,15 +237,20 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1562184671]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
 text = "FONT "
 
 [node name="LineEdit" type="LineEdit" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1470602173]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_styles/normal = SubResource("StyleBoxFlat_whss8")
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_search")
 
 [node name="Button" type="Button" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/BoxContainer" unique_id=1960189354]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "SEARCH"
 
 [node name="GridContainer" type="GridContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer" unique_id=1578370315]
@@ -176,12 +260,12 @@ theme_override_constants/h_separation = 30
 columns = 3
 
 [node name="ScrollContainer" type="ScrollContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=1589665637]
-custom_minimum_size = Vector2(100, 0)
+custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
 [node name="BoxContainer" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/ScrollContainer" unique_id=919196168]
-custom_minimum_size = Vector2(100, 0)
+custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 size_flags_horizontal = 2
 size_flags_vertical = 3
@@ -390,169 +474,256 @@ text = "font"
 layout_mode = 2
 text = "font"
 
-[node name="BoxContainer2" type="BoxContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=43339225]
-custom_minimum_size = Vector2(200, 0)
+[node name="BoxContainer2" type="PanelContainer" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer" unique_id=43339225]
+custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
-vertical = true
-
-[node name="Label" type="Label" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=47875227]
-layout_mode = 2
-text = "A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z
-
-a b c d e f g h i j k l m n ñ o p q r s t u v w x y z
-
-"
+theme_override_styles/panel = SubResource("StyleBoxFlat_dark_preview")
 
 [node name="RichTextLabel" type="RichTextLabel" parent="BoxContainer/Panel/BoxContainer/Button_font/Panel_font/MarginContainer/BoxContainer/GridContainer/BoxContainer2" unique_id=736191495]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_colors/default_color = Color(0.96, 0.96, 0.98, 1)
 text = "A B C D E F G H I J K L M N Ñ O P Q R S T U V W X Y Z
 
 a b c d e f g h i j k l m n ñ o p q r s t u v w x y z
 
+0 1 2 3 4 5 6 7 8 9
 "
 script = ExtResource("1_nw6td")
 
 [node name="OptionButton" type="OptionButton" parent="BoxContainer/Panel/BoxContainer" unique_id=1979580098]
-custom_minimum_size = Vector2(90, 0)
+custom_minimum_size = Vector2(92, 24)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="BoxContainer/Panel" unique_id=2145399660]
 layout_mode = 0
-offset_top = 148.0
-offset_right = 172.0
-offset_bottom = 204.0
+offset_top = 100.0
+offset_right = 192.0
+offset_bottom = 220.0
 
 [node name="BoxContainer2" type="BoxContainer" parent="BoxContainer/Panel/VBoxContainer" unique_id=26318660]
 layout_mode = 2
 
 [node name="Button" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer2" unique_id=1520142389]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+tooltip_text = "Alinear a la izquierda (Left)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 icon = ExtResource("3_i0bkq")
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
+expand_icon = true
 
 [node name="Button4" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer2" unique_id=1227935100]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+tooltip_text = "Centrar horizontalmente (Center)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 icon = ExtResource("4_exxby")
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
-
-[node name="Button2" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer2" unique_id=606634021]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
-icon = ExtResource("5_af2l7")
-icon_alignment = 1
-script = ExtResource("2_ffa5h")
+expand_icon = true
 
 [node name="Button3" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer2" unique_id=143087249]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+tooltip_text = "Alinear a la derecha (Right)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 icon = ExtResource("6_oieaq")
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
+expand_icon = true
+
+[node name="Button2" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer2" unique_id=606634021]
+custom_minimum_size = Vector2(44, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Justificar texto (Justify)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+icon = ExtResource("5_af2l7")
+icon_alignment = 1
+expand_icon = true
+
+[node name="BoxContainer_Valign" type="BoxContainer" parent="BoxContainer/Panel/VBoxContainer" unique_id=26318661]
+layout_mode = 2
+
+[node name="BtnVTop" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer_Valign" unique_id=1520142390]
+custom_minimum_size = Vector2(58, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Alinear arriba (Top)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+icon = ExtResource("7_vtop")
+icon_alignment = 1
+expand_icon = true
+
+[node name="BtnVMiddle" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer_Valign" unique_id=1227935101]
+custom_minimum_size = Vector2(58, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Centrar verticalmente (Middle)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+icon = ExtResource("8_vmid")
+icon_alignment = 1
+expand_icon = true
+
+[node name="BtnVBottom" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer_Valign" unique_id=606634022]
+custom_minimum_size = Vector2(58, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Alinear abajo (Bottom)"
+theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+icon = ExtResource("9_vbot")
+icon_alignment = 1
+expand_icon = true
 
 [node name="BoxContainer4" type="BoxContainer" parent="BoxContainer/Panel/VBoxContainer" unique_id=1999429282]
 layout_mode = 2
 
 [node name="Button" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer4" unique_id=1302258203]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "AA"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
 
 [node name="Button4" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer4" unique_id=731749082]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "Aa"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
 
 [node name="Button2" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer4" unique_id=653606959]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "aa"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
 
 [node name="Button3" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer4" unique_id=348790385]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "aA"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
 
 [node name="BoxContainer5" type="BoxContainer" parent="BoxContainer/Panel/VBoxContainer" unique_id=1637107185]
 layout_mode = 2
 
 [node name="Button" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=372947629]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+tooltip_text = "Proporcional decreciente (inicio grande, fin pequeño)"
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "Aaa"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
 
 [node name="Button4" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=148203061]
-custom_minimum_size = Vector2(40, 0)
+custom_minimum_size = Vector2(44, 26)
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
-text = "AaA"
-icon_alignment = 1
-script = ExtResource("2_ffa5h")
-
-[node name="Button2" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=948928626]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
-text = "aaA"
-icon_alignment = 1
-script = ExtResource("2_ffa5h")
-
-[node name="Button3" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=1126976375]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_fs7lr")
+size_flags_horizontal = 3
+tooltip_text = "Proporcional centrado (medio grande, extremos pequeños)"
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
 text = "aAa"
 icon_alignment = 1
-script = ExtResource("2_ffa5h")
+
+[node name="Button2" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=948928626]
+custom_minimum_size = Vector2(44, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Proporcional creciente (inicio pequeño, fin grande)"
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+text = "aaA"
+icon_alignment = 1
+
+[node name="Button3" type="Button" parent="BoxContainer/Panel/VBoxContainer/BoxContainer5" unique_id=1126976375]
+custom_minimum_size = Vector2(44, 26)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Proporcional cóncavo (extremos grandes, centro pequeño)"
+theme_override_colors/font_color = Color(0.2, 0.22, 0.26, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_chip_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_chip_hover")
+text = "AaA"
+icon_alignment = 1
 
 [node name="HBoxContainer" type="HBoxContainer" parent="BoxContainer/Panel/VBoxContainer" unique_id=2105549587]
 layout_mode = 2
 
 [node name="HSlider" type="HSlider" parent="BoxContainer/Panel/VBoxContainer/HBoxContainer" unique_id=1476380287]
-custom_minimum_size = Vector2(50, 0)
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Rango inicio: Escala de letras iniciales (0.2x - 2.0x)"
+min_value = 0.2
+max_value = 2.0
+step = 0.05
+value = 1.0
 
 [node name="HSlider2" type="HSlider" parent="BoxContainer/Panel/VBoxContainer/HBoxContainer" unique_id=1257454853]
-custom_minimum_size = Vector2(50, 0)
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Rango medio 1: Escala central izquierda (0.2x - 2.0x)"
+min_value = 0.2
+max_value = 2.0
+step = 0.05
+value = 1.0
 
 [node name="HSlider3" type="HSlider" parent="BoxContainer/Panel/VBoxContainer/HBoxContainer" unique_id=2022301129]
-custom_minimum_size = Vector2(50, 0)
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Rango medio 2: Escala central derecha (0.2x - 2.0x)"
+min_value = 0.2
+max_value = 2.0
+step = 0.05
+value = 1.0
+
+[node name="HSlider4" type="HSlider" parent="BoxContainer/Panel/VBoxContainer/HBoxContainer" unique_id=2022301130]
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Rango final: Escala de letras finales (0.2x - 2.0x)"
+min_value = 0.2
+max_value = 2.0
+step = 0.05
+value = 1.0

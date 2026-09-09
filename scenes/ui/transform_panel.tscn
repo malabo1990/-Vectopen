@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" path="res://script_gdscript/ui/transform_panel.gd" id="1_tp"]
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_tp"]
+
 [node name="TransformPanel" type="PanelContainer"]
-custom_minimum_size = Vector2(248, 232)
+custom_minimum_size = Vector2(192, 220)
+theme_override_styles/panel = SubResource("StyleBoxEmpty_tp")
 script = ExtResource("1_tp")

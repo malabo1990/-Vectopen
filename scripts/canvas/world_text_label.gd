@@ -12,6 +12,16 @@
 #    ni se redibujan (_process no hace nada) → 10.000 textos viables
 #    (solo se procesa lo visible en pantalla).
 #  - build_outline_path(): Path2D con curvas reales para text-to-shape.
+#
+# FORMATO ENRIQUECIDO POR RANGO (rich_runs):
+#  - El overlay vectorial soporta color/negrita/cursiva/subrayado POR RANGO
+#    de caracteres (no solo un estilo uniforme para todo el bloque). Cada
+#    glifo se agrupa en su propio nodo (antes: todos los contornos del label
+#    se mezclaban en UNA sola triangulación "outer+holes" global, lo que
+#    rompía cualquier texto de más de un glifo con hueco — ver
+#    _triangulate_contours). Negrita/cursiva se sintetizan a nivel de
+#    TextServer (font_set_embolden / font_set_transform) sobre un RID por
+#    combinación de estilo, cacheado durante el build.
 # ==========================================
 extends Label
 class_name WorldTextLabel
@@ -38,14 +48,89 @@ const RASTER_THROTTLE := 0.04  # 4% de cambio de eff para re-rasterizar
 const WORLD_SIZE_META := "world_text_size"
 const CULL_MARGIN := 400.0     # margen de culling (px mundo)
 
+## Emulación de negrita/cursiva a nivel de contorno (mismo valor que usa
+## FontCore.get_font() para el bitmap vía FontVariation.variation_embolden,
+## así el overlay vectorial y el bitmap concuerdan).
+const BOLD_EMBOLDEN := 1.0
+const ITALIC_SHEAR := 0.22
+
 var _last_zoom := -1.0
 var _last_eff := -1
 var _world_size := Vector2.ZERO
 var _last_text := ""
+var _last_h_align: int = -1
+var _last_v_align: int = -1
 var _cached_outline: Node2D = null   # contornos VECTOR_FONT (una vez)
 var _outline_dirty := true
-var _cached_polys: Array[PackedVector2Array] = []
+var _cached_polys: Array = []        # Array[{"poly": PackedVector2Array, "run": int}]
+var _cached_underlines: Array = []   # Array[{"rect": Rect2, "color": Color}]
 var _polys_baked := false   # triangulación hecha (aunque diera vacío) → no re-bakear por frame
+
+## Runs de formato enriquecido: Array[{length:int, color:Color, bold:bool,
+## italic:bool, underline:bool}], en orden, cubriendo TODO `text` sin huecos
+## (suma de length == text.length()). Vacío o desincronizado con el largo
+## actual de `text` → se usa un único run "legacy" con el estilo de tema del
+## label completo (ver _effective_runs). El dueño (TextTool / el
+## serializador) es quien mantiene esto sincronizado con `text`.
+var rich_runs: Array = []
+
+## Proporciones de tamaño de letra (curva o degradado por posición):
+## { "mode": "Aaa"|"aAa"|"aaA"|"AaA", "start": float, "mid": float, "end": float }
+var letter_proportions: Dictionary = {}
+
+func set_letter_proportions(props: Dictionary) -> void:
+	letter_proportions = props
+	_outline_dirty = true
+	_polys_baked = false
+	_layout_cache_key = ""
+	if has_letter_proportions():
+		visible_ratio = 0.0
+	else:
+		visible_ratio = 1.0
+	_apply_zoom(_canvas_zoom())
+	_refresh_local_rect()
+	queue_redraw()
+
+func has_letter_proportions() -> bool:
+	if not letter_proportions.is_empty() and letter_proportions.has("mode") and String(letter_proportions.get("mode", "")) != "":
+		return true
+	var src := _spec_source()
+	if src and src != self and src.has_meta("letter_proportions"):
+		var p = src.get_meta("letter_proportions")
+		if p is Dictionary and not p.is_empty() and p.has("mode") and String(p.get("mode", "")) != "":
+			return true
+	return false
+
+func get_effective_letter_proportions() -> Dictionary:
+	if not letter_proportions.is_empty() and letter_proportions.has("mode"):
+		return letter_proportions
+	var src := _spec_source()
+	if src and src != self and src.has_meta("letter_proportions"):
+		var p = src.get_meta("letter_proportions")
+		if p is Dictionary and not p.is_empty():
+			return p
+	return {}
+
+func _calculate_glyph_scale(mode: String, t: float, s_start: float, s_mid: float, s_mid2: float, s_end: float) -> float:
+	match mode:
+		"Aaa", "aaA":
+			if not is_equal_approx(s_mid, lerpf(s_start, s_end, 1.0 / 3.0)) or not is_equal_approx(s_mid2, lerpf(s_start, s_end, 2.0 / 3.0)):
+				if t <= 1.0 / 3.0:
+					return lerpf(s_start, s_mid, t * 3.0)
+				elif t <= 2.0 / 3.0:
+					return lerpf(s_mid, s_mid2, (t - 1.0 / 3.0) * 3.0)
+				else:
+					return lerpf(s_mid2, s_end, (t - 2.0 / 3.0) * 3.0)
+			return lerpf(s_start, s_end, t)
+		"aAa", "AaA":
+			if t <= 1.0 / 3.0:
+				return lerpf(s_start, s_mid, t * 3.0)
+			elif t <= 2.0 / 3.0:
+				return lerpf(s_mid, s_mid2, (t - 1.0 / 3.0) * 3.0)
+			else:
+				return lerpf(s_mid2, s_end, (t - 2.0 / 3.0) * 3.0)
+		_:
+			return 1.0
 
 ## Cache de layout para no recalcular metrics por cada cambio de zoom.
 ## Clave: texto + font_size efectivo. Valida el contenido SIN pedir al
@@ -148,6 +233,14 @@ func apply_font_from_meta() -> void:
 		_refresh_local_rect()
 	queue_redraw()
 
+## Fija los runs de formato enriquecido y fuerza rebake del overlay vectorial.
+## `runs`: Array[{length:int, color:Color, bold:bool, italic:bool, underline:bool}].
+func set_rich_runs(runs: Array) -> void:
+	rich_runs = runs
+	_outline_dirty = true
+	_polys_baked = false
+	queue_redraw()
+
 func _process(_delta: float) -> void:
 	# CULLING: fuera del viewport => no hacemos nada (con 10.000 textos
 	# solo se paga lo que se ve en pantalla).
@@ -161,13 +254,19 @@ func _process(_delta: float) -> void:
 		return
 	_apply_zoom(z)
 
-## Mientras no cambie el zoom, re-fija el layout si el texto cambió.
+## Mientras no cambie el zoom, re-fija el layout si el texto o la alineación cambiaron.
 func _sync_layout_if_content_changed() -> void:
-	if text == _last_text:
+	if text == _last_text and horizontal_alignment == _last_h_align and vertical_alignment == _last_v_align:
 		return
 	_last_text = text
+	_last_h_align = horizontal_alignment
+	_last_v_align = vertical_alignment
 	_outline_dirty = true
 	_polys_baked = false
+	if has_letter_proportions():
+		visible_ratio = 0.0
+	else:
+		visible_ratio = 1.0
 	_refresh_local_rect()
 	queue_redraw()
 
@@ -218,8 +317,8 @@ func _apply_zoom(z: float) -> void:
 		return
 	_last_zoom = z
 	var eff: int
-	if z >= ZOOM_VECTOR_MIN:
-		# A partir de aquí: el overlay vectorial mantiene la nitidez.
+	if z >= ZOOM_VECTOR_MIN or has_letter_proportions():
+		# A partir de aquí o con proporciones activas: el overlay vectorial mantiene la nitidez.
 		# El bitmap queda FIJO en VECTOR_FONT (1 sola rasterización).
 		eff = VECTOR_FONT
 	else:
@@ -244,10 +343,22 @@ func _apply_zoom(z: float) -> void:
 
 func _refresh_local_rect() -> void:
 	var font := get_theme_font("font")
-	var z := _last_zoom if _last_zoom > 0.0 else 1.0
-	if has_meta(WORLD_SIZE_META) or _world_size != Vector2.ZERO:
-		var ws: Vector2 = get_meta(WORLD_SIZE_META, _world_size)
-		var local := ws * z
+	var ws := Vector2.ZERO
+	if has_meta(WORLD_SIZE_META):
+		ws = get_meta(WORLD_SIZE_META)
+	elif _world_size != Vector2.ZERO:
+		ws = _world_size
+	else:
+		var p := get_parent()
+		if p and p.has_meta("width") and p.has_meta("height"):
+			ws = Vector2(float(p.get_meta("width")), float(p.get_meta("height")))
+			_world_size = ws
+			set_meta(WORLD_SIZE_META, ws)
+
+	if ws != Vector2.ZERO:
+		var fs_cur := maxi(1, get_theme_font_size("font_size"))
+		var comp := float(maxi(1, base_font_size)) / float(fs_cur)
+		var local := ws / maxf(0.0001, comp)
 		custom_minimum_size = local
 		size = local
 		return
@@ -287,8 +398,8 @@ func get_world_minimum_size() -> Vector2:
 
 # ------------------------------------------------------------------ drawing
 func _draw() -> void:
-	# El bitmap del Label siempre visible por debajo (garantía).
-	if _last_zoom < ZOOM_VECTOR_MIN:
+	# El bitmap del Label siempre visible por debajo (garantía), salvo si hay proporciones activas
+	if _last_zoom < ZOOM_VECTOR_MIN and not has_letter_proportions():
 		return
 	# No pagar el bake de contornos para labels fuera de pantalla.
 	if not _is_visible_in_view():
@@ -304,21 +415,63 @@ func _draw() -> void:
 			queue_redraw()
 			return
 		_bakes_this_frame += 1
-	var polys := _get_triangle_polys()
-	if polys.is_empty():
+	var entries := _get_triangle_polys()
+	if entries.is_empty():
 		return
-	var col := font_color()
-	for poly in polys:
-		draw_colored_polygon(poly, col)
+	var runs := _effective_runs()
+	var default_col := font_color()
+	for e in entries:
+		var run_idx: int = e.get("run", 0)
+		var col: Color = default_col
+		if run_idx >= 0 and run_idx < runs.size():
+			col = runs[run_idx].get("color", default_col)
+		draw_colored_polygon(e["poly"], col)
+	for u in _cached_underlines:
+		draw_rect(u["rect"], u["color"])
 
 func font_color() -> Color:
+	var src := _spec_source()
+	if src and src.has_meta("text_color"):
+		return src.get_meta("text_color")
 	var c := get_theme_color("font_color")
 	if c.a <= 0.0:
 		c = Color.BLACK
 	return c
 
+# ------------------------------------------------------------------ rich runs
+## Normaliza `rich_runs`: si está vacío o no cubre exactamente `text.length()`
+## caracteres, cae a un único run "legacy" con el estilo de tema/meta del
+## label completo (compatibilidad con textos sin formato por rango).
+func _effective_runs() -> Array:
+	var total := 0
+	for r in rich_runs:
+		total += int(r.get("length", 0))
+	if not rich_runs.is_empty() and total == text.length():
+		return rich_runs
+	var src := _spec_source()
+	return [{
+		"length": text.length(),
+		"color": font_color(),
+		"bold": int(src.get_meta("font_weight", 400)) >= 700,
+		"italic": bool(src.get_meta("font_italic", false)),
+		"underline": false,
+	}]
+
+## Índice del run (en `runs`) que cubre la posición `idx` (0-based) de `text`.
+func _run_index_for_char(runs: Array, idx: int) -> int:
+	var acc := 0
+	for i in runs.size():
+		acc += int(runs[i].get("length", 0))
+		if idx < acc:
+			return i
+	return maxi(0, runs.size() - 1)
+
 # ------------------------------------------------------------------ outline (cache)
 func _get_outline() -> Node2D:
+	if horizontal_alignment != _last_h_align or vertical_alignment != _last_v_align:
+		_last_h_align = horizontal_alignment
+		_last_v_align = vertical_alignment
+		_outline_dirty = true
 	if not _outline_dirty and is_instance_valid(_cached_outline):
 		return _cached_outline
 	_outline_dirty = false
@@ -327,10 +480,11 @@ func _get_outline() -> Node2D:
 		_cached_outline = null
 	_cached_outline = _build_outline_at(VECTOR_FONT)
 	_cached_polys = []
+	_cached_underlines = []
 	_polys_baked = false
 	return _cached_outline
 
-func _get_triangle_polys() -> Array[PackedVector2Array]:
+func _get_triangle_polys() -> Array:
 	# Bake una sola vez: si la triangulación de un glifo da vacío NO se debe
 	# reintentar cada frame (era el 2º origen del cuello de botella a zoom alto).
 	if _polys_baked:
@@ -338,35 +492,130 @@ func _get_triangle_polys() -> Array[PackedVector2Array]:
 	var outline := _get_outline()
 	if outline == null:
 		return _cached_polys
-	_cached_polys = _triangulate_even_odd(outline)
+	_cached_polys = _triangulate_by_glyph(outline)
+	_cached_underlines = _build_underlines(outline)
 	_polys_baked = true
 	return _cached_polys
 
-func _triangulate_even_odd(outline: Node2D) -> Array[PackedVector2Array]:
+## Triangula CADA GLIFO por separado (antes: un único "outer+holes" global
+## para TODO el label, que solo dejaba visible el glifo con el contorno más
+## grande y descartaba el resto — roto para cualquier texto de 2+ letras con
+## algún hueco tipo O/A/B/8 de por medio). Cada entrada queda etiquetada con
+## el run al que pertenece su glifo, para colorear por rango en _draw().
+func _triangulate_by_glyph(outline: Node2D) -> Array:
+	var out: Array = []
+	for glyph_node in outline.get_children():
+		if not (glyph_node is Node2D):
+			continue
+		var contours := _outline_polygons(glyph_node)
+		if contours.is_empty():
+			continue
+		var run_idx := int(glyph_node.get_meta("run_index", 0))
+		for poly in _triangulate_contours(contours):
+			out.append({"poly": poly, "run": run_idx})
+	return out
+
+## Agrupa glifos consecutivos (mismo run + misma línea) en segmentos de
+## subrayado. Aproximación tipográfica razonable (no lee métricas exactas de
+## la fuente): grosor y desplazamiento proporcionales al tamaño de fuente.
+func _build_underlines(outline: Node2D) -> Array:
+	var runs := _effective_runs()
+	var segs: Array = []
+	# Estado del segmento en curso. OJO: nunca envolver el "flush" en un
+	# lambda que lea estas variables — en GDScript un lambda captura las
+	# locales POR VALOR (una copia congelada al crear el lambda), así que
+	# nunca vería las actualizaciones del bucle. Se hace en línea, dos veces.
+	var cur_run := -1
+	var cur_line := 0.0
+	var cur_x0 := 0.0
+	var cur_x1 := 0.0
+	var has_pending := false
+
+	for glyph_node in outline.get_children():
+		if not (glyph_node is Node2D):
+			continue
+		var run_idx := int(glyph_node.get_meta("run_index", 0))
+		var line_y := float(glyph_node.get_meta("baseline_y", 0.0))
+		var x0 := float(glyph_node.get_meta("x0", 0.0))
+		var x1 := float(glyph_node.get_meta("x1", x0))
+		if has_pending and run_idx == cur_run and is_equal_approx(line_y, cur_line):
+			cur_x1 = x1
+			continue
+		if has_pending and cur_run >= 0 and cur_run < runs.size() and bool(runs[cur_run].get("underline", false)):
+			var thickness: float = maxf(1.0, VECTOR_FONT * 0.05)
+			var y: float = cur_line + VECTOR_FONT * 0.12
+			segs.append({
+				"rect": Rect2(cur_x0, y, cur_x1 - cur_x0, thickness),
+				"color": runs[cur_run].get("color", Color.BLACK),
+			})
+		cur_run = run_idx
+		cur_line = line_y
+		cur_x0 = x0
+		cur_x1 = x1
+		has_pending = true
+	if has_pending and cur_run >= 0 and cur_run < runs.size() and bool(runs[cur_run].get("underline", false)):
+		var thickness: float = maxf(1.0, VECTOR_FONT * 0.05)
+		var y: float = cur_line + VECTOR_FONT * 0.12
+		segs.append({
+			"rect": Rect2(cur_x0, y, cur_x1 - cur_x0, thickness),
+			"color": runs[cur_run].get("color", Color.BLACK),
+		})
+	return segs
+
+## Triangula los contornos de UN SOLO glifo con la regla par-impar, pero SIN
+## asumir que todo el glifo es "un exterior con huecos": glifos con partes
+## separadas (i, j, %, =, :) tienen VARIOS exteriores disjuntos dentro del
+## mismo glifo. Para cada contorno se busca el contenedor más pequeño que lo
+## envuelve (si alguno); sin contenedor = es un exterior propio, con
+## contenedor = es un hueco de ESE exterior (soporta huecos múltiples, p.ej.
+## la "8", y anidado simple).
+func _triangulate_contours(contours: Array) -> Array:
 	var polys: Array[PackedVector2Array] = []
-	var all := _outline_polygons(outline)
-	if all.size() == 0:
+	var n := contours.size()
+	if n == 0:
 		return polys
-	all.sort_custom(func(a, b) -> bool: return _abs_area(a) > _abs_area(b))
-	var outer := all[0]
-	if _signed_area(outer) < 0.0:
-		outer = _reversed(outer)
-	var holes: Array[PackedVector2Array] = []
-	for i in range(1, all.size()):
-		var h := all[i]
-		if _signed_area(h) > 0.0:
-			h = _reversed(h)
-		if Geometry2D.is_point_in_polygon(h[0], outer):
+	var areas: Array = []
+	for c in contours:
+		areas.append(_abs_area(c))
+	var parent: Array = []
+	for i in n:
+		var best_j := -1
+		var best_area := INF
+		for j in n:
+			if i == j or areas[j] <= areas[i]:
+				continue
+			var cj: PackedVector2Array = contours[j]
+			if Geometry2D.is_point_in_polygon(contours[i][0], cj) and areas[j] < best_area:
+				best_area = areas[j]
+				best_j = j
+		parent.append(best_j)
+	var holes_of: Dictionary = {}
+	for i in n:
+		if parent[i] != -1:
+			if not holes_of.has(parent[i]):
+				holes_of[parent[i]] = []
+			holes_of[parent[i]].append(i)
+	for i in n:
+		if parent[i] != -1:
+			continue
+		var outer: PackedVector2Array = contours[i]
+		if _signed_area(outer) < 0.0:
+			outer = _reversed(outer)
+		var holes: Array[PackedVector2Array] = []
+		for hidx in holes_of.get(i, []):
+			var h: PackedVector2Array = contours[hidx]
+			if _signed_area(h) > 0.0:
+				h = _reversed(h)
 			holes.append(h)
-	if holes.is_empty():
-		if Geometry2D.triangulate_polygon(outer).size() > 0:
-			polys.append(outer)
-		return polys
-	var combined := PackedVector2Array(outer)
-	for hole in holes:
-		combined = _attach_hole(combined, hole)
-	if Geometry2D.triangulate_polygon(combined).size() > 0:
-		polys.append(combined)
+		if holes.is_empty():
+			if outer.size() >= 3 and Geometry2D.triangulate_polygon(outer).size() > 0:
+				polys.append(outer)
+			continue
+		var combined := PackedVector2Array(outer)
+		for hole in holes:
+			combined = _attach_hole(combined, hole)
+		if combined.size() >= 3 and Geometry2D.triangulate_polygon(combined).size() > 0:
+			polys.append(combined)
 	return polys
 
 func _outline_polygons(outline: Node2D) -> Array[PackedVector2Array]:
@@ -374,10 +623,16 @@ func _outline_polygons(outline: Node2D) -> Array[PackedVector2Array]:
 	for child in outline.get_children():
 		if child is Path2D and child.curve:
 			var curve: Curve2D = (child as Path2D).curve
-			curve.bake_interval = 2.5
+			curve.bake_interval = 2.0
 			var pts: PackedVector2Array = curve.get_baked_points()
-			if pts.size() >= 3:
-				res.append(pts)
+			var clean := PackedVector2Array()
+			for p in pts:
+				if clean.is_empty() or clean[-1].distance_to(p) > 0.05:
+					clean.append(p)
+			if clean.size() > 1 and clean[0].distance_to(clean[-1]) < 0.05:
+				clean.remove_at(clean.size() - 1)
+			if clean.size() >= 3:
+				res.append(clean)
 	return res
 
 func _signed_area(pts: PackedVector2Array) -> float:
@@ -429,45 +684,136 @@ func _attach_hole(combined: PackedVector2Array, hole: PackedVector2Array) -> Pac
 # ------------------------------------------------------------------ outline builder
 ## CONVERTIR TEXTO A FORMA (text-to-shape): Path2D con curvas reales a
 ## tamaño base. Cache interno: _build_outline_at(VECTOR_FONT) para el overlay.
+## `grouped=false`: contorno PLANO — Path2D como hijos DIRECTOS (el contrato
+## público de esta función, para exportar/editar el texto como trazados
+## sueltos). El overlay interno (_get_outline) usa `grouped=true`: un
+## Node2D "Glyph_N" por glifo, con meta run_index/baseline_y/x0/x1, para
+## poder colorear/subrayar por rango — ver _triangulate_by_glyph.
 func build_outline_path() -> Node2D:
-	return _build_outline_at(maxi(1, get_theme_font_size("font_size")))
+	return _build_outline_at(maxi(1, get_theme_font_size("font_size")), false)
 
-func _build_outline_at(fs_use: int) -> Node2D:
+func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var ts := _get_ts()
-	var rid := _make_outline_rid(ts)
+	var base_bytes := _outline_font_bytes()
 	var font := get_theme_font("font")
-	if not rid.is_valid() or not font:
-		if rid.is_valid():
-			ts.free_rid(rid)
+	if base_bytes.is_empty() or not font:
 		return null
 	var container := Node2D.new()
 	container.name = "TextOutline_%s" % name
 	var fs: int = maxi(1, fs_use)
+	var runs := _effective_runs()
+
+	var ws := Vector2.ZERO
+	if has_meta(WORLD_SIZE_META):
+		ws = get_meta(WORLD_SIZE_META)
+	elif _world_size != Vector2.ZERO:
+		ws = _world_size
+	else:
+		var p := get_parent()
+		if p and p.has_meta("width") and p.has_meta("height"):
+			ws = Vector2(float(p.get_meta("width")), float(p.get_meta("height")))
+
+	var font_scale := float(fs) / float(maxi(1, base_font_size))
+	var box_w := ws.x * font_scale if ws.x > 0.0 else size.x
+	var box_h := ws.y * font_scale if ws.y > 0.0 else size.y
+
+	var wrap_limit := 0.0
+	if autowrap_mode != TextServer.AUTOWRAP_OFF and box_w > 0.0:
+		wrap_limit = box_w
+	var lines := _wrap_lines(font, fs, wrap_limit)
+
+	# RID por combinación de estilo (regular/negrita/cursiva), creados bajo
+	# demanda y liberados todos al terminar — evita crear 1 RID por glifo.
+	var rid_cache: Dictionary = {}
+
+	var prop := get_effective_letter_proportions()
+	var has_prop := not prop.is_empty() and prop.has("mode") and String(prop.get("mode", "")) != ""
+	var prop_mode := String(prop.get("mode", ""))
+	var s_start := float(prop.get("start", 1.0))
+	var s_mid := float(prop.get("mid", 1.0))
+	var s_mid2 := float(prop.get("mid2", s_mid))
+	var s_end := float(prop.get("end", 1.0))
+	var total_chars := maxi(1, text.length())
+	var ls: float = float(_spec_source().get_meta("letter_spacing", 0)) * font_scale
 
 	var line_height: float = font.get_height(fs)
-	var y_offset := 0.0
-	var wrap_world := 0.0
-	if autowrap_mode != TextServer.AUTOWRAP_OFF:
-		wrap_world = (size * scale).x
-	var lines := _wrap_lines(font, fs, wrap_world)
+	var ls_extra: float = float(get_theme_constant("line_spacing")) * font_scale
+	var advance_y: float = line_height + ls_extra
+	var total_text_h: float = float(lines.size()) * line_height + maxf(0.0, float(lines.size() - 1)) * ls_extra
+	var base_ascent: float = font.get_ascent(fs)
+	var y_offset: float = base_ascent
+	if box_h > total_text_h:
+		match vertical_alignment:
+			VERTICAL_ALIGNMENT_CENTER:
+				y_offset = base_ascent + (box_h - total_text_h) * 0.5
+			VERTICAL_ALIGNMENT_BOTTOM:
+				y_offset = base_ascent + (box_h - total_text_h)
+			_:
+				y_offset = base_ascent
 
 	for line in lines:
-		var line_w: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var line_text: String = line["text"]
+		var line_start: int = line["start"]
+		var line_w := 0.0
+		if has_prop:
+			var rid_measure: RID = _get_rid_for_style(ts, base_bytes, rid_cache, false, false)
+			for j in line_text.length():
+				var c_idx := line_start + j
+				var t_j := float(c_idx) / maxf(1.0, float(total_chars - 1))
+				var s_j := _calculate_glyph_scale(prop_mode, t_j, s_start, s_mid, s_mid2, s_end)
+				var c_fs := maxi(2, int(round(fs * s_j)))
+				var cp := line_text.unicode_at(j)
+				var gl := ts.font_get_glyph_index(rid_measure, c_fs, cp, 0)
+				var ad := ts.font_get_glyph_advance(rid_measure, c_fs, gl).x
+				line_w += (ad if ad > 0.0 else font.get_char_size(cp, c_fs).x) + ls
+		else:
+			line_w = font.get_string_size(line_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + (float(line_text.length()) * ls)
 		var cx := 0.0
-		if horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER and wrap_world > 0.0:
-			cx += (wrap_world - line_w) / 2.0
-		for i in line.length():
-			var codepoint: int = line.unicode_at(i)
-			var glyph: int = ts.font_get_glyph_index(rid, fs, codepoint, 0)
-			var adv: float = ts.font_get_glyph_advance(rid, fs, glyph).x
+		if box_w > line_w:
+			match horizontal_alignment:
+				HORIZONTAL_ALIGNMENT_CENTER:
+					cx = (box_w - line_w) * 0.5
+				HORIZONTAL_ALIGNMENT_RIGHT:
+					cx = box_w - line_w
+				_:
+					cx = 0.0
+		for i in line_text.length():
+			var char_idx := line_start + i
+			var char_fs := fs
+			if has_prop:
+				var t := float(char_idx) / maxf(1.0, float(total_chars - 1))
+				var s_factor := _calculate_glyph_scale(prop_mode, t, s_start, s_mid, s_mid2, s_end)
+				char_fs = maxi(2, int(round(fs * s_factor)))
+			var run_idx := _run_index_for_char(runs, char_idx)
+			var run: Dictionary = runs[run_idx] if run_idx < runs.size() else runs[0]
+			var rid: RID = _get_rid_for_style(ts, base_bytes, rid_cache, bool(run.get("bold", false)), bool(run.get("italic", false)))
+			var codepoint: int = line_text.unicode_at(i)
+			var glyph: int = ts.font_get_glyph_index(rid, char_fs, codepoint, 0)
+			var adv: float = ts.font_get_glyph_advance(rid, char_fs, glyph).x
+			var char_adv := (adv if adv > 0.0 else font.get_char_size(codepoint, char_fs).x) + ls
 			if glyph <= 0:
-				cx += maxf(adv, font.get_char_size(codepoint, fs).x)
+				cx += char_adv
 				continue
-			_append_glyph_path(ts, rid, fs, glyph, container, cx, y_offset)
-			cx += adv if adv > 0.0 else font.get_char_size(codepoint, fs).x
-		y_offset += line_height
+			var next_cx: float = cx + char_adv
+			if grouped:
+				var glyph_group := Node2D.new()
+				glyph_group.name = "Glyph_%d" % container.get_child_count()
+				glyph_group.set_meta("run_index", run_idx)
+				glyph_group.set_meta("baseline_y", y_offset)
+				glyph_group.set_meta("x0", cx)
+				glyph_group.set_meta("x1", next_cx)
+				_append_glyph_path(ts, rid, char_fs, glyph, glyph_group, cx, y_offset)
+				if glyph_group.get_child_count() > 0:
+					container.add_child(glyph_group)
+				else:
+					glyph_group.free()  # nunca entró al árbol: huérfano si no se libera a mano
+			else:
+				_append_glyph_path(ts, rid, char_fs, glyph, container, cx, y_offset)
+			cx = next_cx
+		y_offset += advance_y
 
-	ts.free_rid(rid)
+	for rid in rid_cache.values():
+		ts.free_rid(rid)
 	if container.get_child_count() == 0:
 		container.queue_free()
 		return null
@@ -478,21 +824,37 @@ static func _get_ts() -> TextServer:
 		_ts = TextServerManager.get_primary_interface()
 	return _ts
 
-## RID de TextServer EFÍMERO con los bytes de la fuente actual (los da FontCore),
-## para leer los contornos de glifo. El llamador (`_build_outline_at`) SIEMPRE lo
-## libera al terminar — así no hay fugas de RID al cerrar.
-func _make_outline_rid(ts) -> RID:
-	var bytes := PackedByteArray()
+## Bytes de la fuente actual (los da FontCore, según la spec de metas de esta
+## instancia). Cacheados por instancia para no releer el archivo por glifo.
+var _outline_bytes_cache: PackedByteArray = PackedByteArray()
+func _outline_font_bytes() -> PackedByteArray:
+	if not _outline_bytes_cache.is_empty():
+		return _outline_bytes_cache
 	var fc = _font_core()
 	if fc and fc.has_method("font_bytes"):
-		bytes = fc.font_bytes(fc.spec_from_node(_spec_source()))
-	if bytes.is_empty():
-		bytes = FileAccess.get_file_as_bytes(FONT_PATH)
-	if bytes.is_empty():
-		return RID()
+		_outline_bytes_cache = fc.font_bytes(fc.spec_from_node(_spec_source()))
+	if _outline_bytes_cache.is_empty():
+		_outline_bytes_cache = FileAccess.get_file_as_bytes(FONT_PATH)
+	return _outline_bytes_cache
+
+## RID de TextServer para una combinación (negrita, cursiva) dada, creado y
+## configurado (font_set_embolden / font_set_transform) la primera vez que se
+## pide, cacheado en `cache` para el resto de glifos de esta misma tanda de
+## build. El llamador libera TODOS los RID de `cache` al terminar.
+func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, bold: bool, italic: bool) -> RID:
+	var key := "%d_%d" % [1 if bold else 0, 1 if italic else 0]
+	if cache.has(key):
+		return cache[key]
 	var r: RID = ts.create_font()
 	if r.is_valid():
-		ts.font_set_data(r, bytes)
+		ts.font_set_data(r, base_bytes)
+		if bold and ts.has_method("font_set_embolden"):
+			ts.font_set_embolden(r, BOLD_EMBOLDEN)
+		if italic and ts.has_method("font_set_transform"):
+			# Cizalla sintética: el tope de cada glifo se inclina hacia la
+			# derecha (convención habitual de cursiva sintética/oblique).
+			ts.font_set_transform(r, Transform2D(Vector2(1, 0), Vector2(-ITALIC_SHEAR, 1), Vector2.ZERO))
+	cache[key] = r
 	return r
 
 func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox: float, oy: float) -> void:
@@ -516,99 +878,113 @@ func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox
 		container.add_child(path)
 
 func _contour_to_curve(arc: PackedVector3Array, ox: float, oy: float) -> Curve2D:
-	if arc.size() < 2:
-		return null
 	var n := arc.size()
-	var first_on := 0
+	if n < 2:
+		return null
+
+	# Expandir puntos on-curve implícitos entre puntos off-curve consecutivos (especificación TrueType)
+	var exp_pts: Array[Vector2] = []
+	var exp_tags: Array[int] = []
+
 	for j in n:
-		if int(arc[j].z) == 1:
+		var curr := Vector2(arc[j].x + ox, arc[j].y + oy)
+		var ctag := int(arc[j].z)
+		exp_pts.append(curr)
+		exp_tags.append(ctag)
+		var nxt := Vector2(arc[(j + 1) % n].x + ox, arc[(j + 1) % n].y + oy)
+		var ntag := int(arc[(j + 1) % n].z)
+		if ctag == 0 and ntag == 0:
+			exp_pts.append((curr + nxt) * 0.5)
+			exp_tags.append(1)
+
+	var total := exp_pts.size()
+	var first_on := 0
+	for j in total:
+		if exp_tags[j] == 1:
 			first_on = j
 			break
+
+	var pts: Array[Vector2] = []
+	var tags: Array[int] = []
+	for j in total:
+		var idx := (first_on + j) % total
+		pts.append(exp_pts[idx])
+		tags.append(exp_tags[idx])
+
 	var curve := Curve2D.new()
 	var add_cubic := func(p0: Vector2, cp1: Vector2, cp2: Vector2, p1: Vector2) -> void:
-		var i0: int = curve.point_count
+		var i0 := curve.point_count
 		if i0 == 0:
-			curve.add_point(Vector2(p0.x + ox, -p0.y + oy), Vector2.ZERO, Vector2(cp1.x - p0.x, -(cp1.y - p0.y)))
+			curve.add_point(p0, Vector2.ZERO, cp1 - p0)
 		else:
-			curve.set_point_out(i0 - 1, Vector2(cp1.x - p0.x, -(cp1.y - p0.y)))
-		curve.add_point(Vector2(p1.x + ox, -p1.y + oy), Vector2(cp2.x - p1.x, -(cp2.y - p1.y)), Vector2.ZERO)
+			curve.set_point_out(i0 - 1, cp1 - p0)
+		curve.add_point(p1, cp2 - p1, Vector2.ZERO)
+
 	var add_line := func(p0: Vector2, p1: Vector2) -> void:
-		var i0: int = curve.point_count
+		var i0 := curve.point_count
 		if i0 == 0:
-			curve.add_point(Vector2(p0.x + ox, -p0.y + oy), Vector2.ZERO, Vector2.ZERO)
-		curve.add_point(Vector2(p1.x + ox, -p1.y + oy), Vector2.ZERO, Vector2.ZERO)
+			curve.add_point(p0, Vector2.ZERO, Vector2.ZERO)
+		curve.add_point(p1, Vector2.ZERO, Vector2.ZERO)
 
-	var prev_on := Vector2(arc[first_on].x, arc[first_on].y)
-	var start_pt := prev_on
-	var i := (first_on + 1) % n
-	var guard := 0
-	while guard < n * 3 and i != first_on:
-		guard += 1
-		var tag := int(arc[i].z)
+	var prev_on := pts[0]
+	var i := 1
+	while i < total:
+		var tag := tags[i]
 		if tag == 1:
-			var pt := Vector2(arc[i].x, arc[i].y)
-			add_line.call(prev_on, pt)
-			prev_on = pt
-			i = (i + 1) % n
+			add_line.call(prev_on, pts[i])
+			prev_on = pts[i]
+			i += 1
+		elif tag == 0:
+			var cp := pts[i]
+			var p1 := pts[(i + 1) % total]
+			var cp1 := prev_on + (cp - prev_on) * (2.0 / 3.0)
+			var cp2 := p1 + (cp - p1) * (2.0 / 3.0)
+			add_cubic.call(prev_on, cp1, cp2, p1)
+			prev_on = p1
+			i += 2
 		elif tag == 2:
-			if int(arc[(i + 1) % n].z) == 2 and int(arc[(i + 2) % n].z) == 1:
-				var cp1 := Vector2(arc[i].x, arc[i].y)
-				var cp2 := Vector2(arc[(i + 1) % n].x, arc[(i + 1) % n].y)
-				var end := Vector2(arc[(i + 2) % n].x, arc[(i + 2) % n].y)
-				add_cubic.call(prev_on, cp1, cp2, end)
-				prev_on = end
-				i = (i + 3) % n
-			else:
-				i = (i + 1) % n
-		else:
-			var cx_ := Vector2(arc[i].x, arc[i].y)
-			var after := arc[(i + 1) % n]
-			var end: Vector2
-			var next_i: int
-			if int(after.z) == 0:
-				var on_mid: Vector2 = (cx_ + Vector2(after.x, after.y)) / 2.0
-				add_cubic.call(prev_on, prev_on + (cx_ - prev_on) * (2.0 / 3.0), on_mid + (Vector2(after.x, after.y) - on_mid) * (2.0 / 3.0), on_mid)
-				var after2 := arc[(i + 2) % n]
-				if int(after2.z) == 1:
-					var end_pt := Vector2(after2.x, after2.y)
-					add_cubic.call(on_mid, on_mid + (Vector2(after.x, after.y) - on_mid) * (2.0 / 3.0), end_pt + (Vector2(after.x, after.y) - end_pt) * (2.0 / 3.0), end_pt)
-					prev_on = end_pt
-					next_i = (i + 3) % n
-				else:
-					add_cubic.call(on_mid, on_mid + (Vector2(after.x, after.y) - on_mid) * (2.0 / 3.0), Vector2(after.x, after.y), Vector2(after.x, after.y))
-					prev_on = Vector2(after.x, after.y)
-					next_i = (i + 2) % n
-			else:
-				end = Vector2(after.x, after.y)
-				add_cubic.call(prev_on, prev_on + (cx_ - prev_on) * (2.0 / 3.0), end + (cx_ - end) * (2.0 / 3.0), end)
-				prev_on = end
-				next_i = (i + 2) % n
-			i = next_i
+			var cp1 := pts[i]
+			var cp2 := pts[(i + 1) % total]
+			var p1 := pts[(i + 2) % total]
+			add_cubic.call(prev_on, cp1, cp2, p1)
+			prev_on = p1
+			i += 3
 
+	# Cerrar el contorno de vuelta al inicio
+	var start_pt := pts[0]
 	if curve.point_count > 0:
-		var last_p: Vector2 = curve.get_point_position(curve.point_count - 1)
-		var first_p: Vector2 = Vector2(start_pt.x + ox, -start_pt.y + oy)
-		if last_p.distance_to(first_p) > 0.01:
+		var last_p := curve.get_point_position(curve.point_count - 1)
+		if last_p.distance_to(start_pt) > 0.01:
 			add_line.call(prev_on, start_pt)
+
 	return curve
 
-func _wrap_lines(font: Font, fs: int, wrap_w: float) -> Array[String]:
-	var raw: PackedStringArray = text.replace("\r\n", "\n").split("\n")
-	var out: Array[String] = []
-	if wrap_w <= 0.0 or not font:
-		for r in raw:
-			out.append(r)
-		return out
-	for line in raw:
-		var words: PackedStringArray = line.split(" ", true)
-		var current := ""
-		for word in words:
-			var probe := current + (" " if current.length() > 0 else "") + word
-			var w: float = font.get_string_size(probe, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			if w <= wrap_w or current.length() == 0:
-				current = probe
-			else:
-				out.append(current)
-				current = word
-		out.append(current)
+## Devuelve Array[{"text":String, "start":int}] — `start` = índice del primer
+## carácter de esa línea en el `text` ORIGINAL (sin re-envolver), para poder
+## mapear cada carácter a su run de formato aunque el autowrap reparta las
+## palabras en líneas distintas a las del texto tal cual se escribió.
+func _wrap_lines(font: Font, fs: int, wrap_w: float) -> Array:
+	var out: Array = []
+	var raw_lines: PackedStringArray = text.replace("\r\n", "\n").split("\n")
+	var raw_start := 0
+	for r in raw_lines:
+		if wrap_w <= 0.0 or not font:
+			out.append({"text": r, "start": raw_start})
+		else:
+			var words: PackedStringArray = r.split(" ", true)
+			var current := ""
+			var current_start := raw_start
+			var cursor := raw_start
+			for word in words:
+				var probe := current + (" " if current.length() > 0 else "") + word
+				var w: float = font.get_string_size(probe, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+				if w <= wrap_w or current.length() == 0:
+					current = probe
+				else:
+					out.append({"text": current, "start": current_start})
+					current_start = cursor
+					current = word
+				cursor += word.length() + 1
+			out.append({"text": current, "start": current_start})
+		raw_start += r.length() + 1
 	return out

@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://test_grad_lock_rt_001"]
+
+[ext_resource type="Script" path="res://script_gdscript/test_gradient_selection_lock_realtime.gd" id="1_test_grad_lock"]
+
+[node name="TestGradientSelectionLock" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_test_grad_lock")
+
+[node name="StatusLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 24.0
+offset_right = 1170.0
+offset_bottom = 120.0
+theme_override_font_sizes/font_size = 22
+text = "Iniciando verificación en tiempo real..."
+autowrap_mode = 2

@@ -186,8 +186,25 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		if node.has_meta("text_outline_color"): base["text_outline_color"] = _col(node.get_meta("text_outline_color"))
 		if node.has_meta("text_outline"): base["text_outline"] = int(node.get_meta("text_outline"))
 		if node.has_meta("text_align"): base["text_align"] = String(node.get_meta("text_align"))
+		if node.has_meta("text_valign"): base["text_valign"] = String(node.get_meta("text_valign"))
 		if node.has_meta("width"): base["width"] = float(node.get_meta("width"))
 		if node.has_meta("height"): base["height"] = float(node.get_meta("height"))
+		# Formato enriquecido por rango (color/negrita/cursiva/subrayado de
+		# partes del texto) — solo se guarda si hay MÁS de un run; un texto
+		# con estilo uniforme sigue confiando en las metas de arriba.
+		if node.has_meta("runs"):
+			var _runs: Array = node.get_meta("runs")
+			if _runs.size() > 1:
+				var _out_runs: Array = []
+				for _r in _runs:
+					_out_runs.append({
+						"length": int(_r.get("length", 0)),
+						"color": _col(_r.get("color", Color.BLACK)),
+						"bold": bool(_r.get("bold", false)),
+						"italic": bool(_r.get("italic", false)),
+						"underline": bool(_r.get("underline", false)),
+					})
+				base["runs"] = _out_runs
 		return base
 
 	if node is VectorCircle:
@@ -266,7 +283,7 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 	d["stroke"] = _col(s.stroke_color)
 	d["stroke_w"] = s.stroke_width
 	if s.has_gradient_fill():
-		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle))
+		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle), s.fill_gradient_p0, s.fill_gradient_p1)
 	# Efectos (best-effort): array de Effect (Resource) o de dicts {type,params}.
 	var fx := []
 	for e in s.effects:
@@ -274,16 +291,24 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 			fx.append({"type": int(e.effect_type), "params": e.params if "params" in e else {},
 				"enabled": e.enabled if "enabled" in e else true})
 		elif e is Dictionary:
-			fx.append(e)
+			var ed: Dictionary = e.duplicate(true)
+			if ed.has("color") and ed["color"] is Color:
+				ed["color"] = _col(ed["color"])
+			fx.append(ed)
 	if not fx.is_empty():
 		d["fx"] = fx
 
 
-static func _grad_to_dict(g: Gradient, gtype: int, angle: float) -> Dictionary:
+static func _grad_to_dict(g: Gradient, gtype: int, angle: float, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
 	var stops := []
 	for i in g.get_point_count():
 		stops.append([g.get_offset(i), _col(g.get_color(i))])
-	return {"type": gtype, "angle": angle, "stops": stops}
+	var res := {"type": gtype, "angle": angle, "stops": stops}
+	if p0 != Vector2(-1, -1):
+		res["p0"] = [p0.x, p0.y]
+	if p1 != Vector2(-1, -1):
+		res["p1"] = [p1.x, p1.y]
+	return res
 
 static func _grad_from_dict(gd: Dictionary) -> Gradient:
 	var g := Gradient.new()
@@ -738,6 +763,7 @@ static func _text_from(d: Dictionary) -> Node2D:
 	if d.has("text_outline_color"): cont.set_meta("text_outline_color", _to_col(d["text_outline_color"]))
 	if d.has("text_outline"): cont.set_meta("text_outline", int(d["text_outline"]))
 	if d.has("text_align"): cont.set_meta("text_align", String(d["text_align"]))
+	if d.has("text_valign"): cont.set_meta("text_valign", String(d["text_valign"]))
 	if d.has("width"): cont.set_meta("width", d["width"])
 	if d.has("height"): cont.set_meta("height", d["height"])
 	var label := WorldTextLabel.new()
@@ -757,11 +783,31 @@ static func _text_from(d: Dictionary) -> Node2D:
 			"left": HORIZONTAL_ALIGNMENT_LEFT, "center": HORIZONTAL_ALIGNMENT_CENTER,
 			"right": HORIZONTAL_ALIGNMENT_RIGHT, "fill": HORIZONTAL_ALIGNMENT_FILL,
 		}.get(String(d["text_align"]), HORIZONTAL_ALIGNMENT_LEFT)
+	if d.has("text_valign") and "vertical_alignment" in label:
+		label.vertical_alignment = {
+			"top": VERTICAL_ALIGNMENT_TOP, "middle": VERTICAL_ALIGNMENT_CENTER,
+			"bottom": VERTICAL_ALIGNMENT_BOTTOM,
+		}.get(String(d["text_valign"]), VERTICAL_ALIGNMENT_TOP)
 	cont.add_child(label)
+	if d.has("width") and d.has("height") and label.has_method("set_world_size"):
+		label.set_world_size(Vector2(float(d["width"]), float(d["height"])))
 	# Resuelve la familia guardada (SO o bundled) + tracking vía FontCore.
 	if (d.has("font_family") or d.has("font_weight") or d.has("font_italic") or d.has("letter_spacing")) \
 			and label.has_method("apply_font_from_meta"):
 		label.apply_font_from_meta()
+	if d.has("runs") and d["runs"] is Array:
+		var _runs: Array = []
+		for _r in d["runs"]:
+			_runs.append({
+				"length": int(_r.get("length", 0)),
+				"color": _to_col(_r.get("color", [0, 0, 0, 1])),
+				"bold": bool(_r.get("bold", false)),
+				"italic": bool(_r.get("italic", false)),
+				"underline": bool(_r.get("underline", false)),
+			})
+		cont.set_meta("runs", _runs)
+		if label.has_method("set_rich_runs"):
+			label.set_rich_runs(_runs)
 	return cont
 
 
@@ -772,18 +818,20 @@ static func _read_style(s: VectorShape, d: Dictionary) -> void:
 	if d.has("fill_grad") and d["fill_grad"] is Dictionary:
 		s.fill_gradient_type = int(d["fill_grad"].get("type", 0))
 		s.fill_gradient_angle = float(d["fill_grad"].get("angle", 0.0))
+		if d["fill_grad"].has("p0") and d["fill_grad"]["p0"] is Array and d["fill_grad"]["p0"].size() >= 2:
+			s.fill_gradient_p0 = Vector2(float(d["fill_grad"]["p0"][0]), float(d["fill_grad"]["p0"][1]))
+		if d["fill_grad"].has("p1") and d["fill_grad"]["p1"] is Array and d["fill_grad"]["p1"].size() >= 2:
+			s.fill_gradient_p1 = Vector2(float(d["fill_grad"]["p1"][0]), float(d["fill_grad"]["p1"][1]))
 		s.fill_gradient = _grad_from_dict(d["fill_grad"])
-	# Efectos (best-effort): reconstruye recursos Effect desde los datos.
-	if d.has("fx") and ClassDB.class_exists("Resource"):
+	# Efectos (best-effort): reconstruye efectos desde los datos.
+	if d.has("fx") and d["fx"] is Array:
 		s.effects = []
-		var EffectClass = load("res://script_gdscript/system/Effect.gd")
 		for fd in d["fx"]:
-			if EffectClass and fd is Dictionary:
-				var e = EffectClass.new()
-				if "effect_type" in e: e.effect_type = int(fd.get("type", 0))
-				if "params" in e: e.params = fd.get("params", {})
-				if "enabled" in e: e.enabled = fd.get("enabled", true)
-				s.effects.append(e)
+			if fd is Dictionary:
+				var ed: Dictionary = fd.duplicate(true)
+				if ed.has("color"):
+					ed["color"] = _to_col(ed["color"])
+				s.effects.append(ed)
 
 
 # ─────────────────────────────────────────────────────────── helpers

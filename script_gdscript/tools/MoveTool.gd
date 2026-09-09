@@ -24,6 +24,7 @@ var selected_shapes: Array[Node2D] = []
 var _bounding_box: Node = null  # Referencia al bounding box del pool
 var _sel_conn: bool = false     # ¿conectado a SelectionManager.changed?
 var _pushing_selection: bool = false  # evita el eco al reflejar hacia el manager
+var is_gradient_mode: bool = false   # Modo herramienta de degradado (Atajo G / Affinity style)
 
 # ── Estado de arrastre de objetos ─────────────────────────────────────────────
 var is_dragging_shape: bool = false
@@ -94,9 +95,15 @@ func activate() -> void:
 	if SmartCursor:
 		SmartCursor.set_state(CursorStateMachine.CursorState.ACTIVE)
 	
+	is_gradient_mode = false
 	_clear_key_transform()
 	_notificar_cambio_al_overlay()
 	_acquire_bounding_box()
+	if is_instance_valid(_bounding_box):
+		_bounding_box.is_gradient_tool_active = false
+		if _bounding_box.has_method("deactivate_gradient_mode"):
+			_bounding_box.deactivate_gradient_mode()
+		_bounding_box.queue_redraw()
 	# Reflejar en el bounding box la selección que ya viva en SelectionManager
 	# (p. ej. hecha desde el panel de capas con otra herramienta activa).
 	if SelectionManager and not _sel_conn:
@@ -111,6 +118,10 @@ func activate() -> void:
 		_dc.registrar_movetool(self)
 		if is_instance_valid(_bounding_box) and _dc.has_method("registrar_bbox"):
 			_dc.registrar_bbox(_bounding_box)
+
+	var cc := get_node_or_null("/root/ColorCore")
+	if cc and cc.has_signal("paint_changed") and not cc.paint_changed.is_connected(_on_colorcore_paint_changed):
+		cc.paint_changed.connect(_on_colorcore_paint_changed)
 
 ## Red de seguridad: si un gesto (arrastre/resize/rotación/marquee) se quedó
 ## "abierto" porque la SUELTA del ratón no llegó a `handle_input` (la comió un
@@ -130,9 +141,13 @@ func deactivate() -> void:
 	is_resizing = false
 	is_rotating = false
 	is_marquee = false
+	is_gradient_mode = false
 	is_dragging_artboard = false
 	is_resizing_artboard = false
 	_release_bounding_box()
+	var cc := get_node_or_null("/root/ColorCore") if is_inside_tree() else null
+	if cc and cc.has_signal("paint_changed") and cc.paint_changed.is_connected(_on_colorcore_paint_changed):
+		cc.paint_changed.disconnect(_on_colorcore_paint_changed)
 	_notificar_limpieza_al_overlay()
 	
 	# Restaurar estado del cursor
@@ -145,8 +160,20 @@ func deactivate() -> void:
 # ── Entrada Principal ──────────────────────────────────────────────────────────
 
 func handle_input(event: InputEvent) -> bool:
+	# 1. Si el bounding box está en medio de un arrastre activo (p.ej. de un punto de degradado),
+	# procesar siempre el evento para no perder el movimiento ni el soltado del ratón.
+	if is_instance_valid(_bounding_box) and _bounding_box.has_method("has_gradient_annotator") and _bounding_box.has_gradient_annotator():
+		if "_annotator_drag_mode" in _bounding_box and _bounding_box._annotator_drag_mode != "":
+			if _bounding_box.has_method("handle_annotator_input") and _bounding_box.handle_annotator_input(event):
+				return true
+
 	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
 		return false
+
+	# 2. Permitir que el anotador de degradado procese clics o pulsaciones antes de descartar por artboard
+	if is_instance_valid(_bounding_box) and _bounding_box.has_method("has_gradient_annotator") and _bounding_box.has_gradient_annotator():
+		if _bounding_box.has_method("handle_annotator_input") and _bounding_box.handle_annotator_input(event):
+			return true
 
 	_refresh_artboard()
 	if not target_artboard:
@@ -184,17 +211,49 @@ func handle_input(event: InputEvent) -> bool:
 # ── LÓGICA DE ATAJO POR TECLADO (G, S, R, X, Y) ──────────────────────────────────
 
 func _handle_key_shortcuts(keycode: int) -> bool:
-	var focus_owner = canvas.get_viewport().gui_get_focus_owner()
+	var focus_owner = canvas.get_viewport().gui_get_focus_owner() if canvas and canvas.get_viewport() else null
 	if focus_owner is TextEdit or focus_owner is LineEdit:
 		return false
+
+	if keycode == KEY_G:
+		# Atajo estilo Affinity Designer / Illustrator: Activar/conmutar herramienta/modo degradado
+		if not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META):
+			_toggle_gradient_mode()
+			return true
+
+	if keycode == KEY_V:
+		if is_gradient_mode:
+			is_gradient_mode = false
+			Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+			if is_instance_valid(_bounding_box):
+				_bounding_box.is_gradient_tool_active = false
+				if _bounding_box.has_method("deactivate_gradient_mode"):
+					_bounding_box.deactivate_gradient_mode()
+				_bounding_box.queue_redraw()
+			if is_instance_valid(canvas):
+				canvas.queue_redraw()
+			return true
+
+	if keycode == KEY_ESCAPE:
+		if is_gradient_mode:
+			is_gradient_mode = false
+			Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+			if is_instance_valid(_bounding_box):
+				_bounding_box.is_gradient_tool_active = false
+				if _bounding_box.has_method("deactivate_gradient_mode"):
+					_bounding_box.deactivate_gradient_mode()
+				_bounding_box.queue_redraw()
+			if is_instance_valid(canvas):
+				canvas.queue_redraw()
+			return true
+		if current_key_mode != KeyMode.NONE:
+			_cancel_key_transform()
+			return true
 
 	if selected_shapes.size() == 0:
 		return false
 
 	match keycode:
-		KEY_G:
-			_start_key_mode(KeyMode.TRANSLATE)
-			return true
 		KEY_S:
 			_start_key_mode(KeyMode.SCALE)
 			return true
@@ -211,11 +270,54 @@ func _handle_key_shortcuts(keycode: int) -> bool:
 				current_axis = AxisLock.Y if current_axis != AxisLock.Y else AxisLock.NONE
 				canvas.queue_redraw()
 				return true
-		KEY_ESCAPE:
-			if current_key_mode != KeyMode.NONE:
-				_cancel_key_transform()
-				return true
 	return false
+
+func _toggle_gradient_mode() -> void:
+	is_gradient_mode = !is_gradient_mode
+	Input.set_default_cursor_shape(Input.CURSOR_CROSS if is_gradient_mode else Input.CURSOR_ARROW)
+	if is_gradient_mode:
+		for s in selected_shapes:
+			if is_instance_valid(s) and s is VectorShape:
+				if not s.has_gradient_fill():
+					var g := Gradient.new()
+					var base_col: Color = s.fill_color if s.fill_color.a > 0.0 else Color(0.2, 0.5, 0.9, 1.0)
+					g.set_color(0, base_col)
+					g.set_color(1, Color.WHITE if base_col.get_luminance() < 0.6 else Color(0.1, 0.1, 0.1, 1.0))
+					s.fill_gradient = g
+					s.set_gradient_points(Vector2(0.1, 0.5), Vector2(0.9, 0.5))
+					s.queue_redraw()
+					if GlobalEvents.has_signal("object_style_changed"):
+						GlobalEvents.object_style_changed.emit()
+					if GlobalEvents.has_signal("gradient_changed"):
+						GlobalEvents.gradient_changed.emit(s.fill_gradient)
+	if is_instance_valid(_bounding_box):
+		_bounding_box.is_gradient_tool_active = is_gradient_mode
+		if not is_gradient_mode and _bounding_box.has_method("deactivate_gradient_mode"):
+			_bounding_box.deactivate_gradient_mode()
+		_bounding_box.queue_redraw()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+
+func _on_colorcore_paint_changed(paint: Dictionary) -> void:
+	if paint.get("type", "solid") == "solid":
+		if is_gradient_mode:
+			is_gradient_mode = false
+			Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+		if is_instance_valid(_bounding_box):
+			_bounding_box.is_gradient_tool_active = false
+			if _bounding_box.has_method("deactivate_gradient_mode"):
+				_bounding_box.deactivate_gradient_mode()
+			else:
+				_bounding_box.queue_redraw()
+	else:
+		# Si ya estamos en modo degradado (activado con la tecla G), redibujar para reflejar cambios de stops/color.
+		# ¡NUNCA activar is_gradient_mode aquí! La selección de un objeto con degradado NO debe
+		# conmutar la herramienta a degradado; debe permanecer en selección normal para que el usuario
+		# pueda arrastrar y mover el elemento sobre su relleno con total libertad (estilo Figma/Illustrator).
+		if is_instance_valid(_bounding_box) and is_gradient_mode:
+			_bounding_box.queue_redraw()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
 
 func _start_key_mode(mode: KeyMode) -> void:
 	current_key_mode = mode
@@ -405,7 +507,7 @@ func _es_ancestro(posible_ancestro: Node, nodo: Node) -> bool:
 func _on_press(gm: Vector2) -> bool:
 	# El artboard sobre el que se pulsa (multi-artboard). Si el clic cae fuera
 	# de todos, seguimos con el activo para el marquee de "espacio vacío".
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	var clicked_ab: Node2D = mgr.artboard_at_point(gm) if mgr else null
 	if is_instance_valid(clicked_ab):
 		target_artboard = clicked_ab
@@ -534,7 +636,7 @@ func _on_release(_gm: Vector2) -> bool:
 ## (_snapshot fresco) de cada figura + el cambio de padre. `solo_transform`
 ## true en resize/rotar → no se reparenta (la figura no "se mueve" de artboard).
 func _commit_transform(action_name: String, nodes: Array, solo_transform: bool) -> void:
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	var container: Node = canvas.get_node_or_null("ArtboardsContainer") if is_instance_valid(canvas) else null
 	var recs: Array = []
 	for n in nodes:
@@ -824,6 +926,9 @@ func _on_motion(gm: Vector2) -> bool:
 
 	return false
 
+func _update_transform_logic(gm: Vector2) -> void:
+	_on_motion(gm)
+
 func _process_key_motion(gm: Vector2) -> void:
 	var delta: Vector2 = gm - transform_initial_mouse
 	match current_key_mode:
@@ -1064,10 +1169,14 @@ func _update_text_node_sizes(shape: Node2D, w: float, h: float) -> void:
 	var display_label: Control = shape.get_node_or_null("DisplayLabel")
 	var multi_edit: Control = shape.get_node_or_null("MultiLineEdit")
 	if not multi_edit: multi_edit = shape.get_node_or_null("LineEdit")
+	if not multi_edit: multi_edit = shape.get_node_or_null("TitleEdit")
 	
 	if display_label:
-		display_label.custom_minimum_size = Vector2(w, h)
-		display_label.size = Vector2(w, h)
+		if display_label is WorldTextLabel:
+			display_label.set_world_size(Vector2(w, h))
+		else:
+			display_label.custom_minimum_size = Vector2(w, h)
+			display_label.size = Vector2(w, h)
 	if multi_edit:
 		multi_edit.custom_minimum_size = Vector2(w, h)
 		multi_edit.size = Vector2(w, h)
@@ -1395,7 +1504,7 @@ func _shape_at(gpos: Vector2) -> Node2D:
 	# Busca en TODOS los artboards (no solo el activo) + las figuras sueltas
 	# hijas directas del contenedor. Antes solo miraba target_artboard, así
 	# que con varios artboards solo se podían seleccionar figuras del primero.
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	var artboards: Array = mgr.all_artboards() if mgr else ([target_artboard] if target_artboard else [])
 
 	for ab in artboards:
@@ -1656,7 +1765,7 @@ func _macro_rect_inicial() -> Rect2:
 ## ancestros/descendientes).
 func _snap_candidates() -> Array:
 	var out: Array = []
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	if mgr == null:
 		return out
 	var vistos := {}
@@ -1860,7 +1969,7 @@ func _snapshot(shape: Node2D) -> Dictionary:
 	return snap
 
 func _refresh_artboard() -> void:
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	if mgr:
 		var act := mgr.get_active_artboard()
 		if is_instance_valid(act):
@@ -1913,6 +2022,10 @@ func _handle_at(macro: Rect2, gm: Vector2) -> String:
 	return ""
 
 func _set_cursor(h: String) -> void:
+	if is_gradient_mode and h == "":
+		Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+		return
+
 	if not SmartCursor:
 		# Fallback al sistema tradicional si SmartCursor no está disponible
 		if h.begins_with("rot"):
@@ -1948,12 +2061,12 @@ func _set_cursor(h: String) -> void:
 				SmartCursor.set_state(CursorStateMachine.CursorState.NEUTRAL)
 
 func _notificar_cambio_al_overlay() -> void:
-	if is_instance_valid(canvas) and is_instance_valid(canvas.artboards_container):
+	if is_instance_valid(canvas) and "artboards_container" in canvas and is_instance_valid(canvas.artboards_container):
 		if canvas.artboards_container.has_method("set_active_tool"):
 			canvas.artboards_container.set_active_tool("movetool", self)
 
 func _notificar_limpieza_al_overlay() -> void:
-	if is_instance_valid(canvas) and is_instance_valid(canvas.artboards_container):
+	if is_instance_valid(canvas) and "artboards_container" in canvas and is_instance_valid(canvas.artboards_container):
 		if canvas.artboards_container.has_method("set_active_tool"):
 			canvas.artboards_container.set_active_tool("other", null)
 

@@ -242,7 +242,7 @@ func _render_pdf_content(shapes: Array[Node], artboard: Node) -> PackedByteArray
 	
 	# Get artboard size for MediaBox
 	var artboard_size = Vector2(612, 792)  # Default A4 in points (72 dpi)
-	if artboard.has("artboard_size"):
+	if "artboard_size" in artboard:
 		# Convert pixels to points (assuming 96 dpi for artboard, PDF uses 72 dpi)
 		var pixel_size = artboard.get("artboard_size")
 		artboard_size = Vector2(pixel_size.x * 72.0 / 96.0, pixel_size.y * 72.0 / 96.0)
@@ -308,9 +308,9 @@ func _shape_to_pdf(shape: Node, colors_used: Dictionary, _fonts_used: Dictionary
 	var cls = shape.get_class()
 	
 	# Get position, scale, rotation
-	var position = shape.position if shape.has("position") else Vector2.ZERO
-	var _scale = shape.scale if shape.has("scale") else Vector2.ONE
-	var _rotation = shape.rotation if shape.has("rotation") else 0.0
+	var position = shape.position if "position" in shape else Vector2.ZERO
+	var _scale = shape.scale if "scale" in shape else Vector2.ONE
+	var _rotation = shape.rotation if "rotation" in shape else 0.0
 	
 	# Get color and style properties
 	var stroke_color = Color.BLACK
@@ -318,13 +318,13 @@ func _shape_to_pdf(shape: Node, colors_used: Dictionary, _fonts_used: Dictionary
 	var stroke_width = 1.0
 	var is_filled = false
 	
-	if shape.has("stroke_color"):
+	if "stroke_color" in shape:
 		stroke_color = shape.get("stroke_color")
-	if shape.has("fill_color"):
+	if "fill_color" in shape:
 		fill_color = shape.get("fill_color")
-	if shape.has("stroke_width"):
+	if "stroke_width" in shape:
 		stroke_width = shape.get("stroke_width")
-	if shape.has("is_filled"):
+	if "is_filled" in shape:
 		is_filled = shape.get("is_filled")
 	
 	# Add colors to used colors
@@ -355,7 +355,7 @@ func _shape_to_pdf(shape: Node, colors_used: Dictionary, _fonts_used: Dictionary
 					content += "S\n"  # Stroke only
 			
 	elif cls == "Polygon2D":
-		var pts = shape.get("polygon") if shape.has("polygon") else []
+		var pts = shape.get("polygon") if "polygon" in shape else []
 		if pts.size() >= 3:
 			content += "%s %s %s rg\n" % [pdf_fill_color.r, pdf_fill_color.g, pdf_fill_color.b]
 			content += "%s %s %s RG\n" % [pdf_stroke_color.r, pdf_stroke_color.g, pdf_stroke_color.b]
@@ -370,17 +370,17 @@ func _shape_to_pdf(shape: Node, colors_used: Dictionary, _fonts_used: Dictionary
 				content += "S\n"
 		
 	elif cls == "Line2D":
-		var pts = shape.get("points") if shape.has("points") else []
+		var pts = shape.get("points") if "points" in shape else []
 		if pts.size() >= 2:
 			content += "%s %s %s RG\n" % [pdf_stroke_color.r, pdf_stroke_color.g, pdf_stroke_color.b]
-			content += "%f w\n" % (shape.get("width") if shape.has("width") else stroke_width)
+			content += "%f w\n" % (shape.get("width") if "width" in shape else stroke_width)
 			content += "%f %f m\n" % [position.x + pts[0].x, position.y + pts[0].y]
 			for i in range(1, pts.size()):
 				content += "%f %f l\n" % [position.x + pts[i].x, position.y + pts[i].y]
 			content += "S\n"
 		
 	elif cls == "ColorRect" or cls.find("Rect") >= 0:
-		var rect = shape.get("rect") if shape.has("rect") else Rect2(Vector2.ZERO, shape.get("size") if shape.has("size") else Vector2(100, 100))
+		var rect = shape.get("rect") if "rect" in shape else Rect2(Vector2.ZERO, shape.get("size") if "size" in shape else Vector2(100, 100))
 		if rect.size.x > 0 and rect.size.y > 0:
 			content += "%s %s %s rg\n" % [pdf_fill_color.r, pdf_fill_color.g, pdf_fill_color.b]
 			content += "%f %f %f %f re\n" % [position.x + rect.position.x, position.y + rect.position.y, rect.size.x, rect.size.y]
@@ -507,7 +507,7 @@ func _export_vop(artboard: Node, path: String, _settings: Dictionary) -> void:
 		"version": "1.0",
 		"artboard": {
 			"name": artboard.name,
-			"size": artboard.get("artboard_size") if artboard.has("artboard_size") else Vector2(800, 600),
+			"size": artboard.get("artboard_size") if "artboard_size" in artboard else Vector2(800, 600),
 			"layers": _get_layer_data(artboard),
 			"metadata": {
 				"created_at": Time.get_unix_time_from_system(),
@@ -539,9 +539,9 @@ func _get_node_data(node: Node) -> Dictionary:
 	var data = {
 		"name": node.name,
 		"type": node.get_class(),
-		"position": node.position if node.has("position") else Vector2.ZERO,
-		"scale": node.scale if node.has("scale") else Vector2.ONE,
-		"rotation": node.rotation if node.has("rotation") else 0.0,
+		"position": node.position if "position" in node else Vector2.ZERO,
+		"scale": node.scale if "scale" in node else Vector2.ONE,
+		"rotation": node.rotation if "rotation" in node else 0.0,
 		"children": []
 	}
 	
@@ -558,8 +558,8 @@ func _get_layer_data(artboard: Node) -> Array:
 			layers.append({
 				"name": child.name,
 				"type": child.get_class(),
-				"visible": child.visible if child.has("visible") else true,
-				"locked": child.locked if child.has("locked") else false
+				"visible": child.visible if "visible" in child else true,
+				"locked": child.locked if "locked" in child else false
 			})
 	return layers
 
@@ -574,7 +574,7 @@ func _get_artboard_state(artboard: Node) -> Dictionary:
 	var state = {
 		"id": artboard.get_instance_id(),
 		"name": artboard.name,
-		"size": artboard.get("artboard_size") if artboard.has("artboard_size") else Vector2.ZERO,
+		"size": artboard.get("artboard_size") if "artboard_size" in artboard else Vector2.ZERO,
 		"shapes": [],
 		"modified_at": Time.get_unix_time_from_system()
 	}
@@ -592,19 +592,19 @@ func _get_artboard_state(artboard: Node) -> Dictionary:
 			}
 			
 			# Propiedades específicas de cada tipo
-			if child.has("stroke_color"):
+			if "stroke_color" in child:
 				shape_state["properties"]["stroke_color"] = child.get("stroke_color").to_html()
-			if child.has("fill_color"):
+			if "fill_color" in child:
 				shape_state["properties"]["fill_color"] = child.get("fill_color").to_html()
-			if child.has("stroke_width"):
+			if "stroke_width" in child:
 				shape_state["properties"]["stroke_width"] = child.get("stroke_width")
-			if child.has("points") and child.get("points") is PackedVector2Array:
+			if "points" in child and child.get("points") is PackedVector2Array:
 				shape_state["properties"]["points"] = child.get("points").duplicate()
-			if child.has("polygon") and child.get("polygon") is PackedVector2Array:
+			if "polygon" in child and child.get("polygon") is PackedVector2Array:
 				shape_state["properties"]["polygon"] = child.get("polygon").duplicate()
-			if child.has("width"):
+			if "width" in child:
 				shape_state["properties"]["width"] = child.get("width")
-			if child.has("height"):
+			if "height" in child:
 				shape_state["properties"]["height"] = child.get("height")
 			
 			state["shapes"].append(shape_state)
@@ -697,8 +697,8 @@ func export_to_svg_string(artboard: Node) -> String:
 	# Export artboard to SVG string (helper method)
 	var svg_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
 	svg_content += '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %s %s">\n' % [
-		artboard.get("artboard_size").x if artboard.has("artboard_size") else 800,
-		artboard.get("artboard_size").y if artboard.has("artboard_size") else 600
+		artboard.get("artboard_size").x if "artboard_size" in artboard else 800,
+		artboard.get("artboard_size").y if "artboard_size" in artboard else 600
 	]
 	
 	# Add shapes

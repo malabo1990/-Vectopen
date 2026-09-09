@@ -179,3 +179,93 @@ sintéticos (`Input.parse_input_event` / MCP `send_input`). Los clics y arrastre
 sobre el lienzo y el drag & drop del `Tree` **no** se pueden verificar en vivo
 por MCP — se validan con tests unitarios + confirmación del usuario con ratón
 real.
+
+---
+
+## 7. Panel de Trazos y Editor de Curvas Bézier (`scenes/ui/panel_trazos.tscn`, `panel_trazos.gd`)
+
+Rediseño completo siguiendo la estética Studio con chips grises monocromáticos:
+
+### Fila de Color y Fila de Grosor Separadas
+- **Antes**: El control `ColorPickerButton` y el `SpinBox` compartían la misma fila apretada, resultando en un control de grosor excesivamente comprimido.
+- **Ahora**:
+  - `RowColor`: Etiqueta "Color" a la izquierda y `ColorPickerButton` a la derecha.
+  - `RowGrosor`: Etiqueta "Grosor" a la izquierda y el `SpinBox` (`spin_box.tscn`) abajo en su propia fila independiente con ancho natural de 68px, sin compresión visual.
+
+### Paleta Monocromática de Chips Grises (Cero Azul)
+- Siguiendo la convención visual de `tool.tscn` y `layout.tscn`:
+  - **Estado Activo**: Fondo chip gris neutro `SURFACE_RAISED` (`#D8D8DC` / `Color(0.85, 0.85, 0.88)`), borde sutil (`Color(0.70, 0.71, 0.75)`) e icono en grafito/negro (`Color(0.10, 0.10, 0.12)`).
+  - **Estado Inactivo**: Chip claro (`Color(0.95, 0.95, 0.97)`), borde muy suave (`Color(0.86, 0.87, 0.90)`) e icono en gris medio (`Color(0.44, 0.44, 0.47)`).
+  - **Botón de Curva Inferior**: El botón `BtnToggleCurve` ("▼ Editor Perfil Cónico") adopta el chip gris redondeado, pasando a gris oscuro al desplegarse.
+  - **Editor Bézier**: Presets lineales, curvos y poligonales estilizados en grises neutros sin saturaciones azules discordantes.
+
+---
+
+## 8. Panel de Tipografía (`scenes/ui/panel_tooltext.tscn`, `rich_text_label_slider_size.gd`)
+
+Rediseño a superficie blanca Studio preservando al 100% la jerarquía y estructura técnica:
+
+### Preservación de Estructura
+- Se respetaron rigurosamente todos los identificadores, nombres de nodo, rutas y scripts exportados (`Panel/Label/HSlider`, `Button_font/Panel_font`, `BoxContainer2`, `BoxContainer4`, etc.).
+
+### Estética de Superficie Studio
+- Contenedor principal en blanco puro con esquinas redondeadas de 12px, borde sutil de 1px y sombra suave Apple.
+- Marco de previsualización de la "A" con fondo claro limpio y delimitación tenue.
+- **Navegador de Fuentes (`Panel_font`)**: Ventana emergente en blanco puro con sombra suave, buscador de fuentes claro y listado tipográfico con texto negro legible de alto contraste.
+- **Chips de Alineación y Formato**: Botones de alineación horizontal (`left`, `center`, `fill`, `right`), transformación de caja (`AA`, `Aa`, `aa`, `aA`) y estilo (`Regular`, `Bold`, etc.) con chips grises monocromáticos.
+
+---
+
+## 9. Panel de Inicio / Menú Contextual (`scenes/ui/tool_in_mouse.tscn`, `clickrigth_nodo.gd`)
+
+Actualización integral del menú contextual del botón derecho (Tab 0):
+
+### Corrección Semántica de Íconos
+- Se corrigió el error histórico donde `dribbble.svg` estaba asignado erróneamente tanto a **Duplicate** como a **Remove**.
+- **Duplicate**: Asignado a `res://icon/UI/copy.svg`.
+- **Remove**: Asignado a `res://icon/UI/trash.svg`. Incorpora estilo de hover destructivo suave (fondo rosa tenue `#FDE8E8`, borde `#F8B4B4` y tipografía `#D9383A`).
+- **Rename**: Asignado a `res://icon/UI/design-pencil.svg`.
+- **Name**: Asignado a `res://icon/UI/text-square.svg`.
+
+### Limpieza de Strings y Chips Grises
+- Eliminados los saltos de línea residuales (`\n`) en el texto de los botones.
+- Todos los botones de acción usan chips con esquinas de 6px, fondo `#F5F5F7`, borde `#E5E5EA` y tipografía grafito oscuro `#1E1E22`.
+
+---
+
+## 10. Panel de Alineación y Distribución (`TOOLS ALINEACION`)
+
+Modernización de la pestaña 1 de `tool_in_mouse.tscn`:
+
+### Reemplazo de `ColorRect`s por Íconos Vectoriales SVG
+- La matriz 4×4 (`GridContainer`) reemplazó los 16 `ColorRect` toscos por botones interactivos equipados con SVG limpios:
+  - Bordes y esquinas: `border-tl.svg`, `border-top.svg`, `border-tr.svg`, `border-left.svg`, `border-right.svg`, `border-bl.svg`, `border-bottom.svg`, `border-br.svg`.
+  - Puntos interiores y centro: `border-inner.svg`, `center-align.svg`, etc.
+  - Celdas con chips de 30×30px, esquinas de 4px y estados hover/pressed en escala de grises.
+
+### Barras de Alineación y Distribución
+- **Fila Horizontal (`HBoxContainer4`)**: Alinear Izquierda, Centro Horizontal, Derecha y Distribuir Horizontal.
+- **Fila Vertical (`HBoxContainer5`)**: Alinear Arriba, Centro Vertical (Middle), Abajo y Distribuir Vertical.
+- Eliminados los contenedores vacíos obsoletos (`HBoxContainer2` y `HBoxContainer3`).
+- Conexión con `InspectorCore.align()` e `InspectorCore.distribute()`, permitiendo deshacer/rehacer con `Ctrl+Z` / `Ctrl+Y`.
+
+---
+
+## 11. Barra de Pestañas Superiores (`button_tab_tools2`)
+
+- **Ícono de Alineación**: Se sustituyó el ícono `exclude.svg` en Tab 1 por `res://icon/UI/align-center-horizontal.svg`.
+- **Indicador de Pestaña Activa**: La pestaña seleccionada se resalta con chip gris activo `#D8D8DC` y borde `#B0B0B8`, mientras que las inactivas permanecen en `#F5F5F7`.
+
+---
+
+## 12. Verificación Automatizada y en Tiempo Real (Septiembre 2026)
+
+- **GdUnit4 CLI**:
+  - `test/ui/ContextMenu_test.gd`: **9 de 9 pruebas pasaron con éxito (0 fallos, 0 errores, exit code 0)**.
+  - Verificaciones cubiertas: conexiones de menú contextual, borrado vía `MoveTool`, sincronización de grosor/color de trazo con undo, tamaño de texto con slider, navegador de fuentes, alineación de texto, íconos de inicio, operaciones de matriz de alineación/distribución y cambio visual de pestañas.
+- **Ejecución Standalone en Vivo (Godot 4.7 + Vulkan)**:
+  - Escenas de verificación creadas: `scenes/test_stroke_realtime.tscn` y `scenes/test_mouse_menu_realtime.tscn`.
+  - Capturas generadas y validadas en vivo con el motor en tiempo real.
+- **Godot MCP Server**:
+  - Servidor WebSocket activo en puerto 6515 / 6520 (`VectopenMCPServer.gd`).
+  - Sincronización continua de recursos mediante `rescan_filesystem`.

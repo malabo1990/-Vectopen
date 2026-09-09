@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bvgrd12p44x7k"]
+
+[ext_resource type="Script" uid="uid://c3q8gkwqmve60" path="res://script_gdscript/test_gradient_interactive_realtime.gd" id="1_test"]
+
+[node name="TestGradientRealtime" type="Node2D"]
+script = ExtResource("1_test")

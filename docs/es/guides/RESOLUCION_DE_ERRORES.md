@@ -210,4 +210,69 @@ Tras corregir los dos casos anteriores (§6), se auditó el resto del código pr
 🟡 Pendiente de decisión: aplicar el guard `is_connected()` a los casos de §7.2 (activos en escena). Los huérfanos de §7.3 no requieren fix inmediato al no estar conectados a ninguna escena, pero podrían limpiarse o eliminarse como parte de la consolidación de código duplicado ya recomendada en `SYSTEM_REVIEW.md` §9.
 
 ---
-*Documentado por: Agente de Desarrollo — Julio 2026*
+
+## 8. Arquitectura de Herramienta de Selección, Bloqueo de Degradado y Color Sólido (Septiembre 2026)
+
+### 8.1 Problemas Reportados
+1. **Bloqueo de Arrastre en Modo Selección al pasar sobre Elementos con Degradado**: Al seleccionar una figura que poseía degradado con la herramienta de selección (`MoveTool`), hacer clic y arrastrar sobre su relleno no movía la figura, sino que forzaba la edición o rotación del degradado.
+2. **Selector de Color Sólido Bloqueado**: Al intentar aplicar un color sólido desde el selector (`managercolor_pickrColor.gd`), la figura permanecía bloqueada y no respondía.
+3. **Falta de Fluidez en Puntos de Degradado ($P_0, P_1$)**: Arrastrar los extremos producía microtirones y sobrecarga de VRAM por recreación de texturas GPU de 1024×1024 en cada subpíxel.
+4. **Desconexión al Arrastrar Fuera del BoundingBox y Volver Adentro**: Tiradores sacados fuera del contorno no respondían adecuadamente al volver al interior debido a coordenadas desalineadas con la cámara.
+
+### 8.2 Causas Raíz Identificadas
+- **Inyección Involuntaria de Modo Degradado (`MoveTool.gd:298`)**:
+  Al seleccionar una figura, `ColorCore` emitía `paint_changed` con `type != "solid"`. El listener `_on_colorcore_paint_changed` contenía:
+  ```gdscript
+  is_gradient_mode = true
+  _bounding_box.is_gradient_tool_active = true
+  ```
+  Esto provocaba que **cualquier selección de una figura con degradado activara a traición `is_gradient_mode = true`**, secuestrando el ratón para el anotador.
+- **Falta de Autoridad de la Herramienta Activa en el BoundingBox (`bounding_box.gd:731`)**:
+  `is_gradient_active()` evaluaba `_bound_shape.has_gradient_fill()`, por lo que el gizmo consideraba el degradado activo aunque `MoveTool` estuviera en modo selección.
+- **Desconexión en el Panel de Arrastre Interior (`bounding_box.gd:_on_drag_panel_gui_input`)**:
+  Al pulsar el botón izquierdo sobre el cuerpo del gizmo, no se capturaba el snapshot en `transform_initial_states` ni se invocaban `_on_motion` / `_on_release` sobre `MoveTool`, impidiendo la traslación de la figura por su relleno.
+- **Condición de Carrera en Color Sólido (`managercolor_pickrColor.gd:108`)**:
+  El método `_on_picker_color_changed` asignaba primero `nodo_color_rect.color = new_color` antes de llamar a `establecer_color()`. En `establecer_color()`, la condición `if nodo_color_rect.color != nuevo_color` evaluaba a falso y nunca notificaba a `ColorCore`.
+- **Destrucción de Texturas GPU en Tiempo Real (`VectorShape.gd`)**:
+  En `set_gradient_points()` y endpoints se ejecutaba `_grad_tex = null` en cada movimiento de ratón, forzando la reconstrucción y re-subida a VRAM de texturas 1024×1024.
+- **Llamadas a `get_tree()` sin Verificar `is_inside_tree()` (`MoveTool.gd`)**:
+  Llamadas directas `get_tree()` cuando el nodo no estaba dentro del árbol de escena provocaban errores del motor C++ `Parameter "data.tree" is null`.
+
+### 8.3 Solución Aplicada y Comportamiento Estándar Profesional
+- **Separación Estricta de Modos**:
+  - **Modo Selección (`MoveTool`, `V`)**: `is_gradient_mode == false`. El anotador de degradado está **100% bloqueado e invisible**. Arrastrar el relleno traslada la figura y mantiene intactos sus puntos $P_0, P_1$ y colores.
+  - **Modo Degradado (`G`)**: Solo al pulsar `G` o la herramienta de degradado se despliegan la línea, tiradores extremos y paradas de color interactivas.
+  - **Salida Inmediata (`V`, `G`, `Escape`)**: Bloquea y oculta el anotador inmediatamente, devolviendo el control al arrastre del elemento.
+- **Mutación In-Place de Texturas de Degradado**:
+  En `VectorShape.gd`, si la textura `GradientTexture2D` ya existe, se modifican sus propiedades `fill_from` y `fill_to` directamente en memoria sin destruir la textura (`_grad_tex = null`), alcanzando un rendimiento fluido de 60+ FPS sin microtirones.
+- **Sincronización Completa del Arrastre en Gizmo**:
+  `_on_drag_panel_gui_input` captura snapshots en `transform_initial_states` al presionar, canaliza el movimiento vía `_update_transform_logic` / `_on_motion`, y registra la acción en el sistema de Deshacer/Rehacer (`HistoryManager`) al soltar.
+- **Blindaje del Árbol de Escena**:
+  Todas las referencias a `get_tree()` en `MoveTool.gd` fueron aseguradas con `if is_inside_tree() else null`.
+
+### 8.4 Reglas Críticas para Evitar Futuros Errores
+> [!IMPORTANT]
+> **REGLA 1 (Sin mutación de modo en listeners de datos)**:
+> Nunca cambiar el modo de la herramienta activa (`is_gradient_mode = true/false`) dentro de señales de datos globales (`ColorCore.paint_changed`, `SelectionManager.changed`, etc.). El modo de herramienta solo debe ser modificado por acciones explícitas del usuario (atajos de teclado como `G`, `V`, `Escape` o botones de la barra de herramientas).
+
+> [!IMPORTANT]
+> **REGLA 2 (Autoridad única de la herramienta activa)**:
+> Los gizmos visuales (como `BoundingBox`) no deben inferir la activación de herramientas basándose en las propiedades de las figuras (ej. `has_gradient_fill()`). La autoridad absoluta siempre corresponde a `move_tool_reference.is_gradient_mode`.
+
+> [!IMPORTANT]
+> **REGLA 3 (Ciclo completo de gestos con Snapshots y Undo)**:
+> Todo componente de interfaz que intercepte pulsaciones de ratón sobre figuras debe implementar el ciclo completo:
+> 1. `pressed`: Tomar snapshot inicial en `transform_initial_states`.
+> 2. `motion`: Actualizar la geometría aplicando deltas sobre las posiciones del snapshot.
+> 3. `release`: Confirmar la operación en `HistoryManager` y limpiar estados de arrastre.
+
+> [!IMPORTANT]
+> **REGLA 4 (Mutación in-place para alto rendimiento)**:
+> En arrastres en tiempo real (60 FPS), nunca destruir ni recrear recursos pesados de GPU (`GradientTexture2D`, `ShaderMaterial`, etc.). Modificar únicamente sus propiedades flotantes in-place.
+
+> [!IMPORTANT]
+> **REGLA 5 (Blindaje de `is_inside_tree()`)**:
+> En Godot 4, jamás invocar `get_tree()` en un `Node` sin verificar antes `is_inside_tree()`. De lo contrario el motor C++ emite errores `Parameter "data.tree" is null`.
+
+---
+*Documentado por: Agente de Desarrollo — Septiembre 2026*

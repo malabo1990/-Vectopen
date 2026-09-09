@@ -76,8 +76,10 @@ var show_overlay: bool = false
 ## Nada se congela (a diferencia de OS.low_processor_usage_mode): solo baja el
 ## refresco mientras nadie mira ni toca.
 @export var idle_render_enabled: bool = true
-const IDLE_FPS: int = 10
-const IDLE_DELAY_MS: int = 600
+const IDLE_FPS: int = 30
+const IDLE_DELAY_MS: int = 3000
+const STARTUP_GRACE_PERIOD_MS: int = 5000
+var _boot_time_ms: int = 0
 var _last_activity_ms: int = 0
 var _is_idle: bool = false
 
@@ -107,6 +109,7 @@ signal device_classified(device_class: int, device_type: int)
 signal performance_degraded(reason: String, value: float)
 
 func _ready() -> void:
+	_boot_time_ms = Time.get_ticks_msec()
 	_detect_everything()
 	_classify_device()
 	_apply_hardware_profile()
@@ -150,7 +153,11 @@ func mark_activity() -> void:
 func _process(_delta: float) -> void:
 	if not idle_render_enabled or _is_idle:
 		return
-	if Time.get_ticks_msec() - _last_activity_ms > IDLE_DELAY_MS:
+	var now := Time.get_ticks_msec()
+	# Período de gracia inicial para permitir arranque y transición fluidos
+	if now - _boot_time_ms < STARTUP_GRACE_PERIOD_MS:
+		return
+	if now - _last_activity_ms > IDLE_DELAY_MS:
 		_is_idle = true
 		Engine.max_fps = IDLE_FPS
 

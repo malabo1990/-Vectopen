@@ -55,6 +55,7 @@ InspectorCore="*res://autoloads/InspectorCore.gd"
 FontCore="*res://autoloads/FontCore.gd"
 ColorCore="*res://autoloads/ColorCore.gd"
 DebugConsola="*res://script_gdscript/system/DebugConsola.gd"
+VectopenMCPServer="*res://script_gdscript/system/VectopenMCPServer.gd"
 
 [debug]
 
@@ -88,8 +89,6 @@ ui_reset={
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-anti_aliasing/quality/msaa_2d=2
-2d/snap/snap_2d_transforms_to_pixel=true
-2d/snap/snap_2d_vertices_to_pixel=true
+anti_aliasing/quality/msaa_2d=3
 2d/text/antialiasing=1
 2d/text/subpixel_positioning=0

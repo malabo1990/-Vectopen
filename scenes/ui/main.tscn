@@ -373,7 +373,7 @@ icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
 
-[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455]
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_3dxm6")
@@ -382,6 +382,7 @@ icon = ExtResource("11_sc1dx")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
+target_panel = NodePath("../../../panel__effects")
 
 [node name="BUTTON_PEWVIEW" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=603546554]
 custom_minimum_size = Vector2(24, 24)
@@ -714,13 +715,14 @@ icon = ExtResource("4_j4qnp")
 icon_alignment = 1
 expand_icon = true
 
-[node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=1973582187]
+[node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=1973582187 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxFlat_w3rk5")
 icon = ExtResource("14_sc1dx")
 expand_icon = true
 script = ExtResource("5_wkp8b")
+target_panel = NodePath("Panel_keyboard")
 
 [node name="Panel_keyboard" type="PanelContainer" parent="keyboard/PanelContainer/MarginContainer/Contenido/Button" unique_id=807634236 node_paths=PackedStringArray("action_container", "filter_line_edit")]
 visible = false
@@ -819,14 +821,6 @@ color = Color(0.753906, 0.753906, 0.753906, 1)
 custom_minimum_size = Vector2(6, 0)
 layout_mode = 2
 color = Color(0.585938, 0.585938, 0.585938, 1)
-
-[node name="PICKRCOLOR" parent="." unique_id=534741558 instance=ExtResource("12_5vvyt")]
-visible = false
-layout_mode = 0
-offset_left = 1401.0
-offset_top = 326.0
-offset_right = 1606.0
-offset_bottom = 699.0
 
 [node name="Panel_export" parent="." unique_id=454116989 instance=ExtResource("9_03owx")]
 visible = false

@@ -14,6 +14,8 @@ var selected_handle: StopHandle = null
 const SNAP_THRESHOLD: float = 0.025 # Distancia magnética para el Snap (2.5%)
 const SNAP_VALUES: Array[float] = [0.0, 0.25, 0.5, 0.75, 1.0]
 
+var _active_dragging_handle: StopHandle = null
+
 # ── Clase interna del Stop Handle Avanzado ──────────────────────────────────────
 class StopHandle extends Control:
 	signal grabbed(handle: StopHandle)
@@ -27,77 +29,54 @@ class StopHandle extends Control:
 			queue_redraw()
 			
 	var dragging: bool = false
-	var drag_offset: float = 0.0
 	var is_selected: bool = false
 
 	func _ready() -> void:
-		custom_minimum_size = Vector2(20, 20) # Zona de clic óptima y amplia
+		custom_minimum_size = Vector2(24, 24) # Zona interactiva amplia
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_default_cursor_shape = Control.CURSOR_HSIZE
-		
-		# Anclaje para centrar verticalmente respecto al padre de forma automática
 		set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
 
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				dragging = true
-				drag_offset = event.position.x
 				grabbed.emit(self)
-				
-				# Clonar estilo vectorial/un editor profesional: Alt / Option presionado al arrastrar
 				if event.alt_pressed:
 					duplicate_requested.emit(self)
+				accept_event()
 			else:
 				dragging = false
 
-		if event is InputEventMouseMotion and dragging:
-			# Bloquear movimiento en los extremos absolutos 0 y 1 para estabilidad
-			if is_equal_approx(pos_ratio, 0.0) or is_equal_approx(pos_ratio, 1.0):
-				return
-
-			var parent = get_parent() as Control
-			if not parent: return
-			
-			var mouse_x = parent.get_local_mouse_position().x
-			var target_x = mouse_x - drag_offset
-			var max_x = parent.size.x - size.x
-			
-			target_x = clamp(target_x, 0.0, max_x)
-			position.x = target_x
-			
-			pos_ratio = (target_x + size.x * 0.5) / parent.size.x
-			moved.emit(self, pos_ratio)
-
-	# Dibujo estético del Handle (premium Blanco)
+	# Dibujo estético del Handle con feedback visual nítido
 	func _draw() -> void:
 		var center := size * 0.5
-		
 		if is_selected:
-			# Círculo seleccionado: Más grande, más grueso, borde blanco puro y sombra
-			var radius_sel := 8.0
-			draw_circle(center, radius_sel + 3.0, Color(0, 0, 0, 0.25), true) # Sombra fina
-			draw_circle(center, radius_sel + 2.0, Color.WHITE, true)          # Borde blanco grueso
-			draw_circle(center, radius_sel - 1.0, color, true)                # Color interno
+			draw_circle(center, 9.0, Color(0, 0, 0, 0.22), true) # Sombra sutil
+			draw_circle(center, 8.0, Color(0.04, 0.52, 1.0, 1.0), true) # Anillo de selección azul
+			draw_circle(center, 6.5, Color.WHITE, true) # Aro blanco
+			draw_circle(center, 4.5, color, true) # Color de la muestra
 		else:
-			# Círculo normal: Tamaño estándar discreto
-			var radius_norm := 6.0
-			draw_circle(center, radius_norm + 1.0, Color(0, 0, 0, 0.2), false, 1.0) # Contorno sutil
-			draw_circle(center, radius_norm, Color.WHITE, true)                     # Anillo exterior
-			draw_circle(center, radius_norm - 2.0, color, true)                     # Color interno
+			draw_circle(center, 7.5, Color(0, 0, 0, 0.16), true) # Sombra sutil
+			draw_circle(center, 6.5, Color.WHITE, true) # Aro blanco
+			draw_circle(center, 6.5, Color(0.70, 0.72, 0.78, 1.0), false, 1.0) # Borde gris
+			draw_circle(center, 4.5, color, true) # Color de la muestra
 
 	func set_selected(selected: bool) -> void:
 		is_selected = selected
 		z_index = 2 if selected else 1
 		queue_redraw()
 
+signal stop_selected(color: Color)
+
 # ── Métodos Principales del Editor ─────────────────────────────────────────────
 func _ready() -> void:
-	assert(color_rect and btn_add and btn_remove and color_picker, "Faltan referencias en GradientEditor.")
-
-	btn_add.pressed.connect(_add_new_stop_at_center)
-	btn_remove.pressed.connect(_remove_selected)
-	color_picker.color_changed.connect(_on_color_changed)
+	if btn_add:
+		btn_add.pressed.connect(_add_new_stop_at_center)
+	if btn_remove:
+		btn_remove.pressed.connect(_remove_selected)
+	if color_picker:
+		color_picker.color_changed.connect(_on_color_changed)
 	color_rect.draw.connect(_draw_gradient)
 	
 	# Permitir clics directos en la barra para crear nuevos puntos
@@ -108,9 +87,6 @@ func _ready() -> void:
 	_create_stop_node(0.0, Color.BLACK)
 	_create_stop_node(1.0, Color.WHITE)
 	_select_stop(stops[0])
-	
-	# Emitir estado inicial al sistema global
-	GlobalEvents.gradient_changed.emit(get_gradient())
 
 # Entrada de teclado global para eliminar con "Supr" o "Backspace"
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -171,23 +147,61 @@ func _on_grabber_moved(handle: StopHandle, raw_pos: float) -> void:
 	handle.pos_ratio = final_pos
 	_reposition_single(handle)
 	color_rect.queue_redraw()
-	GlobalEvents.gradient_changed.emit(get_gradient())
+	_emit_gradient()
+
+func _input(event: InputEvent) -> void:
+	if _active_dragging_handle != null:
+		if event is InputEventMouseMotion:
+			if is_instance_valid(color_rect) and color_rect.size.x > 0:
+				var local_x = color_rect.get_local_mouse_position().x
+				var new_ratio = clampf(local_x / color_rect.size.x, 0.0, 1.0)
+				# SNAP Magnético (0%, 25%, 50%, 75%, 100%)
+				for snap_val in SNAP_VALUES:
+					if abs(new_ratio - snap_val) < SNAP_THRESHOLD:
+						new_ratio = snap_val
+						break
+				_active_dragging_handle.pos_ratio = new_ratio
+				_reposition_single(_active_dragging_handle)
+				color_rect.queue_redraw()
+				_emit_gradient()
+				get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			if is_instance_valid(_active_dragging_handle):
+				_active_dragging_handle.dragging = false
+			_active_dragging_handle = null
 
 func _on_duplicate_requested(handle: StopHandle) -> void:
-	# Duplicación con Alt+Arrastrar (bloqueada en extremos fijos)
-	if is_equal_approx(handle.pos_ratio, 0.0) or is_equal_approx(handle.pos_ratio, 1.0):
-		return
-		
 	var clone = _create_stop_node(handle.pos_ratio, handle.color)
 	clone.dragging = true
-	clone.drag_offset = handle.drag_offset
 	_select_stop(clone)
+	_active_dragging_handle = clone
+	_emit_gradient()
 
 func _select_stop(handle: StopHandle) -> void:
 	selected_handle = handle
-	color_picker.color = handle.color
+	if handle and handle.dragging:
+		_active_dragging_handle = handle
+	else:
+		_active_dragging_handle = null
+	if is_instance_valid(color_picker):
+		color_picker.color = handle.color
 	for stop in stops:
 		stop.set_selected(stop == handle)
+	stop_selected.emit(handle.color)
+	var idx := stops.find(handle)
+	if idx >= 0 and GlobalEvents and GlobalEvents.has_signal("gradient_stop_selected"):
+		GlobalEvents.gradient_stop_selected.emit(handle.color, idx)
+
+func select_stop_by_index(idx: int) -> void:
+	if idx >= 0 and idx < stops.size():
+		var handle := stops[idx]
+		selected_handle = handle
+		_active_dragging_handle = null
+		if is_instance_valid(color_picker):
+			color_picker.color = handle.color
+		for stop in stops:
+			stop.set_selected(stop == handle)
+		stop_selected.emit(handle.color)
 
 func _on_color_changed(new_color: Color) -> void:
 	if is_instance_valid(selected_handle):
@@ -196,17 +210,18 @@ func _on_color_changed(new_color: Color) -> void:
 		_emit_gradient()
 
 func _add_new_stop_at_center() -> void:
-	var new_handle = _create_stop_node(0.5, color_picker.color)
+	var c := color_picker.color if is_instance_valid(color_picker) else Color.GRAY
+	var new_handle = _create_stop_node(0.5, c)
 	_select_stop(new_handle)
 	color_rect.queue_redraw()
-	GlobalEvents.gradient_changed.emit(get_gradient())
+	_emit_gradient()
 
 func _remove_selected() -> void:
 	if not is_instance_valid(selected_handle):
 		return
 		
-	# Impedir la eliminación de los extremos obligatorios
-	if is_equal_approx(selected_handle.pos_ratio, 0.0) or is_equal_approx(selected_handle.pos_ratio, 1.0):
+	# Necesita al menos 2 paradas de color para un degradado válido
+	if stops.size() <= 2:
 		return
 		
 	var to_remove = selected_handle
@@ -214,7 +229,7 @@ func _remove_selected() -> void:
 	to_remove.queue_free()
 	_select_stop(stops[0])
 	color_rect.queue_redraw()
-	GlobalEvents.gradient_changed.emit(get_gradient())
+	_emit_gradient()
 
 # ── Posicionamiento y Matemáticas del Renderizado ──────────────────────────────
 func _reposition_all() -> void:
@@ -223,8 +238,8 @@ func _reposition_all() -> void:
 		_reposition_single(handle)
 
 func _reposition_single(handle: StopHandle) -> void:
-	if is_instance_valid(handle):
-		handle.size = Vector2(20, color_rect.size.y)
+	if is_instance_valid(handle) and is_instance_valid(color_rect):
+		handle.size = Vector2(24, color_rect.size.y)
 		var target_x = handle.pos_ratio * color_rect.size.x - handle.size.x * 0.5
 		handle.position = Vector2(target_x, 0)
 
@@ -266,6 +281,11 @@ func _sample_gradient_at(ratio: float) -> Color:
 
 ## Ángulo del degradado lineal en radianes (editable por fuera si se quiere).
 var gradient_angle: float = 0.0
+## 0 = Linear, 1 = Radial, 2 = Conic / Espiral
+var gradient_type: int = 0
+## Puntos de control (0..1) en el espacio de la caja de la figura.
+var gradient_p0: Vector2 = Vector2(-1, -1)
+var gradient_p1: Vector2 = Vector2(-1, -1)
 
 ## Difunde el degradado actual: al bus global (compatibilidad) y a ColorCore,
 ## que lo aplica al relleno de la selección con undo.
@@ -273,9 +293,106 @@ func _emit_gradient() -> void:
 	var g := get_gradient()
 	if GlobalEvents.has_signal("gradient_changed"):
 		GlobalEvents.gradient_changed.emit(g)
-	var cc := get_node_or_null("/root/ColorCore")
+	if not is_inside_tree():
+		return
+	var tree := get_tree()
+	var cc := tree.root.get_node_or_null("ColorCore") if tree and tree.root else null
 	if cc and cc.has_method("set_paint"):
-		cc.set_paint(cc.make_linear(g, gradient_angle), "fill")
+		var p: Dictionary = {}
+		if gradient_type == 1:
+			p = cc.make_radial(g, Vector2(0.5, 0.5), 0.5, gradient_p0, gradient_p1)
+		elif gradient_type == 2:
+			p = cc.make_conic(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
+		elif gradient_type == 3:
+			p = cc.make_diamond(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
+		elif gradient_type == 4:
+			p = cc.make_box(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
+		elif gradient_type == 5:
+			p = cc.make_spiral(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
+		else:
+			p = cc.make_linear(g, gradient_angle, gradient_p0, gradient_p1)
+		cc.set_paint(p, "fill")
+
+const PRESETS: Dictionary = {
+	"Sunset": [Color(0.98, 0.35, 0.2), Color(0.95, 0.15, 0.5), Color(0.35, 0.1, 0.6)],
+	"Ocean": [Color(0.1, 0.75, 0.9), Color(0.1, 0.45, 0.85), Color(0.05, 0.15, 0.45)],
+	"Cyber Neon": [Color(0.0, 0.95, 0.85), Color(0.65, 0.05, 0.95), Color(0.95, 0.05, 0.55)],
+	"Gold": [Color(0.95, 0.85, 0.45), Color(0.85, 0.65, 0.25), Color(0.55, 0.35, 0.1)],
+	"Glass": [Color(1.0, 1.0, 1.0, 0.85), Color(0.85, 0.92, 1.0, 0.4), Color(0.7, 0.85, 1.0, 0.15)],
+	"Vignette": [Color(0.1, 0.1, 0.1, 0.0), Color(0.05, 0.05, 0.05, 0.85)]
+}
+
+func apply_preset(name: String) -> void:
+	if not PRESETS.has(name):
+		return
+	var colors: Array = PRESETS[name]
+	var g := Gradient.new()
+	for i in range(colors.size()):
+		var off := float(i) / float(colors.size() - 1) if colors.size() > 1 else 0.0
+		if i < g.get_point_count():
+			g.set_offset(i, off)
+			g.set_color(i, colors[i])
+		else:
+			g.add_point(off, colors[i])
+	while g.get_point_count() > colors.size() and g.get_point_count() > 1:
+		g.remove_point(g.get_point_count() - 1)
+	set_gradient_resource(g, gradient_type, gradient_angle, false, gradient_p0, gradient_p1)
+	_emit_gradient()
+
+func get_selected_stop_ratio() -> float:
+	if is_instance_valid(selected_handle):
+		return selected_handle.pos_ratio
+	return 0.0
+
+func set_selected_stop_ratio(ratio: float) -> void:
+	if is_instance_valid(selected_handle):
+		selected_handle.pos_ratio = clampf(ratio, 0.0, 1.0)
+		_reposition_single(selected_handle)
+		color_rect.queue_redraw()
+		_emit_gradient()
+
+func update_selected_stop_color(c: Color) -> void:
+	if is_instance_valid(selected_handle):
+		selected_handle.color = c
+		color_rect.queue_redraw()
+		_emit_gradient()
+
+func set_gradient_resource(g: Gradient, type: int = 0, angle: float = 0.0, keep_selection: bool = true, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> void:
+	if not is_instance_valid(g) or g.get_point_count() == 0:
+		return
+	gradient_type = type
+	gradient_angle = angle
+	if p0 != Vector2(-1, -1): gradient_p0 = p0
+	if p1 != Vector2(-1, -1): gradient_p1 = p1
+
+	var prev_idx: int = -1
+	if keep_selection and is_instance_valid(selected_handle):
+		prev_idx = stops.find(selected_handle)
+
+	# Si el número de paradas coincide, actualizamos in-place para no destruir nodos ni perder selección
+	if stops.size() == g.get_point_count():
+		for i in g.get_point_count():
+			stops[i].pos_ratio = g.get_offset(i)
+			stops[i].color = g.get_color(i)
+			_reposition_single(stops[i])
+		if prev_idx >= 0 and prev_idx < stops.size():
+			_select_stop(stops[prev_idx])
+		elif not stops.is_empty():
+			_select_stop(stops[0])
+		color_rect.queue_redraw()
+		return
+
+	for s in stops:
+		if is_instance_valid(s):
+			s.queue_free()
+	stops.clear()
+	for i in g.get_point_count():
+		_create_stop_node(g.get_offset(i), g.get_color(i))
+	if not stops.is_empty():
+		var sel_idx := clampi(prev_idx if prev_idx >= 0 else 0, 0, stops.size() - 1)
+		_select_stop(stops[sel_idx])
+	color_rect.queue_redraw()
+
 
 # ── Exportar Recurso Nativo Sincronizado (Sin Advertencias C++) ────────────────
 func get_gradient() -> Gradient:
@@ -292,7 +409,7 @@ func get_gradient() -> Gradient:
 		else:
 			g.add_point(s.pos_ratio, s.color)
 	
-	while g.get_point_count() > sorted_stops.size():
+	while g.get_point_count() > sorted_stops.size() and g.get_point_count() > 1:
 		g.remove_point(g.get_point_count() - 1)
 		
 	return g

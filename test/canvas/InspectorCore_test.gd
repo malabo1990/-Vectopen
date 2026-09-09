@@ -265,6 +265,46 @@ func test_escribir_font_size_en_texto_con_undo() -> void:
 	HistoryManager.clear()
 
 
+## Alineación vertical de texto (top, middle, bottom) con undo.
+func test_escribir_text_valign_en_texto_con_undo() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+
+	var txt := Node2D.new()
+	txt.set_meta("shape_type", "text_title")
+	txt.set_meta("text_valign", "top")
+	var dl := Label.new()
+	dl.name = "DisplayLabel"
+	dl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	txt.add_child(dl)
+	_ab(s).add_child(txt)
+	await get_tree().process_frame
+
+	t.selected_shapes.assign([txt])
+	InspectorCore._sync_selection()
+	var p := InspectorCore.current_props()
+	assert_str(p["text_valign"]["value"]).is_equal("top")
+
+	HistoryManager.clear()
+	InspectorCore.apply("text_valign", "middle")
+	assert_str(str(txt.get_meta("text_valign"))).is_equal("middle")
+	assert_int(dl.vertical_alignment).is_equal(VERTICAL_ALIGNMENT_CENTER)
+	assert_bool(HistoryManager.can_undo()).is_true()
+
+	InspectorCore.apply("text_valign", "bottom")
+	assert_str(str(txt.get_meta("text_valign"))).is_equal("bottom")
+	assert_int(dl.vertical_alignment).is_equal(VERTICAL_ALIGNMENT_BOTTOM)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_str(str(txt.get_meta("text_valign"))).is_equal("middle")
+	assert_int(dl.vertical_alignment).is_equal(VERTICAL_ALIGNMENT_CENTER)
+
+	HistoryManager.undo(); await get_tree().process_frame
+	assert_str(str(txt.get_meta("text_valign"))).is_equal("top")
+	assert_int(dl.vertical_alignment).is_equal(VERTICAL_ALIGNMENT_TOP)
+	HistoryManager.clear()
+
+
 ## El inspector opera sobre un POLÍGONO: color de relleno/trazo y grosor
 ## directos; ancho/alto escalando los vértices sobre el centro. Todo con undo.
 func test_inspector_con_poligono_estilo_y_tamano() -> void:
@@ -585,3 +625,45 @@ func test_inspector_y_bounding_box_coinciden_en_pos() -> void:
 
 	assert_float(p["pos_x"]["value"]).is_equal_approx(bb._field_x.value, 0.01)
 	assert_float(p["pos_y"]["value"]).is_equal_approx(bb._field_y.value, 0.01)
+
+
+func test_stroke_properties_read_write_undo() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var path := VectorPath.new()
+	var c := Curve2D.new()
+	c.add_point(Vector2(0, 0))
+	c.add_point(Vector2(100, 100))
+	path.curve = c
+	_ab(s).add_child(path)
+	await get_tree().process_frame
+
+	t.selected_shapes.assign([path])
+	InspectorCore._sync_selection()
+	HistoryManager.clear()
+
+	var p := InspectorCore.current_props()
+	assert_int(p["stroke_cap_start"]["value"]).is_equal(0)
+	assert_int(p["stroke_cap_end"]["value"]).is_equal(0)
+	assert_int(p["stroke_style"]["value"]).is_equal(0)
+	assert_int(p["stroke_pointer_start"]["value"]).is_equal(0)
+	assert_int(p["stroke_pointer_end"]["value"]).is_equal(0)
+	assert_int(p["stroke_align"]["value"]).is_equal(0)
+
+	InspectorCore.apply("stroke_cap_start", 1)
+	InspectorCore.apply("stroke_cap_end", 2)
+	InspectorCore.apply("stroke_style", 1)
+	InspectorCore.apply("stroke_pointer_start", 1)
+	InspectorCore.apply("stroke_pointer_end", 2)
+	InspectorCore.apply("stroke_align", 1)
+
+	assert_int(path.stroke_cap_start).is_equal(1)
+	assert_int(path.stroke_cap_end).is_equal(2)
+	assert_int(path.stroke_style).is_equal(1)
+	assert_int(path.stroke_pointer_start).is_equal(1)
+	assert_int(path.stroke_pointer_end).is_equal(2)
+
+	HistoryManager.undo()
+	assert_int(path.get_meta("stroke_align", 0)).is_equal(0)
+	HistoryManager.undo()
+	assert_int(path.stroke_pointer_end).is_equal(0)

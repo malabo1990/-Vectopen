@@ -7,6 +7,9 @@ extends Control
 ## no hacían nada). Ahora se cablean a las acciones reales de MoveTool.
 
 @export var target_node: Node   # el panel que se muestra/oculta (normalmente self)
+@export var tab_normal_style: StyleBox
+@export var tab_active_style: StyleBox
+@export var tab_hover_style: StyleBox
 
 # Ruta a los botones dentro de tool_in_mouse.tscn (relativa a este nodo raíz).
 const _MENU_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/PanelContainer/VBoxContainer"
@@ -20,21 +23,30 @@ const _ACCIONES := {
 func _ready() -> void:
 	if target_node:
 		target_node.visible = false
+	var tcp = get_node_or_null("ThemeConfigPanel")
+	if tcp:
+		tcp.visible = false
 	_conectar_botones()
 	_conectar_trazos()
+	_conectar_transform_panel()
+	_conectar_tab_bar()
 	# Re-sincronizar los campos del panel cuando cambie la selección / estilo.
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed") and not ic.changed.is_connected(_sincronizar_trazos):
 		ic.changed.connect(_sincronizar_trazos)
 
 const _ALIGN_TOOLS := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/TOOLS ALINEACION/VBoxContainer"
-# Fila de iconos: distribuir-h, alinear-izq, alinear-centro-h, distribuir-h, alinear-der.
+# Filas de iconos: horizontal (HBoxContainer4) y vertical (HBoxContainer5).
 const _ALIGN_ROW := {
-	"HBoxContainer4/Button":  ["distribute", "h"],
-	"HBoxContainer4/Button2": ["align", "left"],
-	"HBoxContainer4/Button3": ["align", "center_h"],
+	"HBoxContainer4/Button":  ["align", "left"],
+	"HBoxContainer4/Button2": ["align", "center_h"],
+	"HBoxContainer4/Button3": ["align", "right"],
 	"HBoxContainer4/Button4": ["distribute", "h"],
 	"HBoxContainer4/Button7": ["align", "right"],
+	"HBoxContainer5/Button":  ["align", "top"],
+	"HBoxContainer5/Button2": ["align", "middle"],
+	"HBoxContainer5/Button3": ["align", "bottom"],
+	"HBoxContainer5/Button4": ["distribute", "v"],
 }
 # Grid 4×4 de alineación: 9 puntos combinados + barras de un solo eje.
 const _ALIGN_GRID := {
@@ -53,7 +65,7 @@ const _ALIGN_GRID := {
 	"BoxContainer/GridContainer/Button13":  ["align", ["left"]],
 	"BoxContainer/GridContainer/Button14":  ["align", ["center_h"]],
 	"BoxContainer/GridContainer/Button15":  ["align", ["right"]],
-	"BoxContainer/GridContainer/Button17":  ["align", ["center_h", "middle"]],
+	"BoxContainer/GridContainer/Button17":  ["align", ["full_rect"]],
 }
 
 func _conectar_botones() -> void:
@@ -77,6 +89,36 @@ func _conectar_botones() -> void:
 			if ab and not ab.pressed.is_connected(_on_align.bind(op[0], op[1])):
 				ab.pressed.connect(_on_align.bind(op[0], op[1]))
 
+# ── Barra de pestañas superiores (button_tab_tools2) ─────────────────────────
+const _TAB_BAR := "PanelContainer/MarginContainer/VBoxContainer/button_tab_tools2"
+const _TAB_LIST := "PanelContainer/MarginContainer/VBoxContainer"
+
+func _conectar_tab_bar() -> void:
+	var tab_list = get_node_or_null(_TAB_LIST)
+	if tab_list and tab_list.has_signal("button_clicked"):
+		if not tab_list.button_clicked.is_connected(_on_tab_changed):
+			tab_list.button_clicked.connect(_on_tab_changed)
+	_actualizar_estilo_tabs(0)
+
+func _on_tab_changed(idx: int) -> void:
+	_actualizar_estilo_tabs(idx)
+
+func _actualizar_estilo_tabs(active_idx: int) -> void:
+	var bar := get_node_or_null(_TAB_BAR)
+	if bar == null:
+		return
+	for i in range(bar.get_child_count()):
+		var btn = bar.get_child(i) as Button
+		if btn:
+			if tab_hover_style:
+				btn.add_theme_stylebox_override("hover", tab_hover_style)
+			if i == active_idx:
+				if tab_active_style:
+					btn.add_theme_stylebox_override("normal", tab_active_style)
+			else:
+				if tab_normal_style:
+					btn.add_theme_stylebox_override("normal", tab_normal_style)
+
 # ── Panel de trazos (Panel_trazos) → InspectorCore ───────────────────────────
 const _TRAZOS_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_trazos"
 const _TRAZOS_COLOR := _TRAZOS_BASE + "/MarginContainer/BoxContainer/BoxContainer/ColorPickerButton"
@@ -86,9 +128,17 @@ var _sync_trazos_guard := false
 
 func _conectar_trazos() -> void:
 	var cp := get_node_or_null(_TRAZOS_COLOR) as ColorPickerButton
+	if cp == null:
+		var pt := get_node_or_null(_TRAZOS_BASE)
+		if pt:
+			cp = pt.find_child("ColorPickerButton", true, false) as ColorPickerButton
 	if cp and not cp.color_changed.is_connected(_on_trazo_color):
 		cp.color_changed.connect(_on_trazo_color)
 	var sb := get_node_or_null(_TRAZOS_SIZE)
+	if sb == null:
+		var pt := get_node_or_null(_TRAZOS_BASE)
+		if pt:
+			sb = pt.find_child("SpinBox", true, false)
 	if sb and sb.has_signal("value_changed") and not sb.value_changed.is_connected(_on_trazo_size):
 		sb.value_changed.connect(_on_trazo_size)
 
@@ -106,13 +156,35 @@ func _on_trazo_size(v: float) -> void:
 	if ic:
 		ic.apply("stroke_width", v)
 
+const _LAYOUT_BASE := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Tool_LAYOUT"
+
+func _conectar_transform_panel() -> void:
+	var tl := get_node_or_null(_LAYOUT_BASE)
+	if tl:
+		tl.visible = true
+		for c in tl.get_children():
+			if c is Control and not (c is TransformPanel):
+				c.visible = false
+		if tl.get_node_or_null("TransformPanel") == null:
+			var tp := TransformPanel.new()
+			tp.name = "TransformPanel"
+			tl.add_child(tp)
+
 ## Refleja en el panel los valores de la selección (sin re-disparar apply()).
 func _sincronizar_trazos(props: Dictionary) -> void:
 	_sync_trazos_guard = true
 	var cp := get_node_or_null(_TRAZOS_COLOR) as ColorPickerButton
+	if cp == null:
+		var pt := get_node_or_null(_TRAZOS_BASE)
+		if pt:
+			cp = pt.find_child("ColorPickerButton", true, false) as ColorPickerButton
 	if cp and props.has("stroke_color") and not props["stroke_color"]["mixed"]:
 		cp.color = props["stroke_color"]["value"]
 	var sb := get_node_or_null(_TRAZOS_SIZE)
+	if sb == null:
+		var pt := get_node_or_null(_TRAZOS_BASE)
+		if pt:
+			sb = pt.find_child("SpinBox", true, false)
 	if sb and props.has("stroke_width") and not props["stroke_width"]["mixed"]:
 		if sb.has_method("set_value"):
 			sb.set_value(float(props["stroke_width"]["value"]))
@@ -188,6 +260,7 @@ func _input(event: InputEvent) -> void:
 	mp.y = clampf(mp.y, 0.0, maxf(0.0, vp.y - menu_size.y))
 	if target_node is Control:
 		target_node.global_position = mp
-	else:
-		target_node.position = mp
+	var tcp = get_node_or_null("ThemeConfigPanel")
+	if tcp:
+		tcp.visible = false
 	target_node.visible = true

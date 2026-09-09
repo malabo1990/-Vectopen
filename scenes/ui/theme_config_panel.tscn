@@ -3,12 +3,45 @@
 [ext_resource type="Script" uid="uid://dscuvokd3r7x7" path="res://script_gdscript/ui/ThemeConfigPanel.gd" id="1_3fpar"]
 [ext_resource type="PackedScene" uid="uid://c0qra2jlwad0n" path="res://scenes/ui/spin_boxblack.tscn" id="2_spin"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_flat_btn"]
+content_margin_left = 8.0
+content_margin_top = 3.0
+content_margin_right = 8.0
+content_margin_bottom = 3.0
+bg_color = Color(0.2, 0.22, 0.28, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_flat_btn_h"]
+content_margin_left = 8.0
+content_margin_top = 3.0
+content_margin_right = 8.0
+content_margin_bottom = 3.0
+bg_color = Color(0.26, 0.28, 0.35, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [sub_resource type="Theme" id="Theme_tcp"]
-FlatButton/colors/font_color = Color(1, 1, 1, 1)
+default_font_size = 11
+Label/colors/font_color = Color(0.92, 0.93, 0.96, 1)
+Label/font_sizes/font_size = 11
+Button/colors/font_color = Color(0.92, 0.93, 0.96, 1)
+Button/font_sizes/font_size = 11
+Button/styles/normal = SubResource("StyleBoxFlat_flat_btn")
+Button/styles/hover = SubResource("StyleBoxFlat_flat_btn_h")
+Button/styles/pressed = SubResource("StyleBoxFlat_flat_btn_h")
+FlatButton/colors/font_color = Color(0.92, 0.93, 0.96, 1)
 FlatButton/colors/font_focus_color = Color(1, 1, 1, 1)
 FlatButton/colors/font_hover_color = Color(1, 1, 1, 1)
-FlatButton/colors/font_pressed_color = Color(1, 1, 1, 1)
-FlatButton/font_sizes/font_size = 12
+FlatButton/colors/font_pressed_color = Color(0.8, 0.8, 0.85, 1)
+FlatButton/font_sizes/font_size = 11
+FlatButton/styles/normal = SubResource("StyleBoxFlat_flat_btn")
+FlatButton/styles/hover = SubResource("StyleBoxFlat_flat_btn_h")
+FlatButton/styles/pressed = SubResource("StyleBoxFlat_flat_btn_h")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_opt_n"]
 content_margin_left = 10.0
@@ -19,8 +52,28 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tcp_bg"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+bg_color = Color(0.12, 0.12, 0.15, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.25, 0.3, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 12
+shadow_offset = Vector2(0, 4)
+
 [node name="ThemeConfigPanel" type="PanelContainer" unique_id=80100187]
 theme = SubResource("Theme_tcp")
+theme_override_styles/panel = SubResource("StyleBoxFlat_tcp_bg")
 script = ExtResource("1_3fpar")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1221835285]
@@ -45,6 +98,11 @@ text = "Theme Colors"
 layout_mode = 2
 theme_type_variation = &"FlatButton"
 text = "Reset All"
+
+[node name="ButtonClose" type="Button" parent="MarginContainer/VBoxContainer/Header" unique_id=1892019283]
+layout_mode = 2
+theme_type_variation = &"FlatButton"
+text = "✕"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer" unique_id=1372837835]
 custom_minimum_size = Vector2(280, 300)
@@ -120,10 +178,8 @@ size_flags_horizontal = 3
 text = "Text Size"
 
 [node name="SpinTextSize" parent="MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/RowTextSize" unique_id=1014 instance=ExtResource("2_spin")]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(118, 24)
 layout_mode = 2
-theme = null
-script = null
 
 [node name="RowLang" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer" unique_id=1016]
 custom_minimum_size = Vector2(0, 32)
@@ -164,5 +220,6 @@ theme_type_variation = &"FlatButton"
 text = "Dark / Light Mode"
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/Header/ResetAll" to="." method="reset_all"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/Header/ButtonClose" to="." method="_on_close_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/BtnApply" to="." method="_on_apply_clicked"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ScrollContainer/MarginContainer/SlotContainer/BtnTheme" to="." method="_on_toggle_theme"]

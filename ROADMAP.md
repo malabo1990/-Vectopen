@@ -31,6 +31,22 @@ deliberately dropped
 - ✅ Advanced-interaction **Phase 1**: Delete / Copy / Cut / Paste / Duplicate /
   Select All / arrow-key nudge, all registering real undo/redo (in `MoveTool`).
 
+### Studio Light Mode UI Redesign & Context Menu Suite (2026-09)
+- ✅ **Stroke Panel (`Panel_trazos`)**: Separated color and thickness (`SpinBox` on independent bottom row); neutral gray chips (`SURFACE_RAISED` / `#D8D8DC` active) replacing all blue buttons; lower curve button and Bézier profile editor in Studio monochromatic gray.
+- ✅ **Typography Panel (`Panel_tooltext`)**: Pure white Studio surface with 12px rounded corners, preserving 100% hierarchy and node IDs; high-contrast readable black text on font browser; monochromatic gray alignment and case chips.
+- ✅ **Home / Context Menu (`tool_in_mouse` Tab 0)**: Fixed semantic icons (duplicate → `copy.svg`, remove → `trash.svg` with destructive pink hover, rename → `design-pencil.svg`, name → `text-square.svg`); clean 6px rounded gray chips.
+- ✅ **Alignment & Distribution (`TOOLS ALINEACION` Tab 1)**: 4×4 grid migrated from `ColorRect`s to clean SVG border icons; horizontal (`HBoxContainer4`) and vertical (`HBoxContainer5`) alignment bars; full atomic undo/redo via `InspectorCore.align()` and `InspectorCore.distribute()`.
+- ✅ **Tab Bar (`button_tab_tools2`)**: Alignment icon updated to `align-center-horizontal.svg`; active tab dynamic highlighting.
+- ✅ **Live Godot MCP Server (`VectopenMCPServer.gd`)**: WebSocket server on port 6515 / 6520 for live inspection, scene execution, and live runtime testing.
+- ✅ **GdUnit4 Test Suite**: 9/9 passing tests in `ContextMenu_test.gd`.
+
+### Gradient Annotator, Selection Locking & Solid Color (2026-09)
+- ✅ **Selection Mode Locking (`MoveTool` / `V`)**: Selecting gradient shapes keeps the annotator locked/hidden; dragging by fill translates the shape without altering gradient endpoints ($P_0, P_1$) or stops.
+- ✅ **Gradient Editing Mode (`G`)**: Interactive endpoints, lines, stops, and rotation handles exclusively enabled when pressing `G` (or picking gradient tool); exits cleanly via `V`, `G`, or `Escape`.
+- ✅ **In-Place GPU Texture Mutation**: Modified `VectorShape.gd` to mutate `fill_from` and `fill_to` directly on existing `GradientTexture2D` instances, enabling silky 60+ FPS drag performance without VRAM thrashing.
+- ✅ **Solid Color Unblocking**: Fixed race condition in `managercolor_pickrColor.gd` (`_on_picker_color_changed`), ensuring instant reactivity when switching from gradient to solid color.
+- ✅ **Real-Time Live Godot MCP & GdUnit4 Verification**: 72/72 tests passing across `CanvasSceneReal_test.gd` (10/10), `BoundingBox_test.gd` (33/33), `MoveTool_test.gd` (14/14), and `GestorColor_test.gd` (15/15).
+
 ### Multi-artboard + streaming + document format (branch `multi-artboard-lazy-loading`)
 - ✅ **Multi-artboard ownership** — `ArtboardManager` (node `manager_script`) is
   the single authority for "which artboard?"; removed the `get_child(0)`
@@ -305,16 +321,17 @@ Done:
   Serialised as `corners:[tl,tr,br,bl]` when not uniform.
 - ✅ Drag = live preview (no undo spam) + one `InspectorCore.commit_live()` undo
   entry on release. Reset zeroes rotation + all four radii.
-- ✅ Tests: `TransformPanel_test.gd` (4), `InspectorCore_test.gd` (+corner props),
-  `CanvasSerializer_test.gd` (+per-corner round-trip).
+- ✅ Tests: `TransformPanel_test.gd` (extended test suite with math eval, aspect lock, linked corners, quick rotation), `InspectorCore_test.gd`, `CanvasSerializer_test.gd`.
+- ✅ **Aspect-ratio lock (🔗)**: Proportional scaling between W and H with live preview and atomic undo.
+- ✅ **Corner Radius Sync (⊞)**: Synchronize all 4 corner radii simultaneously or independently.
+- ✅ **Math Expression Evaluation**: Direct evaluation of math operations (`+10`, `-5`, `*2`, `/2`, formulas) in numeric scrub fields.
+- ✅ **Keyboard Modifiers during Drag**: Shift (fine precision 0.1× / 15° snap) and Ctrl (fast 5.0×).
+- ✅ **Quick Rotation Toolbar**: Buttons for ↺ -90°, ↻ +90°, and Reset.
+- ✅ **Seamless Contextual Mount**: Automatically mounts `TransformPanel` inside `Tool_LAYOUT` in `tool_in_mouse.tscn` via `clickrigth_nodo.gd`.
 
 Pending:
 - The `Depth` field in the mock-up (a 2D editor has no depth) — mapped to `W`.
-  If the user wants scale-X / scale-Y or skew instead, easy swap.
-- Aspect-ratio lock (mock-up has no lock, but `tool_layout.tscn` shows a
-  `lock.svg`); artboard-size presets from `tool_layout.tscn`.
-- Replace / merge with the existing `Tool_LAYOUT` instance in `tool_in_mouse.tscn`
-  (currently `visible = false`) — the user decides where it mounts.
+- Artboard-size presets from `tool_layout.tscn`.
 
 ## 3e. Colour & gradient system
 
@@ -372,7 +389,7 @@ From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
 |---|---|---|
 | I-1 | Group / ungroup with real hierarchy + undo | 🔵 P3 |
 | I-2 | Visual transform controls (rotate/scale/skew handles) — incl. resizing an already-rotated shape in its *local* axes (`MoveTool._apply_resize` known limitation) | 🔵 P3 |
-| I-3 | Align / distribute | 🔵 P3 |
+| I-3 | Align / distribute | ✅ done (`InspectorCore` + `TOOLS ALINEACION` 4×4 grid & bars) |
 | I-4 | Snapping, smart guides, grid, rulers — wired to real geometry | 🔵 P3 |
 | I-5 | Node editing (path point add/remove/convert) | 🔵 P3 |
 | I-6 | Centralized command system (replace the ad-hoc `HistoryManager.add_do/add_undo` calls scattered across tools) | 🔵 P3 |

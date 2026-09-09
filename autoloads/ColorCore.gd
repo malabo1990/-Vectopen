@@ -89,7 +89,15 @@ func set_paint(paint: Dictionary, target: String = "") -> void:
 		# los degradados solo aplican a relleno; para trazo tomamos su primer stop
 		set_color(_paint_representative_color(paint), "stroke")
 		return
-	_fill_paint = paint.duplicate(true)
+	var new_paint := paint.duplicate(true)
+	if new_paint.get("type", "solid") != "solid":
+		if not new_paint.has("p0") and _fill_paint.has("p0") and _fill_paint["p0"] != Vector2(-1, -1):
+			new_paint["p0"] = _fill_paint["p0"]
+		if not new_paint.has("p1") and _fill_paint.has("p1") and _fill_paint["p1"] != Vector2(-1, -1):
+			new_paint["p1"] = _fill_paint["p1"]
+		if not new_paint.has("angle") and _fill_paint.has("angle"):
+			new_paint["angle"] = _fill_paint["angle"]
+	_fill_paint = new_paint
 	if paint.get("type", "solid") == "solid":
 		fill_color = paint.get("color", fill_color)
 		_add_recent(fill_color)
@@ -107,7 +115,7 @@ func _apply_to_selection(tgt: String) -> void:
 		return
 	_applying = true
 	if tgt == "fill":
-		ic.apply("fill_color", fill_color)
+		ic.apply("fill_paint", _fill_paint)
 	else:
 		ic.apply("stroke_color", stroke_color)
 	_applying = false
@@ -134,11 +142,71 @@ func _on_inspector_changed(props: Dictionary) -> void:
 func make_solid(c: Color) -> Dictionary:
 	return {"type": "solid", "color": c}
 
-func make_linear(stops, angle_rad: float = 0.0) -> Dictionary:
-	return {"type": "linear", "angle": angle_rad, "stops": _norm_stops(stops)}
+func make_linear(stops, angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "linear", "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
 
-func make_radial(stops, center := Vector2(0.5, 0.5), radius: float = 0.5) -> Dictionary:
-	return {"type": "radial", "center": center, "radius": radius, "stops": _norm_stops(stops)}
+func make_radial(stops, center := Vector2(0.5, 0.5), radius: float = 0.5, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "radial", "center": center, "radius": radius, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
+func make_conic(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "conic", "center": center, "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
+func make_diamond(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "diamond", "center": center, "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
+func make_box(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "box", "center": center, "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
+func make_spiral(stops, center := Vector2(0.5, 0.5), angle_rad: float = 0.0, p0: Vector2 = Vector2(-1, -1), p1: Vector2 = Vector2(-1, -1)) -> Dictionary:
+	var d := {"type": "spiral", "center": center, "angle": angle_rad, "stops": _norm_stops(stops)}
+	if p0 != Vector2(-1, -1): d["p0"] = p0
+	if p1 != Vector2(-1, -1): d["p1"] = p1
+	return d
+
+var _clipboard_gradient_style: Dictionary = {}
+
+func copy_gradient_style(shape: Node2D) -> void:
+	if not is_instance_valid(shape) or not ("fill_gradient" in shape) or shape.fill_gradient == null:
+		return
+	_clipboard_gradient_style = {
+		"type": shape.fill_gradient_type,
+		"gradient": shape.fill_gradient.duplicate(),
+		"angle": shape.fill_gradient_angle,
+		"p0": shape.fill_gradient_p0,
+		"p1": shape.fill_gradient_p1
+	}
+
+func paste_gradient_style(shape: Node2D) -> bool:
+	if _clipboard_gradient_style.is_empty() or not is_instance_valid(shape) or not ("fill_gradient" in shape):
+		return false
+	shape.fill_gradient = (_clipboard_gradient_style["gradient"] as Gradient).duplicate()
+	shape.fill_gradient_type = int(_clipboard_gradient_style["type"])
+	shape.fill_gradient_p0 = _clipboard_gradient_style["p0"]
+	shape.fill_gradient_p1 = _clipboard_gradient_style["p1"]
+	shape._internal_point_update = true
+	shape.fill_gradient_angle = float(_clipboard_gradient_style["angle"])
+	shape._internal_point_update = false
+	shape.queue_redraw()
+	if GlobalEvents.has_signal("object_style_changed"):
+		GlobalEvents.object_style_changed.emit()
+	if GlobalEvents.has_signal("gradient_changed"):
+		GlobalEvents.gradient_changed.emit(shape.fill_gradient)
+	return true
 
 ## stops: Gradient | Array[[offset, Color]] | Array[Color] → [[offset, Color], ...]
 func _norm_stops(stops) -> Array:

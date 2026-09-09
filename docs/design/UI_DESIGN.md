@@ -67,9 +67,15 @@
 ### Paneles (`Panel` / `PanelContainer`)
 - Fondo `panel_bg`, radio 12px, borde `border`, sombra suave.
 
-### Chips / píldoras (atajos de teclado)
-- Fondo `widget_bg`, radio 6px, borde `border`, texto 12px primario.
-- Captura de entrada: borde `accent`.
+### Chips / píldoras (botones de herramienta, menús y opciones)
+- Fondo `widget_bg` (`#F5F5F7`), radio 6px, borde `border` (`#E5E5EA`), icono/texto `#1E1E22`.
+- **Activo / Resaltado**: Fondo `SURFACE_RAISED` (`#D8D8DC`), borde `#B0B0B8`, icono `#1E1E22`. **Sin color azul.**
+- **Destructivo (Eliminar)**: Hover suave en rosa `#FDE8E8`, borde `#F8B4B4`, texto rojo `#D9383A`.
+
+### Paneles Flotantes y Menú Contextual (`tool_in_mouse.tscn`, `panel_trazos.tscn`, `panel_tooltext.tscn`)
+- Superficie blanca pura (`#FFFFFF`), radio 12px, borde sutil de 1px (`#E5E5EA`) y sombra suave Apple.
+- Filas de controles con espaciado natural (e.g. Grosor en fila independiente debajo de Color, nunca comprimidos).
+- Barra de pestañas con indicador visual activo (`#D8D8DC`) e íconos semánticos vectoriales (e.g. `align-center-horizontal.svg`).
 
 ### Listas (`Tree`)
 - Fondo panel, texto primario, selección `accent` al 25%.
@@ -80,9 +86,10 @@
 2. Acentos semánticos solo para acciones/estados, no para decoración.
 3. Respetar radios: 12/8/6.
 4. Todo texto debe cumplir contraste ≥ 4.5:1 sobre su superficie.
+5. **Cero Azul en Selección de Herramientas**: La activación de botones de trazos, capas y herramientas utiliza la escala monocromática `SURFACE_RAISED` (`#D8D8DC`), reservando el azul exclusivamente para enlaces, focus y bounding box en lienzo.
 
 ## 7. Implementación
 
 - Tokens: `docs/design/design-tokens.json` (fuente de verdad).
 - Tema: `autoloads/ThemeManager.gd` genera el `Theme` en runtime desde los tokens (modos `dark` / `light`, conmutables, overrides por usuario persistidos en `user://vectopen_theme.cfg`).
-- Slots semánticos expuestos: `affirmative`, `negative`, `accent`, `panel_bg`, `text.primary`, etc.
+- Slots semánticos expuestos: `affirmative`, `negative`, `accent`, `panel_bg`, `surface_raised`, `text.primary`, etc.

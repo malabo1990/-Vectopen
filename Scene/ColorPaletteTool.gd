@@ -122,18 +122,25 @@ func _actualizar_paleta_interfaz(cantidad: int) -> void:
 		color_box.mouse_filter = Control.MOUSE_FILTER_PASS
 		cell.add_child(color_box)
 		
-		# Texto en formato HEX
+		# Texto en formato HEX con contraste inteligente y sombra garantizada
 		var label_hex := Label.new()
 		label_hex.text = "#" + color_calculado.to_html(false).to_upper()
 		label_hex.add_theme_font_size_override("font_size", font_size_hex)
 		
-		# Control de contraste inteligente: Evita texto negro sobre fondo oscuro
-		var luminosidad = color_calculado.v
-		label_hex.add_theme_color_override("font_color", Color.BLACK if luminosidad > 0.6 else Color.WHITE)
+		var lum: float = 0.299 * color_calculado.r + 0.587 * color_calculado.g + 0.114 * color_calculado.b
+		if lum > 0.55:
+			label_hex.add_theme_color_override("font_color", Color(0.10, 0.10, 0.14, 1.0))
+			label_hex.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.6))
+		else:
+			label_hex.add_theme_color_override("font_color", Color(0.98, 0.98, 1.0, 1.0))
+			label_hex.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+		label_hex.add_theme_constant_override("shadow_offset_x", 1)
+		label_hex.add_theme_constant_override("shadow_offset_y", 1)
 		
 		label_hex.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label_hex.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		label_hex.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		label_hex.offset_bottom = -4.0
 		cell.add_child(label_hex)
 		
 		# Evento de clic: Si pulsas la muestra, se convierte en el nuevo color de referencia
@@ -147,5 +154,8 @@ func _on_cell_clicked(event: InputEvent, color_seleccionado: Color) -> void:
 			nodo_color_rect.color = color_seleccionado
 			_color_anterior_referencia = color_seleccionado
 		
-		if "object_style_changed" in GlobalEvents:
+		var cc := (get_tree().root.get_node_or_null("ColorCore") if is_inside_tree() else null) if get_tree() else get_node_or_null("/root/ColorCore")
+		if cc and cc.has_method("set_color"):
+			cc.set_color(color_seleccionado, "fill")
+		elif "object_style_changed" in GlobalEvents:
 			GlobalEvents.object_style_changed.emit()

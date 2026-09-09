@@ -44,3 +44,6 @@ prototipo/
 
 # MCP server cache
 addons/godot_mcp/cache/
+
+# Docs site build output
+docs/site/site_build/

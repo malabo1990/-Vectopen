@@ -6,8 +6,10 @@ class_name EffectFxBase
 ## then wire their own parameter controls via _emit_param().
 
 signal remove_requested(fx_node: Node)
+signal param_changed(fx_node: Node, prop: String, value: Variant)
 
 var effect_name: String = ""
+var is_updating_ui: bool = false
 
 @onready var _enabled_checkbox: CheckBox = %Enabled
 @onready var _remove_button: Button = %Remove
@@ -17,10 +19,27 @@ func _ready() -> void:
 	_remove_button.pressed.connect(_on_remove_pressed)
 
 func _on_enabled_toggled(active: bool) -> void:
+	if is_updating_ui:
+		return
 	_emit_param("enabled", active)
 
 func _on_remove_pressed() -> void:
 	remove_requested.emit(self)
 
 func _emit_param(property: String, value: Variant) -> void:
+	if is_updating_ui:
+		return
+	param_changed.emit(self, property, value)
 	GlobalEvents.emit_safe("effect_parameter_updated", effect_name, property, value)
+
+func get_params() -> Dictionary:
+	return {
+		"type": effect_name,
+		"enabled": _enabled_checkbox.button_pressed if _enabled_checkbox else true,
+	}
+
+func set_params(dict: Dictionary) -> void:
+	is_updating_ui = true
+	if _enabled_checkbox and dict.has("enabled"):
+		_enabled_checkbox.button_pressed = bool(dict["enabled"])
+	is_updating_ui = false

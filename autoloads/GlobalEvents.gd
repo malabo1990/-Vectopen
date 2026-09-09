@@ -20,6 +20,7 @@ signal active_artboard_changed
 # --- SEÑALES DEL COLOR / DEGRADADO ---
 signal color_changed(new_color: Color)
 signal gradient_changed(gradient: Gradient)
+signal gradient_stop_selected(color: Color, index: int)
 signal color_picker_opened
 signal color_picker_closed
 
@@ -43,6 +44,7 @@ signal selection_changed(shapes: Array)
 
 # --- SEÑALES DE EFECTOS / UI ---
 signal effect_parameter_updated(effect_name: String, property: String, value: Variant)
+signal export_started
 signal export_finished
 signal export_error
 signal import_started

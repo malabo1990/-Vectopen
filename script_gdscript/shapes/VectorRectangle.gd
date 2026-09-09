@@ -49,38 +49,65 @@ const ROUNDED_RECT_CORNER_SEGMENTS: int = 16
 func _init() -> void:
 	_register_doc_extent("size")
 
-func _draw():
-	var rect = Rect2(-size/2, size)
+func get_effect_points() -> PackedVector2Array:
+	var rect: Rect2 = Rect2(-size/2, size)
+	if _r_tl > 0 or _r_tr > 0 or _r_br > 0 or _r_bl > 0:
+		return _generate_rounded_rect_vertices(rect)
+	return PackedVector2Array([
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	])
+
+func _draw() -> void:
+	var rect: Rect2 = Rect2(-size/2, size)
+	var pts := get_effect_points()
+	draw_effects_shadows(pts)
 
 	if _r_tl > 0 or _r_tr > 0 or _r_br > 0 or _r_bl > 0:
 		_draw_custom_rounded_rect(rect, fill_color, stroke_color, stroke_width, 0.0)
 	else:
 		# Relleno (plano o degradado — draw_fill decide)
-		draw_fill(PackedVector2Array([
-			rect.position,
-			Vector2(rect.end.x, rect.position.y),
-			rect.end,
-			Vector2(rect.position.x, rect.end.y),
-		]))
+		draw_fill(pts)
 
 		# Borde
 		if stroke_width > 0:
-			# draw_rect(rect, color, filled, width)
-			draw_rect(rect, stroke_color, false, stroke_width)
+			var s_rect: Rect2 = rect
+			if stroke_align == 1: # Inside
+				s_rect = rect.grow(-stroke_width * 0.5)
+			elif stroke_align == 2: # Outside
+				s_rect = rect.grow(stroke_width * 0.5)
+			if stroke_style == 0:
+				var sp := _get_rendered_stroke_params(stroke_width, stroke_color)
+				draw_rect(s_rect, sp[1], false, sp[0], false)
+			else:
+				var s_pts := PackedVector2Array([
+					s_rect.position,
+					Vector2(s_rect.end.x, s_rect.position.y),
+					s_rect.end,
+					Vector2(s_rect.position.x, s_rect.end.y),
+				])
+				draw_stroke_ring(s_pts)
+
+	draw_effects_overlays(pts)
 
 ## Dibuja el rectángulo redondeado como polígono propio (en vez de StyleBoxFlat,
 ## cuyo border_width/corner_radius son int en el motor y truncarían la precisión
 ## sub-píxel del radio y del grosor de trazo).
-func _draw_custom_rounded_rect(rect: Rect2, _f_color: Color, s_color: Color, s_width: float, _unused: float):
+func _draw_custom_rounded_rect(rect: Rect2, _f_color: Color, _s_color: Color, s_width: float, _unused: float) -> void:
 	var verts := _generate_rounded_rect_vertices(rect)
 
 	draw_fill(verts)
 
 	if s_width > 0:
-		var closed_verts := verts
-		closed_verts.append(verts[0])
-		# sin antialias por-primitiva (rompe el batching); el MSAA 2D lo cubre
-		draw_polyline(closed_verts, s_color, s_width, false)
+		var stroke_rect: Rect2 = rect
+		if stroke_align == 1: # Inside
+			stroke_rect = rect.grow(-s_width * 0.5)
+		elif stroke_align == 2: # Outside
+			stroke_rect = rect.grow(s_width * 0.5)
+		var s_verts := _generate_rounded_rect_vertices(stroke_rect)
+		draw_stroke_ring(s_verts)
 
 func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 	var max_r: float = min(rect.size.x, rect.size.y) / 2.0
@@ -118,16 +145,12 @@ func set_selected(selected: bool):
 	queue_redraw() # Forzar a que se vuelva a dibujar
 
 func get_state() -> Dictionary:
-	return {
-		"id": object_id,
-		"type": "rectangle",
-		"position": doc_position.to_v2(),
-		"size": get_doc_extent().to_v2(),
-		"fill_color": fill_color,
-		"stroke_color": stroke_color,
-		"stroke_width": stroke_width,
-		"rotation": doc_rotation
-	}
+	var s: Dictionary = super()
+	s["type"] = "rectangle"
+	s["position"] = doc_position.to_v2()
+	s["size"] = get_doc_extent().to_v2()
+	s["rotation"] = doc_rotation
+	return s
 
 func serialize() -> Dictionary:
 	return get_state()
@@ -139,7 +162,8 @@ func to_svg() -> String:
 	var py: float = doc_position.y
 	var sx: float = get_doc_extent().x
 	var sy: float = get_doc_extent().y
-	var svg = '<rect x="%.4f" y="%.4f" width="%.4f" height="%.4f" rx="%.4f" fill="%s" stroke="%s" stroke-width="%.4f" transform="rotate(%.4f %.4f %.4f)" />' % [
+	var filter_attr: String = get_svg_filter_attr()
+	var svg = '<rect x="%.4f" y="%.4f" width="%.4f" height="%.4f" rx="%.4f" fill="%s" stroke="%s" stroke-width="%.4f" transform="rotate(%.4f %.4f %.4f)"%s />' % [
 		px - sx / 2.0,
 		py - sy / 2.0,
 		sx, sy,
@@ -148,7 +172,8 @@ func to_svg() -> String:
 		stroke_color.to_html(),
 		stroke_width,
 		rad_to_deg(doc_rotation),
-		px, py
+		px, py,
+		filter_attr
 	]
 	return svg
 

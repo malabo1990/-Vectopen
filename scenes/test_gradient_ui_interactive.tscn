@@ -1,0 +1,23 @@
+﻿[gd_scene format=3 uid="uid://b8t2k4ui81234"]
+
+[ext_resource type="Script" path="res://script_gdscript/test_gradient_ui_interactive.gd" id="1_test"]
+
+[node name="TestGradientUI" type="Node2D"]
+script = ExtResource("1_test")
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="Panel" type="Panel" parent="UI"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 50.0
+grow_horizontal = 2
+
+[node name="Label" type="Label" parent="UI"]
+offset_left = 16.0
+offset_top = 10.0
+offset_right = 1200.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 18
+text = "Initializing Gradient UI Test..."

@@ -31,6 +31,12 @@ signal element_dropped_internally(element: Variant, position: Vector2)
 var _current_artboard: Node = null
 var _artboards: Array[Node] = []
 var _export_in_progress: bool = false
+var name_edit: LineEdit = null
+var quantity_spin: Range = null
+var resolution_spin: Range = null
+var artboard_menu: MenuButton = null
+var cache_toggle: BaseButton = null
+var recent_menu: MenuButton = null
 
 # ==========================================
 # CICLO DE VIDA
@@ -63,9 +69,9 @@ func _setup_signals() -> void:
 
 func _setup_defaults() -> void:
 	# Configurar valores por defecto
-	name_edit.text = "vectopen_export"
-	quantity_spin.value = 1
-	resolution_spin.value = 2.0  # 2x por defecto
+	if name_edit: name_edit.text = "vectopen_export"
+	if quantity_spin: quantity_spin.value = 1
+	if resolution_spin: resolution_spin.value = 2.0  # 2x por defecto
 	
 	# Configurar menú de artboards
 	if artboard_menu:
