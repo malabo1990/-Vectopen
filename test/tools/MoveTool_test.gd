@@ -427,3 +427,26 @@ func test_heal_stuck_gesture_respeta_arrastre_con_boton_pulsado() -> void:
 	up.pressed = false
 	Input.parse_input_event(up)
 	Input.flush_buffered_events()
+
+func test_shape_at_finds_rotated_rectangle_accurately() -> void:
+	var root: Node2D = auto_free(Node2D.new()); add_child(root)
+	var artboard: ArtboardEditor = auto_free(ArtboardEditor.new())
+	root.add_child(artboard)
+
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	artboard.add_child(shape)
+	shape.position = Vector2(200, 200)
+	shape.size = Vector2(100, 100)
+	shape.rotation = deg_to_rad(45.0)
+
+	var tool: MoveTool = auto_free(MoveTool.new())
+	tool.canvas = root
+	tool.target_artboard = artboard
+
+	# Punto dentro del rombo (en el eje local Y a 40px del centro): dentro
+	var pt_inside: Vector2 = shape.to_global(Vector2(0, 40))
+	assert_object(tool._shape_at(pt_inside)).is_same(shape)
+
+	# Punto en la esquina AABB no rotada (45, 45) relativo al centro: fuera del rombo
+	var pt_outside: Vector2 = shape.position + Vector2(45, 45)
+	assert_object(tool._shape_at(pt_outside)).is_null()

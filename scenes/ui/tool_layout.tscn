@@ -467,7 +467,7 @@ icon = ExtResource("3_30lwg")
 expand_icon = true
 script = ExtResource("4_fkwhe")
 
-[node name="Panel" type="Panel" parent="PanelContainer2/Panel/Button3" unique_id=1674537847]
+[node name="Panel_config_windows_element" type="Panel" parent="PanelContainer2/Panel/Button3" unique_id=1674537847]
 visible = false
 layout_mode = 0
 offset_left = -912.0
@@ -475,7 +475,7 @@ offset_top = -235.0
 offset_right = -250.0
 offset_bottom = 254.0
 
-[node name="MarginContainer" type="MarginContainer" parent="PanelContainer2/Panel/Button3/Panel" unique_id=347897594]
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element" unique_id=347897594]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
@@ -484,96 +484,96 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="BoxContainer" type="BoxContainer" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer" unique_id=78084759]
+[node name="BoxContainer" type="BoxContainer" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer" unique_id=78084759]
 layout_mode = 2
 vertical = true
 
-[node name="Label" type="Label" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer" unique_id=2110912891]
+[node name="Label" type="Label" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer" unique_id=2110912891]
 layout_mode = 2
 text = "Size"
 
-[node name="BoxContainer" type="BoxContainer" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer" unique_id=2067611269]
+[node name="BoxContainer" type="BoxContainer" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer" unique_id=2067611269]
 layout_mode = 2
 vertical = true
 
-[node name="Button" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1923745310]
+[node name="Button" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1923745310]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button5" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=819215745]
+[node name="Button5" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=819215745]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button6" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=98605117]
+[node name="Button6" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=98605117]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button7" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1616421790]
+[node name="Button7" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1616421790]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button8" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=726920986]
+[node name="Button8" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=726920986]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button9" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1673245689]
+[node name="Button9" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1673245689]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button10" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=187631234]
+[node name="Button10" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=187631234]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button11" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1661653309]
+[node name="Button11" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1661653309]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button12" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1086481140]
+[node name="Button12" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1086481140]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button13" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=23604116]
+[node name="Button13" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=23604116]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button14" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1443408408]
+[node name="Button14" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1443408408]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"
 icon = ExtResource("3_30lwg")
 expand_icon = true
 
-[node name="Button15" type="Button" parent="PanelContainer2/Panel/Button3/Panel/MarginContainer/BoxContainer/BoxContainer" unique_id=1983878430]
+[node name="Button15" type="Button" parent="PanelContainer2/Panel/Button3/Panel_config_windows_element/MarginContainer/BoxContainer/BoxContainer" unique_id=1983878430]
 custom_minimum_size = Vector2(130, 30)
 layout_mode = 2
 text = "1920 x 1080"

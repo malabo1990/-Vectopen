@@ -1284,6 +1284,97 @@ func test_generate_visual_verification_snapshots() -> void:
 	assert_bool(rect_shape.has_gradient_fill()).is_false()
 	assert_bool(bb.has_gradient_annotator()).is_false()
 
+func test_bounding_box_drag_moves_shape_via_gui_input() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape)
+	shape.position = Vector2(100, 100)
+	shape.size = Vector2(80, 60)
+
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
+	move_tool.selected_shapes = [shape]
+
+	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
+	root.add_child(bb)
+	bb.move_tool_reference = move_tool
+	bb._sincronizar_dimensiones_en_canvas()
+
+	assert_bool(bb.visible).is_true()
+
+	# Simular clic en el interior del BoundingBox
+	var ev_press := InputEventMouseButton.new()
+	ev_press.button_index = MOUSE_BUTTON_LEFT
+	ev_press.pressed = true
+	ev_press.global_position = Vector2(100, 100)
+	bb._gui_input(ev_press)
+
+	assert_bool(move_tool.is_dragging_shape).is_true()
+
+	# Simular arrastre hacia (150, 120)
+	var ev_motion := InputEventMouseMotion.new()
+	ev_motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	ev_motion.global_position = Vector2(150, 120)
+	move_tool.transform_initial_mouse = Vector2(100, 100) # En entorno de test sin canvas transform
+	move_tool._on_motion(Vector2(150, 120))
+
+	assert_vector(shape.position).is_equal_approx(Vector2(150, 120), Vector2(0.1, 0.1))
+
+	# Simular soltado
+	var ev_release := InputEventMouseButton.new()
+	ev_release.button_index = MOUSE_BUTTON_LEFT
+	ev_release.pressed = false
+	ev_release.global_position = Vector2(150, 120)
+	bb._gui_input(ev_release)
+
+	assert_bool(move_tool.is_dragging_shape).is_false()
+	assert_vector(shape.position).is_equal_approx(Vector2(150, 120), Vector2(0.1, 0.1))
+
+func test_bounding_box_shift_click_deselects_shape() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape)
+	shape.position = Vector2(100, 100)
+	shape.size = Vector2(80, 60)
+
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
+	move_tool.target_artboard = root
+	move_tool.selected_shapes = [shape]
+
+	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
+	root.add_child(bb)
+	bb.move_tool_reference = move_tool
+	bb._sincronizar_dimensiones_en_canvas()
+
+	assert_int(move_tool.selected_shapes.size()).is_equal(1)
+
+	# Presionar tecla SHIFT en el sistema de input
+	var shift_down := InputEventKey.new()
+	shift_down.keycode = KEY_SHIFT
+	shift_down.pressed = true
+	Input.parse_input_event(shift_down)
+	Input.flush_buffered_events()
+
+	# Clic dentro del BoundingBox con SHIFT presionado
+	var ev_press := InputEventMouseButton.new()
+	ev_press.button_index = MOUSE_BUTTON_LEFT
+	ev_press.pressed = true
+	ev_press.global_position = Vector2(100, 100)
+	bb._gui_input(ev_press)
+
+	var shift_up := InputEventKey.new()
+	shift_up.keycode = KEY_SHIFT
+	shift_up.pressed = false
+	Input.parse_input_event(shift_up)
+	Input.flush_buffered_events()
+
+	assert_array(move_tool.selected_shapes).is_empty()
+
 
 
 

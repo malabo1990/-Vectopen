@@ -33,21 +33,32 @@ var _MUTED := Color("6c6c70")
 var _BORDER := Color("d1d1d6")
 
 func _pull_theme() -> void:
-	_BG_PANEL = Color.WHITE
-	_BG_CARD = Color.WHITE
+	_BG_PANEL = Color.TRANSPARENT
+	_BG_CARD = Color("#f1f1f5")
+	_BG_HOVER = Color("#e5e5ea")
+	_ACCENT = Color("#0a84ff")
+	_TEXT = Color("#1c1c1e")
+	_MUTED = Color("#6c6c70")
+	_BORDER = Color(0.0, 0.0, 0.0, 0.08)
+
 	var tm := get_node_or_null("/root/ThemeManager")
-	if tm == null:
-		return
-	var S = tm.Slot
-	_BG_HOVER = tm.get_color(S.BUTTON_HOVER)
-	_ACCENT   = tm.get_color(S.ACCENT)
-	_TEXT     = tm.get_color(S.PANEL_TEXT)
-	_MUTED    = tm.get_color(S.TEXT_SECONDARY)
-	_BORDER   = tm.get_color(S.BORDER)
+	if tm != null:
+		var is_dark := false
+		if tm.has_method("get_mode"):
+			is_dark = tm.get_mode() == "dark"
+		elif "current_mode" in tm:
+			is_dark = tm.current_mode == "dark"
+		if is_dark:
+			_BG_CARD = Color("#2c2c2e")
+			_BG_HOVER = Color("#3a3a3c")
+			_TEXT = Color("#f5f5f7")
+			_MUTED = Color("#8e8e93")
+			_BORDER = Color(1.0, 1.0, 1.0, 0.12)
 
 var _fields: Dictionary = {}          # prop -> Field
 var _rot: Dial = null
 var _corners: Dictionary = {}         # "corner_tl".. -> Dial
+var _corners_container: HBoxContainer = null
 var _sync_guard := false
 var _has_selection := false
 
@@ -58,6 +69,9 @@ var _btn_aspect: Button = null
 
 var _corners_linked := false
 var _btn_link_corners: Button = null
+
+var _config_window: PanelConfigWindowsElement = null
+var _btn_presets: Button = null
 
 var _drag_snap: Dictionary = {}       # prop -> {figura -> valor_previo}
 
@@ -78,7 +92,7 @@ static func eval_math(text: String, current: float) -> float:
 			return float(res)
 	return current
 
-# ─────────────────────────────────── campo numérico con arrastre (scrub)
+# ─────────────────────────────────── campo numérico con arrastre (scrub) estilo Figma
 class Field extends PanelContainer:
 	signal value_changed(v: float)
 	signal drag_started()
@@ -108,24 +122,27 @@ class Field extends PanelContainer:
 	func _init(lbl: String, text_col: Color, muted: Color, card: Color, border: Color, accent: Color = Color("0a84ff")) -> void:
 		_card_col = card; _border_col = border; _accent_col = accent
 		_text_col = text_col; _muted_col = muted
-		custom_minimum_size = Vector2(50, 36)
+		custom_minimum_size = Vector2(0, 26)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		mouse_default_cursor_shape = Control.CURSOR_HSIZE
 		_apply_panel_style(false)
 
-		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 1)
+		var box := HBoxContainer.new()
+		box.add_theme_constant_override("separation", 4)
 		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(box)
 
 		_label_node = Label.new()
 		_label_node.text = lbl
+		_label_node.custom_minimum_size = Vector2(16, 0)
 		_label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_label_node.add_theme_color_override("font_color", muted)
-		_label_node.add_theme_font_size_override("font_size", 8)
+		_label_node.add_theme_font_size_override("font_size", 10)
 		box.add_child(_label_node)
 
 		_le = LineEdit.new()
-		_le.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_le.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_le.add_theme_color_override("font_color", text_col)
 		_le.add_theme_font_size_override("font_size", 11)
 		_le.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
@@ -139,10 +156,13 @@ class Field extends PanelContainer:
 	func _apply_panel_style(highlight: bool) -> void:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = _card_col
-		sb.set_corner_radius_all(6)
+		sb.set_corner_radius_all(4)
 		sb.set_border_width_all(1)
 		sb.border_color = _accent_col if highlight else _border_col
-		sb.set_content_margin_all(3)
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
 		add_theme_stylebox_override("panel", sb)
 
 	func set_value_silent(v: float) -> void:
@@ -151,24 +171,42 @@ class Field extends PanelContainer:
 
 	func set_disabled_text(t: String) -> void:
 		enabled = false
-		_le.text = t
+		if is_instance_valid(_le):
+			_le.text = t
 
 	func _refresh_text() -> void:
-		if _editing:
+		if _editing or not is_instance_valid(_le):
 			return
 		if is_equal_approx(value, roundf(value)):
 			_le.text = "%d" % int(roundf(value))
 		else:
 			_le.text = (("%." + str(decimals) + "f") % value).rstrip("0").rstrip(".")
 
-	## Para tests / código: simula escribir y confirmar un valor.
 	func type_value(v: float) -> void:
 		_editing = true
 		_le.text = str(v)
 		_exit_edit(true)
 
 	func displayed_text() -> String:
-		return _le.text
+		return _le.text if is_instance_valid(_le) else ""
+
+	func _enter_edit() -> void:
+		_editing = true
+		_le.mouse_filter = Control.MOUSE_FILTER_STOP
+		_le.grab_focus()
+		_le.select_all()
+
+	func _exit_edit(commit: bool) -> void:
+		if not _editing:
+			return
+		_editing = false
+		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if commit:
+			var eval_res := TransformPanel.eval_math(_le.text, value)
+			value = clampf(eval_res, min_value, max_value)
+			submitted.emit(value)
+			value_changed.emit(value)
+		_refresh_text()
 
 	func _gui_input(e: InputEvent) -> void:
 		if not enabled or _editing:
@@ -206,25 +244,8 @@ class Field extends PanelContainer:
 				_refresh_text()
 				value_changed.emit(value)
 
-	func _enter_edit() -> void:
-		_editing = true
-		_le.mouse_filter = Control.MOUSE_FILTER_STOP
-		_le.grab_focus()
-		_le.select_all()
-
-	func _exit_edit(commit: bool) -> void:
-		if not _editing:
-			return
-		_editing = false
-		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if commit:
-			var eval_res := TransformPanel.eval_math(_le.text, value)
-			value = clampf(eval_res, min_value, max_value)
-			submitted.emit(value)
-		_refresh_text()
-
-# ─────────────────────────────────────────────────────── dial reutilizable
-class Dial extends Control:
+# ─────────────────────────────────────────────────────── dial / campo rotación y esquinas (Figma style)
+class Dial extends PanelContainer:
 	signal value_changed(v: float)
 	signal drag_started()
 	signal drag_ended()
@@ -235,85 +256,105 @@ class Dial extends Control:
 	var value: float = 0.0
 	var max_value: float = 360.0
 	var label: String = ""
+	var step: float = 0.5
+	var suffix: String = ""
+
 	var _dragging := false
+	var _drag_active := false
 	var _drag_px := 0.0
 	var _editing := false
 	var _le: LineEdit = null
+	var _label_node: Label = null
 
 	var _accent := Color("0a84ff")
 	var _muted := Color("6c6c70")
-	var _card := Color("ffffff")
-	var _border := Color("d1d1d6")
+	var _card := Color("#f1f1f5")
+	var _border := Color(0, 0, 0, 0.08)
 	var _text_col := Color("1c1c1e")
 
 	func tint(accent: Color, muted: Color, card: Color, border: Color, text_c: Color = Color("1c1c1e")) -> void:
 		_accent = accent; _muted = muted; _card = card; _border = border; _text_col = text_c
-		queue_redraw()
+		_apply_style(false)
+		if is_instance_valid(_label_node): _label_node.add_theme_color_override("font_color", _muted)
+		if is_instance_valid(_le): _le.add_theme_color_override("font_color", _text_col)
 
 	func _init(k: int, lbl: String, mx: float) -> void:
 		kind = k
 		label = lbl
 		max_value = mx
-		custom_minimum_size = Vector2(46, 38) if k == Kind.RADIUS else Vector2(50, 50)
-		mouse_default_cursor_shape = Control.CURSOR_VSIZE if k == Kind.RADIUS else Control.CURSOR_MOVE
+		suffix = "°" if k == Kind.ROTATION else ""
+		step = 1.0 if k == Kind.ROTATION else 0.5
+		custom_minimum_size = Vector2(0, 26)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mouse_default_cursor_shape = Control.CURSOR_HSIZE
+		_apply_style(false)
 
-	func set_value_silent(v: float) -> void:
-		value = clampf(v, 0.0 if kind == Kind.RADIUS else -99999.0, max_value if kind == Kind.RADIUS else 99999.0)
-		queue_redraw()
+		var box := HBoxContainer.new()
+		box.add_theme_constant_override("separation", 4)
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(box)
 
-	func _gui_input(e: InputEvent) -> void:
-		if _editing:
-			return
-		if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			var mb := e as InputEventMouseButton
-			if mb.pressed:
-				if mb.double_click:
-					_enter_edit()
-					return
-				_dragging = true
-				_drag_px = 0.0
-				drag_started.emit()
-			else:
-				_dragging = false
-				drag_ended.emit()
-		elif e is InputEventMouseMotion and _dragging:
-			var mm := e as InputEventMouseMotion
-			if kind == Kind.ROTATION:
-				var c := size * 0.5
-				var ang := rad_to_deg((mm.position - c).angle()) + 90.0
-				ang = fposmod(ang, 360.0)
-				if Input.is_key_pressed(KEY_SHIFT):
-					ang = roundf(ang / 15.0) * 15.0
-				value = ang
-			else:
-				var dy: float = mm.relative.y
-				_drag_px += absf(dy)
-				var step := 0.1 if Input.is_key_pressed(KEY_SHIFT) else (2.0 if (Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)) else 0.5)
-				value = clampf(value - dy * step, 0.0, max_value)
-			queue_redraw()
-			value_changed.emit(value)
+		_label_node = Label.new()
+		_label_node.text = label
+		_label_node.custom_minimum_size = Vector2(16, 0)
+		_label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_label_node.add_theme_color_override("font_color", _muted)
+		_label_node.add_theme_font_size_override("font_size", 10)
+		box.add_child(_label_node)
 
-	func _enter_edit() -> void:
-		if _editing:
-			return
-		_editing = true
 		_le = LineEdit.new()
-		_le.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_le.text = "%d" % int(roundf(value))
-		_le.custom_minimum_size = Vector2(40, 22)
-		_le.size = _le.custom_minimum_size
-		_le.position = (size - _le.size) * 0.5
+		_le.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_le.add_theme_color_override("font_color", _text_col)
-		_le.add_theme_font_size_override("font_size", 10)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = _card
-		sb.set_border_width_all(1)
-		sb.border_color = _accent
-		sb.set_corner_radius_all(4)
-		_le.add_theme_stylebox_override("normal", sb)
+		_le.add_theme_font_size_override("font_size", 11)
+		_le.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		_le.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_le.text_submitted.connect(func(_t): _exit_edit(true))
 		_le.focus_exited.connect(func(): _exit_edit(true))
-		add_child(_le)
+		box.add_child(_le)
+		_refresh_text()
+
+	func _apply_style(highlight: bool) -> void:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = _card
+		sb.set_corner_radius_all(4)
+		sb.set_border_width_all(1)
+		sb.border_color = _accent if highlight else _border
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
+		add_theme_stylebox_override("panel", sb)
+
+	func set_value_silent(v: float) -> void:
+		value = fposmod(v, 360.0) if kind == Kind.ROTATION else clampf(v, 0.0, max_value)
+		_refresh_text()
+
+	func displayed_text() -> String:
+		return _le.text if is_instance_valid(_le) else ""
+
+	func type_value(v: float) -> void:
+		_editing = true
+		if is_instance_valid(_le):
+			_le.text = str(v)
+		_exit_edit(true)
+
+	func _refresh_text() -> void:
+		if _editing or not is_instance_valid(_le):
+			return
+		if is_equal_approx(value, roundf(value)):
+			_le.text = ("%d" % int(roundf(value))) + suffix
+		else:
+			_le.text = ("%.1f" % value) + suffix
+
+	func _enter_edit() -> void:
+		_editing = true
+		if is_equal_approx(value, roundf(value)):
+			_le.text = "%d" % int(roundf(value))
+		else:
+			_le.text = ("%.1f" % value)
+		_le.mouse_filter = Control.MOUSE_FILTER_STOP
 		_le.grab_focus()
 		_le.select_all()
 
@@ -321,47 +362,65 @@ class Dial extends Control:
 		if not _editing:
 			return
 		_editing = false
-		if is_instance_valid(_le):
-			if commit:
-				var eval_v := TransformPanel.eval_math(_le.text, value)
+		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if commit:
+			var t := _le.text.trim_suffix(suffix).strip_edges()
+			var eval_v := TransformPanel.eval_math(t, value)
+			if kind == Kind.ROTATION:
+				value = fposmod(eval_v, 360.0)
+			else:
+				value = clampf(eval_v, 0.0, max_value)
+			submitted.emit(value)
+			value_changed.emit(value)
+		_refresh_text()
+
+	func _gui_input(e: InputEvent) -> void:
+		if _editing:
+			return
+		if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			var mb := e as InputEventMouseButton
+			if mb.pressed:
+				_dragging = true
+				_drag_px = 0.0
+				_drag_active = false
+				drag_started.emit()
+				_apply_style(true)
+			else:
+				_dragging = false
+				_apply_style(false)
+				if absf(_drag_px) < 3.0 and not _drag_active:
+					_enter_edit()
+				_drag_active = false
+				drag_ended.emit()
+		elif e is InputEventMouseMotion and _dragging:
+			var mm := e as InputEventMouseMotion
+			var dx: float = mm.relative.x
+			_drag_px += dx
+			var current_step := step
+			if Input.is_key_pressed(KEY_SHIFT):
+				current_step = step * 0.1
+			elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
+				current_step = step * 5.0
+
+			if absf(_drag_px) >= 3.0:
+				_drag_active = true
+
+			if absf(dx) > 0.0:
+				var new_val := value + dx * current_step
 				if kind == Kind.ROTATION:
-					value = fposmod(eval_v, 360.0)
+					if Input.is_key_pressed(KEY_SHIFT):
+						new_val = roundf(new_val / 15.0) * 15.0
+					value = fposmod(new_val, 360.0)
 				else:
-					value = clampf(eval_v, 0.0, max_value)
-				submitted.emit(value)
+					value = clampf(new_val, 0.0, max_value)
+				_refresh_text()
 				value_changed.emit(value)
-			_le.queue_free()
-			_le = null
-		queue_redraw()
-
-	func _draw() -> void:
-		var r_out: float = minf(size.x, size.y) * 0.5 - 2.0
-		var c := size * Vector2(0.5, 0.0) + Vector2(0, r_out + 1.0)
-		if kind == Kind.RADIUS:
-			c = Vector2(size.x * 0.5, r_out + 1.0)
-		draw_circle(c, r_out, _card)
-		draw_arc(c, r_out, 0, TAU, 32, _border, 1.0, true)
-		if kind == Kind.ROTATION:
-			var a := deg_to_rad(value - 90.0)
-			draw_line(c, c + Vector2(cos(a), sin(a)) * (r_out - 5.0), _accent, 2.0, true)
-			draw_circle(c, 2.0, _accent)
-			_text_center("%d°" % int(round(value)), c + Vector2(0, r_out + 9.0), _muted, 9)
-		else:
-			var frac := clampf(value / maxf(max_value, 0.001), 0.0, 1.0)
-			if frac > 0.001:
-				draw_arc(c, r_out - 3.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 24, _accent, 2.5, true)
-			_text_center(("%.1f" % value) if label == "" else label, c + Vector2(0, r_out + 8.0), _muted, 8)
-			_text_center("%.0f" % value, c, _accent if frac > 0.001 else _muted, 9)
-
-	func _text_center(t: String, at: Vector2, col: Color, sz: int) -> void:
-		var f := get_theme_default_font()
-		var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
-		draw_string(f, at - Vector2(w * 0.5, -sz * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 
 # ───────────────────────────────────────────────────────────── ciclo de vida
 func _ready() -> void:
-	custom_minimum_size = Vector2(192, 220)
+	custom_minimum_size = Vector2(0, 0)
 	_pull_theme()
+	_init_config_window()
 	_build()
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed") and not ic.changed.is_connected(_on_props):
@@ -371,117 +430,143 @@ func _ready() -> void:
 		tm.theme_changed.connect(_on_theme_changed)
 	_refresh()
 
+func _init_config_window() -> void:
+	_config_window = get_node_or_null("Panel_config_windows_element") as PanelConfigWindowsElement
+	if _config_window == null:
+		var scene := load("res://scenes/ui/panel_config_windows_element.tscn") as PackedScene
+		if scene:
+			_config_window = scene.instantiate() as PanelConfigWindowsElement
+			_config_window.name = "Panel_config_windows_element"
+			add_child(_config_window)
+	if _config_window:
+		_config_window.visible = false
+		if not _config_window.size_applied.is_connected(_on_preset_size_applied):
+			_config_window.size_applied.connect(_on_preset_size_applied)
+		if not _config_window.closed.is_connected(_on_preset_window_closed):
+			_config_window.closed.connect(_on_preset_window_closed)
+
 func _on_theme_changed(_mode: String) -> void:
 	_pull_theme()
 	for c in get_children():
-		c.queue_free()
+		if c != _config_window:
+			c.queue_free()
 	_build()
 	_refresh()
 
 func _build() -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color.WHITE
-	sb.set_corner_radius_all(0)
-	sb.set_border_width_all(0)
-	sb.border_color = Color.TRANSPARENT
-	sb.set_content_margin_all(4)
+	custom_minimum_size = Vector2(0, 0)
+	var sb := StyleBoxEmpty.new()
 	add_theme_stylebox_override("panel", sb)
 
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 4)
+	root.add_theme_constant_override("separation", 6)
 	add_child(root)
 
-	# Cabecera con título y herramientas rápidas
+	# Cabecera con título y herramientas rápidas compactas
 	var header_box := HBoxContainer.new()
 	header_box.alignment = BoxContainer.ALIGNMENT_BEGIN
-	header_box.add_theme_constant_override("separation", 3)
+	header_box.add_theme_constant_override("separation", 4)
 	root.add_child(header_box)
 
 	var hdr := Label.new()
-	hdr.text = "TRANSFORM"
+	hdr.text = "LAYOUT"
 	hdr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hdr.add_theme_color_override("font_color", _MUTED)
 	hdr.add_theme_font_size_override("font_size", 10)
 	header_box.add_child(hdr)
 
-	# Botones rápidos: Rotar -90°, Rotar +90°, Proporción 🔗, Esquinas 🔗
-	var btn_rot_ccw := _make_icon_button("↺", "Rotar -90° antihorario")
+	# Micro-icono Restablecer transformación (sustituye el botón voluminoso inferior)
+	var btn_reset := _make_icon_button("↺", "Restablecer transformación (Reset X, Y, Rotación, Esquinas)")
+	btn_reset.pressed.connect(_on_reset)
+	header_box.add_child(btn_reset)
+
+	var btn_rot_ccw := _make_icon_button("↺90", "Rotar -90° antihorario")
 	btn_rot_ccw.pressed.connect(rotate_ccw)
 	header_box.add_child(btn_rot_ccw)
 
-	var btn_rot_cw := _make_icon_button("↻", "Rotar +90° horario")
+	var btn_rot_cw := _make_icon_button("↻90", "Rotar +90° horario")
 	btn_rot_cw.pressed.connect(rotate_cw)
 	header_box.add_child(btn_rot_cw)
 
+	_btn_presets = _make_icon_button("📐", "Configuración de tamaño de página o elementos (Papel, Dispositivos, Red social, Logo, Icono)")
+	var preset_tex := load("res://icon/UI/preset_menu.svg") as Texture2D
+	if preset_tex:
+		_btn_presets.icon = preset_tex
+		_btn_presets.text = ""
+		_btn_presets.expand_icon = true
+	_btn_presets.pressed.connect(_toggle_presets_window)
+	_update_toggle_button(_btn_presets, is_instance_valid(_config_window) and _config_window.visible)
+	header_box.add_child(_btn_presets)
+
+	# ── Fila 1: X [ 0 ] | Y [ 0 ] ──
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", 6)
+	root.add_child(row1)
+	row1.add_child(_make_field("pos_x", "X"))
+	row1.add_child(_make_field("pos_y", "Y"))
+
+	# ── Fila 2: W [ 0 ] | H [ 0 ] (con icono de cadena para bloquear proporción entre W y H) ──
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 6)
+	root.add_child(row2)
+	row2.add_child(_make_field("width", "W"))
+	row2.add_child(_make_field("height", "H"))
+
 	_btn_aspect = _make_icon_button("🔗", "Bloquear proporciones (W / H)")
+	_btn_aspect.custom_minimum_size = Vector2(26, 26)
 	_btn_aspect.pressed.connect(_toggle_aspect_lock)
 	_update_toggle_button(_btn_aspect, _aspect_locked)
-	header_box.add_child(_btn_aspect)
+	row2.add_child(_btn_aspect)
 
-	_btn_link_corners = _make_icon_button("⊞", "Sincronizar radios de las 4 esquinas")
+	# ── Fila 3: ∠ [ 0° ] | ⌜ [ 0 ] (con botón para expandir a 4 esquinas independientes) ──
+	var row3 := HBoxContainer.new()
+	row3.add_theme_constant_override("separation", 6)
+	root.add_child(row3)
+
+	_rot = _make_dial(Dial.Kind.ROTATION, "∠", 360.0)
+	row3.add_child(_rot)
+
+	_corners["corner_tl"] = _make_dial(Dial.Kind.RADIUS, "⌜", 400.0)
+	row3.add_child(_corners["corner_tl"])
+
+	_btn_link_corners = _make_icon_button("⊞", "Alternar 4 esquinas independientes (TL, TR, BR, BL)")
+	_btn_link_corners.custom_minimum_size = Vector2(26, 26)
 	_btn_link_corners.pressed.connect(_toggle_link_corners)
 	_update_toggle_button(_btn_link_corners, _corners_linked)
-	header_box.add_child(_btn_link_corners)
+	row3.add_child(_btn_link_corners)
 
-	# Rejilla 3×3
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 4)
-	grid.add_theme_constant_override("v_separation", 4)
-	root.add_child(grid)
+	# ── Fila 4: Esquinas independientes (TR, BR, BL) ──
+	_corners_container = HBoxContainer.new()
+	_corners_container.add_theme_constant_override("separation", 4)
+	_corners_container.visible = not _corners_linked
+	root.add_child(_corners_container)
 
-	_corners["corner_tl"] = _make_dial(Dial.Kind.RADIUS, "TL", 400.0)
-	grid.add_child(_corners["corner_tl"])
-	grid.add_child(_make_field("pos_y", "Y"))
 	_corners["corner_tr"] = _make_dial(Dial.Kind.RADIUS, "TR", 400.0)
-	grid.add_child(_corners["corner_tr"])
-
-	grid.add_child(_make_field("pos_x", "X"))
-	_rot = _make_dial(Dial.Kind.ROTATION, "", 360.0)
-	grid.add_child(_rot)
-	grid.add_child(_make_field("width", "W"))
-
-	_corners["corner_bl"] = _make_dial(Dial.Kind.RADIUS, "BL", 400.0)
-	grid.add_child(_corners["corner_bl"])
-	grid.add_child(_make_field("height", "H"))
+	_corners_container.add_child(_corners["corner_tr"])
 	_corners["corner_br"] = _make_dial(Dial.Kind.RADIUS, "BR", 400.0)
-	grid.add_child(_corners["corner_br"])
-
-	# Botón de Restablecer (Reset)
-	var reset := Button.new()
-	reset.text = "Restablecer transformación"
-	reset.add_theme_color_override("font_color", _MUTED)
-	reset.add_theme_font_size_override("font_size", 10)
-	var rsb := StyleBoxFlat.new()
-	rsb.bg_color = Color.WHITE
-	rsb.set_corner_radius_all(6)
-	rsb.set_border_width_all(1)
-	rsb.border_color = Color(0.86, 0.87, 0.90, 1.0)
-	rsb.set_content_margin_all(5)
-	reset.add_theme_stylebox_override("normal", rsb)
-	var rsb_h := rsb.duplicate() as StyleBoxFlat
-	rsb_h.bg_color = Color(0.94, 0.94, 0.96, 1.0)
-	reset.add_theme_stylebox_override("hover", rsb_h)
-	reset.pressed.connect(_on_reset)
-	root.add_child(reset)
+	_corners_container.add_child(_corners["corner_br"])
+	_corners["corner_bl"] = _make_dial(Dial.Kind.RADIUS, "BL", 400.0)
+	_corners_container.add_child(_corners["corner_bl"])
 
 func _make_icon_button(txt: String, tooltip: String) -> Button:
 	var b := Button.new()
 	b.text = txt
 	b.tooltip_text = tooltip
-	b.custom_minimum_size = Vector2(22, 22)
+	b.custom_minimum_size = Vector2(26, 26)
+	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 10)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color.WHITE
+	sb.bg_color = _BG_CARD
 	sb.set_corner_radius_all(4)
 	sb.set_border_width_all(1)
-	sb.border_color = Color(0.86, 0.87, 0.90, 1.0)
+	sb.border_color = _BORDER
 	sb.set_content_margin_all(2)
 	b.add_theme_stylebox_override("normal", sb)
 	var sb_h := sb.duplicate() as StyleBoxFlat
-	sb_h.bg_color = Color(0.94, 0.94, 0.96, 1.0)
+	sb_h.bg_color = _BG_HOVER
 	b.add_theme_stylebox_override("hover", sb_h)
 	b.add_theme_color_override("font_color", _MUTED)
+	b.add_theme_color_override("font_hover_color", _TEXT)
 	return b
 
 func _update_toggle_button(b: Button, active: bool) -> void:
@@ -492,17 +577,17 @@ func _update_toggle_button(b: Button, active: bool) -> void:
 	sb.set_content_margin_all(2)
 	sb.set_border_width_all(1)
 	if active:
-		sb.bg_color = Color(0.88, 0.90, 0.94, 1.0)
-		sb.border_color = Color(0.65, 0.68, 0.75, 1.0)
-		b.add_theme_color_override("font_color", Color(0.1, 0.1, 0.12, 1.0))
+		sb.bg_color = Color(0.85, 0.90, 1.0, 1.0)
+		sb.border_color = _ACCENT
+		b.add_theme_color_override("font_color", _ACCENT)
 	else:
-		sb.bg_color = Color.WHITE
-		sb.border_color = Color(0.86, 0.87, 0.90, 1.0)
+		sb.bg_color = _BG_CARD
+		sb.border_color = _BORDER
 		b.add_theme_color_override("font_color", _MUTED)
 	b.add_theme_stylebox_override("normal", sb)
 	var sb_h := sb.duplicate() as StyleBoxFlat
 	if not active:
-		sb_h.bg_color = Color(0.94, 0.94, 0.96, 1.0)
+		sb_h.bg_color = _BG_HOVER
 	b.add_theme_stylebox_override("hover", sb_h)
 
 func _toggle_aspect_lock() -> void:
@@ -516,6 +601,41 @@ func _toggle_aspect_lock() -> void:
 func _toggle_link_corners() -> void:
 	_corners_linked = not _corners_linked
 	_update_toggle_button(_btn_link_corners, _corners_linked)
+	if is_instance_valid(_corners_container):
+		_corners_container.visible = not _corners_linked
+
+func _toggle_presets_window() -> void:
+	if not is_instance_valid(_config_window):
+		_init_config_window()
+	if not is_instance_valid(_config_window):
+		return
+	_config_window.visible = !_config_window.visible
+	if _config_window.visible:
+		_position_config_window()
+	if _btn_presets:
+		_update_toggle_button(_btn_presets, _config_window.visible)
+
+func _position_config_window() -> void:
+	if not is_instance_valid(_config_window):
+		return
+	_config_window.top_level = true
+	var vp_rect := get_viewport_rect()
+	var vp_w := vp_rect.size.x if vp_rect.size.x > 0 else 1280.0
+	var win_w: float = 340.0
+	var panel_global := global_position
+	if panel_global.x >= win_w + 10.0:
+		_config_window.global_position = Vector2(panel_global.x - win_w - 8.0, maxf(10.0, panel_global.y - 10.0))
+	elif (vp_w - (panel_global.x + size.x)) >= win_w + 10.0:
+		_config_window.global_position = Vector2(panel_global.x + size.x + 8.0, maxf(10.0, panel_global.y - 10.0))
+	else:
+		_config_window.global_position = Vector2(clampf(panel_global.x - win_w * 0.5, 10.0, vp_w - win_w - 10.0), panel_global.y + size.y + 10.0)
+
+func _on_preset_size_applied(_w: float, _h: float, _name: String) -> void:
+	_refresh()
+
+func _on_preset_window_closed() -> void:
+	if _btn_presets:
+		_update_toggle_button(_btn_presets, false)
 
 func _make_field(prop: String, lbl: String) -> Control:
 	var f := Field.new(lbl, _TEXT, _MUTED, _BG_CARD, _BORDER, _ACCENT)
@@ -541,7 +661,7 @@ func _make_dial(kind: int, lbl: String, mx: float) -> Dial:
 func _prop_for_dial(kind: int, lbl: String) -> String:
 	if kind == Dial.Kind.ROTATION:
 		return "rotation"
-	var m := {"TL": "corner_tl", "TR": "corner_tr", "BR": "corner_br", "BL": "corner_bl"}
+	var m := {"⌜": "corner_tl", "TL": "corner_tl", "TR": "corner_tr", "BR": "corner_br", "BL": "corner_bl"}
 	return String(m.get(lbl, ""))
 
 # ────────────────────────────────────────────────────────── captura y preview

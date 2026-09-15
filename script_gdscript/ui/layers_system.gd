@@ -171,6 +171,10 @@ func _ready() -> void:
 	if tm and tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
 		tm.theme_changed.connect(_on_theme_changed)
 
+	var gui := get_node_or_null("/root/GlobalUI")
+	if gui and gui.has_signal("ui_mode_changed") and not gui.ui_mode_changed.is_connected(_on_ui_mode_changed):
+		gui.ui_mode_changed.connect(_on_ui_mode_changed)
+
 	# Crear timer para actualizaciones batch
 	_setup_update_timer()
 
@@ -246,6 +250,9 @@ func _volcar_item(it: TreeItem, prof: int, tree: Tree, log_fn: Callable) -> void
 func _on_theme_changed(_mode: String) -> void:
 	_aplicar_tema_panel()
 
+func _on_ui_mode_changed(_mode: String) -> void:
+	_aplicar_tema_panel()
+
 # =============================================================================
 # TEMA DEL PANEL — usa los tokens de diseño (ThemeManager), sin blancos/negros fijos
 # =============================================================================
@@ -259,11 +266,16 @@ func _aplicar_tema_panel() -> void:
 	if panel == null:
 		panel = find_child("Panel", false, false) as Panel
 	if panel:
-		# Estilo Apple: SIN marco y SIN sombra, esquinas redondeadas y márgenes
-		# internos generosos para que el título "LAYERS" y el contenido respiren.
+		# En Smart UI: Estilo Apple (sin marco, esquinas redondeadas r=14).
+		# En Modern UI: Estilo Figma UI3 (acoplado flat, sin radios las esquinas r=0).
+		var is_modern: bool = false
+		var gui := get_node_or_null("/root/GlobalUI")
+		if gui and gui.has_method("is_modern_mode"):
+			is_modern = gui.is_modern_mode()
+
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = tm.get_color(S.PANEL_SURFACE)
-		sb.set_corner_radius_all(14)
+		sb.set_corner_radius_all(0 if is_modern else 14)
 		sb.set_border_width_all(0)
 		sb.content_margin_left = 16
 		sb.content_margin_right = 16

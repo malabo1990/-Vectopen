@@ -18,6 +18,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_find_nodes()
 	_load_draw_prefs()
+	_populate_ui_mode()
 	_populate_language()
 	_populate_ui_colors()
 	_populate_mcp_section()
@@ -50,6 +51,26 @@ func _get_node(node_path: String):
 	if n is VBoxContainer: return n as VBoxContainer
 	if "value" in n: return n
 	return null
+
+func _populate_ui_mode() -> void:
+	if not _slot_container: return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+
+	var lbl := Label.new()
+	lbl.text = "UI Mode"
+	lbl.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.95, 1))
+	row.add_child(lbl)
+
+	var selector_script := preload("res://script_gdscript/ui/ui_mode_selector.gd")
+	var selector = selector_script.new()
+	selector.compact = true
+	row.add_child(selector)
+
+	_slot_container.add_child(row)
+	_slot_container.move_child(row, 0)
 
 func _populate_language() -> void:
 	if not _lang_option: return

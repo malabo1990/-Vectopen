@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/docked_inspector.gd" id="1_dki"]
+
+[node name="DockedInspector" type="PanelContainer"]
+custom_minimum_size = Vector2(268, 0)
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -268.0
+grow_horizontal = 0
+grow_vertical = 2
+size_flags_vertical = 3
+script = ExtResource("1_dki")

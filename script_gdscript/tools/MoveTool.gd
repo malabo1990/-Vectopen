@@ -106,10 +106,13 @@ func activate() -> void:
 		_bounding_box.queue_redraw()
 	# Reflejar en el bounding box la selección que ya viva en SelectionManager
 	# (p. ej. hecha desde el panel de capas con otra herramienta activa).
-	if SelectionManager and not _sel_conn:
-		SelectionManager.changed.connect(_on_external_selection_changed)
-		_sel_conn = true
-	_update_macro_rect()
+	if SelectionManager:
+		if not _sel_conn:
+			SelectionManager.changed.connect(_on_external_selection_changed)
+			_sel_conn = true
+		_on_external_selection_changed(SelectionManager.get_selected())
+	else:
+		_update_macro_rect()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
@@ -489,7 +492,7 @@ func _hijo_bajo_punto(padre: Node, gm: Vector2) -> Node2D:
 		if _es_grupo_movetool(c):
 			if _rama_contiene_punto(c, gm):
 				return c
-		elif _global_rect(c).has_point(gm):
+		elif _node_contains_point(c, gm):
 			return c
 	return null
 
@@ -1267,7 +1270,10 @@ func _emit_selection_changed() -> void:
 func _on_external_selection_changed(nueva: Array = []) -> void:
 	if _pushing_selection:
 		return
-	selected_shapes.assign(nueva.filter(func(s): return is_instance_valid(s)))
+	selected_shapes.clear()
+	for s in nueva:
+		if is_instance_valid(s) and s is Node2D:
+			selected_shapes.append(s)
 	_update_macro_rect()
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
@@ -1520,7 +1526,7 @@ func _shape_at(gpos: Vector2) -> Node2D:
 		var loose: Array = container.get_children()
 		for i in range(loose.size() - 1, -1, -1):
 			var n = loose[i]
-			if n is Node2D and not (n is ArtboardEditor) and _global_rect(n).has_point(gpos):
+			if n is Node2D and not (n is ArtboardEditor) and _node_contains_point(n, gpos):
 				return n
 	return null
 
@@ -1549,7 +1555,7 @@ func _hit_top_level(raiz: Node, gpos: Vector2, excluir: Array) -> Node2D:
 		if _es_grupo_movetool(n):
 			if _rama_contiene_punto(n, gpos):
 				return n
-		elif _global_rect(n).has_point(gpos):
+		elif _node_contains_point(n, gpos):
 			return n
 	return null
 
@@ -1585,10 +1591,35 @@ func _primer_seleccionado_en_rama(grupo: Node) -> Node2D:
 			a = a.get_parent()
 	return null
 
+func _node_contains_point(node: Node2D, gpos: Vector2) -> bool:
+	if not is_instance_valid(node):
+		return false
+	if "size" in node and (node is VectorRectangle or node is VectorCircle):
+		var s: Vector2 = node.get("size")
+		var lpt: Vector2 = node.to_local(gpos)
+		if node is VectorCircle:
+			var r: float = s.x * 0.5
+			return lpt.length_squared() <= r * r
+		return Rect2(-s * 0.5, s).has_point(lpt)
+	if node is Polygon2D:
+		var poly := node as Polygon2D
+		if poly.polygon.size() >= 3:
+			return Geometry2D.is_point_in_polygon(poly.to_local(gpos), poly.polygon)
+	if node.has_meta("shape_type") and (node.get_meta("shape_type") in ["text_paragraph", "text_title"]):
+		var w: float = node.get_meta("width") if node.has_meta("width") else 350.0
+		var h: float = node.get_meta("height") if node.has_meta("height") else 65.0
+		var lpt: Vector2 = node.to_local(gpos)
+		return Rect2(Vector2.ZERO, Vector2(w, h)).has_point(lpt)
+	if "vertices" in node:
+		var verts: PackedVector2Array = node.get("vertices")
+		if verts.size() >= 3:
+			return Geometry2D.is_point_in_polygon(node.to_local(gpos), verts)
+	return _global_rect(node).has_point(gpos)
+
 func _rama_contiene_punto(nodo: Node, gpos: Vector2) -> bool:
 	# El CUERPO propio del nodo cuenta (una figura-contenedor sigue siendo
 	# clicable sobre su propio relleno, no solo sobre sus hijos).
-	if _tiene_cuerpo_propio(nodo) and _global_rect(nodo).has_point(gpos):
+	if _tiene_cuerpo_propio(nodo) and _node_contains_point(nodo, gpos):
 		return true
 	for c in nodo.get_children():
 		if not (c is Node2D) or String(c.name) == "Contorno_Stroke":
@@ -1596,7 +1627,7 @@ func _rama_contiene_punto(nodo: Node, gpos: Vector2) -> bool:
 		if _es_grupo_movetool(c):
 			if _rama_contiene_punto(c, gpos):
 				return true
-		elif _global_rect(c).has_point(gpos):
+		elif _node_contains_point(c, gpos):
 			return true
 	return false
 
@@ -1648,7 +1679,20 @@ func _global_rect(node: Node2D) -> Rect2:
 
 	if "size" in node and (node is VectorRectangle or node is VectorCircle):
 		var s: Vector2 = node.get("size")
-		return Rect2(node.global_position - s * 0.5, s)
+		if is_zero_approx(node.global_rotation):
+			return Rect2(node.global_position - s * 0.5, s)
+		var corners := [
+			node.to_global(-s * 0.5),
+			node.to_global(Vector2(s.x * 0.5, -s.y * 0.5)),
+			node.to_global(s * 0.5),
+			node.to_global(Vector2(-s.x * 0.5, s.y * 0.5))
+		]
+		var g_mn: Vector2 = corners[0]
+		var g_mx: Vector2 = corners[0]
+		for p in corners:
+			g_mn.x = min(g_mn.x, p.x); g_mn.y = min(g_mn.y, p.y)
+			g_mx.x = max(g_mx.x, p.x); g_mx.y = max(g_mx.y, p.y)
+		return Rect2(g_mn, g_mx - g_mn)
 
 	if "vertices" in node:
 		var verts: PackedVector2Array = node.get("vertices")
@@ -2073,48 +2117,13 @@ func _notificar_limpieza_al_overlay() -> void:
 func _update_macro_rect() -> void:
 	if selected_shapes.is_empty():
 		transform_macro_rect = Rect2()
+		initial_macro_center = Vector2.ZERO
 		if _bounding_box:
 			_update_bounding_box()
 		return
 
-	# 1. Inicializar dimensiones con el primer elemento seleccionado
-	var first_shape = selected_shapes[0]
-	var rect: Rect2
-	
-	if first_shape.has_method("get_global_rect"):
-		rect = first_shape.get_global_rect()
-	elif "size" in first_shape:
-		rect = Rect2(first_shape.global_position, first_shape.size)
-	else:
-		rect = Rect2(first_shape.global_position, Vector2(100, 100))
-
-	var min_x = rect.position.x
-	var min_y = rect.position.y
-	var max_x = rect.position.x + rect.size.x
-	var max_y = rect.position.y + rect.size.y
-
-	# 2. Envolver el resto de figuras en caso de selección múltiple
-	for i in range(1, selected_shapes.size()):
-		var s = selected_shapes[i]
-		if not is_instance_valid(s): 
-			continue
-			
-		var r: Rect2
-		if s.has_method("get_global_rect"):
-			r = s.get_global_rect()
-		elif "size" in s:
-			r = Rect2(s.global_position, s.size)
-		else:
-			r = Rect2(s.global_position, Vector2(100, 100))
-			
-		min_x = min(min_x, r.position.x)
-		min_y = min(min_y, r.position.y)
-		max_x = max(max_x, r.position.x + r.size.x)
-		max_y = max(max_y, r.position.y + r.size.y)
-
-	# 3. Guardar estado macro vectorial puro
-	transform_macro_rect = Rect2(min_x, min_y, max_x - min_x, max_y - min_y)
-	initial_macro_center = transform_macro_rect.position + transform_macro_rect.size / 2.0
+	transform_macro_rect = _get_macro_rect()
+	initial_macro_center = transform_macro_rect.get_center()
 	
 	# Actualizar bounding box
 	if _bounding_box:

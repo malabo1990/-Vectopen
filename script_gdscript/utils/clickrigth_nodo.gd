@@ -240,17 +240,48 @@ func _on_accion(metodo: String) -> void:
 	if target_node:
 		target_node.visible = false   # cerrar el menú tras la acción
 
+const _ModernContextMenuScript := preload("res://script_gdscript/ui/modern/modern_context_menu.gd")
+var _modern_context_menu: Control = null
+
+func _ensure_modern_context_menu() -> Control:
+	if is_instance_valid(_modern_context_menu):
+		return _modern_context_menu
+	var scene := load("res://scenes/ui/modern/modern_context_menu.tscn")
+	if scene:
+		_modern_context_menu = scene.instantiate() as Control
+		var p = get_parent()
+		if p:
+			p.add_child(_modern_context_menu)
+		else:
+			add_child(_modern_context_menu)
+	return _modern_context_menu
+
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed):
 		return
+	
+	# No abrir el menú si el click derecho cae sobre OTRA UI (paneles, etc.).
+	var gui := get_node_or_null("/root/GlobalUI")
+	if gui != null and gui.is_mouse_over_ui:
+		return
+
+	# Modern UI: Menú contextual vertical estilo Figma / Penpot
+	if gui != null and gui.has_method("is_modern_mode") and gui.is_modern_mode():
+		if target_node and target_node.visible:
+			target_node.visible = false
+		var mcm := _ensure_modern_context_menu()
+		if mcm:
+			mcm.popup_at(get_global_mouse_position())
+		return
+
+	# Smart UI: asegurar que el menú moderno esté cerrado
+	if is_instance_valid(_modern_context_menu) and _modern_context_menu.visible:
+		_modern_context_menu.visible = false
+
 	if not target_node:
 		return
 	if target_node.visible:
 		target_node.visible = false
-		return
-	# No abrir el menú si el click derecho cae sobre OTRA UI (paneles, etc.).
-	var gui := get_node_or_null("/root/GlobalUI")
-	if gui != null and gui.is_mouse_over_ui:
 		return
 	# Colocar el menú junto al cursor, sin salirse de la ventana.
 	var mp: Vector2 = get_global_mouse_position()
@@ -263,4 +294,15 @@ func _input(event: InputEvent) -> void:
 	var tcp = get_node_or_null("ThemeConfigPanel")
 	if tcp:
 		tcp.visible = false
+		
+	# Adaptive UI / Smart Context:
+	# Clic derecho normal -> Quick Context (Tab 0: Acciones rápidas)
+	# Ctrl + Clic derecho -> Full Inspector (Tab 2: Tool_LAYOUT / TransformPanel)
+	var is_ctrl: bool = Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)
+	var target_tab: int = 2 if is_ctrl else 0
+	var tab_list = get_node_or_null(_TAB_LIST)
+	if tab_list and tab_list.has_method("_update_control_b_visibility"):
+		tab_list._update_control_b_visibility(target_tab)
+		_actualizar_estilo_tabs(target_tab)
+
 	target_node.visible = true

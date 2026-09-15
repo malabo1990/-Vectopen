@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://bxn1dmh013bs2" path="res://script_gdscript/ui/PanelVisibility.gd" id="4_hf0wq"]
 [ext_resource type="Script" uid="uid://btcl0vx7bj50b" path="res://script_gdscript/ui/RulerSettings.gd" id="5_hf0wq"]
 [ext_resource type="PackedScene" uid="uid://c0qra2jlwad0n" path="res://scenes/ui/spin_boxblack.tscn" id="6_spin"]
+[ext_resource type="Script" path="res://script_gdscript/ui/ManagerWindowsRegla.gd" id="7_mwr"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vi5kq"]
 bg_color = Color(0.09, 0.09, 0.12, 0.97)
@@ -81,6 +82,7 @@ offset_top = 25.0
 offset_right = 340.0
 offset_bottom = 500.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_vi5kq")
+script = ExtResource("7_mwr")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1317822517]
 layout_mode = 2
@@ -94,14 +96,27 @@ layout_mode = 2
 theme_override_constants/separation = 9
 vertical = true
 
-[node name="Label" type="Label" parent="MarginContainer/BoxContainer" unique_id=1563472897]
+[node name="Header" type="HBoxContainer" parent="MarginContainer/BoxContainer" unique_id=1563472896]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer/Header" unique_id=1563472897]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.68, 0.68, 0.74, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.85, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 13
 text = "Settings"
-horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="BtnClose" type="Button" parent="MarginContainer/BoxContainer/Header" unique_id=1563472898]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_type_variation = &"FlatButton"
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.3, 0.3, 1)
+theme_override_font_sizes/font_size = 13
+text = "✕"
+flat = true
 
 [node name="tab" type="BoxContainer" parent="MarginContainer/BoxContainer" unique_id=1875433887]
 layout_mode = 2

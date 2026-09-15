@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://b8m3yuiadapts"]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/ui_mode_selector.gd" id="1_modes"]
+
+[node name="UIModeSelector" type="HBoxContainer"]
+offset_right = 236.0
+offset_bottom = 28.0
+theme_override_constants/separation = 4
+script = ExtResource("1_modes")

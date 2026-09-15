@@ -1,0 +1,236 @@
+[gd_scene format=3 uid="uid://c6xk7b1wsqm4d"]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/panel_config_windows_element.gd" id="1_pcwe"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_menu.svg" id="2_menu"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_paper.svg" id="3_paper"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_devices.svg" id="4_dev"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_social.svg" id="5_soc"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_logo.svg" id="6_logo"]
+[ext_resource type="Texture2D" path="res://icon/UI/preset_icon.svg" id="7_icon"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+bg_color = Color(0.12, 0.13, 0.16, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.27, 0.33, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 16
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_flat"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(1, 1, 1, 0.08)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.12)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_search"]
+content_margin_left = 10.0
+content_margin_top = 4.0
+content_margin_right = 10.0
+content_margin_bottom = 4.0
+bg_color = Color(0.08, 0.08, 0.1, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.22, 0.24, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="Panel_config_windows_element" type="PanelContainer" node_paths=PackedStringArray("title_label", "btn_close", "btn_orientation", "target_option", "tab_paper", "tab_devices", "tab_social", "tab_logo", "tab_icon", "search_edit", "presets_container", "custom_w_edit", "custom_h_edit", "btn_apply_custom")]
+custom_minimum_size = Vector2(340, 460)
+offset_right = 340.0
+offset_bottom = 460.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+script = ExtResource("1_pcwe")
+title_label = NodePath("MarginContainer/VBoxContainer/Header/Title")
+btn_close = NodePath("MarginContainer/VBoxContainer/Header/CloseBtn")
+btn_orientation = NodePath("MarginContainer/VBoxContainer/Header/OrientationBtn")
+target_option = NodePath("MarginContainer/VBoxContainer/TargetBar/TargetOption")
+tab_paper = NodePath("MarginContainer/VBoxContainer/ModulesBar/TabPaper")
+tab_devices = NodePath("MarginContainer/VBoxContainer/ModulesBar/TabDevices")
+tab_social = NodePath("MarginContainer/VBoxContainer/ModulesBar/TabSocial")
+tab_logo = NodePath("MarginContainer/VBoxContainer/ModulesBar/TabLogo")
+tab_icon = NodePath("MarginContainer/VBoxContainer/ModulesBar/TabIcon")
+search_edit = NodePath("MarginContainer/VBoxContainer/SearchEdit")
+presets_container = NodePath("MarginContainer/VBoxContainer/ScrollContainer/PresetsList")
+custom_w_edit = NodePath("MarginContainer/VBoxContainer/CustomRow/CustomW")
+custom_h_edit = NodePath("MarginContainer/VBoxContainer/CustomRow/CustomH")
+btn_apply_custom = NodePath("MarginContainer/VBoxContainer/CustomRow/ApplyCustomBtn")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/Header"]
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("2_menu")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="MarginContainer/VBoxContainer/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.95, 0.95, 0.96, 1)
+theme_override_font_sizes/font_size = 12
+text = "Tamaño de Elemento / Página"
+
+[node name="OrientationBtn" type="Button" parent="MarginContainer/VBoxContainer/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_flat")
+text = "↕ Vertical"
+
+[node name="CloseBtn" type="Button" parent="MarginContainer/VBoxContainer/Header"]
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_flat")
+text = "✕"
+
+[node name="TargetBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TargetLabel" type="Label" parent="MarginContainer/VBoxContainer/TargetBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.7, 0.76, 1)
+theme_override_font_sizes/font_size = 10
+text = "Destino:"
+
+[node name="TargetOption" type="OptionButton" parent="MarginContainer/VBoxContainer/TargetBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="ModulesBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TabPaper" type="Button" parent="MarginContainer/VBoxContainer/ModulesBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+icon = ExtResource("3_paper")
+expand_icon = true
+text = "Papel"
+
+[node name="TabDevices" type="Button" parent="MarginContainer/VBoxContainer/ModulesBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+icon = ExtResource("4_dev")
+expand_icon = true
+text = "Dispositivos"
+
+[node name="TabSocial" type="Button" parent="MarginContainer/VBoxContainer/ModulesBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+icon = ExtResource("5_soc")
+expand_icon = true
+text = "Red social"
+
+[node name="TabLogo" type="Button" parent="MarginContainer/VBoxContainer/ModulesBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+icon = ExtResource("6_logo")
+expand_icon = true
+text = "Logo"
+
+[node name="TabIcon" type="Button" parent="MarginContainer/VBoxContainer/ModulesBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+icon = ExtResource("7_icon")
+expand_icon = true
+text = "Icono"
+
+[node name="SearchEdit" type="LineEdit" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.92, 0.95, 1)
+theme_override_colors/font_placeholder_color = Color(0.5, 0.52, 0.58, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_search")
+placeholder_text = "🔍 Buscar preset (ej. A4, Instagram, 1080p)..."
+clear_button_enabled = true
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="PresetsList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="CustomRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="CustomLabel" type="Label" parent="MarginContainer/VBoxContainer/CustomRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.7, 0.76, 1)
+theme_override_font_sizes/font_size = 10
+text = "Manual:"
+
+[node name="CustomW" type="LineEdit" parent="MarginContainer/VBoxContainer/CustomRow"]
+custom_minimum_size = Vector2(64, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_search")
+placeholder_text = "W (px)"
+
+[node name="CustomX" type="Label" parent="MarginContainer/VBoxContainer/CustomRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 10
+text = "×"
+
+[node name="CustomH" type="LineEdit" parent="MarginContainer/VBoxContainer/CustomRow"]
+custom_minimum_size = Vector2(64, 24)
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_search")
+placeholder_text = "H (px)"
+
+[node name="ApplyCustomBtn" type="Button" parent="MarginContainer/VBoxContainer/CustomRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_flat")
+text = "Aplicar"

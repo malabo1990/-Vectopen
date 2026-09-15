@@ -102,6 +102,8 @@ signal data_recovery_saved
 signal data_grid_settings_changed(grid_size: float, snap_enabled: bool)
 
 signal theme_changed(mode: String)
+signal ui_mode_changed(mode: String)
+signal request_settings_dialog
 
 # ==========================================
 # MÉTODO DE UTILIDAD PARA EMISIÓN SEGURA

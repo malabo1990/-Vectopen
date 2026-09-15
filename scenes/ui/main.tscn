@@ -20,6 +20,12 @@
 [ext_resource type="Script" uid="uid://tvsph50ywuy8" path="res://script_gdscript/ui/Color_moouse_click.gd" id="15_fpfj3"]
 [ext_resource type="Texture2D" uid="uid://conyxgtqek4s0" path="res://icon/UI/web-window.svg" id="17_sc1dx"]
 [ext_resource type="Script" uid="uid://boewao87mrb0e" path="res://script_gdscript/ui/InputConfigPanel.gd" id="18_wweun"]
+[ext_resource type="PackedScene" path="res://scenes/ui/docked_inspector.tscn" id="23_docked_insp"]
+[ext_resource type="Script" path="res://script_gdscript/ui/adaptive_ui_manager.gd" id="24_adapt_mgr"]
+[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_bottom_toolbar.tscn" id="25_mbt"]
+[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_top_bar.tscn" id="26_mtb"]
+[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_nav_rail.tscn" id="27_mnr"]
+[ext_resource type="PackedScene" path="res://scenes/ui/modern/command_palette.tscn" id="28_cp"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gb15f"]
 bg_color = Color(0.19140625, 0.19140625, 0.19140625, 1)
@@ -174,6 +180,7 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+mouse_filter = 2
 metadata/_edit_horizontal_guides_ = [-166.0, 97.0]
 metadata/_edit_lock_ = true
 metadata/_edit_vertical_guides_ = [-450.0]
@@ -826,3 +833,27 @@ color = Color(0.585938, 0.585938, 0.585938, 1)
 visible = false
 layout_mode = 1
 offset_top = -370.0
+
+[node name="DockedInspector" parent="." unique_id=987123456 instance=ExtResource("23_docked_insp")]
+visible = false
+layout_mode = 1
+
+[node name="ModernTopBar" parent="." unique_id=987123460 instance=ExtResource("26_mtb")]
+visible = false
+layout_mode = 1
+
+[node name="ModernNavRail" parent="." unique_id=987123461 instance=ExtResource("27_mnr")]
+visible = false
+layout_mode = 1
+
+[node name="ModernBottomToolbar" parent="." unique_id=987123462 instance=ExtResource("25_mbt")]
+visible = false
+layout_mode = 1
+
+[node name="CommandPalette" parent="." unique_id=987123463 instance=ExtResource("28_cp")]
+visible = false
+layout_mode = 1
+
+[node name="AdaptiveUIManager" type="Node" parent="." unique_id=987123457]
+script = ExtResource("24_adapt_mgr")
+

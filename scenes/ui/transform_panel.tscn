@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dgf0yd8prwq7i"]
 
 [ext_resource type="Script" path="res://script_gdscript/ui/transform_panel.gd" id="1_tp"]
+[ext_resource type="PackedScene" uid="uid://c6xk7b1wsqm4d" path="res://scenes/ui/panel_config_windows_element.tscn" id="2_pcwe"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_tp"]
 
@@ -8,3 +9,7 @@
 custom_minimum_size = Vector2(192, 220)
 theme_override_styles/panel = SubResource("StyleBoxEmpty_tp")
 script = ExtResource("1_tp")
+
+[node name="Panel_config_windows_element" parent="." instance=ExtResource("2_pcwe")]
+visible = false
+layout_mode = 2

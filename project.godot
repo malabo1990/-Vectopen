@@ -23,7 +23,7 @@ run/main_scene="uid://dq780ohbvwe87"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/image="uid://da0xph4mywp4d"
 config/icon="uid://boh0e23xvob1c"
-vectopen/locale="en"
+vectopen/locale="es"
 
 [autoload]
 
@@ -47,7 +47,7 @@ VectopenInput="*res://autoloads/VectopenInput.gd"
 SnapManager="*res://autoloads/SnapManager.gd"
 PluginManager="*res://autoloads/PluginManager.gd"
 DrawPreferences="*res://autoloads/DrawPreferences.gd"
-MCPRuntime="*res://addons/godot_mcp/runtime/mcp_runtime.gd"
+MCPRuntime="*uid://3fh08fg3rlff"
 HistoryManager="*res://autoloads/HistoryManager.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
 RecentFilesManager="*res://autoloads/RecentFilesManager.gd"
@@ -59,6 +59,7 @@ VectopenMCPServer="*res://script_gdscript/system/VectopenMCPServer.gd"
 
 [debug]
 
+file_logging/max_log_files=1
 gdscript/warnings/unused_signal=0
 
 [display]

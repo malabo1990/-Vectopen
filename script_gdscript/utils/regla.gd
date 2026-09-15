@@ -97,26 +97,30 @@ func _input(event: InputEvent) -> void:
 		else:
 			# --- ACCIÓN AL SOLTAR EL CLIC ---
 			if arrastrando_nueva_h and camera:
-				if mouse_pantalla.y > regla_horizontal.size.y:
+				var limit_y = regla_horizontal.global_position.y + regla_horizontal.size.y
+				if mouse_pantalla.y > limit_y:
 					guias_horizontales.append(_snap_guia(_pantalla_a_lienzo_y(mouse_pantalla.y)))
 					_lanzar_flash(true, color_flash_crear)
 				arrastrando_nueva_h = false
 
 			elif arrastrando_nueva_v and camera:
-				if mouse_pantalla.x > regla_vertical.size.x:
+				var limit_x = regla_vertical.global_position.x + regla_vertical.size.x
+				if mouse_pantalla.x > limit_x:
 					guias_verticales.append(_snap_guia(_pantalla_a_lienzo_x(mouse_pantalla.x)))
 					_lanzar_flash(false, color_flash_crear)
 				arrastrando_nueva_v = false
 				
 			elif moviendo_guia_h and indice_guia_activa >= 0 and indice_guia_activa < guias_horizontales.size():
-				if mouse_pantalla.y <= regla_horizontal.size.y:
+				var limit_y = regla_horizontal.global_position.y + regla_horizontal.size.y
+				if mouse_pantalla.y <= limit_y:
 					guias_horizontales.remove_at(indice_guia_activa)
 					_lanzar_flash(true, color_flash_eliminar)
 				indice_guia_activa = -1
 				moviendo_guia_h = false
 				
 			elif moviendo_guia_v and indice_guia_activa >= 0 and indice_guia_activa < guias_verticales.size():
-				if mouse_pantalla.x <= regla_vertical.size.x:
+				var limit_x = regla_vertical.global_position.x + regla_vertical.size.x
+				if mouse_pantalla.x <= limit_x:
 					guias_verticales.remove_at(indice_guia_activa)
 					_lanzar_flash(false, color_flash_eliminar)
 				indice_guia_activa = -1
@@ -204,17 +208,21 @@ func _dibujar_regla_horizontal() -> void:
 	var zoom = camera.zoom.x
 	var lienzo_start_x = camera.get_screen_center_position().x - (get_viewport_rect().size.x / 2) / zoom
 	var paso_pixeles = _calcular_paso(zoom)
-	var x_actual = ceil(lienzo_start_x / paso_pixeles) * paso_pixeles
+	var offset_gx = regla_horizontal.global_position.x
+	var visible_start_x = lienzo_start_x + (offset_gx / zoom)
+	var x_actual = floor(visible_start_x / paso_pixeles) * paso_pixeles
 	while true:
-		var pos_x = (x_actual - lienzo_start_x) * zoom
+		var pos_x = (x_actual - lienzo_start_x) * zoom - offset_gx
 		if pos_x > size_h.x: break
 		var sub_paso = paso_pixeles / 10.0
 		for i in range(10):
 			var sub_x = pos_x + (i * sub_paso * zoom)
 			if sub_x > size_h.x: break
-			regla_horizontal.draw_line(Vector2(sub_x, size_h.y - (4.0 if i != 5 else 8.0)), Vector2(sub_x, size_h.y), Color.DARK_GRAY, 1.0)
-		regla_horizontal.draw_line(Vector2(pos_x, size_h.y - 14), Vector2(pos_x, size_h.y), Color.WHITE, 1.2)
-		regla_horizontal.draw_string(ThemeDB.fallback_font, Vector2(pos_x + 3, 12), str(int(x_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
+			if sub_x >= 0:
+				regla_horizontal.draw_line(Vector2(sub_x, size_h.y - (4.0 if i != 5 else 8.0)), Vector2(sub_x, size_h.y), Color.DARK_GRAY, 1.0)
+		if pos_x >= 0:
+			regla_horizontal.draw_line(Vector2(pos_x, size_h.y - 14), Vector2(pos_x, size_h.y), Color.WHITE, 1.2)
+			regla_horizontal.draw_string(ThemeDB.fallback_font, Vector2(pos_x + 3, 12), str(int(x_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
 		x_actual += paso_pixeles
 
 	var mouse_x_local = regla_horizontal.get_local_mouse_position().x
@@ -231,17 +239,21 @@ func _dibujar_regla_vertical() -> void:
 	var zoom = camera.zoom.y
 	var lienzo_start_y = camera.get_screen_center_position().y - (get_viewport_rect().size.y / 2) / zoom
 	var paso_pixeles = _calcular_paso(zoom)
-	var y_actual = ceil(lienzo_start_y / paso_pixeles) * paso_pixeles
+	var offset_gy = regla_vertical.global_position.y
+	var visible_start_y = lienzo_start_y + (offset_gy / zoom)
+	var y_actual = floor(visible_start_y / paso_pixeles) * paso_pixeles
 	while true:
-		var pos_y = (y_actual - lienzo_start_y) * zoom
+		var pos_y = (y_actual - lienzo_start_y) * zoom - offset_gy
 		if pos_y > size_v.y: break
 		var sub_paso = paso_pixeles / 10.0
 		for i in range(10):
 			var sub_y = pos_y + (i * sub_paso * zoom)
 			if sub_y > size_v.y: break
-			regla_vertical.draw_line(Vector2(size_v.x - (4.0 if i != 5 else 8.0), sub_y), Vector2(size_v.x, sub_y), Color.DARK_GRAY, 1.0)
-		regla_vertical.draw_line(Vector2(size_v.x - 14, pos_y), Vector2(size_v.x, pos_y), Color.WHITE, 1.2)
-		regla_vertical.draw_string(ThemeDB.fallback_font, Vector2(3, pos_y + 10), str(int(y_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
+			if sub_y >= 0:
+				regla_vertical.draw_line(Vector2(size_v.x - (4.0 if i != 5 else 8.0), sub_y), Vector2(size_v.x, sub_y), Color.DARK_GRAY, 1.0)
+		if pos_y >= 0:
+			regla_vertical.draw_line(Vector2(size_v.x - 14, pos_y), Vector2(size_v.x, pos_y), Color.WHITE, 1.2)
+			regla_vertical.draw_string(ThemeDB.fallback_font, Vector2(3, pos_y + 10), str(int(y_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
 		y_actual += paso_pixeles
 
 	var mouse_y_local = regla_vertical.get_local_mouse_position().y
@@ -253,33 +265,36 @@ func _draw() -> void:
 	var zoom = camera.zoom
 	var view_size = get_viewport_rect().size
 	var lienzo_start = camera.get_screen_center_position() - (view_size / 2) / zoom
+	var gpos = global_position
 
 	# Dibujar guías horizontales fijadas
 	for i in range(guias_horizontales.size()):
-		var screen_y = (guias_horizontales[i] - lienzo_start.y) * zoom.y
+		var local_y = (guias_horizontales[i] - lienzo_start.y) * zoom.y - gpos.y
 		var col = color_guia_seleccionada if (indice_guia_activa == i and hover_es_horizontal) else color_guia_normal
-		draw_line(Vector2(0, screen_y), Vector2(view_size.x, screen_y), col, 1.2 if idx_activo(i, true) else 1.0)
+		draw_line(Vector2(0, local_y), Vector2(view_size.x, local_y), col, 1.2 if idx_activo(i, true) else 1.0)
 
 	# Dibujar guías verticales fijadas
 	for i in range(guias_verticales.size()):
-		var screen_x = (guias_verticales[i] - lienzo_start.x) * zoom.x
+		var local_x = (guias_verticales[i] - lienzo_start.x) * zoom.x - gpos.x
 		var col = color_guia_seleccionada if (indice_guia_activa == i and not hover_es_horizontal) else color_guia_normal
-		draw_line(Vector2(screen_x, 0), Vector2(screen_x, view_size.y), col, 1.2 if idx_activo(i, false) else 1.0)
+		draw_line(Vector2(local_x, 0), Vector2(local_x, view_size.y), col, 1.2 if idx_activo(i, false) else 1.0)
 
 	# Previsualización dinámica al crear
 	if arrastrando_nueva_h:
-		draw_line(Vector2(0, mouse_pantalla.y), Vector2(view_size.x, mouse_pantalla.y), color_guia_previsualizacion, 1.0)
-		_etiqueta_coord(true, mouse_pantalla.y, _pantalla_a_lienzo_y(mouse_pantalla.y))
+		var local_my = mouse_pantalla.y - gpos.y
+		draw_line(Vector2(0, local_my), Vector2(view_size.x, local_my), color_guia_previsualizacion, 1.0)
+		_etiqueta_coord(true, local_my, _pantalla_a_lienzo_y(mouse_pantalla.y))
 	if arrastrando_nueva_v:
-		draw_line(Vector2(mouse_pantalla.x, 0), Vector2(mouse_pantalla.x, view_size.y), color_guia_previsualizacion, 1.0)
-		_etiqueta_coord(false, mouse_pantalla.x, _pantalla_a_lienzo_x(mouse_pantalla.x))
+		var local_mx = mouse_pantalla.x - gpos.x
+		draw_line(Vector2(local_mx, 0), Vector2(local_mx, view_size.y), color_guia_previsualizacion, 1.0)
+		_etiqueta_coord(false, local_mx, _pantalla_a_lienzo_x(mouse_pantalla.x))
 
 	# Etiqueta de coordenada al mover una guía existente (estilo Figma/Illustrator)
 	if moviendo_guia_h and indice_guia_activa >= 0 and indice_guia_activa < guias_horizontales.size():
-		var sy: float = (guias_horizontales[indice_guia_activa] - lienzo_start.y) * zoom.y
+		var sy: float = (guias_horizontales[indice_guia_activa] - lienzo_start.y) * zoom.y - gpos.y
 		_etiqueta_coord(true, sy, guias_horizontales[indice_guia_activa])
 	if moviendo_guia_v and indice_guia_activa >= 0 and indice_guia_activa < guias_verticales.size():
-		var sx: float = (guias_verticales[indice_guia_activa] - lienzo_start.x) * zoom.x
+		var sx: float = (guias_verticales[indice_guia_activa] - lienzo_start.x) * zoom.x - gpos.x
 		_etiqueta_coord(false, sx, guias_verticales[indice_guia_activa])
 
 ## Pastilla con la coordenada de mundo junto a la guía que se arrastra.
@@ -292,10 +307,12 @@ func _etiqueta_coord(es_horizontal: bool, screen_pos: float, world_coord: float)
 	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var pad := Vector2(6, 3)
 	var origen: Vector2
+	var left_label_x = (regla_vertical.position.x + regla_vertical.size.x + 4.0) if regla_vertical else 28.0
+	var top_label_y = (regla_horizontal.position.y + regla_horizontal.size.y + 4.0) if regla_horizontal else 28.0
 	if es_horizontal:
-		origen = Vector2(28, screen_pos - 8 - pad.y * 2)
+		origen = Vector2(left_label_x, screen_pos - 8 - pad.y * 2)
 	else:
-		origen = Vector2(screen_pos + 8, 28)
+		origen = Vector2(screen_pos + 8, top_label_y)
 	var caja := Rect2(origen, Vector2(tw + pad.x * 2, fs + pad.y * 2))
 	draw_rect(caja, Color(0.12, 0.12, 0.14, 0.92), true)
 	draw_string(font, origen + Vector2(pad.x, fs + pad.y - 1), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)

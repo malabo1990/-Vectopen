@@ -21,12 +21,19 @@ user_data/
 # Build output
 build/
 
-# Test output
+# Test output / scratch (agent + gdUnit4 runs)
 reports/
 test_output.txt
 test_errors.txt
 test_godot_*.txt
 test_run_*.txt
+test_out.txt
+test_result*.txt
+
+# godot-mcp: never commit an "enabled" MCP config; logs live in user:// (not the
+# repo) but pile up — see CLAUDE.md "godot-mcp / disk hygiene"
+*_mcp.cfg
+godot_ai_server_test.pid
 
 # Prototypes / drafts
 prototipo/

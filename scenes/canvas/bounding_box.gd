@@ -505,6 +505,8 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if has_gradient_annotator() and _handle_annotator_input(event):
 		accept_event()
+		return
+	_on_drag_panel_gui_input(event)
 
 # ── INTERACCIÓN: GESTIÓN DE RATÓN PARA DRAG DIRECTO DESDE PANEL ASIGNADO ─────
 func _on_drag_panel_gui_input(event: InputEvent) -> void:
@@ -512,41 +514,74 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 		return
 	if not is_instance_valid(move_tool_reference):
 		return
-		
+
+	var gm: Vector2
+	if event is InputEventMouse:
+		gm = get_global_transform() * event.position
+	elif is_instance_valid(move_tool_reference) and is_instance_valid(move_tool_reference.canvas):
+		gm = move_tool_reference.canvas.get_global_mouse_position()
+	else:
+		gm = event.global_position
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			if event.double_click:
+				if move_tool_reference.has_method("_on_double_click"):
+					move_tool_reference._on_double_click(gm)
+				accept_event()
+				return
+			if Input.is_key_pressed(KEY_SHIFT):
+				var hit: Node2D = null
+				if move_tool_reference.selected_shapes.size() == 1:
+					hit = move_tool_reference.selected_shapes[0]
+				elif move_tool_reference.has_method("_shape_at"):
+					hit = move_tool_reference._shape_at(gm)
+				if is_instance_valid(hit) and move_tool_reference.selected_shapes.has(hit):
+					move_tool_reference._deselect(hit)
+				accept_event()
+				return
 			_is_dragging_canvas_area = true
 			if "is_dragging_shape" in move_tool_reference:
 				move_tool_reference.is_dragging_shape = true
-				move_tool_reference.transform_initial_mouse = event.global_position
+				move_tool_reference.transform_initial_mouse = gm
 				if "transform_initial_states" in move_tool_reference:
 					move_tool_reference.transform_initial_states.clear()
 					for s in move_tool_reference.selected_shapes:
 						if is_instance_valid(s):
 							move_tool_reference.transform_initial_states[s] = move_tool_reference._snapshot(s)
+			accept_event()
 		else:
 			_is_dragging_canvas_area = false
 			if "is_dragging_shape" in move_tool_reference:
 				if move_tool_reference.has_method("_on_release"):
-					move_tool_reference._on_release(event.global_position)
+					move_tool_reference._on_release(gm)
 				else:
 					move_tool_reference.is_dragging_shape = false
+			accept_event()
 
-	elif event is InputEventMouseMotion and _is_dragging_canvas_area:
-		# La SUELTA se pudo perder si el panel se alejó bajo el cursor. Si el botón
-		# izquierdo ya no está en la máscara del evento, cerramos el gesto aquí.
-		if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
-			_is_dragging_canvas_area = false
-			if "is_dragging_shape" in move_tool_reference:
-				if move_tool_reference.has_method("_on_release"):
-					move_tool_reference._on_release(event.global_position)
-				else:
-					move_tool_reference.is_dragging_shape = false
-			return
-		if move_tool_reference.has_method("_update_transform_logic"):
-			move_tool_reference._update_transform_logic(event.global_position)
-		elif move_tool_reference.has_method("_on_motion"):
-			move_tool_reference._on_motion(event.global_position)
+	elif event is InputEventMouseMotion:
+		if _is_dragging_canvas_area:
+			# La SUELTA se pudo perder si el panel se alejó bajo el cursor. Si el botón
+			# izquierdo ya no está en la máscara del evento, cerramos el gesto aquí.
+			if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+				_is_dragging_canvas_area = false
+				if "is_dragging_shape" in move_tool_reference:
+					if move_tool_reference.has_method("_on_release"):
+						move_tool_reference._on_release(gm)
+					else:
+						move_tool_reference.is_dragging_shape = false
+				accept_event()
+				return
+			if move_tool_reference.has_method("_update_transform_logic"):
+				move_tool_reference._update_transform_logic(gm)
+			elif move_tool_reference.has_method("_on_motion"):
+				move_tool_reference._on_motion(gm)
+			accept_event()
+		else:
+			if not is_gradient_active():
+				if mouse_default_cursor_shape != Control.CURSOR_MOVE:
+					mouse_default_cursor_shape = Control.CURSOR_MOVE
+				Input.set_default_cursor_shape(Input.CURSOR_MOVE)
 
 # ── MÉTODOS DE GEOMETRÍA CLONADOS (Conserva tus funciones matemáticas aquí abajo) ──
 func _get_macro_rect_cloned(selected_shapes_array: Array[Node2D]) -> Rect2:
@@ -600,7 +635,20 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 			return Rect2(g_mn, g_mx - g_mn)
 	if "size" in node and (node is VectorRectangle or node is VectorCircle):
 		var s: Vector2 = node.get("size")
-		return Rect2(node.global_position - s * 0.5, s)
+		if is_zero_approx(node.global_rotation):
+			return Rect2(node.global_position - s * 0.5, s)
+		var corners := [
+			node.to_global(-s * 0.5),
+			node.to_global(Vector2(s.x * 0.5, -s.y * 0.5)),
+			node.to_global(s * 0.5),
+			node.to_global(Vector2(-s.x * 0.5, s.y * 0.5))
+		]
+		var g_mn: Vector2 = corners[0]
+		var g_mx: Vector2 = corners[0]
+		for p in corners:
+			g_mn.x = min(g_mn.x, p.x); g_mn.y = min(g_mn.y, p.y)
+			g_mx.x = max(g_mx.x, p.x); g_mx.y = max(g_mx.y, p.y)
+		return Rect2(g_mn, g_mx - g_mn)
 
 	if "vertices" in node:
 		var verts: PackedVector2Array = node.get("vertices")

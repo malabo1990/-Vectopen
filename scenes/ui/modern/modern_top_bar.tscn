@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/modern/modern_top_bar.gd" id="1_mtb"]
+
+[node name="ModernTopBar" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 36)
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 36.0
+grow_horizontal = 2
+script = ExtResource("1_mtb")

@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/modern/modern_nav_rail.gd" id="1_mnr"]
+
+[node name="ModernNavRail" type="PanelContainer"]
+custom_minimum_size = Vector2(42, 0)
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_top = 36.0
+offset_right = 42.0
+grow_vertical = 2
+size_flags_vertical = 3
+script = ExtResource("1_mnr")

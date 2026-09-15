@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://modern_context_menu_001"]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/modern/modern_context_menu.gd" id="1_mcm"]
+
+[node name="ModernContextMenu" type="PanelContainer"]
+visible = false
+offset_right = 210.0
+offset_bottom = 320.0
+script = ExtResource("1_mcm")
