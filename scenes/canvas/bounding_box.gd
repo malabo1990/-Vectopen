@@ -34,12 +34,24 @@ const _HANDLE_FRAC := {
 	"handle_MA": Vector2(0.5, 0), "MB": Vector2(0.5, 1),
 	"handle_IM": Vector2(0, 0.5), "handle_DM": Vector2(1, 0.5),
 }
-# Handles de eje (diseño del .tscn: `x` rojo a la derecha, `Y` verde debajo).
-# Cuadros del color de sus StyleBox, separados del borde de la caja. Arrastrar
-# uno mueve la selección SOLO en ese eje.
-const _AXIS_GAP_PX: float = 20.0     # separación del borde de la caja (px pantalla)
-const _AXIS_X_COLOR := Color(1, 0, 0, 1)        # rojo  (StyleBoxFlat_gxv5u)
-const _AXIS_Y_COLOR := Color(0, 0.82, 0, 1)     # verde (StyleBoxFlat_lna83)
+# Axis gizmo: red arrow to the right (move X only), green arrow below (move
+# Y only). Long stems keep the arrow heads well clear of the right and bottom
+# resize handles.
+const _AXIS_START_PX: float = 12.0   # stem starts this far from the box edge
+const _AXIS_LEN_PX: float = 46.0     # box edge → arrow tip
+const _AXIS_HEAD_PX: float = 10.0    # arrow head length
+const _AXIS_X_COLOR := Color("#e5484d")
+const _AXIS_Y_COLOR := Color("#30a46c")
+# Dimension pill under the selection ("W × H")
+const _PILL_FONT_PX: int = 11
+const _PILL_GAP_PX: float = 8.0
+# Interactive corner-radius handles (rectangles only)
+const _RADIUS_MIN_INSET_PX: float = 14.0   # handle inset when the radius is ~0
+const _RADIUS_HANDLE_PX: float = 7.0
+const _RADIUS_MIN_BOX_PX: float = 56.0     # hide on boxes smaller than this on screen
+const _CURSOR_ROTATE := preload("res://icon/UI/cursor/rotate.svg")
+const _CURSOR_MOVE_X := preload("res://icon/UI/cursor/move_x.svg")
+const _CURSOR_MOVE_Y := preload("res://icon/UI/cursor/move_y.svg")
 
 # ── Tamaño CONSTANTE en pantalla, a cualquier zoom (como en un editor profesional) ────
 # Los handles ya NO se ven vía sus StyleBox (el borde es entero y se escala con
@@ -65,12 +77,30 @@ const _HANDLE_CURSORS := {
 }
 var _handle_base_rects: Dictionary = {}    # nombre de nodo → Rect2 de offsets originales (a zoom 1.0)
 var _last_zoom_scale: float = -1.0
+var _last_layout_size: Vector2 = Vector2(-1, -1)
+var _active_custom_cursor: int = -1        # Input.CursorShape currently overridden, -1 = none
+# Corner-radius drag state
+var _radius_drag_corner: int = -1          # 0 tl, 1 tr, 2 br, 3 bl
+var _radius_drag_all: bool = true
+var _radius_before: Vector4 = Vector4.ZERO
+var _radius_hover: int = -1
 var _outline_style: StyleBoxFlat = null    # copia única por instancia (no la compartida del .tscn)
 
 ## Factor de compensación de zoom, exacto (sin recorte visible). El clamp solo
 ## evita valores patológicos si el zoom se acerca a 0 o es absurdamente grande.
 static func _zoom_comp(zoom: float) -> float:
 	return 1.0 / clampf(zoom, 0.0002, 100000.0)
+
+## Número corto para la píldora "W × H" y el radio: 2 decimales máximo,
+## sin ceros sobrantes (320.0→"320", 12.5→"12.5", 0.004→"0", 99.126→"99.13").
+static func _fmt_num(v: float) -> String:
+	var r := snappedf(v, 0.01)
+	if is_zero_approx(r):
+		return "0"
+	var s := "%.2f" % r
+	while s.contains(".") and s.ends_with("0"):
+		s = s.trim_suffix("0")
+	return s.trim_suffix(".")
 
 # ── Campos numéricos X/Y (posición doc-space de la figura seleccionada) ──────
 var _fields_wrapper: Control = null
@@ -139,6 +169,9 @@ func _capture_base_handle_geometry() -> void:
 			p.add_theme_stylebox_override("panel", vacio)   # solo zona de clic; el dibujo lo hace _draw()
 			if _HANDLE_CURSORS.has(handle_name):
 				p.mouse_default_cursor_shape = _HANDLE_CURSORS[handle_name]
+			if handle_name in ["x", "Y", "Rotation"]:
+				p.mouse_entered.connect(_on_special_handle_hover.bind(handle_name, true))
+				p.mouse_exited.connect(_on_special_handle_hover.bind(handle_name, false))
 	# Arrastrar el cuerpo de la caja = mover libre → cursor de movimiento.
 	if is_instance_valid(drag_panel):
 		drag_panel.mouse_default_cursor_shape = Control.CURSOR_MOVE
@@ -174,9 +207,11 @@ func _apply_zoom_compensation() -> void:
 	if _handle_base_rects.is_empty():
 		return
 	var zoom: float = _get_zoom_scale()
-	if is_equal_approx(zoom, _last_zoom_scale):
+	# The axis handles hang off the box edges, so a resize moves them too
+	if is_equal_approx(zoom, _last_zoom_scale) and size.is_equal_approx(_last_layout_size):
 		return
 	_last_zoom_scale = zoom
+	_last_layout_size = size
 	var f: float = _zoom_comp(zoom)
 	queue_redraw()
 
@@ -185,7 +220,8 @@ func _apply_zoom_compensation() -> void:
 		return
 
 	var hit_half: float = _HANDLE_HIT_PX * 0.5 * f
-	var gap: float = _AXIS_GAP_PX * f
+	# Hit zone centred on the arrow head
+	var gap: float = (_AXIS_LEN_PX - _AXIS_HEAD_PX * 0.5) * f
 	var cy0: float = size.y * 0.5
 	for handle_name in _handle_base_rects:
 		var p := panel_interactivo.find_child(handle_name, true, false) as Control
@@ -245,15 +281,18 @@ func _draw() -> void:
 		draw_rect(r, _HANDLE_FILL, true)
 		draw_rect(r, _OUTLINE_COLOR, false, hb)
 
-	# Handles de eje (diseño del .tscn): cuadro ROJO a la derecha (mover solo X)
-	# y cuadro VERDE debajo (mover solo Y). Con conector fino hasta el borde.
-	var gap := _AXIS_GAP_PX * inv
-	var x_c := Vector2(size.x + gap, size.y * 0.5)
-	var y_c := Vector2(size.x * 0.5, size.y + gap)
-	draw_line(Vector2(size.x, x_c.y), x_c, _AXIS_X_COLOR, hb)
-	draw_line(Vector2(y_c.x, size.y), y_c, _AXIS_Y_COLOR, hb)
-	_draw_handle_square(x_c, hs, hb, _AXIS_X_COLOR)
-	_draw_handle_square(y_c, hs, hb, _AXIS_Y_COLOR)
+	# Axis gizmo arrows (drag = move on that axis only)
+	_draw_axis_arrow(Vector2(size.x, size.y * 0.5), Vector2.RIGHT, _AXIS_X_COLOR, inv)
+	_draw_axis_arrow(Vector2(size.x * 0.5, size.y), Vector2.DOWN, _AXIS_Y_COLOR, inv)
+
+	# Corner-radius handles
+	var radius_c := _radius_handle_centers(inv)
+	for i in radius_c.size():
+		var rc: Vector2 = radius_c[i]
+		var grow: float = 1.25 if (i == _radius_hover or i == _radius_drag_corner) else 1.0
+		var rr: float = _RADIUS_HANDLE_PX * 0.5 * inv * grow
+		draw_circle(rc, rr, _HANDLE_FILL)
+		draw_arc(rc, rr, 0.0, TAU, 20, _OUTLINE_COLOR, hb, true)
 
 	# Gradient Annotator (Affinity / Illustrator / Figma style)
 	if has_gradient_annotator():
@@ -261,10 +300,224 @@ func _draw() -> void:
 		if not grad_data.is_empty():
 			_draw_gradient_annotator(grad_data, inv)
 
-func _draw_handle_square(center: Vector2, side: float, border: float, fill: Color) -> void:
-	var r := Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side))
-	draw_rect(r, fill, true)
-	draw_rect(r, Color.WHITE, false, border)
+	# Puerto de enlace interactivo para párrafos (Text Threading)
+	_draw_paragraph_threading_port(inv)
+
+	_draw_dimension_pill(inv)
+
+## Arrow = thin stem + solid head, all sized in screen pixels.
+func _draw_axis_arrow(edge: Vector2, dir: Vector2, col: Color, inv: float) -> void:
+	var start := edge + dir * _AXIS_START_PX * inv
+	var tip := edge + dir * _AXIS_LEN_PX * inv
+	var head_base := tip - dir * _AXIS_HEAD_PX * inv
+	var normal := Vector2(-dir.y, dir.x)
+	draw_line(start, head_base, col, 1.5 * inv, true)
+	var half_w := _AXIS_HEAD_PX * 0.55 * inv
+	draw_colored_polygon(PackedVector2Array([tip, head_base + normal * half_w, head_base - normal * half_w]), col)
+
+## "W × H" pill under the selection, always horizontal and screen-sized.
+## While a corner radius is dragged it shows the radius instead.
+func _draw_dimension_pill(inv: float) -> void:
+	var font := get_theme_default_font()
+	if font == null:
+		font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var txt := ""
+	var rshape := _radius_target()
+	if _radius_drag_corner >= 0 and is_instance_valid(rshape):
+		var radii: Vector4 = rshape.get_corner_radii()
+		txt = "%s %s" % [tr("Radio"), _fmt_num(radii[_radius_drag_corner])]
+	else:
+		var dims := Vector2(absf(size.x * scale.x), absf(size.y * scale.y))
+		if dims == Vector2.ZERO:
+			return
+		txt = "%s × %s" % [_fmt_num(dims.x), _fmt_num(dims.y)]
+	var text_size := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, _PILL_FONT_PX)
+	var pad := Vector2(7, 3)
+	var pill_size := text_size + pad * 2.0
+	# Counter the box rotation/scale so the pill reads upright at a fixed size
+	var sx := inv * (-1.0 if scale.x < 0.0 else 1.0)
+	var sy := inv * (-1.0 if scale.y < 0.0 else 1.0)
+	var below: float = _AXIS_LEN_PX + _PILL_GAP_PX   # clear of the green Y arrow
+	draw_set_transform(Vector2(size.x * 0.5, size.y), -rotation, Vector2(sx, sy))
+	var r := Rect2(Vector2(-pill_size.x * 0.5, below), pill_size)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = _OUTLINE_COLOR
+	sb.set_corner_radius_all(4)
+	sb.anti_aliasing = true
+	draw_style_box(sb, r)
+	var baseline := r.position + Vector2(pad.x, pad.y + font.get_ascent(_PILL_FONT_PX))
+	draw_string(font, baseline, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, _PILL_FONT_PX, Color.WHITE)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _is_paragraph_shape_selected() -> bool:
+	if not is_instance_valid(move_tool_reference) or move_tool_reference.selected_shapes.size() != 1:
+		return false
+	var shape: Node2D = move_tool_reference.selected_shapes[0]
+	return is_instance_valid(shape) and shape.has_meta("shape_type") and str(shape.get_meta("shape_type")) == "text_paragraph"
+
+func _get_paragraph_threading_port_rect(inv: float) -> Rect2:
+	var port_sz: float = 14.0 * inv
+	var port_margin: float = 4.0 * inv
+	return Rect2(Vector2(size.x - port_sz - port_margin, size.y - port_sz - port_margin), Vector2(port_sz, port_sz))
+
+func _is_point_in_threading_port(local_p: Vector2) -> bool:
+	if not _is_paragraph_shape_selected():
+		return false
+	var inv: float = _zoom_comp(_get_zoom_scale())
+	var r := _get_paragraph_threading_port_rect(inv)
+	return r.grow(4.0 * inv).has_point(local_p)
+
+func _draw_paragraph_threading_port(inv: float) -> void:
+	if not _is_paragraph_shape_selected():
+		return
+	var shape: Node2D = move_tool_reference.selected_shapes[0]
+	var is_overflow: bool = shape.get_meta("is_overflowing", false)
+	var has_next: bool = shape.has_meta("next_paragraph") and not str(shape.get_meta("next_paragraph")).is_empty()
+
+	var port_rect := _get_paragraph_threading_port_rect(inv)
+	var bg_col := Color(0.2, 0.25, 0.35, 0.9)
+	var border_col := Color(1.0, 1.0, 1.0, 0.95)
+	var glyph := ""
+
+	if is_overflow:
+		bg_col = Color(0.95, 0.2, 0.2, 0.95) # Rojo: desbordamiento de texto [+]
+		glyph = "+"
+	elif has_next:
+		bg_col = Color(0.15, 0.65, 0.95, 0.95) # Cian: marco enlazado con texto que continúa [→]
+		glyph = "→"
+
+	draw_rect(port_rect, bg_col, true)
+	draw_rect(port_rect, border_col, false, maxf(1.0 * inv, 0.01))
+
+	var font := get_theme_default_font()
+	if font == null: font = ThemeDB.fallback_font
+	if font and glyph != "":
+		var fs: int = maxi(8, int(round(10.0 * inv)))
+		draw_string(font, port_rect.position + Vector2(2.5 * inv, 10.5 * inv), glyph, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, Color.WHITE)
+
+# ── Corner radius handles ───────────────────────────────────────────────────
+## Single selected rectangle with room for the handles, or null.
+func _radius_target() -> Node2D:
+	if not is_instance_valid(move_tool_reference) or move_tool_reference.selected_shapes.size() != 1:
+		return null
+	var s: Node2D = move_tool_reference.selected_shapes[0]
+	if not is_instance_valid(s) or not s.has_method("get_corner_radii") or not s.has_method("set_corner_radii"):
+		return null
+	return s
+
+const _CORNER_INWARD: Array[Vector2] = [Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1), Vector2(1, -1)]
+
+func _corner_points() -> Array[Vector2]:
+	return [Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]
+
+## Handle centres in box-local coordinates (tl, tr, br, bl); empty when hidden.
+func _radius_handle_centers(inv: float) -> Array:
+	var shape := _radius_target()
+	if shape == null or is_gradient_active() or has_gradient_annotator():
+		return []
+	var screen_w := absf(size.x) / maxf(inv, 1e-6)
+	var screen_h := absf(size.y) / maxf(inv, 1e-6)
+	if minf(screen_w, screen_h) < _RADIUS_MIN_BOX_PX:
+		return []
+	var radii: Vector4 = shape.get_corner_radii()
+	var max_r: float = minf(size.x, size.y) * 0.5
+	var corners := _corner_points()
+	var out: Array = []
+	for i in 4:
+		var d: float = maxf(minf(radii[i], max_r), _RADIUS_MIN_INSET_PX * inv)
+		d = minf(d, max_r)
+		out.append(corners[i] + _CORNER_INWARD[i] * d)
+	return out
+
+func _radius_handle_at(local_pos: Vector2) -> int:
+	var inv: float = _zoom_comp(_get_zoom_scale())
+	var centers := _radius_handle_centers(inv)
+	var hit: float = (_RADIUS_HANDLE_PX * 0.5 + 4.0) * inv
+	for i in centers.size():
+		if local_pos.distance_to(centers[i]) <= hit:
+			return i
+	return -1
+
+func _local_from_event(event: InputEvent) -> Vector2:
+	return get_screen_transform().affine_inverse() * event.global_position
+
+func _begin_radius_drag(corner: int, all_corners: bool) -> void:
+	var shape := _radius_target()
+	if shape == null:
+		return
+	_radius_drag_corner = corner
+	_radius_drag_all = all_corners
+	_radius_before = shape.get_corner_radii()
+
+## Radius = pointer projected onto the corner's inward diagonal.
+func _update_radius_drag(local_pos: Vector2) -> void:
+	var shape := _radius_target()
+	if shape == null or _radius_drag_corner < 0:
+		return
+	var corner: Vector2 = _corner_points()[_radius_drag_corner]
+	var r: float = (local_pos - corner).dot(_CORNER_INWARD[_radius_drag_corner]) * 0.5
+	r = clampf(r, 0.0, minf(size.x, size.y) * 0.5)
+	if Input.is_key_pressed(KEY_SHIFT):
+		r = roundf(r)
+	var radii: Vector4 = _radius_before
+	if _radius_drag_all:
+		radii = Vector4(r, r, r, r)
+	else:
+		radii[_radius_drag_corner] = r
+	shape.set_corner_radii(radii)
+	queue_redraw()
+
+func _end_radius_drag() -> void:
+	var shape := _radius_target()
+	var corner := _radius_drag_corner
+	_radius_drag_corner = -1
+	if shape == null or corner < 0:
+		return
+	var after: Vector4 = shape.get_corner_radii()
+	if after.is_equal_approx(_radius_before):
+		return
+	var before := _radius_before
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Radio de esquina")
+		hm.add_do(func(): if is_instance_valid(shape): shape.set_corner_radii(after))
+		hm.add_undo(func(): if is_instance_valid(shape): shape.set_corner_radii(before))
+		hm.commit()
+	var ge := get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_signal("object_style_changed"):
+		ge.emit_safe("object_style_changed")
+
+# ── Custom cursors for the axis and rotation handles ────────────────────────
+func _on_special_handle_hover(handle_name: String, entered: bool) -> void:
+	if not entered:
+		# Keep the cursor while that handle is being dragged
+		if is_instance_valid(move_tool_reference) and (move_tool_reference.is_rotating or move_tool_reference.is_dragging_shape):
+			return
+		_restore_custom_cursor()
+		return
+	var tex: Texture2D = null
+	var shape: int = Input.CURSOR_ARROW
+	match handle_name:
+		"x":
+			tex = _CURSOR_MOVE_X
+			shape = Input.CURSOR_HSIZE
+		"Y":
+			tex = _CURSOR_MOVE_Y
+			shape = Input.CURSOR_VSIZE
+		"Rotation":
+			tex = _CURSOR_ROTATE
+			shape = Input.CURSOR_CROSS
+	_restore_custom_cursor()
+	if tex:
+		Input.set_custom_mouse_cursor(tex, shape, Vector2(12, 12))
+		_active_custom_cursor = shape
+
+func _restore_custom_cursor() -> void:
+	if _active_custom_cursor >= 0:
+		Input.set_custom_mouse_cursor(null, _active_custom_cursor)
+		_active_custom_cursor = -1
 
 ## Los campos X/Y son texto: si heredaran la rotation/scale de esta caja (como
 ## los handles, a propósito) quedarían ilegibles cuando la figura está rotada
@@ -297,6 +550,14 @@ func _process(_delta: float) -> void:
 ## Cada frame comprobamos: si decimos estar arrastrando pero el botón izquierdo
 ## NO está pulsado de verdad, cerramos el gesto.
 func _heal_stuck_drag() -> void:
+	if is_instance_valid(move_tool_reference) and "is_middle_dragging_3d" in move_tool_reference and move_tool_reference.is_middle_dragging_3d:
+		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+			if move_tool_reference.has_method("end_middle_drag_3d"):
+				move_tool_reference.end_middle_drag_3d()
+			else:
+				move_tool_reference.is_middle_dragging_3d = false
+	if _radius_drag_corner >= 0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_end_radius_drag()
 	if not _is_dragging_canvas_area and _annotator_drag_mode == "":
 		return
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -342,12 +603,33 @@ func _on_handle_gui_input(event: InputEvent, handle_code: String) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			move_tool_reference.start_handle_transform(handle_code)
+			# Start from the exact press point, not the cached viewport mouse
+			move_tool_reference.transform_initial_mouse = _world_from_event(event)
 		elif move_tool_reference.resize_handle == handle_code:
-			move_tool_reference._on_release(Vector2.ZERO)
+			move_tool_reference._on_release(_world_from_event(event))
+			_restore_custom_cursor()
 	elif event is InputEventMouseMotion:
 		var m = move_tool_reference
 		if m.resize_handle == handle_code and (m.is_resizing or m.is_rotating or m.is_dragging_shape):
-			m._on_motion(m.canvas.get_global_mouse_position())
+			m._on_motion(_world_from_event(event), _mods_from_event(event))
+
+## Canvas-world position of a GUI event. The cached viewport mouse position
+## (get_global_mouse_position) can lag a frame behind the event, which made
+## drags stutter; the event carries the exact position.
+func _world_from_event(event: InputEvent) -> Vector2:
+	var c: Node2D = move_tool_reference.canvas if is_instance_valid(move_tool_reference) else null
+	if not is_instance_valid(c) or not (event is InputEventMouse):
+		return c.get_global_mouse_position() if is_instance_valid(c) else Vector2.ZERO
+	return c.get_global_transform() * (c.get_screen_transform().affine_inverse() * (event as InputEventMouse).global_position)
+
+func _mods_from_event(event: InputEvent) -> Dictionary:
+	if event is InputEventWithModifiers:
+		return {
+			"shift": event.shift_pressed or Input.is_key_pressed(KEY_SHIFT),
+			"alt": event.alt_pressed or Input.is_key_pressed(KEY_ALT),
+			"ctrl": event.ctrl_pressed or event.meta_pressed or Input.is_key_pressed(KEY_CTRL),
+		}
+	return {}
 
 ## Localiza los campos X/Y (FieldsWrapper/FieldX/FieldY, ver boundingbox.tscn)
 ## y conecta su señal value_committed a los handlers que mueven la figura.
@@ -385,8 +667,10 @@ func _hide_position_fields() -> void:
 
 func _show_position_fields_for(shape: VectorShape) -> void:
 	_bound_shape = shape
+	# The editable X/Y boxes are replaced on canvas by the "W × H" pill (position
+	# is edited in the inspector); keep their values synced for tooling/tests.
 	if is_instance_valid(_fields_wrapper):
-		_fields_wrapper.show()
+		_fields_wrapper.hide()
 	if is_instance_valid(_field_x):
 		_field_x.set_display_value(shape.doc_position.x)
 	if is_instance_valid(_field_y):
@@ -516,12 +800,83 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 		return
 
 	var gm: Vector2
-	if event is InputEventMouse:
-		gm = get_global_transform() * event.position
-	elif is_instance_valid(move_tool_reference) and is_instance_valid(move_tool_reference.canvas):
-		gm = move_tool_reference.canvas.get_global_mouse_position()
-	else:
+	if is_instance_valid(move_tool_reference.canvas) and event is InputEventMouse:
+		gm = _world_from_event(event)
+	elif event is InputEventMouse:
 		gm = event.global_position
+	else:
+		gm = Vector2.ZERO
+
+	# Puerto de enlace de párrafos (Text Threading)
+	if _is_paragraph_shape_selected():
+		var local_mouse := _local_from_event(event)
+		if _is_point_in_threading_port(local_mouse):
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed and not event.double_click:
+					if is_instance_valid(move_tool_reference):
+						var sel_p: Node2D = move_tool_reference.selected_shapes[0]
+						move_tool_reference.start_threading_drag(sel_p, gm)
+					accept_event()
+					return
+			elif event is InputEventMouseMotion and not _is_dragging_canvas_area:
+				mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+				if is_instance_valid(drag_panel):
+					drag_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+				Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND)
+				return
+
+	# Corner-radius handles take priority over moving the box
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and not event.double_click:
+			var corner := _radius_handle_at(_local_from_event(event))
+			if corner >= 0:
+				# Drag = all corners together; Alt = only this corner
+				_begin_radius_drag(corner, not (event.alt_pressed or Input.is_key_pressed(KEY_ALT)))
+				accept_event()
+				return
+		elif not event.pressed and _radius_drag_corner >= 0:
+			_end_radius_drag()
+			accept_event()
+			return
+	elif event is InputEventMouseMotion:
+		if _radius_drag_corner >= 0:
+			if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+				_update_radius_drag(_local_from_event(event))
+			else:
+				_end_radius_drag()
+			accept_event()
+			return
+		var hover := _radius_handle_at(_local_from_event(event))
+		if hover != _radius_hover:
+			_radius_hover = hover
+			queue_redraw()
+		if hover >= 0 and not _is_dragging_canvas_area:
+			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			if is_instance_valid(drag_panel):
+				drag_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND)
+			return
+		elif is_instance_valid(drag_panel) and drag_panel.mouse_default_cursor_shape != Control.CURSOR_MOVE:
+			drag_panel.mouse_default_cursor_shape = Control.CURSOR_MOVE
+
+	# Si hay un modelo 3D en modo de edición activo, delegar la interacción de ratón directamente a MoveTool
+	if is_instance_valid(move_tool_reference) and "active_3d_model" in move_tool_reference and is_instance_valid(move_tool_reference.active_3d_model):
+		if event is InputEventMouseButton or event is InputEventMouseMotion:
+			if move_tool_reference.handle_input(event):
+				accept_event()
+				return
+
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			if move_tool_reference.has_method("handle_middle_click_3d"):
+				if move_tool_reference.handle_middle_click_3d(event, gm):
+					accept_event()
+					return
+		elif event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			if move_tool_reference.has_method("handle_wheel_3d"):
+				if move_tool_reference.handle_wheel_3d(event, gm):
+					accept_event()
+					return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -560,6 +915,10 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 			accept_event()
 
 	elif event is InputEventMouseMotion:
+		if is_instance_valid(move_tool_reference) and move_tool_reference.has_method("handle_middle_motion_3d") and "is_middle_dragging_3d" in move_tool_reference and move_tool_reference.is_middle_dragging_3d:
+			if move_tool_reference.handle_middle_motion_3d(gm):
+				accept_event()
+				return
 		if _is_dragging_canvas_area:
 			# La SUELTA se pudo perder si el panel se alejó bajo el cursor. Si el botón
 			# izquierdo ya no está en la máscara del evento, cerramos el gesto aquí.
@@ -572,10 +931,7 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 						move_tool_reference.is_dragging_shape = false
 				accept_event()
 				return
-			if move_tool_reference.has_method("_update_transform_logic"):
-				move_tool_reference._update_transform_logic(gm)
-			elif move_tool_reference.has_method("_on_motion"):
-				move_tool_reference._on_motion(gm)
+			move_tool_reference._on_motion(gm, _mods_from_event(event))
 			accept_event()
 		else:
 			if not is_gradient_active():
@@ -633,7 +989,7 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 				g_mx.x = max(g_mx.x, g_pt.x)
 				g_mx.y = max(g_mx.y, g_pt.y)
 			return Rect2(g_mn, g_mx - g_mn)
-	if "size" in node and (node is VectorRectangle or node is VectorCircle):
+	if "size" in node and (node is VectorRectangle or node is VectorCircle or node.has_method("rotate_orbit")):
 		var s: Vector2 = node.get("size")
 		if is_zero_approx(node.global_rotation):
 			return Rect2(node.global_position - s * 0.5, s)
@@ -684,6 +1040,36 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 			g_mx.y = max(g_mx.y, g_pt.y)
 		var pad: float = max(6.0, line.width * 0.5)
 		return Rect2(g_mn, g_mx - g_mn).grow(pad)
+
+	if node is Sprite2D and (node as Sprite2D).texture:
+		var sp: Sprite2D = node as Sprite2D
+		var lr: Rect2 = sp.get_rect()
+		var corners := [
+			sp.to_global(lr.position),
+			sp.to_global(Vector2(lr.end.x, lr.position.y)),
+			sp.to_global(lr.end),
+			sp.to_global(Vector2(lr.position.x, lr.end.y)),
+		]
+		var g_mn: Vector2 = corners[0]
+		var g_mx: Vector2 = corners[0]
+		for gp in corners:
+			g_mn.x = min(g_mn.x, gp.x); g_mn.y = min(g_mn.y, gp.y)
+			g_mx.x = max(g_mx.x, gp.x); g_mx.y = max(g_mx.y, gp.y)
+		return Rect2(g_mn, g_mx - g_mn)
+
+	if node.has_method("get_evaluated_geometry"):
+		var polys: Array[PackedVector2Array] = node.call("get_evaluated_geometry")
+		if not polys.is_empty():
+			var first_gp: Vector2 = node.to_global(polys[0][0])
+			var g_mn: Vector2 = first_gp
+			var g_mx: Vector2 = first_gp
+			for poly in polys:
+				for p in poly:
+					var gp: Vector2 = node.to_global(p)
+					g_mn.x = min(g_mn.x, gp.x); g_mn.y = min(g_mn.y, gp.y)
+					g_mx.x = max(g_mx.x, gp.x); g_mx.y = max(g_mx.y, gp.y)
+			return Rect2(g_mn, g_mx - g_mn)
+
 	return Rect2(node.global_position - Vector2(20, 20), Vector2(40, 40))
 
 
@@ -694,8 +1080,13 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 func _local_rect_cloned(node: Node2D) -> Rect2:
 	if not is_instance_valid(node): return Rect2()
 	if node.has_meta("shape_type") and (node.get_meta("shape_type") in ["text_paragraph", "text_title"]):
-		var w: float = node.get_meta("width") if node.has_meta("width") else 350.0
-		var h: float = node.get_meta("height") if node.has_meta("height") else 65.0
+		var w: float = float(node.get_meta("width", 350.0))
+		var h: float = float(node.get_meta("height", 65.0))
+		var dl: Control = node.get_node_or_null("DisplayLabel")
+		if dl and str(node.get_meta("shape_type")) == "text_title":
+			var ms: Vector2 = dl.get_world_minimum_size() if dl is WorldTextLabel else dl.get_combined_minimum_size()
+			w = maxf(w, ms.x)
+			h = maxf(h, ms.y)
 		return Rect2(Vector2.ZERO, Vector2(w, h))
 	if node is Path2D:
 		var curve: Curve2D = (node as Path2D).curve
@@ -719,7 +1110,7 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 				mn.x = min(mn.x, p.x); mn.y = min(mn.y, p.y)
 				mx.x = max(mx.x, p.x); mx.y = max(mx.y, p.y)
 			return Rect2(mn, mx - mn)
-	if "size" in node and (node is VectorRectangle or node is VectorCircle):
+	if "size" in node and (node is VectorRectangle or node is VectorCircle or node.has_method("rotate_orbit")):
 		var s: Vector2 = node.get("size")
 		return Rect2(-s * 0.5, s)
 
@@ -749,6 +1140,21 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 			mx.x = max(mx.x, p.x); mx.y = max(mx.y, p.y)
 		var pad: float = max(6.0, line.width * 0.5)
 		return Rect2(mn, mx - mn).grow(pad)
+
+	if node is Sprite2D and (node as Sprite2D).texture:
+		return (node as Sprite2D).get_rect()
+
+	if node.has_method("get_evaluated_geometry"):
+		var polys: Array[PackedVector2Array] = node.call("get_evaluated_geometry")
+		if not polys.is_empty():
+			var mn: Vector2 = polys[0][0]
+			var mx: Vector2 = mn
+			for poly in polys:
+				for p in poly:
+					mn.x = min(mn.x, p.x); mn.y = min(mn.y, p.y)
+					mx.x = max(mx.x, p.x); mx.y = max(mx.y, p.y)
+			return Rect2(mn, mx - mn)
+
 	return Rect2(Vector2(-20, -20), Vector2(40, 40))
 
 
