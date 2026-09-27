@@ -12,6 +12,17 @@ class_name BoundingBox
 @export var canvas_root: Node2D
 
 var move_tool_reference: MoveTool = null
+## Selección viva desde SelectionManager (única fuente de verdad).
+## Fallback al espejo de MoveTool si el Manager no está disponible
+## (tests aislados). Solo LECTURA: escribir sigue siendo vía Manager/MoveTool.
+func _live_selection() -> Array[Node2D]:
+	var out: Array[Node2D] = []
+	var sm := get_node_or_null("/root/SelectionManager")
+	if is_instance_valid(sm) and sm.has_method("get_selected"):
+		out.assign(sm.get_selected())
+	elif is_instance_valid(move_tool_reference):
+		out.assign(move_tool_reference.selected_shapes)
+	return out
 var target_node: Node2D = null # SOLUCIÓN AL CRASH: Satisface la verificación del controlador externo
 var _is_dragging_canvas_area: bool = false
 var _pool_initialized: bool = false
@@ -352,9 +363,10 @@ func _draw_dimension_pill(inv: float) -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _is_paragraph_shape_selected() -> bool:
-	if not is_instance_valid(move_tool_reference) or move_tool_reference.selected_shapes.size() != 1:
+	var sel := _live_selection()
+	if sel.size() != 1:
 		return false
-	var shape: Node2D = move_tool_reference.selected_shapes[0]
+	var shape: Node2D = sel[0]
 	return is_instance_valid(shape) and shape.has_meta("shape_type") and str(shape.get_meta("shape_type")) == "text_paragraph"
 
 func _get_paragraph_threading_port_rect(inv: float) -> Rect2:
@@ -372,7 +384,7 @@ func _is_point_in_threading_port(local_p: Vector2) -> bool:
 func _draw_paragraph_threading_port(inv: float) -> void:
 	if not _is_paragraph_shape_selected():
 		return
-	var shape: Node2D = move_tool_reference.selected_shapes[0]
+	var shape: Node2D = _live_selection()[0]
 	var is_overflow: bool = shape.get_meta("is_overflowing", false)
 	var has_next: bool = shape.has_meta("next_paragraph") and not str(shape.get_meta("next_paragraph")).is_empty()
 
@@ -400,9 +412,10 @@ func _draw_paragraph_threading_port(inv: float) -> void:
 # ── Corner radius handles ───────────────────────────────────────────────────
 ## Single selected rectangle with room for the handles, or null.
 func _radius_target() -> Node2D:
-	if not is_instance_valid(move_tool_reference) or move_tool_reference.selected_shapes.size() != 1:
+	var sel := _live_selection()
+	if sel.size() != 1:
 		return null
-	var s: Node2D = move_tool_reference.selected_shapes[0]
+	var s: Node2D = sel[0]
 	if not is_instance_valid(s) or not s.has_method("get_corner_radii") or not s.has_method("set_corner_radii"):
 		return null
 	return s
@@ -687,13 +700,10 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 	if not (get_parent() is CanvasItem):
 		return
 
-	# Agrupamos los elementos a calcular según el flujo de origen. `MoveTool`
-	# mantiene su `selected_shapes` sincronizado con `SelectionManager` (única
-	# fuente de verdad), así que leerlo aquí sigue reflejando el panel de capas.
-	var shapes_to_calculate: Array[Node2D] = []
-	if is_instance_valid(move_tool_reference) and not move_tool_reference.selected_shapes.is_empty():
-		shapes_to_calculate = move_tool_reference.selected_shapes
-	elif is_instance_valid(target_node):
+	# Selección directa de SelectionManager (única fuente de verdad);
+	# refleja el panel de capas sin pasar por el espejo de MoveTool.
+	var shapes_to_calculate: Array[Node2D] = _live_selection()
+	if shapes_to_calculate.is_empty() and is_instance_valid(target_node):
 		shapes_to_calculate = [target_node]
 
 	if shapes_to_calculate.is_empty():
@@ -814,7 +824,7 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 				if event.pressed and not event.double_click:
 					if is_instance_valid(move_tool_reference):
-						var sel_p: Node2D = move_tool_reference.selected_shapes[0]
+						var sel_p: Node2D = _live_selection()[0]
 						move_tool_reference.start_threading_drag(sel_p, gm)
 					accept_event()
 					return
@@ -887,11 +897,12 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 				return
 			if Input.is_key_pressed(KEY_SHIFT):
 				var hit: Node2D = null
-				if move_tool_reference.selected_shapes.size() == 1:
-					hit = move_tool_reference.selected_shapes[0]
+				var sel := _live_selection()
+				if sel.size() == 1:
+					hit = sel[0]
 				elif move_tool_reference.has_method("_shape_at"):
 					hit = move_tool_reference._shape_at(gm)
-				if is_instance_valid(hit) and move_tool_reference.selected_shapes.has(hit):
+				if is_instance_valid(hit) and sel.has(hit):
 					move_tool_reference._deselect(hit)
 				accept_event()
 				return
@@ -901,7 +912,7 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 				move_tool_reference.transform_initial_mouse = gm
 				if "transform_initial_states" in move_tool_reference:
 					move_tool_reference.transform_initial_states.clear()
-					for s in move_tool_reference.selected_shapes:
+					for s in _live_selection():
 						if is_instance_valid(s):
 							move_tool_reference.transform_initial_states[s] = move_tool_reference._snapshot(s)
 			accept_event()
