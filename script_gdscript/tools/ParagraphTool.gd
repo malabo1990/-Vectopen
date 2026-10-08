@@ -2,26 +2,7 @@
 # RUTA: res://script_gdscript/ParagraphTool.gd
 # Vectopen — Herramienta de Párrafos (MultiLineEdit) con Texto en Color Negro
 # =============================================================================
-extends ToolBase
-
-var is_editing: bool = false
-var current_editing_shape: Node2D = null
-var target_artboard: Node2D = null
-
-# ── Máquina de Estados de Interacción (Vectopen Text Engine) ───────────────────
-const STATE_IDLE = "idle"
-const STATE_SELECTED = "selected"
-const STATE_EDITING = "editing"
-const STATE_SELECTING = "selecting"
-const STATE_DRAGGING = "dragging"
-const STATE_TRANSFORMING = "transforming"
-const STATE_COMMITTING = "committing"
-
-var interaction_state: String = STATE_IDLE
-
-## Foto del texto al ENTRAR a editar: al confirmar se registra el undo
-## before → after (antes la edición de contenido no se podía deshacer).
-var _edit_before: Dictionary = {}
+extends "res://script_gdscript/tools/TextToolBase.gd"
 
 # ── Estados para Text Threading (InDesign / Affinity Publisher) ───────────────
 var is_dragging_thread: bool = false
@@ -179,7 +160,7 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 		is_editing = true
 		interaction_state = STATE_EDITING
 		current_editing_shape = hit
-		_edit_before = WorldTextLabel.capture_text_state(hit)
+		_edit_before = TextCore.capture_text_state(hit)
 		
 		var sm = _get_autoload("SelectionManager")
 		if is_instance_valid(sm):
@@ -189,7 +170,7 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 				sm.set_active_editing_object(hit)
 
 		var display_label: Control = hit.get_node_or_null("DisplayLabel")
-		var multi_edit: TextEdit = WorldTextLabel.ensure_inline_editor(hit)
+		var multi_edit: TextEdit = TextCore.ensure_inline_editor(hit)
 		var vrt = hit.get_node_or_null("VectorRichText")
 		if vrt == null and ClassDB.class_exists("VectorRichText"):
 			vrt = ClassDB.instantiate("VectorRichText")
@@ -301,7 +282,7 @@ func _on_edit_text_changed() -> void:
 		return
 	# Los runs siguen al cambio por POSICIÓN (prev = meta "text", que se
 	# mantiene sincronizada en cada tecla).
-	WorldTextLabel.apply_text_edit(current_editing_shape, str(current_editing_shape.get_meta("text", "")), multi_edit.text)
+	TextRuns.apply_text_edit(current_editing_shape, str(current_editing_shape.get_meta("text", "")), multi_edit.text)
 	display_label.text = multi_edit.text
 	current_editing_shape.set_meta("text", multi_edit.text)
 	if display_label.has_method("set_rich_runs"):
@@ -466,7 +447,7 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 		# Solo se sustituye el tramo de ESTE marco dentro de la historia
 		# (con sus runs ajustados al texto final para empalmarlos).
 		if vrt == null and multi_edit:
-			WorldTextLabel.apply_text_edit(shape, multi_edit.text, final_text)
+			TextRuns.apply_text_edit(shape, multi_edit.text, final_text)
 		ParagraphThreading.replace_frame_text(shape, final_text)
 		if display_label:
 			display_label.visible = true
@@ -483,7 +464,7 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 		if vrt == null:
 			# strip_edges puede quitar espacios del PRINCIPIO: diff por posición.
 			var pre: String = multi_edit.text if multi_edit else str(shape.get_meta("text", ""))
-			WorldTextLabel.apply_text_edit(shape, pre, final_text)
+			TextRuns.apply_text_edit(shape, pre, final_text)
 		shape.set_meta("text", final_text)
 		if display_label:
 			display_label.text = final_text
@@ -501,18 +482,11 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 			multi_edit.release_focus()
 		multi_edit.visible = false
 
-	WorldTextLabel.register_text_undo(shape, _edit_before, "Editar párrafo")
+	TextCore.register_text_undo(shape, _edit_before, "Editar párrafo")
 	_edit_before = {}
 	_reset_state()
 	if switch_tool and is_instance_valid(shape):
 		_switch_to_move_tool(shape)
-
-func _finish_editing_and_save() -> void:
-	commit_text_edit(false)
-
-## Reajusta `runs` a `new_len`. Motor centralizado en WorldTextLabel.
-func _resize_runs_to_length(shape: Node2D, new_len: int) -> void:
-	WorldTextLabel.resize_runs(shape, new_len)
 
 func _toggle_format_key(key: String) -> void:
 	if not is_instance_valid(current_editing_shape):
@@ -520,7 +494,7 @@ func _toggle_format_key(key: String) -> void:
 	var multi_edit: TextEdit = current_editing_shape.get_node_or_null("MultiLineEdit")
 	if not multi_edit:
 		return
-	var sel = WorldTextLabel.sel_range(multi_edit)
+	var sel = TextCore.sel_range(multi_edit)
 	var start := 0
 	var end := multi_edit.text.length()
 	if sel != null and int(sel["end"]) > int(sel["start"]):
@@ -528,7 +502,7 @@ func _toggle_format_key(key: String) -> void:
 		end = int(sel["end"])
 	if start >= end:
 		return
-	var runs := WorldTextLabel.runs_of(current_editing_shape, multi_edit.text.length())
+	var runs := TextRuns.runs_of(current_editing_shape, multi_edit.text.length())
 	var all := true
 	var pos := 0
 	for r in runs:
@@ -548,7 +522,7 @@ func _on_format_size_step(delta: float) -> void:
 	var multi_edit: TextEdit = current_editing_shape.get_node_or_null("MultiLineEdit")
 	if not multi_edit:
 		return
-	var sel = WorldTextLabel.sel_range(multi_edit)
+	var sel = TextCore.sel_range(multi_edit)
 	if sel != null and int(sel["end"]) > int(sel["start"]):
 		var start := int(sel["start"])
 		var end := int(sel["end"])
@@ -575,7 +549,7 @@ func _apply_style_to_range(shape: Node2D, start: int, end: int, mutator: Callabl
 	var display_label: Control = shape.get_node_or_null("DisplayLabel")
 	var before: Array = (shape.get_meta("runs", []) as Array).duplicate(true)
 	var do_fn := func() -> void:
-		WorldTextLabel.apply_range(shape, display_label, multi_edit.text.length(), start, end, mutator)
+		TextRuns.apply_range(shape, display_label, multi_edit.text.length(), start, end, mutator)
 		if display_label and display_label.has_method("apply_stroke_meta"):
 			display_label.apply_stroke_meta()
 		if multi_edit.syntax_highlighter:
@@ -646,17 +620,6 @@ func _on_multi_edit_caret_changed() -> void:
 	if not is_editing:
 		return
 	_notify_format_changed()
-
-func _notify_format_changed() -> void:
-	var ic := _get_autoload("InspectorCore")
-	if ic and ic.has_signal("changed"):
-		ic.changed.emit(ic.current_props())
-
-static func _get_autoload(autoload_name: String) -> Node:
-	var ml := Engine.get_main_loop() as SceneTree
-	if ml and ml.root:
-		return ml.root.get_node_or_null(autoload_name)
-	return null
 
 ## Recalcula width/height del shape a partir del mínimo real del label
 ## (en unidades de MUNDO), y re-dimensiona label + MultiLineEdit (que es lo
@@ -775,97 +738,6 @@ func _create_new_paragraph_at(local_pos: Vector2) -> Node2D:
 	
 	_switch_to_move_tool(new_para)
 	return new_para
-
-func _switch_to_move_tool(shape: Node2D) -> void:
-	if is_instance_valid(canvas) and canvas.has_method("change_tool"):
-		var move_tool_script = load("res://script_gdscript/tools/MoveTool.gd")
-		if move_tool_script:
-			var move_tool = canvas._new_tool(move_tool_script)
-			move_tool.target_artboard = target_artboard
-			
-			if "selected_shapes" in move_tool:
-				if move_tool.selected_shapes is Array:
-					move_tool.selected_shapes.clear()
-					move_tool.selected_shapes.append(shape)
-				else:
-					move_tool.selected_shapes = shape
-			elif "selection" in move_tool:
-				if move_tool.selection is Array:
-					move_tool.selection.clear()
-					move_tool.selection.append(shape)
-				else:
-					move_tool.selection = shape
-			elif "selected_shape" in move_tool:
-				move_tool.selected_shape = shape
-
-			canvas.change_tool(move_tool)
-			# Selección vía SelectionManager (única fuente de verdad):
-			# MoveTool.activate() reconstruye su espejo desde el Manager,
-			# así que el pre-set del espejo de arriba se pierde al activar.
-			# Sin esto, el párrafo recién creado quedaba sin seleccionar
-			# (TextTool ya usa este mismo patrón).
-			var sm := _get_autoload("SelectionManager")
-			if is_instance_valid(sm) and sm.has_method("select"):
-				sm.select(shape)
-
-func _reset_state() -> void:
-	is_editing = false
-	current_editing_shape = null
-	interaction_state = STATE_IDLE
-	var sm = _get_autoload("SelectionManager")
-	if is_instance_valid(sm) and sm.has_method("set_active_editing_object"):
-		sm.set_active_editing_object(null)
-
-func _refresh_artboard() -> void:
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
-	if mgr:
-		var act := mgr.get_active_artboard()
-		if is_instance_valid(act):
-			target_artboard = act
-			return
-	var container = canvas.get_node_or_null("ArtboardsContainer")
-	if container and container.get_child_count() > 0:
-		target_artboard = container.get_child(0)
-
-func _shape_at(gpos: Vector2) -> Node2D:
-	var artboards: Array = []
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
-	if mgr:
-		artboards = mgr.all_artboards()
-	elif is_instance_valid(target_artboard):
-		artboards = [target_artboard]
-	
-	for ab in artboards:
-		if not is_instance_valid(ab):
-			continue
-		var found := _find_shape_in_tree(ab, gpos)
-		if found:
-			return found
-			
-	if is_instance_valid(canvas) and "artboards_container" in canvas and is_instance_valid(canvas.artboards_container):
-		var found_loose := _find_shape_in_tree(canvas.artboards_container, gpos)
-		if found_loose:
-			return found_loose
-			
-	return null
-
-func _find_shape_in_tree(node: Node, gpos: Vector2) -> Node2D:
-	for i in range(node.get_child_count() - 1, -1, -1):
-		var child = node.get_child(i)
-		if not (child is Node2D):
-			continue
-		if child.name in ["Contorno_Stroke", "ArtboardTitle"]:
-			continue
-		if child.has_meta("shape_type"):
-			var w: float = float(child.get_meta("width", 350.0))
-			var h: float = float(child.get_meta("height", 100.0))
-			var local_pt: Vector2 = child.to_local(gpos)
-			if Rect2(Vector2.ZERO, Vector2(w, h)).has_point(local_pt):
-				return child
-		var sub := _find_shape_in_tree(child, gpos)
-		if sub:
-			return sub
-	return null
 
 # ── Métodos de Text Threading (InDesign / Affinity Publisher) ─────────────────
 
@@ -1008,13 +880,3 @@ func draw_preview(c: Node2D) -> void:
 		c.draw_rect(b_rect, Color(0.08, 0.12, 0.18, 0.95), true)
 		c.draw_rect(b_rect, Color(0.2, 0.75, 1.0, 0.9), false, 1.2 * k)
 		c.draw_string(font, b_pos + b_pad + Vector2(0, b_fs * 0.82), badge_str, HORIZONTAL_ALIGNMENT_LEFT, -1, b_fs, Color.WHITE)
-
-static func _safe_set_runs_meta(vrt, raw_runs) -> void:
-	if vrt == null or raw_runs == null:
-		return
-	var typed_runs: Array[Dictionary] = []
-	if raw_runs is Array:
-		for r in raw_runs:
-			if r is Dictionary:
-				typed_runs.append(r)
-	vrt.set_runs_meta(typed_runs)

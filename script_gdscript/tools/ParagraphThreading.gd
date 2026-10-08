@@ -6,6 +6,8 @@
 # =============================================================================
 class_name ParagraphThreading
 extends RefCounted
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+
 
 const PORT_SIZE: float = 14.0
 const PORT_MARGIN: float = 4.0
@@ -129,9 +131,9 @@ static func replace_frame_text(frame: Node2D, new_text: String) -> void:
 				var sep_run: Dictionary = (fr[0] as Dictionary).duplicate()
 				sep_run["length"] = sep.length()
 				mid.push_front(sep_run)
-			head.set_meta("story_runs", WorldTextLabel.merge_runs(slice_runs(sr, 0, s) + mid + slice_runs(sr, e, story.length())))
+			head.set_meta("story_runs", TextRuns.merge_runs(slice_runs(sr, 0, s) + mid + slice_runs(sr, e, story.length())))
 		else:
-			var er := WorldTextLabel.edit_runs(sr, story, new_story)
+			var er := TextRuns.edit_runs(sr, story, new_story)
 			if er.is_empty():
 				head.remove_meta("story_runs")
 			else:
@@ -252,21 +254,10 @@ static func get_next_frame(node: Node2D) -> Node2D:
 	return _resolve(node, "next_paragraph")
 
 static func _runs_len(runs: Array) -> int:
-	var t := 0
-	for r in runs:
-		t += int(r.get("length", 0))
-	return t
+	return TextRuns.runs_len(runs)
 
-## Runs del tramo [a, b) (recortados a ese rango).
 static func slice_runs(runs: Array, a: int, b: int) -> Array:
-	var out: Array = []
-	var pos := 0
-	for r in WorldTextLabel.split_runs(runs, [a, b]):
-		var l := int(r.get("length", 0))
-		if pos >= a and pos + l <= b and l > 0:
-			out.append(r)
-		pos += l
-	return out
+	return TextRuns.slice_runs(runs, a, b)
 
 ## Encuentra la cabeza (primer marco) de la cadena
 static func get_chain_head(node: Node2D) -> Node2D:

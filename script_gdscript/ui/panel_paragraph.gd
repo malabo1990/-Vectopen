@@ -6,6 +6,9 @@
 # =============================================================================
 class_name PanelParagraph
 extends VBoxContainer
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 
 ## Relleno largo para previsualizar marcos (estilo InDesign).
 const LOREM := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
@@ -531,14 +534,14 @@ func _editing() -> Array:
 	return [shape, ed]
 
 func _sel_range(ed: TextEdit) -> Variant:
-	return WorldTextLabel.sel_range(ed)
+	return TextCore.sel_range(ed)
 
 func _runs_of(shape: Node2D, text_len: int) -> Array:
-	return WorldTextLabel.runs_of(shape, text_len)
+	return TextRuns.runs_of(shape, text_len)
 
 func _apply_to_range(shape: Node2D, ed: TextEdit, start: int, end: int, mutator: Callable) -> void:
 	var dl := shape.get_node_or_null("DisplayLabel")
-	WorldTextLabel.apply_range(shape, dl, ed.text.length(), start, end, mutator)
+	TextRuns.apply_range(shape, dl, ed.text.length(), start, end, mutator)
 	if dl and dl.has_method("apply_stroke_meta"):
 		dl.apply_stroke_meta()
 	if is_instance_valid(ed) and ed.syntax_highlighter:
@@ -556,7 +559,7 @@ func _apply_with_undo(shape: Node2D, ed: TextEdit, start: int, end: int, action_
 	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
 	var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
 	var do_fn := func() -> void:
-		WorldTextLabel.apply_range(shape, dl, ed.text.length(), start, end, mutator)
+		TextRuns.apply_range(shape, dl, ed.text.length(), start, end, mutator)
 		if dl and dl.has_method("apply_stroke_meta"):
 			dl.apply_stroke_meta()
 		if is_instance_valid(ed) and ed.syntax_highlighter:
@@ -668,7 +671,7 @@ func _fmt_toggle(key: String) -> void:
 						tlen = String(dl.text).length()
 					elif s.has_meta("text"):
 						tlen = String(s.get_meta("text")).length()
-					var before := WorldTextLabel.capture_text_state(s)
+					var before := TextCore.capture_text_state(s)
 					# Copia profunda: runs_of devuelve el array del meta y
 					# mutarlo en sitio dejaba el undo sin estado "antes".
 					var runs := _runs_of(s, tlen).duplicate(true)
@@ -689,7 +692,7 @@ func _fmt_toggle(key: String) -> void:
 					if vrt:
 						vrt.apply_underline_to_selection(new_u)
 						vrt.queue_redraw()
-					WorldTextLabel.register_text_undo(s, before, "Párrafo · subrayado")
+					TextCore.register_text_undo(s, before, "Párrafo · subrayado")
 					if is_instance_valid(_btn_underline):
 						_btn_underline.button_pressed = new_u
 

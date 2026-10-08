@@ -1,4 +1,7 @@
 extends Control
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 ## Panel de texto (panel_tooltext.tscn) → InspectorCore + FontCore.
 ##
 ## · Los sliders que rodean la "A" controlan propiedades de la SELECCIÓN del
@@ -396,7 +399,7 @@ func _on_valign_pressed(mode: String) -> void:
 
 ## [shape, editor, start, end] del texto EN EDICIÓN con selección no vacía.
 func _editing_range() -> Array:
-	return WorldTextLabel.editing_range(get_tree())
+	return TextCore.editing_range(get_tree())
 
 ## Offset plano → [línea, columna] en el TextEdit.
 func _flat_to_line_col(ed: TextEdit, off: int) -> Array:
@@ -449,7 +452,12 @@ func _apply_case_to_range(shape: Node2D, ed: TextEdit, start: int, end: int, mod
 		var a := _flat_to_line_col(ed, mini(start, new_text.length()))
 		var b := _flat_to_line_col(ed, mini(end, new_text.length()))
 		ed.select(a[0], a[1], b[0], b[1])
-		WorldTextLabel.resize_runs(shape, new_text.length())
+		# Runs por posición desde los ORIGINALES (ß→SS cambia la longitud).
+		var er := TextRuns.edit_runs(old_runs, old_text, new_text)
+		if er.is_empty():
+			TextRuns.resize_runs(shape, new_text.length())
+		else:
+			shape.set_meta("runs", er)
 		var dl := shape.get_node_or_null("DisplayLabel")
 		if dl:
 			dl.text = new_text

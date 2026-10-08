@@ -4,26 +4,12 @@
 # Soporta: Saltos de línea, Color Negro, Doble Clic Robusto para editar.
 # CONTROL INTELIGENTE: CMD (o CTRL) + Arrastre Vertical para escalar fuente.
 # =============================================================================
-extends ToolBase
+extends "res://script_gdscript/tools/TextToolBase.gd"
 
-# ── Estados Internos de Edición ──────────────────────────────────────────────
-var is_editing: bool = false
-var current_editing_shape: Node2D = null
-var target_artboard: Node2D = null
+## Títulos: caja supuesta más pequeña que la de un párrafo.
+func _default_shape_size() -> Vector2:
+	return Vector2(250, 40)
 
-# ── Máquina de Estados de Interacción (Vectopen Text Engine) ───────────────────
-const STATE_IDLE = "idle"
-const STATE_SELECTED = "selected"
-const STATE_EDITING = "editing"
-const STATE_SELECTING = "selecting"
-const STATE_DRAGGING = "dragging"
-const STATE_TRANSFORMING = "transforming"
-const STATE_COMMITTING = "committing"
-
-var interaction_state: String = STATE_IDLE
-
-## Foto del texto al entrar a editar / empezar Cmd+arrastre → undo al confirmar.
-var _edit_before: Dictionary = {}
 ## Texto del editor tras la última pulsación (los runs están sincronizados
 ## con él): base del diff por posición de apply_text_edit.
 var _prev_edit_text: String = ""
@@ -245,7 +231,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 		is_editing = true
 		interaction_state = STATE_EDITING
 		current_editing_shape = hit
-		_edit_before = WorldTextLabel.capture_text_state(hit)
+		_edit_before = TextCore.capture_text_state(hit)
 		SelectionManager.set_active_editing_object(hit)
 		# Para que el menú contextual (clic derecho) y su panel de tipografía
 		# reflejen ESTE texto mientras se edita — antes no se avisaba a
@@ -254,7 +240,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 		SelectionManager.select(hit)
 
 		var display_label: Control = hit.get_node_or_null("DisplayLabel")
-		var title_edit: TextEdit = WorldTextLabel.ensure_inline_editor(hit)
+		var title_edit: TextEdit = TextCore.ensure_inline_editor(hit)
 
 		if display_label: display_label.visible = false
 		if title_edit:
@@ -337,7 +323,7 @@ func _on_edit_text_changed() -> void:
 		return
 	display_label.text = title_edit.text
 	# Runs por POSICIÓN del cambio (no recortando siempre por el final).
-	WorldTextLabel.apply_text_edit(current_editing_shape, _prev_edit_text, title_edit.text)
+	TextRuns.apply_text_edit(current_editing_shape, _prev_edit_text, title_edit.text)
 	_prev_edit_text = title_edit.text
 	if title_edit.syntax_highlighter:
 		title_edit.syntax_highlighter.clear_highlighting_cache()
@@ -378,7 +364,7 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 		if final_text == "": final_text = "Título Nuevo"
 		
 		var pre: String = title_edit.text if title_edit and vrt == null else str(shape.get_meta("text", final_text))
-		WorldTextLabel.apply_text_edit(shape, pre, final_text)
+		TextRuns.apply_text_edit(shape, pre, final_text)
 		shape.set_meta("text", final_text)
 		if vrt:
 			vrt.set_text(final_text)
@@ -398,14 +384,11 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 			title_edit.release_focus()
 			title_edit.visible = false
 
-	WorldTextLabel.register_text_undo(shape, _edit_before, "Editar texto")
+	TextCore.register_text_undo(shape, _edit_before, "Editar texto")
 	_edit_before = {}
 	_reset_state()
 	if switch_tool and is_instance_valid(shape):
 		_switch_to_move_tool(shape)
-
-func _finish_editing_and_save() -> void:
-	commit_text_edit(false)
 
 func create_at_center() -> Node2D:
 	_refresh_artboard()
@@ -570,7 +553,7 @@ func _start_cmd_scaling(shape: Node2D, mouse_y: float) -> void:
 	scaling_start_mouse_y = mouse_y
 	scaling_start_font_size = shape.get_meta("font_size") if shape.has_meta("font_size") else 24
 	if not is_editing:   # editando, el undo de la edición ya cubre el tamaño
-		_edit_before = WorldTextLabel.capture_text_state(shape)
+		_edit_before = TextCore.capture_text_state(shape)
 	Input.set_default_cursor_shape(Input.CURSOR_VSIZE)
 
 func _process_cmd_scaling(current_mouse_y: float) -> void:
@@ -603,7 +586,7 @@ func _confirm_cmd_scaling() -> void:
 			scaling_shape.set_meta("font_size", final_fs)
 			_update_shape_meta_size(scaling_shape)
 		if not is_editing:
-			WorldTextLabel.register_text_undo(scaling_shape, _edit_before, "Escalar texto")
+			TextCore.register_text_undo(scaling_shape, _edit_before, "Escalar texto")
 			_edit_before = {}
 	_reset_scaling_state()
 
@@ -658,88 +641,7 @@ func _update_shape_meta_size(shape: Node2D) -> void:
 			vrt.size = safe_size
 
 func _get_current_shape_size(shape: Node2D) -> Vector2:
-	var w: float = shape.get_meta("width") if shape.has_meta("width") else 250.0
-	var h: float = shape.get_meta("height") if shape.has_meta("height") else 40.0
-	return Vector2(w, h)
-
-func _switch_to_move_tool(shape: Node2D) -> void:
-	if is_instance_valid(canvas) and canvas.has_method("change_tool"):
-		var move_tool_script = load("res://script_gdscript/tools/MoveTool.gd")
-		if move_tool_script:
-			var move_tool = canvas._new_tool(move_tool_script)
-			move_tool.target_artboard = target_artboard
-			
-			if "selected_shapes" in move_tool:
-				if move_tool.selected_shapes is Array:
-					move_tool.selected_shapes.clear()
-					move_tool.selected_shapes.append(shape)
-				else:
-					move_tool.selected_shapes = shape
-			elif "selection" in move_tool:
-				if move_tool.selection is Array:
-					move_tool.selection.clear()
-					move_tool.selection.append(shape)
-				else:
-					move_tool.selection = shape
-			elif "selected_shape" in move_tool:
-				move_tool.selected_shape = shape
-
-			# Mutar `selected_shapes` de MoveTool a mano NO avisa a
-			# SelectionManager (eso solo pasa por MoveTool._emit_selection_changed,
-			# que aquí no se llama) — sin esto, el panel de tipografía/Inspector
-			# (clic derecho) podía seguir mostrando la selección anterior en vez
-			# de la figura de texto recién creada.
-			canvas.change_tool(move_tool)
-			# Después de change_tool(): activar MoveTool reconstruye su estado
-			# desde SelectionManager y lo deja vacío si se hace antes.
-			SelectionManager.select(shape)
-
-func _reset_state() -> void:
-	is_editing = false
-	current_editing_shape = null
-	interaction_state = STATE_IDLE
-	SelectionManager.set_active_editing_object(null)
-
-func _refresh_artboard() -> void:
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
-	if mgr:
-		var act := mgr.get_active_artboard()
-		if is_instance_valid(act):
-			target_artboard = act
-			return
-	var container = canvas.get_node_or_null("ArtboardsContainer")
-	if container and container.get_child_count() > 0:
-		target_artboard = container.get_child(0)
-
-## Figura bajo el punto en TODOS los artboards, con rotación/escala (to_local)
-## y dentro de grupos — antes solo hijos directos del artboard activo y sin
-## transformar, así que un título rotado no se podía editar con doble clic.
-func _shape_at(gpos: Vector2) -> Node2D:
-	var artboards: Array = []
-	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
-	if mgr:
-		artboards = mgr.all_artboards()
-	elif is_instance_valid(target_artboard):
-		artboards = [target_artboard]
-	for ab in artboards:
-		if is_instance_valid(ab):
-			var found := _find_shape_in_tree(ab, gpos)
-			if found:
-				return found
-	return null
-
-func _find_shape_in_tree(node: Node, gpos: Vector2) -> Node2D:
-	for i in range(node.get_child_count() - 1, -1, -1):
-		var child = node.get_child(i)
-		if not (child is Node2D) or child.name in ["Contorno_Stroke", "ArtboardTitle"]:
-			continue
-		if child.has_meta("shape_type"):
-			if Rect2(Vector2.ZERO, _get_current_shape_size(child)).has_point(child.to_local(gpos)):
-				return child
-		var sub := _find_shape_in_tree(child, gpos)
-		if sub:
-			return sub
-	return null
+	return _shape_size(shape)
 
 # ── Formato enriquecido por rango ─────────────────────────────────────────────
 
@@ -798,17 +700,17 @@ func _style_title_edit(edit: TextEdit, label: WorldTextLabel) -> void:
 ## Rango [start, end) de la selección actual en TitleEdit, en offsets planos.
 ## null si no hay selección. Motor centralizado en WorldTextLabel.
 func _selection_range(title_edit: TextEdit) -> Variant:
-	return WorldTextLabel.sel_range(title_edit)
+	return TextCore.sel_range(title_edit)
 
 ## Motor de runs centralizado en WorldTextLabel (wrappers de compatibilidad).
 func _current_runs(shape: Node2D, text_len: int) -> Array:
-	return WorldTextLabel.runs_of(shape, text_len)
+	return TextRuns.runs_of(shape, text_len)
 
 func _split_runs_at(runs: Array, cuts: Array) -> Array:
-	return WorldTextLabel.split_runs(runs, cuts)
+	return TextRuns.split_runs(runs, cuts)
 
 func _merge_equal_runs(runs: Array) -> Array:
-	return WorldTextLabel.merge_runs(runs)
+	return TextRuns.merge_runs(runs)
 
 func _apply_style_to_range(shape: Node2D, start: int, end: int, mutator: Callable) -> void:
 	var title_edit: TextEdit = shape.get_node_or_null("TitleEdit")
@@ -817,7 +719,7 @@ func _apply_style_to_range(shape: Node2D, start: int, end: int, mutator: Callabl
 	var display_label: Control = shape.get_node_or_null("DisplayLabel")
 	var before: Array = (shape.get_meta("runs", []) as Array).duplicate(true)
 	var do_fn := func() -> void:
-		WorldTextLabel.apply_range(shape, display_label, title_edit.text.length(), start, end, mutator)
+		TextRuns.apply_range(shape, display_label, title_edit.text.length(), start, end, mutator)
 		if display_label and display_label.has_method("apply_stroke_meta"):
 			display_label.apply_stroke_meta()
 		if title_edit.syntax_highlighter:
@@ -843,9 +745,6 @@ func _apply_style_to_range(shape: Node2D, start: int, end: int, mutator: Callabl
 		hm.add_undo(undo_fn)
 		hm.commit()
 	do_fn.call()
-
-func _resize_runs_to_length(shape: Node2D, new_len: int) -> void:
-	WorldTextLabel.resize_runs(shape, new_len)
 
 func _toggle_format_key(key: String) -> void:
 	if not is_instance_valid(current_editing_shape):
@@ -963,24 +862,3 @@ func _on_title_edit_caret_changed() -> void:
 	if not is_editing:
 		return
 	_notify_format_changed()
-
-func _notify_format_changed() -> void:
-	var ic := _get_autoload("InspectorCore")
-	if ic and ic.has_signal("changed"):
-		ic.changed.emit(ic.current_props())
-
-static func _get_autoload(autoload_name: String) -> Node:
-	var ml := Engine.get_main_loop() as SceneTree
-	if ml and ml.root:
-		return ml.root.get_node_or_null(autoload_name)
-	return null
-
-static func _safe_set_runs_meta(vrt, raw_runs) -> void:
-	if vrt == null or raw_runs == null:
-		return
-	var typed_runs: Array[Dictionary] = []
-	if raw_runs is Array:
-		for r in raw_runs:
-			if r is Dictionary:
-				typed_runs.append(r)
-	vrt.set_runs_meta(typed_runs)

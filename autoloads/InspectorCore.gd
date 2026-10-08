@@ -3,6 +3,9 @@
 # AUTOLOAD (Singleton)
 # ==========================================
 extends Node
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 ## SISTEMA CORE del Inspector — capa central entre la SELECCIÓN del canvas y
 ## CUALQUIER UI de propiedades (el panel contextual tool_in_Mouse, un panel
 ## lateral, los campos X/Y del bounding box, etc.).
@@ -424,7 +427,7 @@ func _editing_text_range() -> Array:
 		ed = shape.get_node_or_null("MultiLineEdit")
 	if ed == null or not ed.visible:
 		return []
-	var sel = WorldTextLabel.sel_range(ed)
+	var sel = TextCore.sel_range(ed)
 	if sel == null or int(sel["end"]) <= int(sel["start"]):
 		return []
 	return [shape, ed, int(sel["start"]), int(sel["end"])]
@@ -476,7 +479,7 @@ func apply_text_range(prop: String, value) -> bool:
 			elif t.has_method("_fit_height_to_text"):
 				t._fit_height_to_text(shape, ed.text)
 	var do_fn := func() -> void:
-		WorldTextLabel.apply_range(shape, dl, ed.text.length(), start, end, mutator)
+		TextRuns.apply_range(shape, dl, ed.text.length(), start, end, mutator)
 		if dl and dl.has_method("apply_stroke_meta"):
 			dl.apply_stroke_meta()
 		sync_tool_size.call()

@@ -17,6 +17,8 @@
 # ProjectManager y los tests, para no depender del cache de clases global.
 # ==========================================
 extends RefCounted
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
 const VectorModel3DScript := preload("res://script_gdscript/shapes/VectorModel3D.gd")
@@ -917,7 +919,7 @@ static func _text_from(d: Dictionary) -> Node2D:
 	cont.add_child(label)
 	# Editor en línea + autowrap del párrafo (sin esto, tras recargar, los
 	# párrafos salían en una sola línea y no se podían editar).
-	WorldTextLabel.ensure_inline_editor(cont)
+	TextCore.ensure_inline_editor(cont)
 	if d.has("width") and d.has("height") and label.has_method("set_world_size"):
 		label.set_world_size(Vector2(float(d["width"]), float(d["height"])))
 	if label.has_method("apply_indent_meta"):

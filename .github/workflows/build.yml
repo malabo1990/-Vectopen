@@ -24,3 +24,61 @@ jobs:
       - name: Validate project
         run: |
           ./Godot_v4.7-stable_linux.x86_64 --headless --path . --editor --quit 2>&1 || true
+
+  # Extensión nativa de texto (VectorRichText): una librería por sistema.
+  # Sin ella el texto sigue funcionando (modo GDScript), pero estas son las
+  # rutas que espera vectopen_text.gdextension en cada plataforma.
+  native-text:
+    name: vectopen_text (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust/vectopen_text
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'x86_64-apple-darwin,aarch64-apple-darwin' || '' }}
+
+      - name: Unit tests
+        run: cargo test --locked
+
+      - name: Build (Linux / Windows)
+        if: runner.os != 'macOS'
+        run: |
+          cargo build --locked
+          cargo build --locked --release
+
+      # macOS: binario universal (Intel + Apple Silicon) en la ruta única que
+      # usa el .gdextension para macos y macos.arm64.
+      - name: Build (macOS universal)
+        if: runner.os == 'macOS'
+        run: |
+          for profile in debug release; do
+            flag=$([ "$profile" = release ] && echo --release || true)
+            cargo build --locked $flag --target x86_64-apple-darwin
+            cargo build --locked $flag --target aarch64-apple-darwin
+            mkdir -p target/$profile
+            lipo -create \
+              target/x86_64-apple-darwin/$profile/libvectopen_text.dylib \
+              target/aarch64-apple-darwin/$profile/libvectopen_text.dylib \
+              -output target/$profile/libvectopen_text.dylib
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vectopen_text-${{ runner.os }}
+          path: |
+            rust/vectopen_text/target/debug/*vectopen_text.dll
+            rust/vectopen_text/target/release/*vectopen_text.dll
+            rust/vectopen_text/target/debug/libvectopen_text.so
+            rust/vectopen_text/target/release/libvectopen_text.so
+            rust/vectopen_text/target/debug/libvectopen_text.dylib
+            rust/vectopen_text/target/release/libvectopen_text.dylib
+          if-no-files-found: error

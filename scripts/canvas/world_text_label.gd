@@ -25,6 +25,9 @@
 # ==========================================
 extends Label
 class_name WorldTextLabel
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 
 ## Fuente por defecto (fallback si FontCore no está o la familia no resuelve).
 const FONT_PATH := "res://assets/fonts/Inter-Regular.ttf"
@@ -772,319 +775,65 @@ func _sync_visibility() -> void:
 		visible_ratio = 1.0
 
 # ------------------------------------------------------------------ rich runs
-## Motor de runs COMPARTIDO (BBCode avanzado): lo usan TextTool, el panel de
-## párrafo e InspectorCore para no triplicar la lógica de rangos.
+## Delegado de compatibilidad → TextRuns.runs_of.
 static func runs_of(shape: Node2D, text_len: int) -> Array:
-	var runs: Array = shape.get_meta("runs", [])
-	var total := 0
-	for r in runs:
-		total += int(r.get("length", 0))
-	if not runs.is_empty() and total == text_len:
-		return runs
-	var def_sw: float = float(shape.get_meta("stroke_width", shape.get_meta("text_outline", 0.0)))
-	var def_sc: Color = shape.get_meta("stroke_color", shape.get_meta("text_outline_color", Color.BLACK))
-	return [{
-		"length": text_len,
-		"color": shape.get_meta("text_color", Color.BLACK),
-		"stroke_color": def_sc,
-		"stroke_width": def_sw,
-		"bold": int(shape.get_meta("font_weight", 400)) >= 700,
-		"italic": bool(shape.get_meta("font_italic", false)),
-		"underline": false,
-	}]
+	return TextRuns.runs_of(shape, text_len)
 
+## Delegado de compatibilidad → TextRuns.split_runs.
 static func split_runs(runs: Array, cuts: Array) -> Array:
-	var out: Array = []
-	var pos := 0
-	for r in runs:
-		var len_: int = int(r.get("length", 0))
-		var pts: Array = [pos, pos + len_]
-		for c in cuts:
-			if c > pos and c < pos + len_:
-				pts.append(c)
-		pts.sort()
-		for i in range(pts.size() - 1):
-			if int(pts[i + 1]) > int(pts[i]):
-				var nr: Dictionary = (r as Dictionary).duplicate()
-				nr["length"] = int(pts[i + 1]) - int(pts[i])
-				out.append(nr)
-		pos += len_
-	return out
+	return TextRuns.split_runs(runs, cuts)
 
+## Delegado de compatibilidad → TextRuns.merge_runs.
 static func merge_runs(runs: Array) -> Array:
-	var out: Array = []
-	for r in runs:
-		if not out.is_empty():
-			var last: Dictionary = out[out.size() - 1]
-			var same_col: bool = (last.get("color", Color.BLACK) as Color).is_equal_approx(r.get("color", Color.BLACK))
-			var same_sc: bool = (last.get("stroke_color", Color.BLACK) as Color).is_equal_approx(r.get("stroke_color", Color.BLACK))
-			var same_sw: bool = is_equal_approx(float(last.get("stroke_width", 0.0)), float(r.get("stroke_width", 0.0)))
-			if same_col and same_sc and same_sw \
-					and bool(last.get("bold", false)) == bool(r.get("bold", false)) \
-					and bool(last.get("italic", false)) == bool(r.get("italic", false)) \
-					and bool(last.get("underline", false)) == bool(r.get("underline", false)) \
-					and float(last.get("size", 0.0)) == float(r.get("size", 0.0)):
-				last["length"] = int(last["length"]) + int(r.get("length", 0))
-				continue
-		out.append((r as Dictionary).duplicate())
-	return out
+	return TextRuns.merge_runs(runs)
 
-## Garantiza el editor en línea del contenedor de texto (MultiLineEdit para
-## párrafos, TitleEdit para títulos) y el autowrap del párrafo. Los textos
-## cargados de un .vectopen / pegados solo traían el DisplayLabel: sin
-## extensión VectorRichText, entrar a editar ocultaba el texto sin editor y
-## al confirmar el párrafo quedaba como "Texto de párrafo vacío.".
+## Delegado de compatibilidad → TextCore.ensure_inline_editor.
 static func ensure_inline_editor(shape: Node2D) -> TextEdit:
-	if not is_instance_valid(shape):
-		return null
-	var is_para := String(shape.get_meta("shape_type", "")) == "text_paragraph"
-	var dl := shape.get_node_or_null("DisplayLabel") as Label
-	if is_para and dl and dl.autowrap_mode == TextServer.AUTOWRAP_OFF:
-		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var ed_name := "MultiLineEdit" if is_para else "TitleEdit"
-	var ed := shape.get_node_or_null(ed_name) as TextEdit
-	if ed:
-		return ed
-	var sz := Vector2(float(shape.get_meta("width", 350.0 if is_para else 250.0)),
-			float(shape.get_meta("height", 100.0 if is_para else 40.0)))
-	var fs := int(shape.get_meta("font_size", 24))
-	ed = TextEdit.new()
-	ed.name = ed_name
-	ed.visible = false
-	ed.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY if is_para else TextEdit.LINE_WRAPPING_NONE
-	ed.custom_minimum_size = sz
-	ed.size = sz
-	ed.text = str(shape.get_meta("text", ""))
-	ed.add_theme_color_override("font_color", shape.get_meta("text_color", Color.BLACK))
-	ed.add_theme_font_size_override("font_size", fs)
-	shape.add_child(ed)
-	return ed
+	return TextCore.ensure_inline_editor(shape)
 
-## [shape, editor, start, end] del texto EN EDICIÓN con selección no vacía
-## (título o párrafo). Vacío si no hay: el estilo va al bloque entero.
+## Delegado de compatibilidad → TextCore.editing_range.
 static func editing_range(tree: SceneTree) -> Array:
-	if tree == null:
-		return []
-	var canvas = tree.get_first_node_in_group("_vectopen_canvas")
-	if canvas == null or not ("current_tool" in canvas):
-		return []
-	var t = canvas.current_tool
-	if t == null:
-		return []
-	var flag = t.get("is_editing") if t != null else null
-	if flag == null or not bool(flag):
-		return []
-	var shape: Node2D = t.get("current_editing_shape")
-	if not is_instance_valid(shape):
-		return []
-	var ed: TextEdit = shape.get_node_or_null("TitleEdit")
-	if ed == null:
-		ed = shape.get_node_or_null("MultiLineEdit")
-	if ed == null or not ed.visible:
-		return []
-	var sel = sel_range(ed)
-	if sel == null or int(sel["end"]) <= int(sel["start"]):
-		return []
-	return [shape, ed, int(sel["start"]), int(sel["end"])]
+	return TextCore.editing_range(tree)
 
-## Rango [start,end) de la selección del editor, en offsets planos. null sin selección.
+## Delegado de compatibilidad → TextCore.sel_range.
 static func sel_range(ed: TextEdit) -> Variant:
-	if ed == null or not ed.has_selection():
-		return null
-	var a := _flat_off(ed, ed.get_selection_from_line(), ed.get_selection_from_column())
-	var b := _flat_off(ed, ed.get_selection_to_line(), ed.get_selection_to_column())
-	return {"start": mini(a, b), "end": maxi(a, b)}
+	return TextCore.sel_range(ed)
 
+## Delegado de compatibilidad → TextCore.flat_off.
 static func _flat_off(ed: TextEdit, line: int, column: int) -> int:
-	var off := 0
-	for l in line:
-		off += ed.get_line(l).length() + 1
-	return off + column
+	return TextCore.flat_off(ed, line, column)
 
-## Aplica `mutator` al rango y lo guarda en el shape + refresca el label.
-## Devuelve true si aplicó algo.
+## Delegado de compatibilidad → TextRuns.apply_range.
 static func apply_range(shape: Node2D, label: Control, ed_text_len: int, start: int, end: int, mutator: Callable) -> bool:
-	if not is_instance_valid(shape) or start >= end:
-		return false
-	var runs := split_runs(runs_of(shape, ed_text_len), [start, end])
-	var out: Array = []
-	var pos := 0
-	for r in runs:
-		var len_: int = int(r.get("length", 0))
-		if pos >= start and pos < end:
-			out.append(mutator.call((r as Dictionary).duplicate()))
-		else:
-			out.append(r)
-		pos += len_
-	out = merge_runs(out)
-	shape.set_meta("runs", out)
-	if label and label.has_method("set_rich_runs"):
-		label.set_rich_runs(out)
-	return true
+	return TextRuns.apply_range(shape, label, ed_text_len, start, end, mutator)
 
-## Reajusta `runs` a `new_len` (recorta/extiende por el final).
+## Delegado de compatibilidad → TextRuns.resize_runs.
 static func resize_runs(shape: Node2D, new_len: int) -> void:
-	var runs: Array = shape.get_meta("runs", [])
-	if runs.is_empty():
-		return
-	var total := 0
-	for r in runs:
-		total += int(r.get("length", 0))
-	if total == new_len:
-		return
-	var out: Array = []
-	var acc := 0
-	for r in runs:
-		var len_: int = int(r.get("length", 0))
-		if acc >= new_len:
-			break
-		var take: int = mini(len_, new_len - acc)
-		if take > 0:
-			var nr: Dictionary = (r as Dictionary).duplicate()
-			nr["length"] = take
-			out.append(nr)
-			acc += take
-	if acc < new_len and not out.is_empty():
-		out[out.size() - 1]["length"] = int(out[out.size() - 1]["length"]) + (new_len - acc)
-	shape.set_meta("runs", out)
+	TextRuns.resize_runs(shape, new_len)
 
-## Ajusta `runs` a una edición old_text → new_text SEGÚN LA POSICIÓN del
-## cambio (prefijo/sufijo común): lo borrado sale de su run y lo insertado
-## hereda el estilo del carácter anterior. resize_runs recortaba siempre por
-## el final, así que escribir al principio desplazaba toda la negrita/color.
-## Devuelve [] si `runs` no cubre exactamente old_text (el llamador decide).
+## Delegado de compatibilidad → TextRuns.edit_runs.
 static func edit_runs(runs: Array, old_text: String, new_text: String) -> Array:
-	var total := 0
-	for r in runs:
-		total += int(r.get("length", 0))
-	if runs.is_empty() or total != old_text.length():
-		return []
-	var ol := old_text.length()
-	var nl := new_text.length()
-	var p := 0
-	while p < ol and p < nl and old_text.unicode_at(p) == new_text.unicode_at(p):
-		p += 1
-	var sfx := 0
-	while sfx < ol - p and sfx < nl - p and old_text.unicode_at(ol - 1 - sfx) == new_text.unicode_at(nl - 1 - sfx):
-		sfx += 1
-	var del_end := ol - sfx
-	var ins_len := nl - p - sfx
-	# Estilo heredado: el del carácter anterior al cambio (o el primero).
-	var acc := 0
-	var style: Dictionary = runs[0]
-	for r in runs:
-		var l := int(r.get("length", 0))
-		if l > 0 and (p == 0 or p - 1 < acc + l):
-			style = r
-			break
-		acc += l
-	var out: Array = []
-	var pos := 0
-	var inserted := false
-	for r in split_runs(runs, [p, del_end]):
-		var l := int(r.get("length", 0))
-		if pos == p and not inserted and ins_len > 0:
-			var nr: Dictionary = (style as Dictionary).duplicate()
-			nr["length"] = ins_len
-			out.append(nr)
-			inserted = true
-		if pos < p or pos >= del_end:
-			out.append(r)
-		pos += l
-	if not inserted and ins_len > 0:
-		var nr: Dictionary = (style as Dictionary).duplicate()
-		nr["length"] = ins_len
-		out.append(nr)
-	return merge_runs(out)
+	return TextRuns.edit_runs(runs, old_text, new_text)
 
-## Aplica edit_runs a las metas del shape (con resize_runs de respaldo).
+## Delegado de compatibilidad → TextRuns.apply_text_edit.
 static func apply_text_edit(shape: Node2D, old_text: String, new_text: String) -> void:
-	var runs: Array = shape.get_meta("runs", [])
-	if runs.is_empty():
-		return
-	var out := edit_runs(runs, old_text, new_text)
-	if out.is_empty() and not new_text.is_empty():
-		resize_runs(shape, new_text.length())
-	else:
-		shape.set_meta("runs", out)
+	TextRuns.apply_text_edit(shape, old_text, new_text)
 
-## Foto del estado editable de un texto (para undo de la edición de
-## contenido / tamaño). En una cadena de marcos guarda la historia completa.
+## Delegado de compatibilidad → TextCore.capture_text_state.
 static func capture_text_state(shape: Node2D) -> Dictionary:
-	var st := {
-		"text": String(shape.get_meta("text", "")),
-		"runs": (shape.get_meta("runs", []) as Array).duplicate(true),
-		"font_size": int(shape.get_meta("font_size", 24)),
-		"width": shape.get_meta("width", null),
-		"height": shape.get_meta("height", null),
-	}
-	if shape.has_meta("next_paragraph") or shape.has_meta("prev_paragraph"):
-		var head := ParagraphThreading.get_chain_head(shape)
-		st["story_head"] = weakref(head)
-		st["story"] = String(head.get_meta("raw_story_text", head.get_meta("text", "")))
-	return st
+	return TextCore.capture_text_state(shape)
 
+## Delegado de compatibilidad → TextCore.same_text_state.
 static func same_text_state(a: Dictionary, b: Dictionary) -> bool:
-	return a.get("text") == b.get("text") and a.get("story", "") == b.get("story", "") \
-			and a.get("font_size") == b.get("font_size") and var_to_str(a.get("runs")) == var_to_str(b.get("runs"))
+	return TextCore.same_text_state(a, b)
 
-## Restaura una foto de capture_text_state en metas, label, editor y VRT.
+## Delegado de compatibilidad → TextCore.restore_text_state.
 static func restore_text_state(shape: Node2D, st: Dictionary) -> void:
-	if not is_instance_valid(shape):
-		return
-	var fs := int(st.get("font_size", 24))
-	shape.set_meta("font_size", fs)
-	shape.set_meta("runs", (st.get("runs", []) as Array).duplicate(true))
-	if st.get("width") != null: shape.set_meta("width", st["width"])
-	if st.get("height") != null: shape.set_meta("height", st["height"])
-	var dl := shape.get_node_or_null("DisplayLabel")
-	if dl is WorldTextLabel:
-		dl.world_font_size = fs
-	var head_ref = st.get("story_head")
-	var head: Node2D = head_ref.get_ref() if head_ref is WeakRef else null
-	if is_instance_valid(head):
-		head.set_meta("raw_story_text", String(st.get("story", "")))
-		ParagraphThreading.reflow_chain(head)
-	else:
-		var t := String(st.get("text", ""))
-		shape.set_meta("text", t)
-		if dl and "text" in dl:
-			dl.text = t
-		var vrt = shape.get_node_or_null("VectorRichText")
-		if vrt:
-			vrt.set_text(t)
-	if dl is WorldTextLabel:
-		dl.set_rich_runs(shape.get_meta("runs", []))
-		if st.get("width") != null and st.get("height") != null:
-			dl.set_world_size(Vector2(float(st["width"]), float(st["height"])))
-	var sz := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
-	for ed_name in ["MultiLineEdit", "TitleEdit"]:
-		var ed := shape.get_node_or_null(ed_name) as TextEdit
-		if ed:
-			ed.text = String(shape.get_meta("text", ""))
-			ed.add_theme_font_size_override("font_size", fs)
-			if sz.x > 0.0 and sz.y > 0.0:
-				ed.custom_minimum_size = sz
-				ed.size = sz
-	var ge := shape.get_node_or_null("/root/GlobalEvents")
-	if ge and ge.has_method("emit_safe"):
-		ge.emit_safe("object_transformed")
+	TextCore.restore_text_state(shape, st)
 
-## Registra en HistoryManager el paso before → estado actual (si cambió).
-## El cambio YA está aplicado (este HistoryManager no ejecuta al commit).
+## Delegado de compatibilidad → TextCore.register_text_undo.
 static func register_text_undo(shape: Node2D, before: Dictionary, action_name: String) -> void:
-	if not is_instance_valid(shape) or before.is_empty():
-		return
-	var after := capture_text_state(shape)
-	if same_text_state(before, after):
-		return
-	var hm := shape.get_node_or_null("/root/HistoryManager")
-	if hm == null or not hm.has_method("register_action"):
-		return
-	hm.register_action(action_name)
-	hm.add_do(func() -> void: restore_text_state(shape, after))
-	hm.add_undo(func() -> void: restore_text_state(shape, before))
-	hm.commit()
+	TextCore.register_text_undo(shape, before, action_name)
 
 ## ¿Algún run trae tamaño propio? Entonces el bitmap nativo no sirve
 ## (no sabe tamaños por rango) y manda el overlay, como con proporciones.
