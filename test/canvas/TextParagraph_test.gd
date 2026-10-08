@@ -114,6 +114,74 @@ func test_para_tras_editar_texto_largo_bbox_eso_contiene() -> void:
 	assert_that(texto_dentro).is_true()
 	scene.queue_free()
 
+func test_para_click_afuera_sale_a_movetool_muestra_bb_y_permite_drag() -> void:
+	var scene := await _canvas_real()
+	var artboard: Node2D = scene.get_node("ArtboardsContainer/Artboard")
+	var tool := await _tool(PARA_TOOL, scene, artboard)
+
+	var shape: Node2D = tool._create_new_paragraph_at(Vector2(200, 200))
+	await get_tree().process_frame
+
+	# 1. Entrar a modo edición
+	tool.target_artboard = artboard
+	tool._check_and_trigger_edit_at(Vector2(250, 250), shape)
+	await get_tree().process_frame
+
+	assert_that(tool.is_editing).is_true()
+	assert_that(SelectionManager.has_active_text_edit()).is_true()
+
+	# 2. Clic fuera del área del párrafo (en lienzo vacío, p.ej. 700, 700)
+	var ev_outside := InputEventMouseButton.new()
+	ev_outside.button_index = MOUSE_BUTTON_LEFT
+	ev_outside.pressed = true
+	ev_outside.position = Vector2(700, 700)
+	ev_outside.global_position = Vector2(700, 700)
+	var consumed: bool = tool.handle_input(ev_outside)
+	assert_that(consumed).is_true()
+	await get_tree().process_frame
+
+	# 3. Verificar que salió de edición, pasó a MoveTool, y el BB está activo y visible
+	assert_that(tool.is_editing).is_false()
+	assert_that(SelectionManager.has_active_text_edit()).is_false()
+	assert_that(SelectionManager.get_selected()).contains_exactly([shape])
+
+	var cur_tool = scene.current_tool
+	assert_object(cur_tool).is_not_null()
+	assert_that(cur_tool.get_class_name()).is_equal("MoveTool")
+	assert_that(cur_tool.selected_shapes).contains_exactly([shape])
+	assert_object(cur_tool._bounding_box).is_not_null()
+	assert_that(cur_tool._bounding_box.visible).is_true()
+
+	# 4. Verificar arrastre con MoveTool para mover el párrafo
+	var init_pos: Vector2 = shape.global_position
+	var click_pt: Vector2 = init_pos + Vector2(50, 30)
+
+	var ev_press := InputEventMouseButton.new()
+	ev_press.button_index = MOUSE_BUTTON_LEFT
+	ev_press.pressed = true
+	ev_press.position = click_pt
+	ev_press.global_position = click_pt
+	cur_tool.handle_input(ev_press)
+
+	var ev_motion := InputEventMouseMotion.new()
+	ev_motion.position = click_pt + Vector2(100, 50)
+	ev_motion.global_position = click_pt + Vector2(100, 50)
+	ev_motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	cur_tool.handle_input(ev_motion)
+
+	var ev_release := InputEventMouseButton.new()
+	ev_release.button_index = MOUSE_BUTTON_LEFT
+	ev_release.pressed = false
+	ev_release.position = click_pt + Vector2(100, 50)
+	ev_release.global_position = click_pt + Vector2(100, 50)
+	cur_tool.handle_input(ev_release)
+	await get_tree().process_frame
+
+	assert_that(shape.global_position).is_not_equal(init_pos)
+	assert_that(cur_tool._bounding_box.visible).is_true()
+
+	scene.queue_free()
+
 func _find_shape(artboard: Node2D, name_cont: String) -> Node2D:
 	for child in artboard.get_children():
 		if child.name == name_cont:

@@ -154,13 +154,19 @@ func get_font(spec: Dictionary) -> Font:
 
 	if BUNDLED.has(fam):
 		var base = load(BUNDLED[fam])
+		if base is FontFile:
+			base.multichannel_signed_distance_field = true
+			base.msdf_pixel_range = 16
+			base.msdf_size = 64
+			base.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+			base.generate_mipmaps = true
 		if base is Font:
 			if weight != DEFAULT_WEIGHT:
 				var fv := FontVariation.new()
 				fv.base_font = base
 				# Inter-Regular no es variable: se emula el grosor engordando el
-				# contorno (aprox. -0.25 .. +1.0).
-				fv.variation_embolden = clampf((weight - DEFAULT_WEIGHT) / 300.0, -0.25, 1.0)
+				# contorno limpiamente sin auto-intersecciones ni agujeros.
+				fv.variation_embolden = clampf((weight - DEFAULT_WEIGHT) / 1000.0, -0.2, 0.5)
 				font = fv
 			else:
 				font = base
@@ -169,12 +175,23 @@ func get_font(spec: Dictionary) -> Font:
 		sf.font_names = PackedStringArray([fam])
 		sf.font_weight = weight
 		sf.font_italic = italic
+		sf.multichannel_signed_distance_field = true
+		sf.msdf_pixel_range = 16
+		sf.msdf_size = 64
+		sf.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+		sf.generate_mipmaps = true
 		# fallback legible si el SO no encuentra la familia
 		sf.allow_system_fallback = true
 		font = sf
 
 	if font == null:
 		font = load(BUNDLED[DEFAULT_FAMILY]) as Font
+		if font is FontFile:
+			font.multichannel_signed_distance_field = true
+			font.msdf_pixel_range = 16
+			font.msdf_size = 64
+			font.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+			font.generate_mipmaps = true
 	_font_cache[key] = font
 	return font
 

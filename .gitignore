@@ -54,3 +54,6 @@ addons/godot_mcp/cache/
 
 # Docs site build output
 docs/site/site_build/
+
+# Rust GDExtension build output
+rust/*/target/

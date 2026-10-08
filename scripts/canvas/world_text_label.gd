@@ -38,6 +38,21 @@ const META_ITALIC := "font_italic"
 ## Tamaño de fuente BASE en unidades del mundo (lo que se ve a zoom 1.0).
 @export var base_font_size: int = 24
 
+## Alias para compatibilidad con código/herramientas que acceden a font_size directamente
+var font_size: int:
+	get:
+		return base_font_size
+	set(v):
+		base_font_size = v
+		add_theme_font_size_override("font_size", v)
+		_last_eff = -1
+		_outline_dirty = true
+		_polys_baked = false
+		_layout_cache_key = ""
+		if is_inside_tree():
+			_refresh_local_rect()
+		queue_redraw()
+
 const MIN_FONT := 2
 const VECTOR_FONT := 512       # tope de raster del bitmap (fallback); el
 							   # overlay vectorial da la nitidez real a zoom alto.
@@ -51,7 +66,7 @@ const CULL_MARGIN := 400.0     # margen de culling (px mundo)
 ## Emulación de negrita/cursiva a nivel de contorno (mismo valor que usa
 ## FontCore.get_font() para el bitmap vía FontVariation.variation_embolden,
 ## así el overlay vectorial y el bitmap concuerdan).
-const BOLD_EMBOLDEN := 1.0
+const BOLD_EMBOLDEN := 0.3
 const ITALIC_SHEAR := 0.22
 
 var _last_zoom := -1.0
@@ -63,6 +78,7 @@ var _last_v_align: int = -1
 var _cached_outline: Node2D = null   # contornos VECTOR_FONT (una vez)
 var _outline_dirty := true
 var _cached_polys: Array = []        # Array[{"poly": PackedVector2Array, "run": int}]
+var _cached_strokes: Array = []      # Array[{"contours": Array[PackedVector2Array], "run": int}]
 var _cached_underlines: Array = []   # Array[{"rect": Rect2, "color": Color}]
 var _polys_baked := false   # triangulación hecha (aunque diera vacío) → no re-bakear por frame
 
@@ -82,11 +98,11 @@ func set_letter_proportions(props: Dictionary) -> void:
 	letter_proportions = props
 	_outline_dirty = true
 	_polys_baked = false
+	_cached_strokes = []
+	_cached_polys = []
+	_cached_underlines = []
 	_layout_cache_key = ""
-	if has_letter_proportions():
-		visible_ratio = 0.0
-	else:
-		visible_ratio = 1.0
+	_sync_visibility()
 	_apply_zoom(_canvas_zoom())
 	_refresh_local_rect()
 	queue_redraw()
@@ -100,6 +116,41 @@ func has_letter_proportions() -> bool:
 		if p is Dictionary and not p.is_empty() and p.has("mode") and String(p.get("mode", "")) != "":
 			return true
 	return false
+
+## Sangrías estilo Publisher (unidades de mundo, como width/height):
+## indent_left/right en todas las líneas, indent_first solo en la primera
+## de cada párrafo (negativa = francesa/hanging). Como el Label nativo no
+## sabe sangrar la primera línea, el texto sangrado se renderiza SOLO por
+## el overlay vectorial (mismo precedente que letter_proportions).
+func indent_world() -> Vector3:
+	return Vector3(
+		float(_text_meta("indent_left", 0.0)),
+		float(_text_meta("indent_right", 0.0)),
+		float(_text_meta("indent_first", 0.0))
+	)
+
+## Meta de párrafo: del label o, si no, del contenedor. _spec_source() solo
+## mira el contenedor cuando este tiene metas de FUENTE, así que en un
+## párrafo sin familia propia se ignoraban la interletra y las sangrías.
+func _text_meta(key: String, def: Variant) -> Variant:
+	if has_meta(key):
+		return get_meta(key)
+	var p := get_parent()
+	if p and p.has_meta(key):
+		return p.get_meta(key)
+	return def
+
+func has_indents() -> bool:
+	var iw := indent_world()
+	return absf(iw.x) > 0.001 or absf(iw.y) > 0.001 or absf(iw.z) > 0.001
+
+## Relee las metas de sangría y re-bakea (lo llama InspectorCore).
+func apply_indent_meta() -> void:
+	invalidate_layout()
+
+## Relee las metas de trazo/borde y re-bakea (lo llama InspectorCore).
+func apply_stroke_meta() -> void:
+	invalidate_layout()
 
 func get_effective_letter_proportions() -> Dictionary:
 	if not letter_proportions.is_empty() and letter_proportions.has("mode"):
@@ -140,13 +191,23 @@ var _layout_cache_key: String = ""
 var _layout_cache_size: Vector2 = Vector2.ZERO
 
 ## Tamaño "lógico" del texto en el mundo. Los tools cambian esto (CMD+arrastre).
+## Cambio EXPLÍCITO del usuario (no tick de zoom): salta el throttle de
+## raster, invalida el overlay vectorial y repinta en este mismo frame.
+## Sin esto, pasos <4% se tragaba el throttle y el overlay quedaba con la
+## medida vieja (texto que "no cambia" + parpadeo/desdoble a zoom alto).
 var world_font_size: int = 0:
 	set(v):
 		if v != world_font_size and v > 0:
 			world_font_size = v
 			base_font_size = v
+			_last_eff = -1
+			_outline_dirty = true
+			_polys_baked = false
+			_layout_cache_key = ""
 			if is_inside_tree():
 				_apply_zoom(_canvas_zoom())
+				_refresh_local_rect()
+			queue_redraw()
 
 static var _fallback_font: Font = null
 static var _ts: TextServer = null
@@ -171,6 +232,7 @@ func _ready() -> void:
 	_last_text = text
 	_last_zoom = 1.0
 	_apply_zoom(1.0)
+	_restore_style_from_container()
 	# CULLING GLOBAL: el CullManager barre el grupo "world_content" una vez
 	# cada 2 frames y apaga visible/process de lo no visible.
 	add_to_group("world_content")
@@ -178,6 +240,22 @@ func _ready() -> void:
 	# apaga los labels de este grupo cuando su huella en pantalla < min_screen_px
 	# (aleja el zoom con 10.000 textos y sigue a 60 FPS).
 	add_to_group("cull_subpixel")
+
+## letter_proportions / rich_runs are runtime-only vars, so Node.duplicate()
+## (copy, paste, Ctrl+D, Alt+drag) dropped them and the copy looked different.
+## The text container keeps both as metas; rebuild them from there.
+func _restore_style_from_container() -> void:
+	var p := get_parent()
+	if p == null:
+		return
+	if letter_proportions.is_empty() and p.has_meta("letter_proportions"):
+		var lp = p.get_meta("letter_proportions")
+		if lp is Dictionary and not lp.is_empty() and String(lp.get("mode", "")) != "":
+			set_letter_proportions((lp as Dictionary).duplicate(true))
+	if rich_runs.is_empty() and p.has_meta("runs"):
+		var runs = p.get_meta("runs")
+		if runs is Array and not runs.is_empty():
+			set_rich_runs((runs as Array).duplicate(true))
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
@@ -208,22 +286,116 @@ func _apply_font() -> void:
 	if fc and fc.has_method("get_font"):
 		_font = fc.get_font(fc.spec_from_node(_spec_source()))
 	# Tracking (interletra): FontVariation con spacing sobre la fuente resuelta.
-	var ls := int(_spec_source().get_meta("letter_spacing", 0))
-	if ls != 0 and _font:
-		var fv := FontVariation.new()
-		fv.base_font = _font
-		fv.spacing_glyph = ls
-		fv.spacing_space = ls
-		_font = fv
+	# spacing_glyph va en px ABSOLUTOS del tamaño rasterizado: se re-escala en
+	# cada cambio de tamaño efectivo (_update_tracking_spacing) para que en
+	# el mundo mida siempre letter_spacing, a cualquier zoom.
+	_tracking_fv = null
+	if absf(letter_spacing_world()) > 0.0001 and _font:
+		_tracking_fv = FontVariation.new()
+		_tracking_fv.base_font = _font
+		_font = _tracking_fv
+		_update_tracking_spacing(get_theme_font_size("font_size") if _last_eff < 0 else _last_eff)
 	if _font == null:
 		if _fallback_font == null:
-			_fallback_font = load(FONT_PATH) as Font
+			var fb = load(FONT_PATH)
+			if fb is FontFile:
+				fb.multichannel_signed_distance_field = true
+				fb.msdf_pixel_range = 16
+				fb.msdf_size = 64
+				fb.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+				fb.generate_mipmaps = true
+			_fallback_font = fb as Font
 		_font = _fallback_font
 	if _font:
 		add_theme_font_override("font", _font)
 
+## FontVariation de tracking de esta instancia (null sin interletra).
+var _tracking_fv: FontVariation = null
+
+## Interletra en unidades de mundo (admite fracciones).
+func letter_spacing_world() -> float:
+	return float(_text_meta("letter_spacing", 0.0))
+
+## Ajusta el spacing del bitmap al tamaño rasterizado `fs_raster`.
+func _update_tracking_spacing(fs_raster: int) -> void:
+	if _tracking_fv == null:
+		return
+	var px := int(round(letter_spacing_world() * float(maxi(1, fs_raster)) / float(maxi(1, base_font_size))))
+	if _tracking_fv.spacing_glyph != px:
+		_tracking_fv.spacing_glyph = px
+		_tracking_fv.spacing_space = px
+
+## Fuente sin la variación de tracking: para medir a cualquier tamaño se usa
+## esta + tracking escalado a mano (la variación trae px de OTRO tamaño).
+func _untracked_font() -> Font:
+	var f := get_theme_font("font")
+	if _tracking_fv != null and f == _tracking_fv:
+		return _tracking_fv.base_font
+	return f
+
+## Ancho de `s` a tamaño `fs`, con el tracking escalado a `fs`.
+func _measure(s: String, fs: int) -> float:
+	var f := _untracked_font()
+	if f == null:
+		return 0.0
+	var ls := letter_spacing_world() * float(fs) / float(maxi(1, base_font_size))
+	return f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + float(s.length()) * ls
+
+## Como _measure, pero respetando el tamaño propio de cada run (`abs_start`
+## = índice de `s` en `text`): sin esto el wrap medía todo a tamaño base y
+## los tramos grandes desbordaban el marco.
+func _measure_span(abs_start: int, s: String, fs: int) -> float:
+	if not has_sized_runs():
+		return _measure(s, fs)
+	var f := _untracked_font()
+	if f == null:
+		return 0.0
+	var runs := _effective_runs()
+	var ls := letter_spacing_world() * float(fs) / float(maxi(1, base_font_size))
+	var w := float(s.length()) * ls
+	var i := 0
+	while i < s.length():
+		var ri := _run_index_for_char(runs, abs_start + i)
+		var run_end := 0
+		for k in ri + 1:
+			run_end += int(runs[k].get("length", 0))
+		var seg_len := clampi(run_end - (abs_start + i), 1, s.length() - i)
+		var cfs := _sized_char_fs(runs, abs_start + i, fs)
+		w += f.get_string_size(s.substr(i, seg_len), HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x
+		i += seg_len
+	return w
+
+## Tamaño de fuente que manda en una línea (el mayor de sus runs): la altura
+## de línea crece con el tramo más grande en vez de solaparse.
+func _line_fs(line: Dictionary, fs: int) -> int:
+	if not has_sized_runs():
+		return fs
+	var runs := _effective_runs()
+	var start := int(line.get("start", 0))
+	var mx := fs if String(line.get("text", "")).is_empty() else 0
+	for i in String(line.get("text", "")).length():
+		mx = maxi(mx, _sized_char_fs(runs, start + i, fs))
+	return maxi(mx, 1)
+
+## Invalida layout + overlay vectorial y re-bakea (interlineado, sangrías,
+## trazo… cualquier meta que cambie la geometría del texto).
+func invalidate_layout() -> void:
+	_outline_dirty = true
+	_polys_baked = false
+	_cached_strokes = []
+	_cached_polys = []
+	_cached_underlines = []
+	_layout_cache_key = ""
+	_sync_visibility()
+	_apply_zoom(_canvas_zoom())
+	_refresh_local_rect()
+	queue_redraw()
+
 ## Llamado por InspectorCore / el panel de texto cuando cambia la familia.
 func apply_font_from_meta() -> void:
+	# Los contornos del overlay vectorial salen de estos bytes: sin vaciarlos,
+	# a zoom alto (o con runs/trazo/sangría) seguía la familia ANTERIOR.
+	_outline_bytes_cache = PackedByteArray()
 	_apply_font()
 	_outline_dirty = true
 	_polys_baked = false
@@ -239,6 +411,13 @@ func set_rich_runs(runs: Array) -> void:
 	rich_runs = runs
 	_outline_dirty = true
 	_polys_baked = false
+	_cached_strokes = []
+	_cached_polys = []
+	_cached_underlines = []
+	_layout_cache_key = ""
+	_sync_visibility()
+	_apply_zoom(_canvas_zoom())
+	_refresh_local_rect()
 	queue_redraw()
 
 func _process(_delta: float) -> void:
@@ -263,10 +442,10 @@ func _sync_layout_if_content_changed() -> void:
 	_last_v_align = vertical_alignment
 	_outline_dirty = true
 	_polys_baked = false
-	if has_letter_proportions():
-		visible_ratio = 0.0
-	else:
-		visible_ratio = 1.0
+	_cached_strokes = []
+	_cached_polys = []
+	_cached_underlines = []
+	_sync_visibility()
 	_refresh_local_rect()
 	queue_redraw()
 
@@ -317,7 +496,7 @@ func _apply_zoom(z: float) -> void:
 		return
 	_last_zoom = z
 	var eff: int
-	if z >= ZOOM_VECTOR_MIN or has_letter_proportions():
+	if z >= ZOOM_VECTOR_MIN or is_vector_override_active():
 		# A partir de aquí o con proporciones activas: el overlay vectorial mantiene la nitidez.
 		# El bitmap queda FIJO en VECTOR_FONT (1 sola rasterización).
 		eff = VECTOR_FONT
@@ -333,6 +512,7 @@ func _apply_zoom(z: float) -> void:
 	if _last_eff >= 0 and absf(float(eff - _last_eff)) / maxf(1.0, eff) < RASTER_THROTTLE and eff < VECTOR_FONT:
 		return
 	_last_eff = eff
+	_update_tracking_spacing(eff)
 	add_theme_font_size_override("font_size", eff)
 	var comp := base_font_size / float(eff)
 	scale = Vector2(comp, comp)
@@ -378,28 +558,82 @@ func set_world_size(ws: Vector2) -> void:
 	set_meta(WORLD_SIZE_META, ws)
 	_refresh_local_rect()
 
-## Mínimo del contenido en unidades de mundo (pregunta a la implementación
-## nativa del Label: fuente base, escala 1, rect en mundo). Robusto con wrap.
-func get_world_minimum_size() -> Vector2:
-	var save_fs: int = get_theme_font_size("font_size")
-	var save_scale := scale
-	var save_size := size
-	add_theme_font_size_override("font_size", maxi(1, base_font_size))
-	scale = Vector2.ONE
-	if has_meta(WORLD_SIZE_META) or _world_size != Vector2.ZERO:
-		size = get_meta(WORLD_SIZE_META, _world_size)
-	else:
-		size = Vector2.ZERO
-	var m := get_combined_minimum_size()
-	add_theme_font_size_override("font_size", save_fs)
-	scale = save_scale
-	size = save_size
-	return m
+## Mínimo del contenido en unidades de mundo (medición directa sin depender
+## de si el Label está visible o en el árbol, compatible con runs y autowrap).
+func get_world_minimum_size(custom_text: String = "") -> Vector2:
+	var body := custom_text if custom_text != "" else text
+	if body.is_empty():
+		var fs_empty := maxi(1, base_font_size)
+		var f_empty := get_theme_font("font")
+		var h_empty := float(f_empty.get_height(fs_empty)) if f_empty else float(fs_empty)
+		return Vector2(20.0, maxf(24.0, h_empty))
+
+	var font := get_theme_font("font")
+	var fs_base := maxi(1, base_font_size)
+
+	# 1. Si es autowrap (Párrafo envuelto en marco rectangular)
+	if autowrap_mode != TextServer.AUTOWRAP_OFF:
+		var fw := 0.0
+		if has_meta(WORLD_SIZE_META):
+			fw = (get_meta(WORLD_SIZE_META) as Vector2).x
+		elif _world_size != Vector2.ZERO:
+			fw = _world_size.x
+		else:
+			var p := get_parent()
+			if p and p.has_meta("width"):
+				fw = float(p.get_meta("width"))
+		var wh := wrapped_content_height(body)
+		return Vector2(maxf(20.0, fw), maxf(24.0, wh))
+
+	# 2. Si es texto de línea única / título (sin autowrap)
+	if font == null:
+		return Vector2(float(body.length()) * float(fs_base) * 0.65, float(fs_base) * 1.25)
+
+	var eff_runs: Array = _effective_runs()
+	var has_custom_sizes := false
+	for r in eff_runs:
+		if r is Dictionary and r.has("size") and not is_equal_approx(float(r["size"]), float(fs_base)):
+			has_custom_sizes = true
+			break
+
+	if not has_custom_sizes:
+		var sz := font.get_multiline_string_size(body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs_base)
+		var h := maxf(sz.y, float(font.get_height(fs_base)))
+		return Vector2(sz.x, h)
+
+	# Medir por segmentos de runs si tienen tamaños de fuente diferentes
+	var total_w := 0.0
+	var max_h := float(font.get_height(fs_base))
+	var pos := 0
+	for r in eff_runs:
+		if not (r is Dictionary):
+			continue
+		var r_len: int = int(r.get("length", 0))
+		if pos >= body.length():
+			break
+		var actual_len: int = mini(r_len, body.length() - pos)
+		if actual_len <= 0:
+			continue
+		var slice: String = body.substr(pos, actual_len)
+		var r_fs: int = int(round(float(r.get("size", fs_base))))
+		r_fs = maxi(1, r_fs)
+		var sz := font.get_string_size(slice, HORIZONTAL_ALIGNMENT_LEFT, -1, r_fs)
+		total_w += sz.x
+		max_h = maxf(max_h, float(font.get_height(r_fs)))
+		pos += actual_len
+
+	if pos < body.length():
+		var rest := body.substr(pos)
+		var sz := font.get_string_size(rest, HORIZONTAL_ALIGNMENT_LEFT, -1, fs_base)
+		total_w += sz.x
+		max_h = maxf(max_h, float(font.get_height(fs_base)))
+
+	return Vector2(maxf(total_w, 20.0), maxf(max_h, 24.0))
 
 # ------------------------------------------------------------------ drawing
 func _draw() -> void:
-	# El bitmap del Label siempre visible por debajo (garantía), salvo si hay proporciones activas
-	if _last_zoom < ZOOM_VECTOR_MIN and not has_letter_proportions():
+	# El bitmap del Label siempre visible por debajo (garantía), salvo si el régimen vectorial está activo
+	if _last_zoom < ZOOM_VECTOR_MIN and not is_vector_override_active():
 		return
 	# No pagar el bake de contornos para labels fuera de pantalla.
 	if not _is_visible_in_view():
@@ -415,17 +649,45 @@ func _draw() -> void:
 			queue_redraw()
 			return
 		_bakes_this_frame += 1
-	var entries := _get_triangle_polys()
-	if entries.is_empty():
-		return
+
 	var runs := _effective_runs()
-	var default_col := font_color()
-	for e in entries:
-		var run_idx: int = e.get("run", 0)
-		var col: Color = default_col
-		if run_idx >= 0 and run_idx < runs.size():
-			col = runs[run_idx].get("color", default_col)
-		draw_colored_polygon(e["poly"], col)
+
+	# 1. Dibujar trazo (stroke) detrás del relleno para mantener legibilidad perfecta de la fuente
+	if has_stroke():
+		var base_scale := float(VECTOR_FONT) / float(maxi(1, base_font_size))
+		var def_sw := stroke_width() * base_scale
+		var def_sc := stroke_color()
+		for s in _get_stroke_polys():
+			var run_idx: int = s.get("run", 0)
+			var sw := def_sw
+			var sc := def_sc
+			if run_idx >= 0 and run_idx < runs.size():
+				var r: Dictionary = runs[run_idx]
+				if r.has("stroke_width"):
+					sw = float(r["stroke_width"]) * base_scale
+				if r.has("stroke_color"):
+					sc = r["stroke_color"]
+			if sw > 0.001 and sc.a > 0.001:
+				for contour in s.get("contours", []):
+					var ring: PackedVector2Array = contour
+					if ring.size() >= 2:
+						if not ring[0].is_equal_approx(ring[-1]):
+							ring = PackedVector2Array(ring)
+							ring.append(ring[0])
+						draw_polyline(ring, sc, sw, true)
+
+	# 2. Dibujar relleno con color por run
+	var entries := _get_triangle_polys()
+	if not entries.is_empty():
+		var default_col := font_color()
+		for e in entries:
+			var run_idx: int = e.get("run", 0)
+			var col: Color = default_col
+			if run_idx >= 0 and run_idx < runs.size():
+				col = runs[run_idx].get("color", default_col)
+			draw_colored_polygon(e["poly"], col)
+
+	# 3. Dibujar subrayados
 	for u in _cached_underlines:
 		draw_rect(u["rect"], u["color"])
 
@@ -438,7 +700,411 @@ func font_color() -> Color:
 		c = Color.BLACK
 	return c
 
+func font_weight() -> int:
+	var src := _spec_source()
+	if src and src.has_meta(META_WEIGHT):
+		return int(src.get_meta(META_WEIGHT))
+	return 400
+
+func font_italic() -> bool:
+	var src := _spec_source()
+	if src and src.has_meta(META_ITALIC):
+		return bool(src.get_meta(META_ITALIC))
+	return false
+
+func stroke_width() -> float:
+	var src := _spec_source()
+	if src:
+		if src.has_meta("stroke_width"):
+			return maxf(0.0, float(src.get_meta("stroke_width")))
+		if src.has_meta("text_outline"):
+			return maxf(0.0, float(src.get_meta("text_outline")))
+	if has_theme_constant_override("outline_size"):
+		return maxf(0.0, float(get_theme_constant("outline_size")))
+	return 0.0
+
+func stroke_color() -> Color:
+	var src := _spec_source()
+	if src:
+		if src.has_meta("stroke_color"):
+			return src.get_meta("stroke_color")
+		if src.has_meta("text_outline_color"):
+			return src.get_meta("text_outline_color")
+	if has_theme_color_override("font_outline_color"):
+		return get_theme_color("font_outline_color")
+	return Color.BLACK
+
+func has_stroke() -> bool:
+	if stroke_width() > 0.001:
+		return true
+	for r in _effective_runs():
+		if float(r.get("stroke_width", 0.0)) > 0.001:
+			return true
+	return false
+
+func has_rich_runs() -> bool:
+	var runs := _effective_runs()
+	if runs.size() > 1:
+		return true
+	if runs.size() == 1:
+		var r: Dictionary = runs[0]
+		if r.has("color") and not (r["color"] as Color).is_equal_approx(font_color()):
+			return true
+		if float(r.get("stroke_width", 0.0)) > 0.001:
+			return true
+		if float(r.get("size", 0.0)) > 0.0 and int(round(r.get("size", 0.0))) != base_font_size:
+			return true
+		if bool(r.get("bold", false)) != (font_weight() >= 700):
+			return true
+		if bool(r.get("italic", false)) != font_italic():
+			return true
+		if bool(r.get("underline", false)):
+			return true
+	return false
+
+func is_vector_override_active() -> bool:
+	return has_letter_proportions() or has_indents() or has_sized_runs() or has_rich_runs() or has_stroke()
+
+func _sync_visibility() -> void:
+	if is_vector_override_active():
+		visible_ratio = 0.0
+	else:
+		visible_ratio = 1.0
+
 # ------------------------------------------------------------------ rich runs
+## Motor de runs COMPARTIDO (BBCode avanzado): lo usan TextTool, el panel de
+## párrafo e InspectorCore para no triplicar la lógica de rangos.
+static func runs_of(shape: Node2D, text_len: int) -> Array:
+	var runs: Array = shape.get_meta("runs", [])
+	var total := 0
+	for r in runs:
+		total += int(r.get("length", 0))
+	if not runs.is_empty() and total == text_len:
+		return runs
+	var def_sw: float = float(shape.get_meta("stroke_width", shape.get_meta("text_outline", 0.0)))
+	var def_sc: Color = shape.get_meta("stroke_color", shape.get_meta("text_outline_color", Color.BLACK))
+	return [{
+		"length": text_len,
+		"color": shape.get_meta("text_color", Color.BLACK),
+		"stroke_color": def_sc,
+		"stroke_width": def_sw,
+		"bold": int(shape.get_meta("font_weight", 400)) >= 700,
+		"italic": bool(shape.get_meta("font_italic", false)),
+		"underline": false,
+	}]
+
+static func split_runs(runs: Array, cuts: Array) -> Array:
+	var out: Array = []
+	var pos := 0
+	for r in runs:
+		var len_: int = int(r.get("length", 0))
+		var pts: Array = [pos, pos + len_]
+		for c in cuts:
+			if c > pos and c < pos + len_:
+				pts.append(c)
+		pts.sort()
+		for i in range(pts.size() - 1):
+			if int(pts[i + 1]) > int(pts[i]):
+				var nr: Dictionary = (r as Dictionary).duplicate()
+				nr["length"] = int(pts[i + 1]) - int(pts[i])
+				out.append(nr)
+		pos += len_
+	return out
+
+static func merge_runs(runs: Array) -> Array:
+	var out: Array = []
+	for r in runs:
+		if not out.is_empty():
+			var last: Dictionary = out[out.size() - 1]
+			var same_col: bool = (last.get("color", Color.BLACK) as Color).is_equal_approx(r.get("color", Color.BLACK))
+			var same_sc: bool = (last.get("stroke_color", Color.BLACK) as Color).is_equal_approx(r.get("stroke_color", Color.BLACK))
+			var same_sw: bool = is_equal_approx(float(last.get("stroke_width", 0.0)), float(r.get("stroke_width", 0.0)))
+			if same_col and same_sc and same_sw \
+					and bool(last.get("bold", false)) == bool(r.get("bold", false)) \
+					and bool(last.get("italic", false)) == bool(r.get("italic", false)) \
+					and bool(last.get("underline", false)) == bool(r.get("underline", false)) \
+					and float(last.get("size", 0.0)) == float(r.get("size", 0.0)):
+				last["length"] = int(last["length"]) + int(r.get("length", 0))
+				continue
+		out.append((r as Dictionary).duplicate())
+	return out
+
+## Garantiza el editor en línea del contenedor de texto (MultiLineEdit para
+## párrafos, TitleEdit para títulos) y el autowrap del párrafo. Los textos
+## cargados de un .vectopen / pegados solo traían el DisplayLabel: sin
+## extensión VectorRichText, entrar a editar ocultaba el texto sin editor y
+## al confirmar el párrafo quedaba como "Texto de párrafo vacío.".
+static func ensure_inline_editor(shape: Node2D) -> TextEdit:
+	if not is_instance_valid(shape):
+		return null
+	var is_para := String(shape.get_meta("shape_type", "")) == "text_paragraph"
+	var dl := shape.get_node_or_null("DisplayLabel") as Label
+	if is_para and dl and dl.autowrap_mode == TextServer.AUTOWRAP_OFF:
+		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var ed_name := "MultiLineEdit" if is_para else "TitleEdit"
+	var ed := shape.get_node_or_null(ed_name) as TextEdit
+	if ed:
+		return ed
+	var sz := Vector2(float(shape.get_meta("width", 350.0 if is_para else 250.0)),
+			float(shape.get_meta("height", 100.0 if is_para else 40.0)))
+	var fs := int(shape.get_meta("font_size", 24))
+	ed = TextEdit.new()
+	ed.name = ed_name
+	ed.visible = false
+	ed.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY if is_para else TextEdit.LINE_WRAPPING_NONE
+	ed.custom_minimum_size = sz
+	ed.size = sz
+	ed.text = str(shape.get_meta("text", ""))
+	ed.add_theme_color_override("font_color", shape.get_meta("text_color", Color.BLACK))
+	ed.add_theme_font_size_override("font_size", fs)
+	shape.add_child(ed)
+	return ed
+
+## [shape, editor, start, end] del texto EN EDICIÓN con selección no vacía
+## (título o párrafo). Vacío si no hay: el estilo va al bloque entero.
+static func editing_range(tree: SceneTree) -> Array:
+	if tree == null:
+		return []
+	var canvas = tree.get_first_node_in_group("_vectopen_canvas")
+	if canvas == null or not ("current_tool" in canvas):
+		return []
+	var t = canvas.current_tool
+	if t == null:
+		return []
+	var flag = t.get("is_editing") if t != null else null
+	if flag == null or not bool(flag):
+		return []
+	var shape: Node2D = t.get("current_editing_shape")
+	if not is_instance_valid(shape):
+		return []
+	var ed: TextEdit = shape.get_node_or_null("TitleEdit")
+	if ed == null:
+		ed = shape.get_node_or_null("MultiLineEdit")
+	if ed == null or not ed.visible:
+		return []
+	var sel = sel_range(ed)
+	if sel == null or int(sel["end"]) <= int(sel["start"]):
+		return []
+	return [shape, ed, int(sel["start"]), int(sel["end"])]
+
+## Rango [start,end) de la selección del editor, en offsets planos. null sin selección.
+static func sel_range(ed: TextEdit) -> Variant:
+	if ed == null or not ed.has_selection():
+		return null
+	var a := _flat_off(ed, ed.get_selection_from_line(), ed.get_selection_from_column())
+	var b := _flat_off(ed, ed.get_selection_to_line(), ed.get_selection_to_column())
+	return {"start": mini(a, b), "end": maxi(a, b)}
+
+static func _flat_off(ed: TextEdit, line: int, column: int) -> int:
+	var off := 0
+	for l in line:
+		off += ed.get_line(l).length() + 1
+	return off + column
+
+## Aplica `mutator` al rango y lo guarda en el shape + refresca el label.
+## Devuelve true si aplicó algo.
+static func apply_range(shape: Node2D, label: Control, ed_text_len: int, start: int, end: int, mutator: Callable) -> bool:
+	if not is_instance_valid(shape) or start >= end:
+		return false
+	var runs := split_runs(runs_of(shape, ed_text_len), [start, end])
+	var out: Array = []
+	var pos := 0
+	for r in runs:
+		var len_: int = int(r.get("length", 0))
+		if pos >= start and pos < end:
+			out.append(mutator.call((r as Dictionary).duplicate()))
+		else:
+			out.append(r)
+		pos += len_
+	out = merge_runs(out)
+	shape.set_meta("runs", out)
+	if label and label.has_method("set_rich_runs"):
+		label.set_rich_runs(out)
+	return true
+
+## Reajusta `runs` a `new_len` (recorta/extiende por el final).
+static func resize_runs(shape: Node2D, new_len: int) -> void:
+	var runs: Array = shape.get_meta("runs", [])
+	if runs.is_empty():
+		return
+	var total := 0
+	for r in runs:
+		total += int(r.get("length", 0))
+	if total == new_len:
+		return
+	var out: Array = []
+	var acc := 0
+	for r in runs:
+		var len_: int = int(r.get("length", 0))
+		if acc >= new_len:
+			break
+		var take: int = mini(len_, new_len - acc)
+		if take > 0:
+			var nr: Dictionary = (r as Dictionary).duplicate()
+			nr["length"] = take
+			out.append(nr)
+			acc += take
+	if acc < new_len and not out.is_empty():
+		out[out.size() - 1]["length"] = int(out[out.size() - 1]["length"]) + (new_len - acc)
+	shape.set_meta("runs", out)
+
+## Ajusta `runs` a una edición old_text → new_text SEGÚN LA POSICIÓN del
+## cambio (prefijo/sufijo común): lo borrado sale de su run y lo insertado
+## hereda el estilo del carácter anterior. resize_runs recortaba siempre por
+## el final, así que escribir al principio desplazaba toda la negrita/color.
+## Devuelve [] si `runs` no cubre exactamente old_text (el llamador decide).
+static func edit_runs(runs: Array, old_text: String, new_text: String) -> Array:
+	var total := 0
+	for r in runs:
+		total += int(r.get("length", 0))
+	if runs.is_empty() or total != old_text.length():
+		return []
+	var ol := old_text.length()
+	var nl := new_text.length()
+	var p := 0
+	while p < ol and p < nl and old_text.unicode_at(p) == new_text.unicode_at(p):
+		p += 1
+	var sfx := 0
+	while sfx < ol - p and sfx < nl - p and old_text.unicode_at(ol - 1 - sfx) == new_text.unicode_at(nl - 1 - sfx):
+		sfx += 1
+	var del_end := ol - sfx
+	var ins_len := nl - p - sfx
+	# Estilo heredado: el del carácter anterior al cambio (o el primero).
+	var acc := 0
+	var style: Dictionary = runs[0]
+	for r in runs:
+		var l := int(r.get("length", 0))
+		if l > 0 and (p == 0 or p - 1 < acc + l):
+			style = r
+			break
+		acc += l
+	var out: Array = []
+	var pos := 0
+	var inserted := false
+	for r in split_runs(runs, [p, del_end]):
+		var l := int(r.get("length", 0))
+		if pos == p and not inserted and ins_len > 0:
+			var nr: Dictionary = (style as Dictionary).duplicate()
+			nr["length"] = ins_len
+			out.append(nr)
+			inserted = true
+		if pos < p or pos >= del_end:
+			out.append(r)
+		pos += l
+	if not inserted and ins_len > 0:
+		var nr: Dictionary = (style as Dictionary).duplicate()
+		nr["length"] = ins_len
+		out.append(nr)
+	return merge_runs(out)
+
+## Aplica edit_runs a las metas del shape (con resize_runs de respaldo).
+static func apply_text_edit(shape: Node2D, old_text: String, new_text: String) -> void:
+	var runs: Array = shape.get_meta("runs", [])
+	if runs.is_empty():
+		return
+	var out := edit_runs(runs, old_text, new_text)
+	if out.is_empty() and not new_text.is_empty():
+		resize_runs(shape, new_text.length())
+	else:
+		shape.set_meta("runs", out)
+
+## Foto del estado editable de un texto (para undo de la edición de
+## contenido / tamaño). En una cadena de marcos guarda la historia completa.
+static func capture_text_state(shape: Node2D) -> Dictionary:
+	var st := {
+		"text": String(shape.get_meta("text", "")),
+		"runs": (shape.get_meta("runs", []) as Array).duplicate(true),
+		"font_size": int(shape.get_meta("font_size", 24)),
+		"width": shape.get_meta("width", null),
+		"height": shape.get_meta("height", null),
+	}
+	if shape.has_meta("next_paragraph") or shape.has_meta("prev_paragraph"):
+		var head := ParagraphThreading.get_chain_head(shape)
+		st["story_head"] = weakref(head)
+		st["story"] = String(head.get_meta("raw_story_text", head.get_meta("text", "")))
+	return st
+
+static func same_text_state(a: Dictionary, b: Dictionary) -> bool:
+	return a.get("text") == b.get("text") and a.get("story", "") == b.get("story", "") \
+			and a.get("font_size") == b.get("font_size") and var_to_str(a.get("runs")) == var_to_str(b.get("runs"))
+
+## Restaura una foto de capture_text_state en metas, label, editor y VRT.
+static func restore_text_state(shape: Node2D, st: Dictionary) -> void:
+	if not is_instance_valid(shape):
+		return
+	var fs := int(st.get("font_size", 24))
+	shape.set_meta("font_size", fs)
+	shape.set_meta("runs", (st.get("runs", []) as Array).duplicate(true))
+	if st.get("width") != null: shape.set_meta("width", st["width"])
+	if st.get("height") != null: shape.set_meta("height", st["height"])
+	var dl := shape.get_node_or_null("DisplayLabel")
+	if dl is WorldTextLabel:
+		dl.world_font_size = fs
+	var head_ref = st.get("story_head")
+	var head: Node2D = head_ref.get_ref() if head_ref is WeakRef else null
+	if is_instance_valid(head):
+		head.set_meta("raw_story_text", String(st.get("story", "")))
+		ParagraphThreading.reflow_chain(head)
+	else:
+		var t := String(st.get("text", ""))
+		shape.set_meta("text", t)
+		if dl and "text" in dl:
+			dl.text = t
+		var vrt = shape.get_node_or_null("VectorRichText")
+		if vrt:
+			vrt.set_text(t)
+	if dl is WorldTextLabel:
+		dl.set_rich_runs(shape.get_meta("runs", []))
+		if st.get("width") != null and st.get("height") != null:
+			dl.set_world_size(Vector2(float(st["width"]), float(st["height"])))
+	var sz := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
+	for ed_name in ["MultiLineEdit", "TitleEdit"]:
+		var ed := shape.get_node_or_null(ed_name) as TextEdit
+		if ed:
+			ed.text = String(shape.get_meta("text", ""))
+			ed.add_theme_font_size_override("font_size", fs)
+			if sz.x > 0.0 and sz.y > 0.0:
+				ed.custom_minimum_size = sz
+				ed.size = sz
+	var ge := shape.get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_method("emit_safe"):
+		ge.emit_safe("object_transformed")
+
+## Registra en HistoryManager el paso before → estado actual (si cambió).
+## El cambio YA está aplicado (este HistoryManager no ejecuta al commit).
+static func register_text_undo(shape: Node2D, before: Dictionary, action_name: String) -> void:
+	if not is_instance_valid(shape) or before.is_empty():
+		return
+	var after := capture_text_state(shape)
+	if same_text_state(before, after):
+		return
+	var hm := shape.get_node_or_null("/root/HistoryManager")
+	if hm == null or not hm.has_method("register_action"):
+		return
+	hm.register_action(action_name)
+	hm.add_do(func() -> void: restore_text_state(shape, after))
+	hm.add_undo(func() -> void: restore_text_state(shape, before))
+	hm.commit()
+
+## ¿Algún run trae tamaño propio? Entonces el bitmap nativo no sirve
+## (no sabe tamaños por rango) y manda el overlay, como con proporciones.
+func has_sized_runs() -> bool:
+	for r in _effective_runs():
+		if float(r.get("size", 0.0)) > 0.0:
+			return true
+	return false
+
+## Tamaño de glifo con factor del run (size absoluta en mundo / base).
+func _sized_char_fs(runs: Array, char_idx: int, char_fs: int) -> int:
+	if runs.is_empty():
+		return char_fs
+	var ri := _run_index_for_char(runs, char_idx)
+	var rr: Dictionary = runs[ri] if ri < runs.size() else runs[0]
+	var sz := float(rr.get("size", 0.0))
+	if sz > 0.0:
+		return maxi(2, int(round(float(char_fs) * sz / float(maxi(1, base_font_size)))))
+	return char_fs
+
 ## Normaliza `rich_runs`: si está vacío o no cubre exactamente `text.length()`
 ## caracteres, cae a un único run "legacy" con el estilo de tema/meta del
 ## label completo (compatibilidad con textos sin formato por rango).
@@ -449,11 +1115,22 @@ func _effective_runs() -> Array:
 	if not rich_runs.is_empty() and total == text.length():
 		return rich_runs
 	var src := _spec_source()
+	if src and src != self and src.has_meta("runs"):
+		var p_runs = src.get_meta("runs")
+		if p_runs is Array and not p_runs.is_empty():
+			var p_total := 0
+			for pr in p_runs:
+				p_total += int(pr.get("length", 0))
+			if p_total == text.length():
+				rich_runs = (p_runs as Array).duplicate(true)
+				return rich_runs
 	return [{
 		"length": text.length(),
 		"color": font_color(),
-		"bold": int(src.get_meta("font_weight", 400)) >= 700,
-		"italic": bool(src.get_meta("font_italic", false)),
+		"stroke_color": stroke_color(),
+		"stroke_width": stroke_width(),
+		"bold": font_weight() >= 700,
+		"italic": font_italic(),
 		"underline": false,
 	}]
 
@@ -480,30 +1157,31 @@ func _get_outline() -> Node2D:
 		_cached_outline = null
 	_cached_outline = _build_outline_at(VECTOR_FONT)
 	_cached_polys = []
+	_cached_strokes = []
 	_cached_underlines = []
 	_polys_baked = false
 	return _cached_outline
 
+func _get_stroke_polys() -> Array:
+	if not _polys_baked:
+		_bake_glyph_data()
+	return _cached_strokes
+
 func _get_triangle_polys() -> Array:
-	# Bake una sola vez: si la triangulación de un glifo da vacío NO se debe
-	# reintentar cada frame (era el 2º origen del cuello de botella a zoom alto).
-	if _polys_baked:
-		return _cached_polys
-	var outline := _get_outline()
-	if outline == null:
-		return _cached_polys
-	_cached_polys = _triangulate_by_glyph(outline)
-	_cached_underlines = _build_underlines(outline)
-	_polys_baked = true
+	if not _polys_baked:
+		_bake_glyph_data()
 	return _cached_polys
 
-## Triangula CADA GLIFO por separado (antes: un único "outer+holes" global
-## para TODO el label, que solo dejaba visible el glifo con el contorno más
-## grande y descartaba el resto — roto para cualquier texto de 2+ letras con
-## algún hueco tipo O/A/B/8 de por medio). Cada entrada queda etiquetada con
-## el run al que pertenece su glifo, para colorear por rango en _draw().
-func _triangulate_by_glyph(outline: Node2D) -> Array:
-	var out: Array = []
+## Hornea contornos para trazo, mallas trianguladas para relleno y subrayados
+## en una única pasada sobre el árbol de glifos.
+func _bake_glyph_data() -> void:
+	if _polys_baked:
+		return
+	var outline := _get_outline()
+	if outline == null:
+		return
+	_cached_polys = []
+	_cached_strokes = []
 	for glyph_node in outline.get_children():
 		if not (glyph_node is Node2D):
 			continue
@@ -511,9 +1189,11 @@ func _triangulate_by_glyph(outline: Node2D) -> Array:
 		if contours.is_empty():
 			continue
 		var run_idx := int(glyph_node.get_meta("run_index", 0))
+		_cached_strokes.append({"contours": contours, "run": run_idx})
 		for poly in _triangulate_contours(contours):
-			out.append({"poly": poly, "run": run_idx})
-	return out
+			_cached_polys.append({"poly": poly, "run": run_idx})
+	_cached_underlines = _build_underlines(outline)
+	_polys_baked = true
 
 ## Agrupa glifos consecutivos (mismo run + misma línea) en segmentos de
 ## subrayado. Aproximación tipográfica razonable (no lee métricas exactas de
@@ -525,10 +1205,13 @@ func _build_underlines(outline: Node2D) -> Array:
 	# lambda que lea estas variables — en GDScript un lambda captura las
 	# locales POR VALOR (una copia congelada al crear el lambda), así que
 	# nunca vería las actualizaciones del bucle. Se hace en línea, dos veces.
+	# Grosor y desplazamiento según el MAYOR tamaño de glifo del segmento
+	# (antes fijos a VECTOR_FONT: mal en runs con tamaño propio).
 	var cur_run := -1
 	var cur_line := 0.0
 	var cur_x0 := 0.0
 	var cur_x1 := 0.0
+	var cur_fs := VECTOR_FONT
 	var has_pending := false
 
 	for glyph_node in outline.get_children():
@@ -538,12 +1221,14 @@ func _build_underlines(outline: Node2D) -> Array:
 		var line_y := float(glyph_node.get_meta("baseline_y", 0.0))
 		var x0 := float(glyph_node.get_meta("x0", 0.0))
 		var x1 := float(glyph_node.get_meta("x1", x0))
+		var gfs := int(glyph_node.get_meta("char_fs", VECTOR_FONT))
 		if has_pending and run_idx == cur_run and is_equal_approx(line_y, cur_line):
 			cur_x1 = x1
+			cur_fs = maxi(cur_fs, gfs)
 			continue
 		if has_pending and cur_run >= 0 and cur_run < runs.size() and bool(runs[cur_run].get("underline", false)):
-			var thickness: float = maxf(1.0, VECTOR_FONT * 0.05)
-			var y: float = cur_line + VECTOR_FONT * 0.12
+			var thickness: float = maxf(1.0, cur_fs * 0.05)
+			var y: float = cur_line + cur_fs * 0.12
 			segs.append({
 				"rect": Rect2(cur_x0, y, cur_x1 - cur_x0, thickness),
 				"color": runs[cur_run].get("color", Color.BLACK),
@@ -552,10 +1237,11 @@ func _build_underlines(outline: Node2D) -> Array:
 		cur_line = line_y
 		cur_x0 = x0
 		cur_x1 = x1
+		cur_fs = gfs
 		has_pending = true
 	if has_pending and cur_run >= 0 and cur_run < runs.size() and bool(runs[cur_run].get("underline", false)):
-		var thickness: float = maxf(1.0, VECTOR_FONT * 0.05)
-		var y: float = cur_line + VECTOR_FONT * 0.12
+		var thickness: float = maxf(1.0, cur_fs * 0.05)
+		var y: float = cur_line + cur_fs * 0.12
 		segs.append({
 			"rect": Rect2(cur_x0, y, cur_x1 - cur_x0, thickness),
 			"color": runs[cur_run].get("color", Color.BLACK),
@@ -720,7 +1406,12 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var wrap_limit := 0.0
 	if autowrap_mode != TextServer.AUTOWRAP_OFF and box_w > 0.0:
 		wrap_limit = box_w
-	var lines := _wrap_lines(font, fs, wrap_limit)
+	# Sangrías (px en escala fs): reducen la columna y desplazan la 1ª línea.
+	var iw := indent_world()
+	var ind_l := maxf(0.0, iw.x) * font_scale
+	var ind_r := maxf(0.0, iw.y) * font_scale
+	var ind_f := iw.z * font_scale
+	var lines := _wrap_lines(font, fs, wrap_limit, ind_l, ind_r, ind_f)
 
 	# RID por combinación de estilo (regular/negrita/cursiva), creados bajo
 	# demanda y liberados todos al terminar — evita crear 1 RID por glifo.
@@ -734,49 +1425,71 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var s_mid2 := float(prop.get("mid2", s_mid))
 	var s_end := float(prop.get("end", 1.0))
 	var total_chars := maxi(1, text.length())
-	var ls: float = float(_spec_source().get_meta("letter_spacing", 0)) * font_scale
+	var ls: float = letter_spacing_world() * font_scale
 
-	var line_height: float = font.get_height(fs)
+	# Altura por línea: la manda su run más grande (antes todas medían fs y
+	# los tramos con tamaño propio se solapaban con la línea siguiente).
+	var sized := has_sized_runs()
 	var ls_extra: float = float(get_theme_constant("line_spacing")) * font_scale
-	var advance_y: float = line_height + ls_extra
-	var total_text_h: float = float(lines.size()) * line_height + maxf(0.0, float(lines.size() - 1)) * ls_extra
-	var base_ascent: float = font.get_ascent(fs)
-	var y_offset: float = base_ascent
+	var line_fss: Array[int] = []
+	var total_text_h: float = maxf(0.0, float(lines.size() - 1)) * ls_extra
+	for line in lines:
+		var lf := _line_fs(line, fs) if sized else fs
+		line_fss.append(lf)
+		total_text_h += font.get_height(lf)
+	var y_top := 0.0
 	if box_h > total_text_h:
 		match vertical_alignment:
 			VERTICAL_ALIGNMENT_CENTER:
-				y_offset = base_ascent + (box_h - total_text_h) * 0.5
+				y_top = (box_h - total_text_h) * 0.5
 			VERTICAL_ALIGNMENT_BOTTOM:
-				y_offset = base_ascent + (box_h - total_text_h)
-			_:
-				y_offset = base_ascent
+				y_top = box_h - total_text_h
 
-	for line in lines:
+	for li in lines.size():
+		var line: Dictionary = lines[li]
 		var line_text: String = line["text"]
 		var line_start: int = line["start"]
+		var y_offset: float = y_top + font.get_ascent(line_fss[li])
 		var line_w := 0.0
-		if has_prop:
+		if has_prop or sized:
 			var rid_measure: RID = _get_rid_for_style(ts, base_bytes, rid_cache, false, false)
 			for j in line_text.length():
 				var c_idx := line_start + j
 				var t_j := float(c_idx) / maxf(1.0, float(total_chars - 1))
-				var s_j := _calculate_glyph_scale(prop_mode, t_j, s_start, s_mid, s_mid2, s_end)
+				var s_j := _calculate_glyph_scale(prop_mode, t_j, s_start, s_mid, s_mid2, s_end) if has_prop else 1.0
 				var c_fs := maxi(2, int(round(fs * s_j)))
+				c_fs = _sized_char_fs(runs, c_idx, c_fs)
 				var cp := line_text.unicode_at(j)
 				var gl := ts.font_get_glyph_index(rid_measure, c_fs, cp, 0)
 				var ad := ts.font_get_glyph_advance(rid_measure, c_fs, gl).x
 				line_w += (ad if ad > 0.0 else font.get_char_size(cp, c_fs).x) + ls
 		else:
-			line_w = font.get_string_size(line_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + (float(line_text.length()) * ls)
-		var cx := 0.0
-		if box_w > line_w:
+			# _measure: fuente SIN la variación de tracking + ls a escala fs
+			# (antes el tracking se sumaba dos veces y descentraba la línea).
+			line_w = _measure(line_text, fs)
+		# Alineación dentro de la columna sangrada; la 1ª línea de cada
+		# párrafo suma indent_first (negativa = francesa, sin salir de 0).
+		var col_w := box_w
+		if box_w > 0.0 and (ind_l > 0.0 or ind_r > 0.0):
+			col_w = maxf(0.0, box_w - ind_l - ind_r)
+		var cx := ind_l
+		if col_w > line_w:
 			match horizontal_alignment:
 				HORIZONTAL_ALIGNMENT_CENTER:
-					cx = (box_w - line_w) * 0.5
+					cx = ind_l + (col_w - line_w) * 0.5
 				HORIZONTAL_ALIGNMENT_RIGHT:
-					cx = box_w - line_w
-				_:
-					cx = 0.0
+					cx = ind_l + (col_w - line_w)
+		if bool(line.get("first", false)):
+			cx += ind_f
+		cx = maxf(0.0, cx)
+		# Justificado (FILL): reparte el sobrante entre los espacios de las
+		# líneas envueltas que NO cierran párrafo (el overlay lo ignoraba).
+		var just_extra := 0.0
+		if horizontal_alignment == HORIZONTAL_ALIGNMENT_FILL and wrap_limit > 0.0 and not bool(line.get("last", true)):
+			var spaces := line_text.count(" ")
+			var avail := col_w - line_w - (ind_f if bool(line.get("first", false)) else 0.0)
+			if spaces > 0 and avail > 0.0:
+				just_extra = avail / float(spaces)
 		for i in line_text.length():
 			var char_idx := line_start + i
 			var char_fs := fs
@@ -784,6 +1497,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 				var t := float(char_idx) / maxf(1.0, float(total_chars - 1))
 				var s_factor := _calculate_glyph_scale(prop_mode, t, s_start, s_mid, s_mid2, s_end)
 				char_fs = maxi(2, int(round(fs * s_factor)))
+			char_fs = _sized_char_fs(runs, char_idx, char_fs)
 			var run_idx := _run_index_for_char(runs, char_idx)
 			var run: Dictionary = runs[run_idx] if run_idx < runs.size() else runs[0]
 			var rid: RID = _get_rid_for_style(ts, base_bytes, rid_cache, bool(run.get("bold", false)), bool(run.get("italic", false)))
@@ -791,6 +1505,8 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			var glyph: int = ts.font_get_glyph_index(rid, char_fs, codepoint, 0)
 			var adv: float = ts.font_get_glyph_advance(rid, char_fs, glyph).x
 			var char_adv := (adv if adv > 0.0 else font.get_char_size(codepoint, char_fs).x) + ls
+			if codepoint == 32:
+				char_adv += just_extra
 			if glyph <= 0:
 				cx += char_adv
 				continue
@@ -802,6 +1518,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 				glyph_group.set_meta("baseline_y", y_offset)
 				glyph_group.set_meta("x0", cx)
 				glyph_group.set_meta("x1", next_cx)
+				glyph_group.set_meta("char_fs", char_fs)
 				_append_glyph_path(ts, rid, char_fs, glyph, glyph_group, cx, y_offset)
 				if glyph_group.get_child_count() > 0:
 					container.add_child(glyph_group)
@@ -810,7 +1527,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			else:
 				_append_glyph_path(ts, rid, char_fs, glyph, container, cx, y_offset)
 			cx = next_cx
-		y_offset += advance_y
+		y_top += font.get_height(line_fss[li]) + ls_extra
 
 	for rid in rid_cache.values():
 		ts.free_rid(rid)
@@ -959,32 +1676,213 @@ func _contour_to_curve(arc: PackedVector3Array, ox: float, oy: float) -> Curve2D
 
 	return curve
 
-## Devuelve Array[{"text":String, "start":int}] — `start` = índice del primer
-## carácter de esa línea en el `text` ORIGINAL (sin re-envolver), para poder
-## mapear cada carácter a su run de formato aunque el autowrap reparta las
-## palabras en líneas distintas a las del texto tal cual se escribió.
-func _wrap_lines(font: Font, fs: int, wrap_w: float) -> Array:
+## Altura del contenido con el ancho del marco (determinista: solo depende
+## del texto, el ancho y la fuente — sin estado del Control, sin ratchet).
+## `src` permite medir el texto del editor mientras se escribe.
+## Se mide a fs = base (font_scale 1): mundo == px de fuente.
+func wrapped_content_height(src: String = "") -> float:
+	var font := get_theme_font("font")
+	if font == null:
+		return 0.0
+	var fs := maxi(1, base_font_size)
+	var fw := 0.0
+	if has_meta(WORLD_SIZE_META):
+		fw = (get_meta(WORLD_SIZE_META) as Vector2).x
+	elif _world_size != Vector2.ZERO:
+		fw = _world_size.x
+	else:
+		var p := get_parent()
+		if p and p.has_meta("width"):
+			fw = float(p.get_meta("width"))
+	var iw := indent_world()
+	var lines := _wrap_lines(font, fs, fw, maxf(0.0, iw.x), maxf(0.0, iw.y), iw.z, src)
+	if lines.is_empty():
+		return 0.0
+	var ls := float(get_theme_constant("line_spacing"))
+	var sized := has_sized_runs() and (src == "" or src == text)
+	var h := maxf(0.0, float(lines.size() - 1)) * ls
+	for line in lines:
+		h += float(font.get_height(_line_fs(line, fs) if sized else fs))
+	return h
+
+## Cada línea: {"text", "start", "first"}. `start` = índice del primer carácter
+## en el texto ORIGINAL (sin re-envolver) para mapear runs aunque el autowrap
+## reparta distinto. `first` = primera línea envuelta del párrafo (sangría).
+func _wrap_lines(font: Font, fs: int, wrap_w: float, ind_l: float = 0.0, ind_r: float = 0.0, ind_first: float = 0.0, src: String = "") -> Array:
 	var out: Array = []
-	var raw_lines: PackedStringArray = text.replace("\r\n", "\n").split("\n")
+	var body := src if src != "" else text
+	# Los índices de runs solo valen si `body` ES el texto del label (en el
+	# threading se envuelve un tramo de la historia, no `text`).
+	var runs_apply := body == text
+	var raw_lines: PackedStringArray = body.replace("\r\n", "\n").split("\n")
 	var raw_start := 0
 	for r in raw_lines:
-		if wrap_w <= 0.0 or not font:
-			out.append({"text": r, "start": raw_start})
+		var eff_w := wrap_w
+		if wrap_w > 0.0:
+			eff_w = wrap_w - ind_l - ind_r
+		if wrap_w <= 0.0 or not font or eff_w <= 0.0:
+			out.append({"text": r, "start": raw_start, "first": true, "last": true})
 		else:
 			var words: PackedStringArray = r.split(" ", true)
 			var current := ""
 			var current_start := raw_start
 			var cursor := raw_start
+			var first := true
 			for word in words:
 				var probe := current + (" " if current.length() > 0 else "") + word
-				var w: float = font.get_string_size(probe, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-				if w <= wrap_w or current.length() == 0:
+				# Tracking escalado a fs + tamaños por run (antes: la variación
+				# de tracking en px de OTRO tamaño y todo a tamaño base).
+				var w: float = _measure_span(current_start, probe, fs) if runs_apply else _measure(probe, fs)
+				var max_w: float = maxf(0.0, eff_w - ind_first) if first else eff_w
+				if w <= max_w or current.length() == 0:
 					current = probe
 				else:
-					out.append({"text": current, "start": current_start})
+					out.append({"text": current, "start": current_start, "first": first, "last": false})
+					first = false
 					current_start = cursor
 					current = word
 				cursor += word.length() + 1
-			out.append({"text": current, "start": current_start})
+			out.append({"text": current, "start": current_start, "first": first, "last": true})
 		raw_start += r.length() + 1
 	return out
+
+func to_svg() -> String:
+	var col := font_color()
+	# Familia desde la fuente real de las metas (contenedor o label).
+	var src := _spec_source()
+	var family := String(src.get_meta(META_FAMILY, "sans-serif")) if src else "sans-serif"
+	var fs := maxi(1, base_font_size)
+	var attrs := ' font-family="%s" font-size="%d" fill="#%s"' % [family.xml_escape(), fs, col.to_html(false)]
+	if font_weight() >= 700:
+		attrs += ' font-weight="bold"'
+	if font_italic():
+		attrs += ' font-style="italic"'
+	var lsw := letter_spacing_world()
+	if absf(lsw) > 0.0001:
+		attrs += ' letter-spacing="%s"' % String.num(lsw, 3)
+	if has_stroke():
+		attrs += ' stroke="#%s" stroke-width="%f" paint-order="stroke fill"' % [stroke_color().to_html(false), stroke_width()]
+
+	# Ancho del marco (mundo) para alineación y envoltura.
+	var ws := Vector2.ZERO
+	if has_meta(WORLD_SIZE_META):
+		ws = get_meta(WORLD_SIZE_META)
+	elif _world_size != Vector2.ZERO:
+		ws = _world_size
+	elif get_parent() and get_parent().has_meta("width"):
+		ws = Vector2(float(get_parent().get_meta("width")), float(get_parent().get_meta("height", 0.0)))
+	var iw := indent_world()
+	var anchor := "start"
+	var ax := position.x + maxf(0.0, iw.x)
+	match horizontal_alignment:
+		HORIZONTAL_ALIGNMENT_CENTER:
+			anchor = "middle"
+			ax = position.x + maxf(0.0, iw.x) + maxf(0.0, ws.x - maxf(0.0, iw.x) - maxf(0.0, iw.y)) * 0.5
+		HORIZONTAL_ALIGNMENT_RIGHT:
+			anchor = "end"
+			ax = position.x + ws.x - maxf(0.0, iw.y)
+	if anchor != "start":
+		attrs += ' text-anchor="%s"' % anchor
+
+	# Una <tspan> por línea (antes: todo el párrafo en una sola línea).
+	var font := get_theme_font("font")
+	var wrap_w := ws.x if autowrap_mode != TextServer.AUTOWRAP_OFF else 0.0
+	var lines: Array = _wrap_lines(font, fs, wrap_w, maxf(0.0, iw.x), maxf(0.0, iw.y), iw.z) if font \
+			else [{"text": text, "start": 0, "first": true}]
+	var lh := (font.get_height(fs) if font else fs * 1.2) + float(get_theme_constant("line_spacing"))
+	var runs := _effective_runs()
+	var rich := runs.size() > 1 or has_rich_runs()
+	var body := ""
+	for li in lines.size():
+		var line: Dictionary = lines[li]
+		var lx := ax + (iw.z if anchor == "start" and bool(line.get("first", false)) else 0.0)
+		var inner := ""
+		if rich:
+			inner = _svg_line_runs(runs, int(line["start"]), String(line["text"]))
+		else:
+			inner = String(line["text"]).xml_escape()
+		body += '<tspan x="%f" dy="%f">%s</tspan>' % [lx, 0.0 if li == 0 else lh, inner]
+	return '<text x="%f" y="%f" dominant-baseline="hanging"%s>%s</text>' % [position.x, position.y, attrs, body]
+
+## Trozos <tspan> por run dentro de una línea [start, start + len).
+func _svg_line_runs(runs: Array, start: int, line_text: String) -> String:
+	var out := ""
+	var pos := 0
+	var end := start + line_text.length()
+	for r in runs:
+		var l: int = int(r.get("length", 0))
+		var a := maxi(pos, start)
+		var b := mini(pos + l, end)
+		pos += l
+		if a >= b:
+			continue
+		var chunk := line_text.substr(a - start, b - a).xml_escape()
+		var extra := ' fill="#%s"' % (r.get("color", font_color()) as Color).to_html(false)
+		if bool(r.get("bold", false)): extra += ' font-weight="bold"'
+		if bool(r.get("italic", false)): extra += ' font-style="italic"'
+		if bool(r.get("underline", false)): extra += ' text-decoration="underline"'
+		if float(r.get("size", 0.0)) > 0.0: extra += ' font-size="%d"' % int(r["size"])
+		var r_sw := float(r.get("stroke_width", stroke_width()))
+		if r_sw > 0.0:
+			extra += ' stroke="#%s" stroke-width="%f"' % [(r.get("stroke_color", stroke_color()) as Color).to_html(false), r_sw]
+		out += '<tspan%s>%s</tspan>' % [extra, chunk]
+	return out
+
+# ── Resaltador en vivo para editores en línea (TitleEdit / MultiLineEdit) ────
+class RunHighlighter extends SyntaxHighlighter:
+	var _shape_ref: WeakRef = null
+
+	func _init(shape: Node2D = null) -> void:
+		if shape:
+			_shape_ref = weakref(shape)
+
+	func _get_line_syntax_highlighting(line: int) -> Dictionary:
+		var result: Dictionary = {}
+		if _shape_ref == null:
+			return result
+		var shape: Node2D = _shape_ref.get_ref()
+		if not is_instance_valid(shape):
+			return result
+		var te: TextEdit = get_text_edit()
+		if te == null or line >= te.get_line_count():
+			return result
+
+		var runs: Array = shape.get_meta("runs", [])
+		var default_col := Color.BLACK
+		var dl: Control = shape.get_node_or_null("DisplayLabel")
+		if dl and dl.has_method("font_color"):
+			default_col = dl.font_color()
+		elif shape.has_meta("text_color"):
+			default_col = shape.get_meta("text_color")
+
+		result[0] = {"color": default_col}
+		if runs.is_empty():
+			return result
+
+		var line_start := 0
+		for l in range(line):
+			line_start += te.get_line(l).length() + 1
+		var line_text := te.get_line(line)
+		var line_len := line_text.length()
+		var line_end := line_start + line_len
+
+		var pos := 0
+		for r in runs:
+			if not (r is Dictionary):
+				continue
+			var r_len: int = int(r.get("length", 0))
+			var r_end := pos + r_len
+			var col: Color = r.get("color", default_col)
+
+			var o_start := maxi(pos, line_start)
+			var o_end := mini(r_end, line_end)
+			if o_start < o_end:
+				var col_in_line := o_start - line_start
+				result[col_in_line] = {"color": col}
+				var end_in_line := o_end - line_start
+				if end_in_line < line_len and not result.has(end_in_line):
+					result[end_in_line] = {"color": default_col}
+			pos = r_end
+
+		return result
+

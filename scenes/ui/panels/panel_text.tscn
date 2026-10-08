@@ -1,8 +1,8 @@
-[gd_scene format=3 uid="uid://panel_text"]
+[gd_scene format=3 uid="uid://nlj5svkro71"]
 
 [ext_resource type="Texture2D" uid="uid://fmckbmymo1rm" path="res://icon/UI/text-square.svg" id="1_icon"]
 [ext_resource type="Texture2D" uid="uid://cxludb2vushl4" path="res://icon/UI/TEXTO-PARRAFO.svg" id="2_icon"]
-[ext_resource type="Script" path="res://scenes/ui/tool_button.gd" id="3_script"]
+[ext_resource type="Script" uid="uid://bacv4ltosp2rt" path="res://scenes/ui/tool_button.gd" id="3_script"]
 
 [sub_resource type="StyleBoxFlat" id="sb_panel"]
 bg_color = Color(1, 1, 1, 1)
@@ -16,37 +16,36 @@ shadow_size = 10
 [sub_resource type="StyleBoxFlat" id="sb_button"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
 
-[node name="text" type="PanelContainer"]
+[node name="text" type="PanelContainer" unique_id=896733867]
 visible = false
-layout_mode = 0
 offset_left = -177.0
 offset_top = 205.0
 offset_right = -24.0
 offset_bottom = 290.0
 theme_override_styles/panel = SubResource("sb_panel")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1899972250]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="BoxContainer" type="BoxContainer" parent="MarginContainer"]
+[node name="BoxContainer" type="BoxContainer" parent="MarginContainer" unique_id=1605633604]
 layout_mode = 2
 theme_override_constants/separation = 10
 vertical = true
 
-[node name="Label" type="Label" parent="MarginContainer/BoxContainer"]
+[node name="Label" type="Label" parent="MarginContainer/BoxContainer" unique_id=39088810]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Text"
 
-[node name="GridContainer" type="GridContainer" parent="MarginContainer/BoxContainer"]
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/BoxContainer" unique_id=754378468]
 layout_mode = 2
 columns = 7
 
-[node name="Button" type="Button" parent="MarginContainer/BoxContainer/GridContainer"]
+[node name="Button" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=2124956353]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 theme_override_styles/normal = SubResource("sb_button")
@@ -54,8 +53,9 @@ icon = ExtResource("1_icon")
 expand_icon = true
 script = ExtResource("3_script")
 tool_name = "text"
+create_at_center = true
 
-[node name="Button2" type="Button" parent="MarginContainer/BoxContainer/GridContainer"]
+[node name="Button2" type="Button" parent="MarginContainer/BoxContainer/GridContainer" unique_id=438322461]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 theme_override_styles/normal = SubResource("sb_button")

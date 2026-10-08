@@ -18,6 +18,11 @@
 # ==========================================
 extends RefCounted
 
+const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
+const VectorModel3DScript := preload("res://script_gdscript/shapes/VectorModel3D.gd")
+const VectorBooleanScript := preload("res://script_gdscript/shapes/VectorBoolean.gd")
+
+
 const V := 2  # v2: + material/shader/clip/máscara/metas de efecto (lee v1)
 
 # ─────────────────────────────── .vtc = contenedor plano direccionable (VTC2)
@@ -178,7 +183,7 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["text"] = String(node.get_meta("text", ""))
 		base["font_size"] = int(node.get_meta("font_size", 24))
 		if node.has_meta("line_spacing"): base["line_spacing"] = int(node.get_meta("line_spacing"))
-		if node.has_meta("letter_spacing"): base["letter_spacing"] = int(node.get_meta("letter_spacing"))
+		if node.has_meta("letter_spacing"): base["letter_spacing"] = float(node.get_meta("letter_spacing"))
 		if node.has_meta("font_family"): base["font_family"] = String(node.get_meta("font_family"))
 		if node.has_meta("font_weight"): base["font_weight"] = int(node.get_meta("font_weight"))
 		if node.has_meta("font_italic"): base["font_italic"] = bool(node.get_meta("font_italic"))
@@ -187,29 +192,50 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		if node.has_meta("text_outline"): base["text_outline"] = int(node.get_meta("text_outline"))
 		if node.has_meta("text_align"): base["text_align"] = String(node.get_meta("text_align"))
 		if node.has_meta("text_valign"): base["text_valign"] = String(node.get_meta("text_valign"))
+		if node.has_meta("indent_left"): base["indent_left"] = float(node.get_meta("indent_left"))
+		if node.has_meta("indent_right"): base["indent_right"] = float(node.get_meta("indent_right"))
+		if node.has_meta("indent_first"): base["indent_first"] = float(node.get_meta("indent_first"))
 		if node.has_meta("width"): base["width"] = float(node.get_meta("width"))
 		if node.has_meta("height"): base["height"] = float(node.get_meta("height"))
-		# Formato enriquecido por rango (color/negrita/cursiva/subrayado de
-		# partes del texto) — solo se guarda si hay MÁS de un run; un texto
-		# con estilo uniforme sigue confiando en las metas de arriba.
-		if node.has_meta("runs"):
-			var _runs: Array = node.get_meta("runs")
-			if _runs.size() > 1:
-				var _out_runs: Array = []
-				for _r in _runs:
-					_out_runs.append({
-						"length": int(_r.get("length", 0)),
-						"color": _col(_r.get("color", Color.BLACK)),
-						"bold": bool(_r.get("bold", false)),
-						"italic": bool(_r.get("italic", false)),
-						"underline": bool(_r.get("underline", false)),
-					})
-				base["runs"] = _out_runs
+		if node.has_meta("stroke_width"): base["stroke_width"] = float(node.get_meta("stroke_width"))
+		if node.has_meta("stroke_color"): base["stroke_color"] = _col(node.get_meta("stroke_color"))
+		if node.has_meta("columns"): base["columns"] = int(node.get_meta("columns"))
+		if node.has_meta("column_gap"): base["column_gap"] = float(node.get_meta("column_gap"))
+		var _lp = node.get_meta("letter_proportions", {})
+		if _lp is Dictionary and not (_lp as Dictionary).is_empty():
+			base["letter_proportions"] = (_lp as Dictionary).duplicate(true)
+		# Encadenamiento de marcos: enlaces (por nombre de nodo: las rutas
+		# absolutas cambian al recargar) + historia completa (el sobrante
+		# que no cabe en ningún marco solo vive aquí).
+		for _k in ["next_paragraph", "prev_paragraph"]:
+			if node.has_meta(_k):
+				base[_k] = String(node.get_meta(_k)).get_file()
+		for _k in ["frame_id", "next_paragraph_id", "prev_paragraph_id", "raw_story_text"]:
+			if node.has_meta(_k): base[_k] = String(node.get_meta(_k))
+		# Formato enriquecido por rango. Se guarda también con UN solo run:
+		# negrita/subrayado/tamaño aplicados a TODO el texto viven solo aquí
+		# (no en font_weight etc.) y se perdían al recargar.
+		if node.has_meta("runs") and not (node.get_meta("runs") as Array).is_empty():
+			base["runs"] = _runs_to_data(node.get_meta("runs"))
+		if node.has_meta("story_runs") and not (node.get_meta("story_runs") as Array).is_empty():
+			base["story_runs"] = _runs_to_data(node.get_meta("story_runs"))
 		return base
 
 	if node is VectorCircle:
 		base["kind"] = "circle"
 		base["size"] = [node.size.x, node.size.y]
+		base["shape_mode"] = node.shape_mode
+		base["start_angle_deg"] = node.start_angle_deg
+		base["end_angle_deg"] = node.end_angle_deg
+		base["inner_radius_ratio"] = node.inner_radius_ratio
+		_add_style(base, node)
+		return base
+	if node is VectorStarScript:
+		base["kind"] = "star"
+		base["size"] = [node.size.x, node.size.y]
+		base["points_count"] = node.points_count
+		base["inner_radius_ratio"] = node.inner_radius_ratio
+		base["corner_radius"] = node.corner_radius
 		_add_style(base, node)
 		return base
 	if node is VectorRectangle:
@@ -227,7 +253,13 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["closed"] = node.closed
 		_add_style(base, node)
 		return base
+	if node is VectorBooleanScript:
+		base["kind"] = "boolean"
+		base["operation"] = node.get("operation")
+		_add_style(base, node)
+		return base
 	if node is Path2D and node.curve:
+
 		base["kind"] = "path"
 		var pts := PackedVector2Array()
 		var ins := PackedVector2Array()
@@ -270,6 +302,16 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			var img := tex.get_image()
 			if img:
 				base["tex_png_b64"] = Marshalls.raw_to_base64(img.save_png_to_buffer())
+		return base
+	if node is VectorModel3DScript:
+		base["kind"] = "3d"
+		base["size"] = [node.size.x, node.size.y]
+		base["model_path"] = node.model_path
+		base["model_rotation"] = [node.model_rotation.x, node.model_rotation.y, node.model_rotation.z]
+		base["camera_distance"] = node.camera_distance
+		base["camera_fov"] = node.camera_fov
+		base["light_energy"] = node.light_energy
+		base["light_rotation"] = [node.light_rotation.x, node.light_rotation.y, node.light_rotation.z]
 		return base
 	# GRUPO: cualquier Node2D con hijos Node2D que no sea un tipo conocido.
 	if base.has("children"):
@@ -662,9 +704,22 @@ static func _element_from(d: Dictionary) -> Node2D:
 		"circle":
 			var c := VectorCircle.new()
 			c.size = _arr_to_v2(d.get("size", [40, 40]))
+			c.shape_mode = String(d.get("shape_mode", "whole"))
+			c.start_angle_deg = float(d.get("start_angle_deg", 0.0))
+			c.end_angle_deg = float(d.get("end_angle_deg", 360.0))
+			c.inner_radius_ratio = float(d.get("inner_radius_ratio", 0.5))
 			_read_style(c, d)
 			c.name = d.get("name", "Circulo")
 			return c
+		"star":
+			var s: VectorShape = VectorStarScript.new() as VectorShape
+			s.size = _arr_to_v2(d.get("size", [50, 50]))
+			s.set("points_count", int(d.get("points_count", 5)))
+			s.set("inner_radius_ratio", float(d.get("inner_radius_ratio", 0.382)))
+			s.set("corner_radius", float(d.get("corner_radius", 0.0)))
+			_read_style(s, d)
+			s.name = d.get("name", "Estrella")
+			return s
 		"rect":
 			var r := VectorRectangle.new()
 			r.size = _arr_to_v2(d.get("size", [40, 40]))
@@ -682,7 +737,14 @@ static func _element_from(d: Dictionary) -> Node2D:
 			_read_style(p, d)
 			p.name = d.get("name", "Poligono")
 			return p
+		"boolean":
+			var vb: VectorShape = VectorBooleanScript.new() as VectorShape
+			vb.set("operation", String(d.get("operation", "union")))
+			_read_style(vb, d)
+			vb.name = d.get("name", "Boolean")
+			return vb
 		"path":
+
 			var vp := Path2D.new()
 			vp.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
 			var curve := Curve2D.new()
@@ -724,6 +786,24 @@ static func _element_from(d: Dictionary) -> Node2D:
 			return _text_from(d)
 		"image":
 			return _image_from(d)
+		"3d", "model3d":
+			var m3d: VectorShape = VectorModel3DScript.new() as VectorShape
+			m3d.name = d.get("name", "Modelo3D")
+			m3d.size = _arr_to_v2(d.get("size", [160, 160]))
+			if d.has("model_rotation") and d["model_rotation"] is Array and d["model_rotation"].size() >= 3:
+				m3d.model_rotation = Vector3(float(d["model_rotation"][0]), float(d["model_rotation"][1]), float(d["model_rotation"][2]))
+			if d.has("camera_distance"):
+				m3d.camera_distance = float(d["camera_distance"])
+			if d.has("camera_fov"):
+				m3d.camera_fov = float(d["camera_fov"])
+			if d.has("light_energy"):
+				m3d.light_energy = float(d["light_energy"])
+			if d.has("light_rotation") and d["light_rotation"] is Array and d["light_rotation"].size() >= 3:
+				m3d.light_rotation = Vector3(float(d["light_rotation"][0]), float(d["light_rotation"][1]), float(d["light_rotation"][2]))
+			var mp: String = String(d.get("model_path", ""))
+			if not mp.is_empty():
+				m3d.model_path = mp
+			return m3d
 		"group":
 			var g := Node2D.new()
 			g.name = d.get("name", "Grupo")
@@ -748,6 +828,39 @@ static func _image_from(d: Dictionary) -> Node2D:
 	return sp
 
 
+## Runs de formato ↔ JSON (colores como arrays).
+static func _runs_to_data(runs: Array) -> Array:
+	var out: Array = []
+	for r in runs:
+		var o := {
+			"length": int(r.get("length", 0)),
+			"color": _col(r.get("color", Color.BLACK)),
+			"bold": bool(r.get("bold", false)),
+			"italic": bool(r.get("italic", false)),
+			"underline": bool(r.get("underline", false)),
+			"size": float(r.get("size", 0.0)),
+		}
+		if r.has("stroke_color"): o["stroke_color"] = _col(r["stroke_color"])
+		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
+		out.append(o)
+	return out
+
+static func _runs_from_data(data: Array) -> Array:
+	var out: Array = []
+	for r in data:
+		var o := {
+			"length": int(r.get("length", 0)),
+			"color": _to_col(r.get("color", [0, 0, 0, 1])),
+			"bold": bool(r.get("bold", false)),
+			"italic": bool(r.get("italic", false)),
+			"underline": bool(r.get("underline", false)),
+			"size": float(r.get("size", 0.0)),
+		}
+		if r.has("stroke_color"): o["stroke_color"] = _to_col(r["stroke_color"])
+		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
+		out.append(o)
+	return out
+
 static func _text_from(d: Dictionary) -> Node2D:
 	var cont := Node2D.new()
 	cont.name = d.get("name", "Texto")
@@ -755,7 +868,7 @@ static func _text_from(d: Dictionary) -> Node2D:
 	cont.set_meta("text", d.get("text", ""))
 	cont.set_meta("font_size", int(d.get("font_size", 24)))
 	if d.has("line_spacing"): cont.set_meta("line_spacing", int(d["line_spacing"]))
-	if d.has("letter_spacing"): cont.set_meta("letter_spacing", int(d["letter_spacing"]))
+	if d.has("letter_spacing"): cont.set_meta("letter_spacing", float(d["letter_spacing"]))
 	if d.has("font_family"): cont.set_meta("font_family", String(d["font_family"]))
 	if d.has("font_weight"): cont.set_meta("font_weight", int(d["font_weight"]))
 	if d.has("font_italic"): cont.set_meta("font_italic", bool(d["font_italic"]))
@@ -764,8 +877,21 @@ static func _text_from(d: Dictionary) -> Node2D:
 	if d.has("text_outline"): cont.set_meta("text_outline", int(d["text_outline"]))
 	if d.has("text_align"): cont.set_meta("text_align", String(d["text_align"]))
 	if d.has("text_valign"): cont.set_meta("text_valign", String(d["text_valign"]))
+	if d.has("indent_left"): cont.set_meta("indent_left", float(d["indent_left"]))
+	if d.has("indent_right"): cont.set_meta("indent_right", float(d["indent_right"]))
+	if d.has("indent_first"): cont.set_meta("indent_first", float(d["indent_first"]))
 	if d.has("width"): cont.set_meta("width", d["width"])
 	if d.has("height"): cont.set_meta("height", d["height"])
+	if d.has("stroke_width"): cont.set_meta("stroke_width", float(d["stroke_width"]))
+	if d.has("stroke_color"): cont.set_meta("stroke_color", _to_col(d["stroke_color"]))
+	if d.has("columns"): cont.set_meta("columns", int(d["columns"]))
+	if d.has("column_gap"): cont.set_meta("column_gap", float(d["column_gap"]))
+	if d.get("letter_proportions") is Dictionary:
+		cont.set_meta("letter_proportions", (d["letter_proportions"] as Dictionary).duplicate(true))
+	for _k in ["next_paragraph", "prev_paragraph", "raw_story_text", "frame_id", "next_paragraph_id", "prev_paragraph_id"]:
+		if d.has(_k): cont.set_meta(_k, String(d[_k]))
+	if d.get("story_runs") is Array:
+		cont.set_meta("story_runs", _runs_from_data(d["story_runs"]))
 	var label := WorldTextLabel.new()
 	label.name = "DisplayLabel"
 	label.base_font_size = int(d.get("font_size", 24))
@@ -789,22 +915,19 @@ static func _text_from(d: Dictionary) -> Node2D:
 			"bottom": VERTICAL_ALIGNMENT_BOTTOM,
 		}.get(String(d["text_valign"]), VERTICAL_ALIGNMENT_TOP)
 	cont.add_child(label)
+	# Editor en línea + autowrap del párrafo (sin esto, tras recargar, los
+	# párrafos salían en una sola línea y no se podían editar).
+	WorldTextLabel.ensure_inline_editor(cont)
 	if d.has("width") and d.has("height") and label.has_method("set_world_size"):
 		label.set_world_size(Vector2(float(d["width"]), float(d["height"])))
+	if label.has_method("apply_indent_meta"):
+		label.apply_indent_meta()
 	# Resuelve la familia guardada (SO o bundled) + tracking vía FontCore.
 	if (d.has("font_family") or d.has("font_weight") or d.has("font_italic") or d.has("letter_spacing")) \
 			and label.has_method("apply_font_from_meta"):
 		label.apply_font_from_meta()
 	if d.has("runs") and d["runs"] is Array:
-		var _runs: Array = []
-		for _r in d["runs"]:
-			_runs.append({
-				"length": int(_r.get("length", 0)),
-				"color": _to_col(_r.get("color", [0, 0, 0, 1])),
-				"bold": bool(_r.get("bold", false)),
-				"italic": bool(_r.get("italic", false)),
-				"underline": bool(_r.get("underline", false)),
-			})
+		var _runs := _runs_from_data(d["runs"])
 		cont.set_meta("runs", _runs)
 		if label.has_method("set_rich_runs"):
 			label.set_rich_runs(_runs)

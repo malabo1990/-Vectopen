@@ -13,7 +13,12 @@
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_panel"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_preview_panel"]
-bg_color = Color(1, 1, 1, 1)
+bg_color = Color(0.18, 0.18, 0.22, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.26, 0.26, 0.3, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
@@ -121,7 +126,6 @@ script = ExtResource("1_nw6td")
 
 [node name="Label" type="Label" parent="BoxContainer" unique_id=1768594166]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
 theme_override_font_sizes/font_size = 12
 text = "TIPOGRAFÍA / TEXT"
 
@@ -164,7 +168,6 @@ offset_left = 50.0
 offset_top = 0.0
 offset_right = 100.0
 offset_bottom = 60.0
-theme_override_colors/font_color = Color(0.18, 0.18, 0.22, 1)
 theme_override_font_sizes/font_size = 56
 text = "A"
 

@@ -221,14 +221,13 @@ func test_swatch_de_color_aplica_fill() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame   # _ready hace await 1 frame
 
-	var swatch: ColorRect = fc.get_child(2) as ColorRect
-	var ev := InputEventMouseButton.new()
-	ev.button_index = MOUSE_BUTTON_LEFT
-	ev.pressed = true
-	swatch.gui_input.emit(ev)
+	# Legacy ColorRects are replaced by rounded swatch buttons
+	var swatch: Button = fc._swatches[2]
+	var swatch_color: Color = swatch.get_meta("swatch_color")
+	swatch.pressed.emit()
 	await get_tree().process_frame
 
-	assert_that(r.fill_color).is_equal(swatch.color)
+	assert_that(r.fill_color).is_equal(swatch_color)
 	assert_bool(HistoryManager.can_undo()).is_true()
 	HistoryManager.undo(); await get_tree().process_frame
 	assert_that(r.fill_color).is_equal(Color.WHITE)
@@ -667,3 +666,37 @@ func test_stroke_properties_read_write_undo() -> void:
 	assert_int(path.get_meta("stroke_align", 0)).is_equal(0)
 	HistoryManager.undo()
 	assert_int(path.stroke_pointer_end).is_equal(0)
+
+func test_3d_model_properties_read_write_undo() -> void:
+	var s := _scene(); await get_tree().process_frame
+	var t = _tool(s)
+	var VectorModel3DScript = preload("res://script_gdscript/shapes/VectorModel3D.gd")
+	var m: Node2D = VectorModel3DScript.new()
+	_ab(s).add_child(m)
+	await get_tree().process_frame
+
+	t.selected_shapes.assign([m])
+	InspectorCore._sync_selection()
+	HistoryManager.clear()
+
+	var p := InspectorCore.current_props()
+	assert_float(p["camera_distance"]["value"]).is_equal_approx(3.5, 0.001)
+	assert_float(p["camera_fov"]["value"]).is_equal_approx(45.0, 0.001)
+	assert_float(p["light_energy"]["value"]).is_equal_approx(1.2, 0.001)
+	assert_float(p["model_rotation_x"]["value"]).is_equal_approx(0.0, 0.001)
+
+	InspectorCore.apply("model_rotation_x", 45.0)
+	InspectorCore.apply("camera_distance", 6.0)
+	InspectorCore.apply("light_energy", 2.5)
+
+	assert_float(m.model_rotation.x).is_equal_approx(45.0, 0.001)
+	assert_float(m.camera_distance).is_equal_approx(6.0, 0.001)
+	assert_float(m.light_energy).is_equal_approx(2.5, 0.001)
+
+	HistoryManager.undo()
+	assert_float(m.light_energy).is_equal_approx(1.2, 0.001)
+	HistoryManager.undo()
+	assert_float(m.camera_distance).is_equal_approx(3.5, 0.001)
+	HistoryManager.undo()
+	assert_float(m.model_rotation.x).is_equal_approx(0.0, 0.001)
+

@@ -28,6 +28,8 @@ const PROPS := [
 	"name", "pos_x", "pos_y", "width", "height", "rotation",
 	"fill_color", "stroke_color", "stroke_width", "opacity", "corner_radius", "visible",
 	"font_size", "line_spacing", "letter_spacing",
+	"indent_left", "indent_right", "indent_first",
+	"columns", "column_gap",
 	"font_family", "font_weight", "font_italic",
 	"fill_paint", "text_align", "text_valign", "text",
 	"corner_tl", "corner_tr", "corner_br", "corner_bl",
@@ -36,6 +38,9 @@ const PROPS := [
 	"stroke_dash_len", "stroke_dash_gap",
 	"letter_proportions",
 	"effects",
+	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
+	"sides", "is_regular",
+	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -54,6 +59,8 @@ func _ready() -> void:
 				ge.connect(sig, _on_event)
 
 func _on_event(_a = null, _b = null) -> void:
+	if not is_inside_tree():
+		return   # app shutting down: listeners and autoloads are leaving the tree
 	_sync_selection()
 	changed.emit(current_props())
 
@@ -110,6 +117,12 @@ func _text_label_color(shape, theme_key: String, def: Color) -> Color:
 	var dl := _text_label(shape)
 	if dl and dl.has_theme_color_override(theme_key):
 		return dl.get_theme_color(theme_key)
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		if theme_key == "font_color":
+			return vrt.get_text_color()
+		else:
+			return vrt.get_stroke_color()
 	return def
 
 func _read(shape, prop):
@@ -129,11 +142,13 @@ func _read(shape, prop):
 		"visible":    return shape.visible
 		"width":
 			if _is_text(shape): return float(shape.get_meta("width", 350.0))
+			if "artboard_size" in shape: return (shape.artboard_size as Vector2).x
 			if "size" in shape: return (shape.get("size") as Vector2).x
 			if "width" in shape: return float(shape.get("width"))
 			return _bounds(shape).x
 		"height":
 			if _is_text(shape): return float(shape.get_meta("height", 65.0))
+			if "artboard_size" in shape: return (shape.artboard_size as Vector2).y
 			if "size" in shape: return (shape.get("size") as Vector2).y
 			if "height" in shape: return float(shape.get("height"))
 			return _bounds(shape).y
@@ -141,14 +156,19 @@ func _read(shape, prop):
 			if _is_text(shape): return _text_label_color(shape, "font_color", Color.BLACK)
 			if "fill_color" in shape: return shape.fill_color
 			if shape is Polygon2D: return shape.color
+			if shape is Line2D: return shape.default_color
 			return null
 		"stroke_color":
-			if _is_text(shape): return _text_label_color(shape, "font_outline_color", Color.BLACK)
+			if _is_text(shape):
+				if shape.has_meta("stroke_color"): return shape.get_meta("stroke_color")
+				return _text_label_color(shape, "font_outline_color", Color.BLACK)
 			if "stroke_color" in shape: return shape.stroke_color
 			if shape is Line2D: return shape.default_color
 			return null
 		"stroke_width":
-			if _is_text(shape): return float(shape.get_meta("text_outline", 0))
+			if _is_text(shape):
+				if shape.has_meta("stroke_width"): return float(shape.get_meta("stroke_width"))
+				return float(shape.get_meta("text_outline", 0))
 			if "stroke_width" in shape: return shape.stroke_width
 			if shape is Line2D: return shape.width
 			return null
@@ -184,6 +204,21 @@ func _read(shape, prop):
 			return null
 		"letter_spacing":
 			if _is_text(shape): return float(shape.get_meta("letter_spacing", 0))
+			return null
+		"indent_left":
+			if _is_text(shape): return float(shape.get_meta("indent_left", 0))
+			return null
+		"indent_right":
+			if _is_text(shape): return float(shape.get_meta("indent_right", 0))
+			return null
+		"indent_first":
+			if _is_text(shape): return float(shape.get_meta("indent_first", 0))
+			return null
+		"columns":
+			if _is_text(shape): return int(shape.get_meta("columns", 1))
+			return null
+		"column_gap":
+			if _is_text(shape): return float(shape.get_meta("column_gap", 20.0))
 			return null
 		"font_family":
 			if _is_text(shape): return String(shape.get_meta("font_family", "Inter"))
@@ -240,6 +275,54 @@ func _read(shape, prop):
 			if shape.has_meta("effects") and shape.get_meta("effects") is Array:
 				return shape.get_meta("effects").duplicate(true)
 			return []
+		"shape_mode":
+			if "shape_mode" in shape: return String(shape.shape_mode)
+			return null
+		"start_angle_deg":
+			if "start_angle_deg" in shape: return float(shape.start_angle_deg)
+			return null
+		"end_angle_deg":
+			if "end_angle_deg" in shape: return float(shape.end_angle_deg)
+			return null
+		"inner_radius_ratio":
+			if "inner_radius_ratio" in shape: return float(shape.inner_radius_ratio)
+			return null
+		"points_count":
+			if "points_count" in shape: return int(shape.points_count)
+			return null
+		"sides":
+			if "sides" in shape: return int(shape.sides)
+			return null
+		"is_regular":
+			if "is_regular" in shape: return bool(shape.is_regular)
+			return null
+		"model_path":
+			if "model_path" in shape: return String(shape.model_path)
+			return null
+		"model_rotation_x":
+			if "model_rotation" in shape: return float(shape.model_rotation.x)
+			return null
+		"model_rotation_y":
+			if "model_rotation" in shape: return float(shape.model_rotation.y)
+			return null
+		"model_rotation_z":
+			if "model_rotation" in shape: return float(shape.model_rotation.z)
+			return null
+		"camera_distance":
+			if "camera_distance" in shape: return float(shape.camera_distance)
+			return null
+		"camera_fov":
+			if "camera_fov" in shape: return float(shape.camera_fov)
+			return null
+		"light_energy":
+			if "light_energy" in shape: return float(shape.light_energy)
+			return null
+		"light_rotation_x":
+			if "light_rotation" in shape: return float(shape.light_rotation.x)
+			return null
+		"light_rotation_y":
+			if "light_rotation" in shape: return float(shape.light_rotation.y)
+			return null
 	return null
 
 ## Devuelve el relleno como {type:"solid"|"linear"|"radial", ...}. null si la
@@ -322,7 +405,102 @@ func _approx_eq(a, b) -> bool:
 # ── escritura (con undo) ─────────────────────────────────────────────────────
 ## Aplica `value` a `prop` en TODAS las figuras seleccionadas, en UNA acción de
 ## undo. No hace nada si el valor no cambia.
+## [shape, editor, start, end] del texto EN EDICIÓN con selección no vacía.
+## Vacío si no hay (entonces color/tamaño van al bloque entero, como siempre).
+func _editing_text_range() -> Array:
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	if canvas == null or not ("current_tool" in canvas):
+		return []
+	var t = canvas.current_tool
+	# OJO: bool(null) no existe como constructor: null-check explícito.
+	var _ed_flag = t.get("is_editing") if t != null else null
+	if t == null or _ed_flag == null or not bool(_ed_flag):
+		return []
+	var shape: Node2D = t.get("current_editing_shape")
+	if not is_instance_valid(shape):
+		return []
+	var ed: TextEdit = shape.get_node_or_null("TitleEdit")
+	if ed == null:
+		ed = shape.get_node_or_null("MultiLineEdit")
+	if ed == null or not ed.visible:
+		return []
+	var sel = WorldTextLabel.sel_range(ed)
+	if sel == null or int(sel["end"]) <= int(sel["start"]):
+		return []
+	return [shape, ed, int(sel["start"]), int(sel["end"])]
+
+## Color/tamaño sobre la PALABRA seleccionada (runs, con undo propio).
+## Devuelve true si lo enrutó (apply() entonces no toca el bloque).
+func apply_text_range(prop: String, value) -> bool:
+	if not (prop in ["fill_color", "font_size", "stroke_color", "stroke_width"]):
+		return false
+	var ctx := _editing_text_range()
+	if ctx.is_empty():
+		return false
+	var shape: Node2D = ctx[0]
+	var ed: TextEdit = ctx[1]
+	var start: int = ctx[2]
+	var end: int = ctx[3]
+	var before: Array = (shape.get_meta("runs", []) as Array).duplicate(true)
+	var mutator: Callable
+	if prop == "fill_color":
+		var c := value as Color
+		mutator = func(r: Dictionary) -> Dictionary:
+			r["color"] = c
+			return r
+	elif prop == "font_size":
+		var sz := clampf(float(value), 4.0, 400.0)
+		mutator = func(r: Dictionary) -> Dictionary:
+			r["size"] = sz
+			return r
+	elif prop == "stroke_color":
+		var c := value as Color
+		mutator = func(r: Dictionary) -> Dictionary:
+			r["stroke_color"] = c
+			return r
+	elif prop == "stroke_width":
+		var w := maxf(0.0, float(value))
+		mutator = func(r: Dictionary) -> Dictionary:
+			r["stroke_width"] = w
+			return r
+	var dl := shape.get_node_or_null("DisplayLabel")
+	var sync_tool_size := func() -> void:
+		if ed.syntax_highlighter:
+			ed.syntax_highlighter.clear_highlighting_cache()
+		ed.queue_redraw()
+		var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+		var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
+		if t:
+			if t.has_method("_update_shape_meta_size"):
+				t._update_shape_meta_size(shape)
+			elif t.has_method("_fit_height_to_text"):
+				t._fit_height_to_text(shape, ed.text)
+	var do_fn := func() -> void:
+		WorldTextLabel.apply_range(shape, dl, ed.text.length(), start, end, mutator)
+		if dl and dl.has_method("apply_stroke_meta"):
+			dl.apply_stroke_meta()
+		sync_tool_size.call()
+		_post_write()
+	var undo_fn := func() -> void:
+		shape.set_meta("runs", before)
+		if dl and dl.has_method("set_rich_runs"):
+			dl.set_rich_runs(before)
+		if dl and dl.has_method("apply_stroke_meta"):
+			dl.apply_stroke_meta()
+		sync_tool_size.call()
+		_post_write()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Inspector · %s (selección)" % prop)
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+	do_fn.call()
+	return true
+
 func apply(prop: String, value) -> void:
+	if apply_text_range(prop, value):
+		return
 	_sync_selection()
 	if _selection.is_empty() or not (prop in PROPS):
 		return
@@ -503,7 +681,11 @@ func _write(shape, prop, value) -> void:
 		"stroke_width":
 			if _is_text(shape):
 				_write_text_outline_size(shape, maxf(0.0, float(value)))
-			elif "stroke_width" in shape: shape.stroke_width = maxf(0.0, float(value))
+			elif "stroke_width" in shape:
+				shape.stroke_width = maxf(0.0, float(value))
+				# A uniform width from the inspector replaces any per-side widths
+				if shape.has_method("clear_side_strokes"):
+					shape.clear_side_strokes()
 			elif shape is Line2D: shape.width = maxf(0.1, float(value))
 		"corner_radius":
 			if "corner_radius" in shape: shape.corner_radius = maxf(0.0, float(value))
@@ -529,7 +711,7 @@ func _write(shape, prop, value) -> void:
 			_write_line_spacing(shape, value)
 		"letter_spacing":
 			if _is_text(shape):
-				shape.set_meta("letter_spacing", int(value))
+				shape.set_meta("letter_spacing", float(value))   # admite 0.5 px (antes int → se perdía)
 				var dl2 := _text_label(shape)
 				if dl2 and dl2.has_method("apply_font_from_meta"):
 					dl2.apply_font_from_meta()
@@ -537,6 +719,10 @@ func _write(shape, prop, value) -> void:
 			_write_font_face(shape, prop, value)
 		"letter_proportions":
 			_write_letter_proportions(shape, value)
+		"indent_left", "indent_right", "indent_first":
+			_write_indent(shape, prop, value)
+		"columns", "column_gap":
+			_write_columns(shape, prop, value)
 		"stroke_cap_start":
 			var ival := int(value)
 			if "stroke_cap_start" in shape: shape.stroke_cap_start = ival
@@ -576,6 +762,58 @@ func _write(shape, prop, value) -> void:
 			if "effects" in shape:
 				shape.effects = eff_arr.duplicate(true)
 			shape.set_meta("effects", eff_arr.duplicate(true))
+		"shape_mode":
+			if "shape_mode" in shape: shape.shape_mode = String(value)
+		"start_angle_deg":
+			if "start_angle_deg" in shape: shape.start_angle_deg = float(value)
+		"end_angle_deg":
+			if "end_angle_deg" in shape: shape.end_angle_deg = float(value)
+		"inner_radius_ratio":
+			if "inner_radius_ratio" in shape: shape.inner_radius_ratio = clampf(float(value), 0.01, 0.95)
+		"points_count":
+			if "points_count" in shape: shape.points_count = maxi(3, int(value))
+		"sides":
+			if "sides" in shape:
+				shape.is_regular = true
+				shape.sides = maxi(3, int(value))
+		"is_regular":
+			if "is_regular" in shape: shape.is_regular = bool(value)
+		"model_path":
+			if "model_path" in shape:
+				shape.model_path = String(value)
+				if shape.has_method("load_model") and not String(value).is_empty():
+					shape.load_model(String(value))
+		"model_rotation_x":
+			if "model_rotation" in shape:
+				var mr: Vector3 = shape.model_rotation
+				shape.model_rotation = Vector3(float(value), mr.y, mr.z)
+		"model_rotation_y":
+			if "model_rotation" in shape:
+				var mr: Vector3 = shape.model_rotation
+				shape.model_rotation = Vector3(mr.x, float(value), mr.z)
+		"model_rotation_z":
+			if "model_rotation" in shape:
+				var mr: Vector3 = shape.model_rotation
+				shape.model_rotation = Vector3(mr.x, mr.y, float(value))
+		"camera_distance":
+			if "camera_distance" in shape:
+				shape.camera_distance = float(value)
+		"camera_fov":
+			if "camera_fov" in shape:
+				shape.camera_fov = float(value)
+		"light_energy":
+			if "light_energy" in shape:
+				shape.light_energy = float(value)
+		"light_rotation_x":
+			if "light_rotation" in shape:
+				var lr: Vector3 = shape.light_rotation
+				shape.light_rotation = Vector3(float(value), lr.y, lr.z)
+		"light_rotation_y":
+			if "light_rotation" in shape:
+				var lr: Vector3 = shape.light_rotation
+				shape.light_rotation = Vector3(lr.x, float(value), lr.z)
+	if shape.has_method("request_render_update"):
+		shape.request_render_update()
 	if shape.has_method("queue_redraw"):
 		shape.queue_redraw()
 
@@ -586,7 +824,18 @@ func _write_font_face(shape, prop: String, value) -> void:
 		return
 	match prop:
 		"font_family": shape.set_meta("font_family", String(value))
-		"font_weight": shape.set_meta("font_weight", int(value))
+		"font_weight":
+			var w := 400
+			if value is int or value is float:
+				w = int(value)
+			elif value is String:
+				match value.to_lower():
+					"medium": w = 500
+					"bold": w = 700
+					"black": w = 900
+					"light": w = 300
+					_: w = int(value) if value.is_valid_int() else 400
+			shape.set_meta("font_weight", w)
 		"font_italic": shape.set_meta("font_italic", bool(value))
 	var fc := get_node_or_null("/root/FontCore")
 	if fc == null:
@@ -602,8 +851,20 @@ func _write_font_face(shape, prop: String, value) -> void:
 	if f:
 		var me: Control = shape.get_node_or_null("MultiLineEdit")
 		if me == null: me = shape.get_node_or_null("LineEdit")
+		if me == null: me = shape.get_node_or_null("TitleEdit")
 		if me:
 			me.add_theme_font_override("font", f)
+		var vrt = shape.get_node_or_null("VectorRichText")
+		if vrt:
+			vrt.set_font(f)
+			vrt.add_theme_font_override("font", f)
+			if prop == "font_weight":
+				var fw: int = int(shape.get_meta("font_weight", 400))
+				vrt.apply_bold_to_selection(fw >= 700)
+			elif prop == "font_italic":
+				vrt.apply_italic_to_selection(bool(value))
+			vrt.queue_redraw()
+	_refit_text_shape(shape)
 
 ## Aplica un paint {type, ...} al relleno de la figura.
 ##  · solid  → fill_color (y quita el degradado)
@@ -694,17 +955,50 @@ func _grad_tex_for(g: Gradient) -> GradientTexture2D:
 func _write_text_color(shape, theme_key: String, value: Color) -> void:
 	var meta_key := "text_color" if theme_key == "font_color" else "text_outline_color"
 	shape.set_meta(meta_key, value)
+	if theme_key == "font_outline_color":
+		shape.set_meta("stroke_color", value)
 	var dl := _text_label(shape)
 	if dl:
 		dl.add_theme_color_override(theme_key, value)
-		dl.queue_redraw()
+		if dl.has_method("apply_stroke_meta"):
+			dl.apply_stroke_meta()
+		else:
+			dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		if theme_key == "font_color":
+			vrt.set_text_color(value)
+		else:
+			var sw: float = float(shape.get_meta("stroke_width", 0.0))
+			vrt.set_stroke_color(value)
+			vrt.set_stroke_width(sw)
+		vrt.queue_redraw()
+	var ed: Control = shape.get_node_or_null("MultiLineEdit")
+	if ed == null:
+		ed = shape.get_node_or_null("TitleEdit")
+	if ed and ed is TextEdit:
+		if theme_key == "font_color":
+			ed.add_theme_color_override("font_color", value)
+		if ed.syntax_highlighter:
+			ed.syntax_highlighter.clear_highlighting_cache()
+		ed.queue_redraw()
 
 func _write_text_outline_size(shape, v: float) -> void:
 	shape.set_meta("text_outline", int(v))
+	shape.set_meta("stroke_width", maxf(0.0, float(v)))
 	var dl := _text_label(shape)
 	if dl:
 		dl.add_theme_constant_override("outline_size", int(v))
-		dl.queue_redraw()
+		if dl.has_method("apply_stroke_meta"):
+			dl.apply_stroke_meta()
+		else:
+			dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		var sc: Color = shape.get_meta("stroke_color", Color.BLACK)
+		vrt.set_stroke_color(sc)
+		vrt.set_stroke_width(maxf(0.0, float(v)))
+		vrt.queue_redraw()
 
 ## Contenido de una figura de texto → meta + DisplayLabel + editor inline.
 func _write_text_content(shape, txt: String) -> void:
@@ -714,10 +1008,16 @@ func _write_text_content(shape, txt: String) -> void:
 	var dl := _text_label(shape)
 	if dl and "text" in dl:
 		dl.text = txt
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		vrt.set_text(txt)
+		vrt.queue_redraw()
 	var me: Node = shape.get_node_or_null("MultiLineEdit")
 	if me == null: me = shape.get_node_or_null("LineEdit")
+	if me == null: me = shape.get_node_or_null("TitleEdit")
 	if me and "text" in me:
 		me.text = txt
+	_refit_text_shape(shape)
 
 ## Alineación horizontal del texto: "left"|"center"|"right"|"fill".
 func _write_text_align(shape, value) -> void:
@@ -737,6 +1037,10 @@ func _write_text_align(shape, value) -> void:
 			dl._polys_baked = false
 			dl._refresh_local_rect()
 		dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		vrt.set_paragraph_align(mode)
+		vrt.queue_redraw()
 
 ## Alineación vertical del texto: "top"|"middle"|"bottom".
 func _write_text_valign(shape, value) -> void:
@@ -767,7 +1071,19 @@ func _write_line_spacing(shape, value) -> void:
 	var dl: Control = shape.get_node_or_null("DisplayLabel")
 	if dl and dl is Label:
 		dl.add_theme_constant_override("line_spacing", ls)
+		# El overlay vectorial (zoom alto / runs / trazo) cachea la geometría.
+		if dl.has_method("invalidate_layout"):
+			dl.invalidate_layout()
 		dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		vrt.set_paragraph_line_spacing(float(ls))
+		vrt.queue_redraw()
+	var me: Control = shape.get_node_or_null("MultiLineEdit")
+	if me and me is TextEdit:
+		me.add_theme_constant_override("line_spacing", ls)
+		me.queue_redraw()
+	_refit_text_shape(shape)
 
 ## Tamaño de fuente de una figura de texto: meta + etiqueta de display
 ## (WorldTextLabel.world_font_size o theme override) + editor inline.
@@ -783,10 +1099,18 @@ func _write_font_size(shape, value) -> void:
 		else:
 			dl.add_theme_font_size_override("font_size", fs)
 		dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		vrt.set_font_size(float(fs))
+		vrt.queue_redraw()
 	var me: Control = shape.get_node_or_null("MultiLineEdit")
 	if me == null: me = shape.get_node_or_null("LineEdit")
+	if me == null: me = shape.get_node_or_null("TitleEdit")
 	if me:
 		me.add_theme_font_size_override("font_size", fs)
+		if me.has_method("queue_redraw"):
+			me.queue_redraw()
+	_refit_text_shape(shape)
 
 func _write_letter_proportions(shape, value) -> void:
 	if not _is_text(shape):
@@ -802,6 +1126,101 @@ func _write_letter_proportions(shape, value) -> void:
 			dl.set_letter_proportions(value if value is Dictionary else {})
 		elif dl.has_method("queue_redraw"):
 			dl.queue_redraw()
+
+## Sangrías Publisher (unidades de mundo): left/right 0..500,
+## first -500..500 (negativa = francesa). Meta + re-bake del overlay.
+func _write_indent(shape, prop: String, value) -> void:
+	if not _is_text(shape):
+		return
+	var v := float(value)
+	if prop == "indent_first":
+		v = clampf(v, -500.0, 500.0)
+	else:
+		v = clampf(v, 0.0, 500.0)
+	shape.set_meta(prop, v)
+	var dl: Control = shape.get_node_or_null("DisplayLabel")
+	if dl:
+		if dl.has_method("apply_indent_meta"):
+			dl.apply_indent_meta()
+		elif dl.has_method("queue_redraw"):
+			dl.queue_redraw()
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		var il = float(shape.get_meta("indent_left", 0.0))
+		var ir = float(shape.get_meta("indent_right", 0.0))
+		var fi = float(shape.get_meta("indent_first", 0.0))
+		vrt.set_paragraph_indents(il, ir, fi)
+		vrt.queue_redraw()
+	var me: Control = shape.get_node_or_null("MultiLineEdit")
+	if me and me is TextEdit:
+		var sb := me.get_theme_stylebox("normal")
+		if sb is StyleBoxFlat:
+			if prop == "indent_left":
+				sb.content_margin_left = v
+			elif prop == "indent_right":
+				sb.content_margin_right = v
+			me.queue_redraw()
+	_refit_text_shape(shape)
+
+func _write_columns(shape: Node2D, prop: String, value: Variant) -> void:
+	if not _is_text(shape):
+		return
+	if prop == "columns":
+		shape.set_meta("columns", clampi(int(value), 1, 16))
+	elif prop == "column_gap":
+		shape.set_meta("column_gap", maxf(0.0, float(value)))
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		var cols = int(shape.get_meta("columns", 1))
+		var gap = float(shape.get_meta("column_gap", 20.0))
+		vrt.set_columns(cols, gap)
+		vrt.queue_redraw()
+
+func _refit_text_shape(shape: Node2D) -> void:
+	if not is_instance_valid(shape) or not _is_text(shape):
+		return
+	var vrt = shape.get_node_or_null("VectorRichText")
+	var dl: Control = shape.get_node_or_null("DisplayLabel")
+	var me: Control = shape.get_node_or_null("MultiLineEdit")
+	if me == null: me = shape.get_node_or_null("TitleEdit")
+	var st := String(shape.get_meta("shape_type", ""))
+	if st == "text_paragraph":
+		var w := float(shape.get_meta("width", 350.0))
+		var h := 100.0
+		if vrt:
+			vrt.set_frame_size(Vector2(w, 100000.0))
+			var csz: Vector2 = vrt.get_content_size()
+			h = maxf(40.0, csz.y)
+			vrt.set_frame_size(Vector2(w, h))
+			vrt.custom_minimum_size = Vector2(w, h)
+			vrt.size = Vector2(w, h)
+		elif dl is WorldTextLabel:
+			h = maxf(40.0, dl.wrapped_content_height(str(shape.get_meta("text", ""))))
+		shape.set_meta("height", h)
+		if dl:
+			dl.custom_minimum_size = Vector2(w, h)
+			dl.size = Vector2(w, h)
+		if me:
+			me.custom_minimum_size = Vector2(w, h)
+			me.size = Vector2(w, h)
+	elif st == "text_title":
+		var sz := Vector2(250.0, 40.0)
+		if vrt:
+			var csz: Vector2 = vrt.get_content_size()
+			sz = Vector2(maxf(csz.x + 24.0, 120.0), maxf(csz.y + 6.0, 36.0))
+			vrt.custom_minimum_size = sz
+			vrt.size = sz
+		elif dl is WorldTextLabel:
+			var rsz = dl.get_world_minimum_size(str(shape.get_meta("text", "")))
+			sz = Vector2(maxf(rsz.x + 24.0, 120.0), maxf(rsz.y + 6.0, 36.0))
+		shape.set_meta("width", sz.x)
+		shape.set_meta("height", sz.y)
+		if dl:
+			dl.custom_minimum_size = sz
+			dl.size = sz
+		if me:
+			me.custom_minimum_size = sz
+			me.size = sz
 
 func _write_extent(shape, prop: String, v: float) -> void:
 	if _is_text(shape):
@@ -827,6 +1246,17 @@ func _write_extent(shape, prop: String, v: float) -> void:
 			if me:
 				me.custom_minimum_size = Vector2(w, h)
 				me.size = Vector2(w, h)
+			var vrt: Control = shape.get_node_or_null("VectorRichText")
+			if vrt:
+				vrt.set_frame_size(Vector2(w, h))
+				vrt.custom_minimum_size = Vector2(w, h)
+				vrt.size = Vector2(w, h)
+		return
+	if "artboard_size" in shape:
+		var sz: Vector2 = shape.artboard_size
+		if prop == "width": sz.x = v
+		else: sz.y = v
+		shape.artboard_size = sz
 		return
 	if "size" in shape:
 		var sz: Vector2 = shape.get("size")

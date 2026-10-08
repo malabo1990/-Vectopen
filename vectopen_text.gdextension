@@ -1,0 +1,14 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.1
+reloadable = true
+
+[libraries]
+windows.debug.x86_64 =   "res://rust/vectopen_text/target/debug/vectopen_text.dll"
+windows.release.x86_64 = "res://rust/vectopen_text/target/release/vectopen_text.dll"
+linux.debug.x86_64 =     "res://rust/vectopen_text/target/debug/libvectopen_text.so"
+linux.release.x86_64 =   "res://rust/vectopen_text/target/release/libvectopen_text.so"
+macos.debug =             "res://rust/vectopen_text/target/debug/libvectopen_text.dylib"
+macos.release =           "res://rust/vectopen_text/target/release/libvectopen_text.dylib"
+macos.debug.arm64 =       "res://rust/vectopen_text/target/debug/libvectopen_text.dylib"
+macos.release.arm64 =     "res://rust/vectopen_text/target/release/libvectopen_text.dylib"
