@@ -165,6 +165,9 @@ func test_navegador_de_fuentes_lista_y_aplica() -> void:
 	InspectorCore._sync_selection()
 	HistoryManager.clear()
 
+	# La lista se rellena al abrir el navegador (carga perezosa).
+	(panel.get_node(_FONT_BTN + "/Panel_font") as CanvasItem).visible = true
+	await get_tree().process_frame
 	var list := panel.get_node_or_null(_FONT_LIST)
 	assert_object(list).is_not_null()
 	assert_int(list.get_child_count()).is_greater(0)   # poblada desde FontCore

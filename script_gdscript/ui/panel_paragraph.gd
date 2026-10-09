@@ -13,29 +13,38 @@ const TextCore = preload("res://script_gdscript/text/text_core.gd")
 ## Relleno largo para previsualizar marcos (estilo InDesign).
 const LOREM := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
-const SpinBoxScene := preload("res://scenes/ui/spin_box.tscn")
+const NumField := preload("res://script_gdscript/ui/pro/pro_num_field.gd")
+const _ICONS := "res://icon/UI/"
 
 var _syncing := false
 var _fields: Dictionary = {}
-var _cards: Array[PanelContainer] = []
-var _card_titles: Array[Label] = []
-var _labels: Array[Label] = []
-var _buttons: Array[Button] = []
+var _sections: Array[Control] = []
+var _section_titles: Array[Label] = []
+var _separators: Array[ColorRect] = []
+var _buttons: Array[Button] = []          # botones de icono/texto con estado
+var _action_btns: Array[Button] = []      # acciones (sin estado activo)
+var _swatches: Array[ColorPickerButton] = []
 var _align_btns: Array[Button] = []
 var _valign_btns: Array[Button] = []
 
 var _btn_bold: Button = null
 var _btn_italic: Button = null
 var _btn_underline: Button = null
+var _btn_family: Button = null
+var _family_menu: PopupMenu = null
+var _opt_style: OptionButton = null
 var _spin_size: Control = null
 var _cp_fill: ColorPickerButton = null
 var _cp_stroke: ColorPickerButton = null
 var _spin_stroke: Control = null
+var _scrub_before: Dictionary = {}       # prop -> {figura: valor previo}
 
 const _ALIGNS := ["left", "center", "right", "fill"]
-const _ALIGN_TXT := ["⫷ Izq", "⫸ Cen", "⫹ Der", "≣ Jus"]
+const _ALIGN_ICONS := ["txt_align_left", "txt_align_center", "txt_align_right", "txt_align_justify"]
+const _ALIGN_TIPS := ["Alinear a la izquierda", "Centrar", "Alinear a la derecha", "Justificar"]
 const _VALIGNS := ["top", "middle", "bottom"]
-const _VALIGN_TXT := ["⤓ Arr", "⇕ Cen", "⤒ Aba"]
+const _VALIGN_ICONS := ["text_valign_top", "text_valign_middle", "text_valign_bottom"]
+const _VALIGN_TIPS := ["Alinear arriba", "Centrar verticalmente", "Alinear abajo"]
 
 ## Busca la sección ya montada (preload-safe: no usa el class_name global,
 ## que el caché del editor aún no conoce para este archivo nuevo).
@@ -47,7 +56,7 @@ static func find_in(text_panel: Node) -> Node:
 var _popup: Control = null
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 6)
+	add_theme_constant_override("separation", 10)
 	_build_ui()
 	# El popup vive con offsets fijos del .tscn: si cae bajo la pantalla se
 	# corta. Al mostrarse se recoloca para que quepa entero.
@@ -75,6 +84,7 @@ func _ready() -> void:
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_apply_theme):
 		tm.theme_changed.connect(_apply_theme)
+	visibility_changed.connect(_on_visibility_sync)
 	_apply_theme()
 	_sync({})
 
@@ -85,109 +95,154 @@ func _on_close_popup() -> void:
 func _on_selection_size_changed(_count: int) -> void:
 	_sync({})
 
-## Estilo profesional adaptado al ThemeManager de Vectopen
+## Estilo profesional (Figma / Illustrator): secciones planas separadas por
+## una línea fina, campos de 24 px con icono y botones de icono de 16 px.
 func _apply_theme(_mode: String = "") -> void:
-	var tm = get_node_or_null("/root/ThemeManager")
-	var S = tm.Slot if tm else null
-	var card_bg: Color = tm.get_color(S.SURFACE_RAISED) if tm else Color(1, 1, 1, 0.7)
-	var card_bd: Color = tm.get_color(S.BORDER) if tm else Color(0.85, 0.85, 0.88, 1.0)
-	var text_col: Color = tm.get_color(S.PANEL_TEXT) if tm else Color(0.12, 0.12, 0.14, 1.0)
-	var title_col: Color = tm.get_color(S.TEXT_MUTED) if (tm and "TEXT_MUTED" in S) else Color(0.35, 0.35, 0.4, 1.0)
-	var input_bg: Color = tm.get_color(S.INPUT_BG) if tm else Color(1, 1, 1, 1)
-	var input_bd: Color = tm.get_color(S.INPUT_BORDER) if tm else Color(0.8, 0.8, 0.85, 1.0)
-
-	for c in _cards:
-		if is_instance_valid(c):
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = card_bg
-			sb.border_color = card_bd
-			sb.set_border_width_all(1)
-			sb.set_corner_radius_all(8)
-			sb.content_margin_left = 10
-			sb.content_margin_right = 10
-			sb.content_margin_top = 8
-			sb.content_margin_bottom = 8
-			c.add_theme_stylebox_override("panel", sb)
-
-	for tl in _card_titles:
+	for sep in _separators:
+		if is_instance_valid(sep):
+			sep.color = ProUIStyle.col("BORDER")
+	for tl in _section_titles:
 		if is_instance_valid(tl):
-			tl.add_theme_color_override("font_color", title_col)
-
-	for l in _labels:
-		if is_instance_valid(l):
-			l.add_theme_color_override("font_color", text_col)
-
+			tl.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
 	for prop in _fields:
-		var sp = _fields[prop]
-		if is_instance_valid(sp):
-			if sp is SpinBox:
-				_style_spinbox(sp, input_bg, input_bd, text_col)
-			elif sp.has_method("_aplicar_tema"):
-				sp._aplicar_tema()
-
-	for sp in [_spin_size, _spin_stroke]:
-		if is_instance_valid(sp):
-			if sp is SpinBox:
-				_style_spinbox(sp, input_bg, input_bd, text_col)
-			elif sp.has_method("_aplicar_tema"):
-				sp._aplicar_tema()
-
+		var f = _fields[prop]
+		if is_instance_valid(f) and f.has_method("apply_theme"):
+			f.apply_theme()
+	if is_instance_valid(_spin_stroke) and _spin_stroke.has_method("apply_theme"):
+		_spin_stroke.apply_theme()
 	for b in _buttons:
 		if is_instance_valid(b):
 			_style_button(b, b.button_pressed)
+	for b in _action_btns:
+		if is_instance_valid(b):
+			_style_action(b)
+	for cp in _swatches:
+		if is_instance_valid(cp):
+			_style_swatch(cp)
+	var hole := _cp_stroke.get_node_or_null("Hole") as Panel if is_instance_valid(_cp_stroke) else null
+	if hole:
+		hole.add_theme_stylebox_override("panel", ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 2, ProUIStyle.col("INPUT_BORDER")))
+	_style_tool_buttons()
+	for w in [_btn_family, _opt_style]:
+		if is_instance_valid(w):
+			_style_dropdown(w)
+	if is_instance_valid(_family_menu):
+		ProUIStyle.style_popup(_family_menu)
 
+## Botón de icono con estado (activo = fondo elevado + icono en acento).
 func _style_button(btn: Button, pressed: bool = false) -> void:
 	if not is_instance_valid(btn):
 		return
-	var tm = get_node_or_null("/root/ThemeManager")
-	var S = tm.Slot if tm else null
-	var accent: Color = tm.get_color(S.ACCENT) if tm else Color(0.2, 0.5, 1.0)
-	var text_col: Color = tm.get_color(S.PANEL_TEXT) if tm else Color(0.15, 0.15, 0.18)
-	var input_bg: Color = tm.get_color(S.INPUT_BG) if tm else Color(1, 1, 1, 1)
-	var input_bd: Color = tm.get_color(S.INPUT_BORDER) if tm else Color(0.8, 0.8, 0.85)
+	var accent := ProUIStyle.col("ACCENT")
+	var normal := ProUIStyle.flat(Color(accent, 0.28) if pressed else Color(0, 0, 0, 0), 4,
+		Color(accent, 0.7) if pressed else Color(0, 0, 0, 0), 0, 0)
+	var hover := ProUIStyle.flat(Color(accent, 0.36) if pressed else ProUIStyle.col("BUTTON_HOVER"), 4,
+		Color(accent, 0.7) if pressed else Color(0, 0, 0, 0), 0, 0)
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", normal)
+	btn.add_theme_stylebox_override("hover_pressed", hover)
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# Activo: icono en color de texto sobre fondo de acento (contraste en
+	# claro y oscuro); el azul sobre azul no se distinguía en tema oscuro.
+	var fg := ProUIStyle.col("PANEL_TEXT") if pressed else ProUIStyle.col("ICON_PRIMARY")
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		btn.add_theme_color_override(k, fg)
+	var path := String(btn.get_meta("icon_path", ""))
+	if path != "":
+		btn.icon = ProUIStyle.icon(path, fg, 16)
 
-	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(5)
-	sb.set_border_width_all(1)
-	sb.content_margin_left = 6
-	sb.content_margin_right = 6
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+## Botón de acción (icono + texto corto, sin estado).
+func _style_action(btn: Button) -> void:
+	var bg := ProUIStyle.col("INPUT_BG")
+	btn.add_theme_stylebox_override("normal", ProUIStyle.flat(bg, 4, ProUIStyle.col("INPUT_BORDER"), 6, 0))
+	btn.add_theme_stylebox_override("hover", ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 4, ProUIStyle.col("BORDER_STRONG"), 6, 0))
+	btn.add_theme_stylebox_override("pressed", ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 4, ProUIStyle.col("ACCENT"), 6, 0))
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	btn.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+	var fg := ProUIStyle.col("PANEL_TEXT")
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		btn.add_theme_color_override(k, fg)
+	var path := String(btn.get_meta("icon_path", ""))
+	if path != "":
+		btn.icon = ProUIStyle.icon(path, ProUIStyle.col("TEXT_SECONDARY"), 16)
 
-	if pressed:
-		sb.bg_color = Color(accent.r, accent.g, accent.b, 0.18)
-		sb.border_color = accent
-		btn.add_theme_color_override("font_color", accent)
-		btn.add_theme_color_override("font_pressed_color", accent)
+## Muestra de color: cuadrado con borde, el color ocupa casi toda la caja.
+func _style_swatch(cp: ColorPickerButton) -> void:
+	var sb := ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 4, ProUIStyle.col("INPUT_BORDER"), 3, 3)
+	var sbh := ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 4, ProUIStyle.col("BORDER_STRONG"), 3, 3)
+	cp.add_theme_stylebox_override("normal", sb)
+	cp.add_theme_stylebox_override("hover", sbh)
+	cp.add_theme_stylebox_override("pressed", sbh)
+	cp.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+func _style_dropdown(w: Button) -> void:
+	w.add_theme_stylebox_override("normal", ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 4, ProUIStyle.col("INPUT_BORDER"), 8, 0))
+	w.add_theme_stylebox_override("hover", ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 4, ProUIStyle.col("BORDER_STRONG"), 8, 0))
+	w.add_theme_stylebox_override("pressed", ProUIStyle.flat(ProUIStyle.col("INPUT_BG"), 4, ProUIStyle.col("ACCENT"), 8, 0))
+	w.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	w.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE + 1)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		w.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
+	var arrow := ProUIStyle.icon("res://icon/UI/nav-arrow-down.svg", ProUIStyle.col("TEXT_SECONDARY"), 12)
+	if w is OptionButton:
+		w.add_theme_icon_override("arrow", arrow)
+		ProUIStyle.style_popup((w as OptionButton).get_popup())
 	else:
-		sb.bg_color = input_bg
-		sb.border_color = input_bd
-		btn.add_theme_color_override("font_color", text_col)
-		btn.add_theme_color_override("font_pressed_color", text_col)
-
-	btn.add_theme_stylebox_override("normal", sb)
-	btn.add_theme_stylebox_override("hover", sb)
-	btn.add_theme_stylebox_override("pressed", sb)
-
-func _style_spinbox(sp: SpinBox, input_bg: Color, input_bd: Color, text_col: Color) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = input_bg
-	sb.border_color = input_bd
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(5)
-	var le := sp.get_line_edit()
-	if le:
-		le.add_theme_color_override("font_color", text_col)
-		le.add_theme_stylebox_override("normal", sb)
-		le.add_theme_stylebox_override("focus", sb)
-		le.add_theme_stylebox_override("read_only", sb)
-	else:
-		sp.add_theme_color_override("font_color", text_col)
-		sp.add_theme_stylebox_override("normal", sb)
-		sp.add_theme_stylebox_override("focus", sb)
+		w.icon = arrow
 
 func _on_tool_changed(_tool_name: String) -> void:
-	pass
+	_style_tool_buttons()
+
+const _TOOL_BTNS := {"text": ["txt_tool_title", "Texto", "Texto de título: clic en el lienzo (T)"],
+	"paragraph": ["txt_tool_paragraph", "Párrafo", "Marco de párrafo: arrastra en el lienzo"]}
+
+## Los dos botones del popup (tool.tscn) con icono + nombre y la herramienta
+## activa resaltada, en vez de dos iconos enmarcados sin texto.
+func _style_tool_buttons() -> void:
+	if not is_instance_valid(_popup):
+		return
+	var grid := _popup.get_node_or_null("MarginContainer/BoxContainer/GridContainer") as GridContainer
+	if grid == null:
+		return
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	var cur := ""
+	var t = canvas.current_tool if canvas and "current_tool" in canvas else null
+	if t and t.get_script():
+		cur = {"TextTool.gd": "text", "ParagraphTool.gd": "paragraph"}.get(String(t.get_script().resource_path).get_file(), "")
+	for b in grid.get_children():
+		if not (b is Button) or not ("tool_name" in b) or not _TOOL_BTNS.has(String(b.tool_name)):
+			continue
+		var spec: Array = _TOOL_BTNS[String(b.tool_name)]
+		var btn := b as Button
+		btn.text = tr(String(spec[1]))
+		btn.tooltip_text = tr(String(spec[2]))
+		btn.expand_icon = false
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.custom_minimum_size = Vector2(0, 28)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.set_meta("icon_path", _ICONS + String(spec[0]) + ".svg")
+		btn.add_theme_constant_override("h_separation", 8)
+		if String(b.tool_name) == cur:
+			_style_button(btn, true)
+			for k in ["normal", "hover", "pressed", "hover_pressed"]:
+				var sb := btn.get_theme_stylebox(k) as StyleBoxFlat
+				if sb:
+					sb.content_margin_left = 10
+		else:
+			_style_action(btn)
+			for k in ["normal", "hover", "pressed"]:
+				var sb := btn.get_theme_stylebox(k) as StyleBoxFlat
+				if sb:
+					sb.content_margin_left = 10
+		btn.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE + 1)
+	var title := _popup.get_node_or_null("MarginContainer/BoxContainer/Label") as Label
+	if title:
+		title.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE + 2)
+		title.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
 
 ## Recoloca el popup para que nunca salga por abajo de la pantalla.
 func _keep_on_screen() -> void:
@@ -210,253 +265,286 @@ func _keep_on_screen() -> void:
 
 # ── construcción ────────────────────────────────────────────────────────────
 
-func _create_card(title: String) -> VBoxContainer:
-	var pc := PanelContainer.new()
-	var gsb := StyleBoxFlat.new()
-	gsb.set_corner_radius_all(8)
-	gsb.set_border_width_all(1)
-	gsb.content_margin_left = 10
-	gsb.content_margin_right = 10
-	gsb.content_margin_top = 8
-	gsb.content_margin_bottom = 8
-	pc.add_theme_stylebox_override("panel", gsb)
-	_cards.append(pc)
-	add_child(pc)
-	
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	pc.add_child(vbox)
-	
+## Sección plana: línea fina + título + filas.
+func _section(title: String) -> VBoxContainer:
+	if not _sections.is_empty():
+		var sep := ColorRect.new()
+		sep.custom_minimum_size = Vector2(0, 1)
+		sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_separators.append(sep)
+		add_child(sep)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	add_child(box)
+	_sections.append(box)
 	var lbl := Label.new()
-	lbl.text = title
-	lbl.add_theme_font_size_override("font_size", 11)
-	_card_titles.append(lbl)
-	vbox.add_child(lbl)
-	return vbox
+	lbl.text = tr(title)
+	lbl.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+	_section_titles.append(lbl)
+	box.add_child(lbl)
+	return box
 
-func _mini_num_col(parent: Control, label_txt: String, min_v: float, max_v: float, tip: String, prop: String = "", step_v: float = 1.0, suffix_txt: String = "px", compact: bool = true) -> Control:
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 2)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(col)
-
-	var l := Label.new()
-	l.text = label_txt
-	l.add_theme_font_size_override("font_size", 10)
-	l.mouse_filter = Control.MOUSE_FILTER_STOP
-	l.mouse_default_cursor_shape = Control.CURSOR_HSIZE
-	l.tooltip_text = "Arrastrar horizontalmente para ajustar: " + tip
-	_labels.append(l)
-	col.add_child(l)
-
-	var sp: SpinBoxValue = SpinBoxScene.instantiate() as SpinBoxValue
-	sp.min_value = min_v
-	sp.max_value = max_v
-	sp.step = step_v
-	sp.suffix = suffix_txt
-	sp.tooltip_text = tip
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sp.custom_minimum_size = Vector2(0, 24)
-	if sp.has_method("set_compact"):
-		sp.set_compact(compact)
-	if not prop.is_empty():
-		sp.value_changed.connect(_on_field.bind(prop))
-		_fields[prop] = sp
-	col.add_child(sp)
-
-	var drag_info := {"active": false, "start_x": 0.0, "start_val": 0.0}
-	l.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
-			if ev.pressed:
-				drag_info["active"] = true
-				drag_info["start_x"] = ev.global_position.x
-				drag_info["start_val"] = sp.value
-			else:
-				drag_info["active"] = false
-		elif ev is InputEventMouseMotion and drag_info["active"]:
-			var dx: float = ev.global_position.x - drag_info["start_x"]
-			var current_step := step_v
-			if Input.is_key_pressed(KEY_SHIFT):
-				current_step *= 0.1
-			elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
-				current_step *= 5.0
-			var delta_val := (dx * 0.4) * current_step
-			sp.value = clampf(drag_info["start_val"] + delta_val, min_v, max_v)
-	)
-
-	return sp
-
-func _build_ui() -> void:
-	# 1. Tarjeta: Carácter y Tipografía
-	var card_char := _create_card("Carácter y Tipografía")
-	
-	var row_fmt := HBoxContainer.new()
-	row_fmt.add_theme_constant_override("separation", 6)
-	card_char.add_child(row_fmt)
-	
-	_btn_bold = _mini_btn("B")
-	_btn_bold.toggle_mode = true
-	_btn_bold.tooltip_text = "Negrita (Ctrl+B)"
-	_btn_bold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_btn_bold.pressed.connect(func(): _fmt_toggle("bold"))
-	row_fmt.add_child(_btn_bold)
-
-	_btn_italic = _mini_btn("I")
-	_btn_italic.toggle_mode = true
-	_btn_italic.tooltip_text = "Cursiva (Ctrl+I)"
-	_btn_italic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_btn_italic.pressed.connect(func(): _fmt_toggle("italic"))
-	row_fmt.add_child(_btn_italic)
-
-	_btn_underline = _mini_btn("U")
-	_btn_underline.toggle_mode = true
-	_btn_underline.tooltip_text = "Subrayado (Ctrl+U)"
-	_btn_underline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_btn_underline.pressed.connect(func(): _fmt_toggle("underline"))
-	row_fmt.add_child(_btn_underline)
-
-	var vsep := VSeparator.new()
-	row_fmt.add_child(vsep)
-
-	_cp_fill = ColorPickerButton.new()
-	_cp_fill.tooltip_text = "Color de relleno de texto"
-	_cp_fill.color = Color.BLACK
-	_cp_fill.custom_minimum_size = Vector2(28, 24)
-	_cp_fill.focus_mode = Control.FOCUS_NONE
-	_cp_fill.color_changed.connect(_fmt_color)
-	row_fmt.add_child(_cp_fill)
-
-	# Fila 2 de Carácter: Tamaño, Interlineado, Tracking en 3 columnas
-	var row_metrics := HBoxContainer.new()
-	row_metrics.add_theme_constant_override("separation", 6)
-	card_char.add_child(row_metrics)
-	
-	_spin_size = _mini_num_col(row_metrics, "Tamaño", 4.0, 400.0, "Tamaño de fuente en pt/px", "", 1.0, "pt", true)
-	_spin_size.value_changed.connect(_fmt_size)
-	_fields["font_size"] = _spin_size
-	
-	_mini_num_col(row_metrics, "Interl.", -20.0, 300.0, "Interlineado", "line_spacing", 1.0, "px", true)
-	_mini_num_col(row_metrics, "Track.", -10.0, 100.0, "Espaciado entre letras", "letter_spacing", 0.5, "px", true)
-
-	# 2. Tarjeta: Trazo y Contorno
-	var card_stroke := _create_card("Trazo y Contorno")
-	var row_strk := HBoxContainer.new()
-	row_strk.add_theme_constant_override("separation", 6)
-	card_stroke.add_child(row_strk)
-	
-	var strk_lab := Label.new()
-	strk_lab.text = "Color:"
-	strk_lab.add_theme_font_size_override("font_size", 11)
-	_labels.append(strk_lab)
-	row_strk.add_child(strk_lab)
-
-	_cp_stroke = ColorPickerButton.new()
-	_cp_stroke.tooltip_text = "Color de trazo / contorno"
-	_cp_stroke.color = Color.BLACK
-	_cp_stroke.custom_minimum_size = Vector2(28, 24)
-	_cp_stroke.focus_mode = Control.FOCUS_NONE
-	_cp_stroke.color_changed.connect(_fmt_stroke_color)
-	row_strk.add_child(_cp_stroke)
-
-	var w_lab := Label.new()
-	w_lab.text = "Grosor:"
-	w_lab.add_theme_font_size_override("font_size", 11)
-	_labels.append(w_lab)
-	row_strk.add_child(w_lab)
-
-	_spin_stroke = SpinBoxScene.instantiate() as SpinBoxValue
-	_spin_stroke.min_value = 0.0
-	_spin_stroke.max_value = 50.0
-	_spin_stroke.step = 0.5
-	_spin_stroke.suffix = "px"
-	_spin_stroke.tooltip_text = "Grosor de trazo (0 = sin trazo)"
-	_spin_stroke.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_spin_stroke.custom_minimum_size = Vector2(0, 24)
-	if _spin_stroke.has_method("set_compact"):
-		_spin_stroke.set_compact(true)
-	_spin_stroke.value_changed.connect(_fmt_stroke_width)
-	row_strk.add_child(_spin_stroke)
-
-	# 3. Tarjeta: Párrafo y Alineación
-	var card_par := _create_card("Párrafo y Sangrías")
-	
-	_align_btns = _btn_row(card_par, _ALIGN_TXT, _on_align)
-	_valign_btns = _btn_row(card_par, _VALIGN_TXT, _on_valign)
-
-	var row_indents := HBoxContainer.new()
-	row_indents.add_theme_constant_override("separation", 6)
-	card_par.add_child(row_indents)
-	
-	_mini_num_col(row_indents, "Izq", 0.0, 500.0, "Sangría izquierda", "indent_left", 1.0, "px", true)
-	_mini_num_col(row_indents, "Der", 0.0, 500.0, "Sangría derecha", "indent_right", 1.0, "px", true)
-	_mini_num_col(row_indents, "1ª Lín", -500.0, 500.0, "Primera línea (negativa = francesa)", "indent_first", 1.0, "px", true)
-
-	# 4. Tarjeta: Marco y Flujo de Texto
-	var card_frame := _create_card("Marco y Flujo")
-	
-	var row_dims := HBoxContainer.new()
-	row_dims.add_theme_constant_override("separation", 6)
-	card_frame.add_child(row_dims)
-	
-	_mini_num_col(row_dims, "Ancho", 40.0, 4000.0, "Ancho del marco", "width", 1.0, "px", false)
-	_mini_num_col(row_dims, "Alto", 20.0, 4000.0, "Alto del marco", "height", 1.0, "px", false)
-
-	var row_cols := HBoxContainer.new()
-	row_cols.add_theme_constant_override("separation", 6)
-	card_frame.add_child(row_cols)
-
-	_mini_num_col(row_cols, "Cols", 1.0, 16.0, "Número de columnas", "columns", 1.0, "", false)
-	_mini_num_col(row_cols, "Medianil", 0.0, 200.0, "Espacio entre columnas (medianil)", "column_gap", 1.0, "px", false)
-
-	var row_actions := HBoxContainer.new()
-	row_actions.add_theme_constant_override("separation", 4)
-	card_frame.add_child(row_actions)
-
-	var b_unlink := _mini_btn("Desvincular")
-	b_unlink.tooltip_text = "Romper enlace con el marco siguiente"
-	b_unlink.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b_unlink.pressed.connect(_on_unlink)
-	row_actions.add_child(b_unlink)
-
-	var b_reflow := _mini_btn("Reorganizar")
-	b_reflow.tooltip_text = "Recalcular flujo del texto encadenado"
-	b_reflow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b_reflow.pressed.connect(_on_reflow)
-	row_actions.add_child(b_reflow)
-
-	var b_lorem := _mini_btn("¶ Lorem")
-	b_lorem.tooltip_text = "Insertar texto falso largo en el párrafo seleccionado"
-	b_lorem.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b_lorem.pressed.connect(_on_lorem)
-	row_actions.add_child(b_lorem)
-
-func _btn_row(parent: Control, texts: Array, cb: Callable) -> Array[Button]:
+func _row(parent: Control, sep: int = 6) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	row.add_theme_constant_override("separation", sep)
 	parent.add_child(row)
+	return row
+
+## Campo numérico con icono (o letra) arrastrable. Con `prop` se conecta a
+## InspectorCore: en vivo al arrastrar y UNA acción de undo al soltar.
+func _num(parent: Control, icon: String, glyph: String, min_v: float, max_v: float, tip: String, prop: String = "", step_v: float = 1.0, suffix_txt: String = "") -> Control:
+	var f = NumField.new(_ICONS + icon + ".svg" if icon != "" else "", glyph, tr(tip))
+	f.min_value = min_v
+	f.max_value = max_v
+	f.step = step_v
+	f.suffix = suffix_txt
+	parent.add_child(f)
+	if not prop.is_empty():
+		f.value_changed.connect(_on_field.bind(prop))
+		f.scrub_changed.connect(_on_field_scrub.bind(prop))
+		f.scrub_ended.connect(_on_field_scrub_end.bind(prop))
+		_fields[prop] = f
+	return f
+
+func _icon_toggle(icon: String, tip: String) -> Button:
+	var b := Button.new()
+	b.toggle_mode = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.tooltip_text = tr(tip)
+	b.custom_minimum_size = Vector2(28, 24)
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.set_meta("icon_path", _ICONS + icon + ".svg")
+	b.toggled.connect(func(on: bool) -> void: _style_button(b, on))
+	_buttons.append(b)
+	return b
+
+## Grupo segmentado de iconos (uno activo a la vez).
+func _seg_group(parent: Control, icons: Array, tips: Array, cb: Callable) -> Array[Button]:
+	var row := _row(parent, 2)
 	var out: Array[Button] = []
-	for t in texts:
-		var b := _mini_btn(String(t))
-		b.toggle_mode = true
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(cb.bind(out.size()))
+	for i in icons.size():
+		var b := _icon_toggle(String(icons[i]), String(tips[i]))
+		b.pressed.connect(cb.bind(i))
 		row.add_child(b)
 		out.append(b)
 	return out
 
-func _mini_btn(t: String) -> Button:
+func _action(parent: Control, icon: String, text: String, tip: String, cb: Callable) -> Button:
 	var b := Button.new()
-	b.text = t
+	b.text = tr(text)
+	b.tooltip_text = tr(tip)
 	b.focus_mode = Control.FOCUS_NONE
-	_buttons.append(b)
+	b.custom_minimum_size = Vector2(0, 24)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.set_meta("icon_path", _ICONS + icon + ".svg")
+	b.pressed.connect(cb)
+	_action_btns.append(b)
+	parent.add_child(b)
 	return b
+
+func _swatch(parent: Control, tip: String, cb: Callable) -> ColorPickerButton:
+	var cp := ColorPickerButton.new()
+	cp.tooltip_text = tr(tip)
+	cp.color = Color.BLACK
+	cp.custom_minimum_size = Vector2(24, 24)
+	cp.focus_mode = Control.FOCUS_NONE
+	cp.color_changed.connect(cb)
+	parent.add_child(cp)
+	_swatches.append(cp)
+	return cp
+
+func _spacer(parent: Control) -> void:
+	var s := Control.new()
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(s)
+
+func _build_ui() -> void:
+	# ── Carácter ──
+	var sec_char := _section("Carácter")
+	var row_font := _row(sec_char)
+	_btn_family = Button.new()
+	_btn_family.text = "Inter"
+	_btn_family.tooltip_text = tr("Familia tipográfica")
+	_btn_family.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_btn_family.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_btn_family.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_btn_family.clip_text = true
+	_btn_family.focus_mode = Control.FOCUS_NONE
+	_btn_family.custom_minimum_size = Vector2(0, 24)
+	_btn_family.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_btn_family.size_flags_stretch_ratio = 1.6
+	_btn_family.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_btn_family.pressed.connect(_open_family_menu)
+	row_font.add_child(_btn_family)
+	_family_menu = PopupMenu.new()
+	_family_menu.max_size = Vector2i(320, 420)
+	_family_menu.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_family_menu.index_pressed.connect(_on_family_index)
+	add_child(_family_menu)
+
+	_opt_style = OptionButton.new()
+	_opt_style.tooltip_text = tr("Estilo / grosor")
+	_opt_style.focus_mode = Control.FOCUS_NONE
+	_opt_style.custom_minimum_size = Vector2(0, 24)
+	_opt_style.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_opt_style.fit_to_longest_item = false
+	_opt_style.clip_text = true
+	for st in ["Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Black", "Italic", "Bold Italic"]:
+		_opt_style.add_item(st)
+	_opt_style.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_opt_style.get_popup().auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_opt_style.select(1)
+	_opt_style.item_selected.connect(_on_style_selected)
+	row_font.add_child(_opt_style)
+
+	var row_metrics := _row(sec_char)
+	_spin_size = _num(row_metrics, "txt_size", "", 4.0, 400.0, "Tamaño de fuente", "", 1.0, "pt")
+	_spin_size.value_changed.connect(_fmt_size)
+	_spin_size.set_value_no_signal(24.0)
+	_fields["font_size"] = _spin_size
+	_num(row_metrics, "txt_leading", "", -20.0, 300.0, "Interlineado", "line_spacing", 1.0, "px")
+	_num(row_metrics, "txt_tracking", "", -10.0, 100.0, "Espaciado entre letras (tracking)", "letter_spacing", 0.5, "px")
+
+	var row_fmt := _row(sec_char, 2)
+	_btn_bold = _icon_toggle("txt_bold", "Negrita (Ctrl+B)")
+	_btn_bold.pressed.connect(func(): _fmt_toggle("bold"))
+	row_fmt.add_child(_btn_bold)
+	_btn_italic = _icon_toggle("txt_italic", "Cursiva (Ctrl+I)")
+	_btn_italic.pressed.connect(func(): _fmt_toggle("italic"))
+	row_fmt.add_child(_btn_italic)
+	_btn_underline = _icon_toggle("txt_underline", "Subrayado (Ctrl+U)")
+	_btn_underline.pressed.connect(func(): _fmt_toggle("underline"))
+	row_fmt.add_child(_btn_underline)
+	_spacer(row_fmt)
+	_cp_fill = _swatch(row_fmt, "Color del texto", _fmt_color)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(4, 0)
+	row_fmt.add_child(gap)
+	_cp_stroke = _swatch(row_fmt, "Color del trazo / contorno", _fmt_stroke_color)
+	# Trazo = anillo (hueco en el centro), como en Illustrator / Affinity.
+	var hole := Panel.new()
+	hole.name = "Hole"
+	hole.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hole.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hole.offset_left = 6; hole.offset_top = 6; hole.offset_right = -6; hole.offset_bottom = -6
+	_cp_stroke.add_child(hole)
+	_spin_stroke = NumField.new(_ICONS + "txt_stroke_width.svg", "", tr("Grosor del trazo (0 = sin trazo)"))
+	_spin_stroke.min_value = 0.0
+	_spin_stroke.max_value = 50.0
+	_spin_stroke.step = 0.5
+	_spin_stroke.suffix = "px"
+	_spin_stroke.size_flags_horizontal = Control.SIZE_FILL
+	_spin_stroke.custom_minimum_size = Vector2(78, 24)
+	_spin_stroke.value_changed.connect(_fmt_stroke_width)
+	row_fmt.add_child(_spin_stroke)
+
+	# ── Párrafo ──
+	var sec_par := _section("Párrafo")
+	var row_align := _row(sec_par, 8)
+	_align_btns = _seg_group(row_align, _ALIGN_ICONS, _ALIGN_TIPS, _on_align)
+	_spacer(row_align)
+	_valign_btns = _seg_group(row_align, _VALIGN_ICONS, _VALIGN_TIPS, _on_valign)
+
+	var row_indents := _row(sec_par)
+	_num(row_indents, "txt_indent_left", "", 0.0, 500.0, "Sangría izquierda", "indent_left", 1.0, "px")
+	_num(row_indents, "txt_indent_right", "", 0.0, 500.0, "Sangría derecha", "indent_right", 1.0, "px")
+	_num(row_indents, "txt_indent_first", "", -500.0, 500.0, "Sangría de primera línea (negativa = francesa)", "indent_first", 1.0, "px")
+
+	# ── Marco y flujo ──
+	var sec_frame := _section("Marco y flujo")
+	var row_dims := _row(sec_frame)
+	_num(row_dims, "", "W", 40.0, 4000.0, "Ancho del marco", "width", 1.0, "px")
+	_num(row_dims, "", "H", 20.0, 4000.0, "Alto del marco", "height", 1.0, "px")
+	var row_cols := _row(sec_frame)
+	_num(row_cols, "txt_columns", "", 1.0, 16.0, "Número de columnas", "columns", 1.0, "")
+	_num(row_cols, "txt_gutter", "", 0.0, 200.0, "Medianil (espacio entre columnas)", "column_gap", 1.0, "px")
+	var row_actions := _row(sec_frame, 4)
+	_action(row_actions, "txt_unlink", "Desvincular", "Romper el enlace con el marco siguiente", _on_unlink)
+	_action(row_actions, "txt_reflow", "Reorganizar", "Recalcular el flujo del texto encadenado", _on_reflow)
+	_action(row_actions, "txt_lorem", "Relleno", "Rellenar el párrafo seleccionado con texto de muestra", _on_lorem)
+
+# ── familia y estilo ────────────────────────────────────────────────────────
+
+func _open_family_menu() -> void:
+	var fc := get_node_or_null("/root/FontCore")
+	if fc == null or not is_instance_valid(_family_menu):
+		return
+	_family_menu.clear()
+	var fams: PackedStringArray = fc.list_families()
+	var cur := _btn_family.text
+	for i in fams.size():
+		_family_menu.add_radio_check_item(fams[i])
+		_family_menu.set_item_checked(i, fams[i] == cur)
+	ProUIStyle.style_popup(_family_menu)
+	var r := _btn_family.get_global_rect()
+	_family_menu.popup(Rect2i(Vector2i(r.position + Vector2(0, r.size.y + 2)), Vector2i(int(maxf(r.size.x, 200.0)), 0)))
+
+func _on_family_index(idx: int) -> void:
+	var fam := _family_menu.get_item_text(idx)
+	_btn_family.text = fam
+	_ic_apply("font_family", fam)
+
+func _on_style_selected(idx: int) -> void:
+	var fc := get_node_or_null("/root/FontCore")
+	var st := _opt_style.get_item_text(idx)
+	var parts: Dictionary = fc.style_to_spec_parts(st) if fc else {}
+	var w := int(parts.get("weight", {"Light": 300, "ExtraBold": 800, "Black": 900}.get(st, 400)))
+	if st in ["Light", "ExtraBold", "Black"]:
+		w = {"Light": 300, "ExtraBold": 800, "Black": 900}[st]
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("apply_multi"):
+		ic.apply_multi({"font_weight": w, "font_italic": bool(parts.get("italic", false))}, "Texto · estilo")
+
+## Nombre del estilo más cercano a (peso, cursiva) para el desplegable.
+func _style_index(weight: int, italic: bool) -> int:
+	if italic:
+		return 8 if weight >= 600 else 7
+	var names := {300: 0, 400: 1, 500: 2, 600: 3, 700: 4, 800: 5, 900: 6}
+	var best := 1
+	var dist := 10000
+	for w in names:
+		if absi(int(w) - weight) < dist:
+			dist = absi(int(w) - weight)
+			best = int(names[w])
+	return best
 
 # ── acciones ────────────────────────────────────────────────────────────────
 
 func _on_field(v: float, prop: String) -> void:
 	if _syncing:
 		return
+	if _scrub_before.has(prop):
+		# Fin de un arrastre: ya está escrito en vivo → UNA acción de undo.
+		var ic := get_node_or_null("/root/InspectorCore")
+		var before: Dictionary = _scrub_before[prop]
+		_scrub_before.erase(prop)
+		if ic and ic.has_method("commit_live"):
+			ic.commit_live(prop, before)
+		return
 	_ic_apply(prop, v)
+
+## Arrastre del icono de un campo: escribe en vivo sin crear undo.
+func _on_field_scrub(v: float, prop: String) -> void:
+	if _syncing:
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null or not ic.has_method("_write"):
+		return
+	if not _scrub_before.has(prop):
+		var before := {}
+		for s in ic.selection():
+			var b = ic._read(s, prop)
+			if b != null:
+				before[s] = b
+		_scrub_before[prop] = before
+	for s in (_scrub_before[prop] as Dictionary):
+		if is_instance_valid(s):
+			ic._write(s, prop, v)
+	ic._post_write()
+
+func _on_field_scrub_end(_v: float, _prop: String) -> void:
+	pass   # value_changed llega justo después → _on_field confirma
 
 func _ic_apply(prop: String, v: Variant) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
@@ -473,7 +561,8 @@ func _on_valign(idx: int) -> void:
 
 func _mark(btns: Array[Button], idx: int) -> void:
 	for i in btns.size():
-		btns[i].button_pressed = (i == idx)
+		btns[i].set_pressed_no_signal(i == idx)
+		_style_button(btns[i], i == idx)
 
 func _thread_targets() -> Array:
 	var sm := get_node_or_null("/root/SelectionManager")
@@ -858,7 +947,19 @@ func _fmt_stroke_width(v: float) -> void:
 
 # ── sync ────────────────────────────────────────────────────────────────────
 
+## Oculto (popup cerrado) no se sincroniza en cada selección: con 300
+## figuras costaba ~1,4 ms por clic. Se pone al día al mostrarse.
+var _sync_dirty := false
+
+func _on_visibility_sync() -> void:
+	if _sync_dirty and is_visible_in_tree():
+		_sync_dirty = false
+		_sync({})
+
 func _sync(props: Dictionary = {}) -> void:
+	if is_inside_tree() and not is_visible_in_tree():
+		_sync_dirty = true
+		return
 	_syncing = true
 	if props.is_empty():
 		var ic := get_node_or_null("/root/InspectorCore")
@@ -866,6 +967,14 @@ func _sync(props: Dictionary = {}) -> void:
 			props = ic.current_props()
 
 	for prop in _fields:
+		if not props.has(prop):
+			var ef = _fields[prop]
+			if is_instance_valid(ef) and ef.has_method("set_mixed"):
+				ef.set_mixed(true, "—")
+		if props.has(prop) and bool(props[prop].get("mixed", false)):
+			var mf = _fields[prop]
+			if is_instance_valid(mf) and mf.has_method("set_mixed"):
+				mf.set_mixed(true)
 		if props.has(prop) and not bool(props[prop].get("mixed", false)):
 			var sp = _fields[prop]
 			if is_instance_valid(sp):
@@ -875,6 +984,23 @@ func _sync(props: Dictionary = {}) -> void:
 					sp.set_value(float(props[prop].get("value", 0.0)))
 				elif "value" in sp:
 					sp.value = float(props[prop].get("value", 0.0))
+	if props.has("font_family") and is_instance_valid(_btn_family):
+		_btn_family.text = tr("Mixto") if bool(props["font_family"].get("mixed", false)) else String(props["font_family"].get("value", "Inter"))
+		var fc := get_node_or_null("/root/FontCore")
+		var f: Font = fc.get_font(fc.make_spec(_btn_family.text)) if fc and not bool(props["font_family"].get("mixed", false)) else null
+		if f:
+			_btn_family.add_theme_font_override("font", f)
+		else:
+			_btn_family.remove_theme_font_override("font")
+	if props.has("font_weight") and is_instance_valid(_opt_style):
+		var w_mixed := bool(props["font_weight"].get("mixed", false))
+		var it_mixed := props.has("font_italic") and bool(props["font_italic"].get("mixed", false))
+		if w_mixed or it_mixed:
+			_opt_style.select(-1)
+			_opt_style.text = tr("Mixto")
+		else:
+			var it := bool(props["font_italic"].get("value", false)) if props.has("font_italic") else false
+			_opt_style.select(_style_index(int(props["font_weight"].get("value", 400)), it))
 	if props.has("text_align") and not bool(props["text_align"].get("mixed", false)):
 		_mark(_align_btns, _ALIGNS.find(String(props["text_align"].get("value", "left"))))
 	if props.has("text_valign") and not bool(props["text_valign"].get("mixed", false)):
@@ -888,6 +1014,11 @@ func _sync(props: Dictionary = {}) -> void:
 		var c = props["stroke_color"].get("value")
 		if c is Color and is_instance_valid(_cp_stroke):
 			_cp_stroke.color = c
+	if is_instance_valid(_spin_stroke) and _spin_stroke.has_method("set_mixed"):
+		if not props.has("stroke_width"):
+			_spin_stroke.set_mixed(true, "—")
+		elif bool(props["stroke_width"].get("mixed", false)):
+			_spin_stroke.set_mixed(true)
 	if props.has("stroke_width") and not bool(props["stroke_width"].get("mixed", false)):
 		if is_instance_valid(_spin_stroke):
 			if _spin_stroke.has_method("set_value_no_signal"):

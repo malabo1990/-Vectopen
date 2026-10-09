@@ -1,6 +1,7 @@
 extends Control
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
+const _NumField = preload("res://script_gdscript/ui/pro/pro_num_field.gd")
 
 ## Panel de texto (panel_tooltext.tscn) → InspectorCore + FontCore.
 ##
@@ -159,6 +160,8 @@ func _ready() -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed") and not ic.changed.is_connected(_sincronizar):
 		ic.changed.connect(_sincronizar)
+	if not visibility_changed.is_connected(_on_visibility_sync):
+		visibility_changed.connect(_on_visibility_sync)
 
 	var tm = get_node_or_null("/root/ThemeManager")
 	if tm:
@@ -732,7 +735,7 @@ func _setup_letter_proportions() -> void:
 	# Reset: back to uniform letter size
 	var row := get_node_or_null("Panel/VBoxContainer/HBoxContainer") as Container
 	if row and not is_instance_valid(_btn_prop_reset):
-		_btn_prop_reset = ProUIStyle.action_button("", "res://icon/UI/system-restart.svg", tr("Restablecer proporciones"))
+		_btn_prop_reset = ProUIStyle.action_button("", "res://icon/UI/txt_reset.svg", tr("Restablecer proporciones"))
 		_btn_prop_reset.name = "BtnResetProportions"
 		_btn_prop_reset.custom_minimum_size = Vector2(22, 20)
 		_btn_prop_reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -836,31 +839,22 @@ func _setup_indent_row() -> void:
 	var box := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
 	if box == null or box.has_node("RowIndents"):
 		return  # fuera del panel o ya construida
-	# Compacto: 3 campos en una fila de 192px (sin título largo).
+	# Compacto: 3 campos con icono en una fila de 192px.
 	var row := HBoxContainer.new()
 	row.name = "RowIndents"
-	row.add_theme_constant_override("separation", 2)
+	row.add_theme_constant_override("separation", 3)
 	box.add_child(row)
 	for spec in [
-		["indent_left", "Iz", 0.0, 500.0, "Sangría izquierda"],
-		["indent_right", "De", 0.0, 500.0, "Sangría derecha"],
-		["indent_first", "1ª", -500.0, 500.0, "Primera línea (negativa = francesa)"],
+		["indent_left", "txt_indent_left", 0.0, 500.0, "Sangría izquierda"],
+		["indent_right", "txt_indent_right", 0.0, 500.0, "Sangría derecha"],
+		["indent_first", "txt_indent_first", -500.0, 500.0, "Primera línea (negativa = francesa)"],
 	]:
 		var prop: String = spec[0]
-		var lab := Label.new()
-		lab.text = String(spec[1])
-		lab.add_theme_font_size_override("font_size", 11)
-		_indent_labels.append(lab)
-		row.add_child(lab)
-		var sp: Control = preload("res://scenes/ui/spin_box.tscn").instantiate()
+		var sp: Control = _NumField.new("res://icon/UI/%s.svg" % spec[1], "", tr(String(spec[4])))
 		sp.min_value = float(spec[2])
 		sp.max_value = float(spec[3])
 		sp.step = 1.0
-		sp.custom_minimum_size = Vector2(40, 22)
-		sp.tooltip_text = tr(String(spec[4]))
-		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if sp.has_method("set_compact"):
-			sp.set_compact(true)
+		sp.custom_minimum_size = Vector2(40, 24)
 		sp.value_changed.connect(_on_indent_changed.bind(prop))
 		row.add_child(sp)
 		_indent_spins[prop] = sp
@@ -889,8 +883,8 @@ func _theme_indent_row() -> void:
 				le.add_theme_stylebox_override("normal", sb)
 				le.add_theme_stylebox_override("focus", sb)
 				le.add_theme_stylebox_override("read_only", sb)
-		elif sp.has_method("_aplicar_tema"):
-			sp._aplicar_tema()
+		elif sp.has_method("apply_theme"):
+			sp.apply_theme()
 
 func _on_indent_changed(v: float, prop: String) -> void:
 	if _sync_guard:
@@ -909,7 +903,20 @@ func _setup_font_color() -> void:
 	var cp := ColorPickerButton.new()
 	cp.name = "FontColorPicker"
 	cp.color = Color.BLACK
-	cp.custom_minimum_size = Vector2(30, 22)
+	cp.custom_minimum_size = Vector2(24, 24)
+	# Familia + estilo + color caben en 192 px (antes el color se salía).
+	var fb := row.get_node_or_null("Button_font") as Control
+	if fb:
+		fb.custom_minimum_size.x = 68
+		fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var opt := row.get_node_or_null("OptionButton") as Control
+	if opt is OptionButton:
+		opt.custom_minimum_size.x = 80
+		(opt as OptionButton).fit_to_longest_item = false   # "Bold Italic" ensanchaba la fila
+		(opt as OptionButton).clip_text = true
+	if fb is Button:
+		(fb as Button).clip_text = true
+		(fb as Button).text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	cp.tooltip_text = tr("Color del texto")
 	cp.focus_mode = Control.FOCUS_NONE
 	cp.color_changed.connect(_on_font_color_changed)
@@ -931,7 +938,21 @@ func _theme_font_color() -> void:
 	_font_color_btn.add_theme_color_override("font_color", tc["text"])
 
 # ── sincronización con la selección ──────────────────────────────────────────
+## Oculto (menú contextual cerrado) no se sincroniza en cada selección:
+## con 300 figuras costaba ~1,9 ms por clic. Se pone al día al mostrarse.
+var _sync_dirty := false
+
+func _on_visibility_sync() -> void:
+	if _sync_dirty and is_visible_in_tree():
+		_sync_dirty = false
+		var ic := get_node_or_null("/root/InspectorCore")
+		if ic and ic.has_method("current_props"):
+			_sincronizar(ic.current_props())
+
 func _sincronizar(props: Dictionary) -> void:
+	if is_inside_tree() and not is_visible_in_tree():
+		_sync_dirty = true
+		return
 	_sync_guard = true
 	for prop in _sliders:
 		if props.has(prop) and not props[prop]["mixed"]:
@@ -947,9 +968,9 @@ func _sincronizar(props: Dictionary) -> void:
 				elif "value" in sp:
 					sp.value = float(props[iprop]["value"])
 	if props.has("fill_color") and not props["fill_color"]["mixed"] and is_instance_valid(_font_color_btn):
-		_sync_guard = true
+		# (sin tocar _sync_guard: ponerlo a false aquí dejaba los sliders de
+		# proporción de abajo sin guarda → acciones de undo fantasma)
 		_font_color_btn.color = props["fill_color"]["value"]
-		_sync_guard = false
 	if props.has("font_family") and not props["font_family"]["mixed"]:
 		_reflejar_familia(String(props["font_family"]["value"]))
 	if props.has("text_align") and not props["text_align"]["mixed"]:
