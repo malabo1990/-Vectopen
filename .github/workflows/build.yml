@@ -2,9 +2,12 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, multi-artboard-lazy-loading]
   pull_request:
     branches: [main]
+  # Lanzar a mano desde GitHub (Actions → Build → Run workflow), p.ej. para
+  # obtener la extensión nativa de texto compilada para macOS y Windows.
+  workflow_dispatch:
 
 jobs:
   test:
