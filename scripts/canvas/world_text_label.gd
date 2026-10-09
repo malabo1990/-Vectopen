@@ -760,6 +760,8 @@ func has_rich_runs() -> bool:
 			return true
 		if bool(r.get("bold", false)) != (font_weight() >= 700):
 			return true
+		if TextRuns.run_weight(r, font_weight()) != font_weight() and int(r.get("weight", 400)) != 400:
+			return true
 		if bool(r.get("italic", false)) != font_italic():
 			return true
 		if bool(r.get("underline", false)):
@@ -1202,7 +1204,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 		var y_offset: float = y_top + font.get_ascent(line_fss[li])
 		var line_w := 0.0
 		if has_prop or sized:
-			var rid_measure: RID = _get_rid_for_style(ts, base_bytes, rid_cache, false, false)
+			var rid_measure: RID = _get_rid_for_style(ts, base_bytes, rid_cache, font_weight(), font_italic())
 			for j in line_text.length():
 				var c_idx := line_start + j
 				var t_j := float(c_idx) / maxf(1.0, float(total_chars - 1))
@@ -1250,7 +1252,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			char_fs = _sized_char_fs(runs, char_idx, char_fs)
 			var run_idx := _run_index_for_char(runs, char_idx)
 			var run: Dictionary = runs[run_idx] if run_idx < runs.size() else runs[0]
-			var rid: RID = _get_rid_for_style(ts, base_bytes, rid_cache, bool(run.get("bold", false)), bool(run.get("italic", false)))
+			var rid: RID = _get_rid_for_style(ts, base_bytes, rid_cache, TextRuns.run_weight(run, font_weight()), bool(run.get("italic", false)))
 			var codepoint: int = line_text.unicode_at(i)
 			var glyph: int = ts.font_get_glyph_index(rid, char_fs, codepoint, 0)
 			var adv: float = ts.font_get_glyph_advance(rid, char_fs, glyph).x
@@ -1308,53 +1310,46 @@ func _outline_font_bytes() -> PackedByteArray:
 ## configurado (font_set_embolden / font_set_transform) la primera vez que se
 ## pide, cacheado en `cache` para el resto de glifos de esta misma tanda de
 ## build. El llamador libera TODOS los RID de `cache` al terminar.
-func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, bold: bool, italic: bool) -> RID:
-	var key := "%d_%d" % [1 if bold else 0, 1 if italic else 0]
+func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, weight: int, italic: bool) -> RID:
+	var key := "%d_%d" % [weight, 1 if italic else 0]
 	if cache.has(key):
 		return cache[key]
 	var r: RID = ts.create_font()
 	if r.is_valid():
-		# Archivo REAL del estilo (Inter-Bold, Inter-Italic… o la variante
-		# del sistema) vía FontCore. Solo si la familia no tiene ese archivo
-		# se sintetiza: emboldening / cizalla.
-		var real := _outline_style_bytes(bold, italic)
+		# Archivo REAL de ese peso/estilo (Inter-Medium, Inter-BoldItalic… o la
+		# variante del sistema) vía FontCore. Solo si la familia no lo tiene
+		# se sintetiza: emboldening (>= 700) / cizalla.
+		var real := _outline_style_bytes(weight, italic)
 		ts.font_set_data(r, real if not real.is_empty() else base_bytes)
-		var synth_bold := bold and (real.is_empty() or not _style_has_real(true, false))
-		var synth_italic := italic and (real.is_empty() or not _style_has_real(false, true))
-		if synth_bold and ts.has_method("font_set_embolden"):
-			ts.font_set_embolden(r, BOLD_EMBOLDEN)
-		if synth_italic and ts.has_method("font_set_transform"):
-			# Cizalla sintética: el tope de cada glifo se inclina hacia la
-			# derecha (convención habitual de cursiva sintética/oblique).
-			ts.font_set_transform(r, Transform2D(Vector2(1, 0), Vector2(-ITALIC_SHEAR, 1), Vector2.ZERO))
+		if real.is_empty():
+			if weight >= 700 and font_weight() < 700 and ts.has_method("font_set_embolden"):
+				ts.font_set_embolden(r, BOLD_EMBOLDEN)
+			if italic and not font_italic() and ts.has_method("font_set_transform"):
+				# Cizalla sintética: el tope de cada glifo se inclina hacia la
+				# derecha (convención habitual de cursiva sintética/oblique).
+				ts.font_set_transform(r, Transform2D(Vector2(1, 0), Vector2(-ITALIC_SHEAR, 1), Vector2.ZERO))
 	cache[key] = r
 	return r
 
-var _style_bytes_cache: Dictionary = {}   # "b_i" -> PackedByteArray (vacío = sin archivo real)
+var _style_bytes_cache: Dictionary = {}   # "peso_cursiva" -> PackedByteArray (vacío = usar la base)
 
-## Bytes del archivo real para (negrita, cursiva) sobre la spec del texto.
-## Vacío si FontCore devuelve el MISMO archivo que la base (no hay variante).
-func _outline_style_bytes(bold: bool, italic: bool) -> PackedByteArray:
-	var key := "%d_%d" % [1 if bold else 0, 1 if italic else 0]
+## Bytes del archivo real para (peso, cursiva) sobre la spec del texto.
+## Vacío si coincide con la base o FontCore devuelve el MISMO archivo.
+func _outline_style_bytes(weight: int, italic: bool) -> PackedByteArray:
+	var key := "%d_%d" % [weight, 1 if italic else 0]
 	if _style_bytes_cache.has(key):
 		return _style_bytes_cache[key]
 	var out := PackedByteArray()
 	var fc = _font_core()
-	if (bold or italic) and fc and fc.has_method("font_bytes"):
+	if (weight != font_weight() or italic != font_italic()) and fc and fc.has_method("font_bytes"):
 		var spec: Dictionary = (fc.spec_from_node(_spec_source()) as Dictionary).duplicate()
-		if bold:
-			spec["weight"] = maxi(int(spec.get("weight", 400)), 700)
-		if italic:
-			spec["italic"] = true
+		spec["weight"] = weight
+		spec["italic"] = italic
 		var b: PackedByteArray = fc.font_bytes(spec)
 		if not b.is_empty() and b != _outline_font_bytes():
 			out = b
 	_style_bytes_cache[key] = out
 	return out
-
-## ¿La familia tiene archivo real para ESE eje de estilo por sí solo?
-func _style_has_real(bold: bool, italic: bool) -> bool:
-	return not _outline_style_bytes(bold, italic).is_empty() or (bold and font_weight() >= 700) or (italic and font_italic())
 
 func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox: float, oy: float) -> void:
 	var data: Dictionary = ts.font_get_glyph_contours(rid, fs, glyph)

@@ -512,6 +512,8 @@ func _toggle_format_key(key: String) -> void:
 	var new_v := not all
 	_apply_style_to_range(current_editing_shape, start, end, func(r: Dictionary) -> Dictionary:
 		r[key] = new_v
+		if key == "bold" and not new_v and int(r.get("weight", 400)) >= 700:
+			r.erase("weight")   # quitar negrita también baja un grosor >= 700
 		return r)
 
 func _on_format_size_step(delta: float) -> void:
@@ -598,7 +600,11 @@ func _on_multi_edit_gui_input(event: InputEvent) -> void:
 			return
 		var cmd: bool = event.is_command_or_control_pressed()
 		if cmd:
-			if event.keycode == KEY_B:
+			if event.alt_pressed and event.keycode in [KEY_PERIOD, KEY_COMMA]:
+				# Grosor con teclado: Ctrl+Alt+. más grueso / Ctrl+Alt+, más fino.
+				TextCore.weight_step(self, current_editing_shape, multi_edit, 100 if event.keycode == KEY_PERIOD else -100)
+				multi_edit.accept_event()
+			elif event.keycode == KEY_B:
 				_toggle_format_key("bold")
 				multi_edit.accept_event()
 			elif event.keycode == KEY_I:

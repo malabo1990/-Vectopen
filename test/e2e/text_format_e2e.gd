@@ -26,7 +26,7 @@ func _shot(tag: String) -> void:
 	img.save_png("%s/%s.png" % [out_dir, tag])
 	print("E2E shot: ", tag)
 
-func _key(code: Key, ctrl := false, shift := false) -> void:
+func _key(code: Key, ctrl := false, shift := false, alt := false) -> void:
 	for pressed in [true, false]:
 		print("E2E KEY %s ctrl=%s pressed=%s (frame %d)" % [OS.get_keycode_string(code), ctrl, pressed, Engine.get_process_frames()])
 		var ev := InputEventKey.new()
@@ -34,6 +34,7 @@ func _key(code: Key, ctrl := false, shift := false) -> void:
 		ev.physical_keycode = code
 		ev.ctrl_pressed = ctrl
 		ev.shift_pressed = shift
+		ev.alt_pressed = alt
 		ev.pressed = pressed
 		Input.parse_input_event(ev)
 		await _frames(2)
@@ -68,6 +69,26 @@ func _diag(tag: String, shape: Node2D) -> void:
 	if me:
 		print("  multiedit visible=%s" % me.visible)
 	print("  meta runs=%s" % [shape.get_meta("runs", [])])
+
+func _run_weight_at(runs: Array, idx: int) -> int:
+	var pos := 0
+	for r in runs:
+		var l := int(r.get("length", 0))
+		if idx < pos + l:
+			var w := int(r.get("weight", 400))
+			return maxi(w, 700) if bool(r.get("bold", false)) else w
+		pos += l
+	return -1
+
+## ¿Todos los caracteres [a, b) tienen ese color?
+func _range_color(runs: Array, a: int, b: int, col: Color) -> bool:
+	var pos := 0
+	for r in runs:
+		var l := int(r.get("length", 0))
+		if pos + l > a and pos < b and not (r.get("color", Color.BLACK) as Color).is_equal_approx(col):
+			return false
+		pos += l
+	return true
 
 func _select(shape: Node2D, a: int, b: int) -> void:
 	var vrt = shape.get_node_or_null("VectorRichText")
@@ -155,6 +176,29 @@ func _run() -> void:
 	await _select(p, 5, 10)
 	await _key(KEY_B, true)
 
+	# 4b) COLOR sobre una selección (ruta real: InspectorCore.apply, la que
+	#     usan el popover de color y el panel). "feliz" = 11..16.
+	await _select(p, 11, 16)
+	root.get_node("InspectorCore").apply("fill_color", Color(1, 0, 0))
+	await _frames(4)
+	await _shot("4_color_feliz")
+	runs = p.get_meta("runs", [])
+	_check(_range_color(runs, 11, 16, Color(1, 0, 0)), "color rojo exactamente en 'feliz' (11..16)")
+	_check(not _range_color(runs, 10, 11, Color(1, 0, 0)), "el espacio anterior (10) NO cambia de color")
+	_check(not _range_color(runs, 16, 17, Color(1, 0, 0)), "el espacio posterior (16) NO cambia de color")
+
+	# 4c) GROSOR con teclado sobre la selección: "de" (17..19) +300 → 700, -100 → 600
+	await _select(p, 17, 19)
+	for i in 3:
+		await _key(KEY_PERIOD, true, false, true)
+	runs = p.get_meta("runs", [])
+	_check(_run_weight_at(runs, 17) == 700 and _run_weight_at(runs, 18) == 700, "Ctrl+Alt+. ×3 → 'de' a 700")
+	_check(_run_weight_at(runs, 16) != 700 and _run_weight_at(runs, 19) != 700, "el grosor no se sale de 'de'")
+	await _key(KEY_COMMA, true, false, true)
+	runs = p.get_meta("runs", [])
+	_check(_run_weight_at(runs, 17) == 600, "Ctrl+Alt+, → 'de' a 600 (SemiBold)")
+	await _shot("4c_grosor_de")
+
 	# 5) Salir de edición (Escape) → el texto renderizado muestra el formato
 	await _key(KEY_ESCAPE)
 	await _frames(6)
@@ -163,7 +207,41 @@ func _run() -> void:
 	runs = p.get_meta("runs", [])
 	_check(_range_has(runs, 11, 16, "bold") and _range_has(runs, 5, 10, "bold"), "formato conservado al salir")
 	var dl: WorldTextLabel = p.get_node("DisplayLabel")
+	# Grosor de TODO el texto con el objeto seleccionado (sin editar)
+	var w0 := int(p.get_meta("font_weight", 400))
+	await _key(KEY_PERIOD, true, false, true)
+	_check(int(p.get_meta("font_weight", 400)) == w0 + 100, "Ctrl+Alt+. sin editar sube el grosor de todo el texto")
+	await _key(KEY_COMMA, true, false, true)
+	_check(int(p.get_meta("font_weight", 400)) == w0, "Ctrl+Alt+, lo devuelve")
 	_check(dl.has_rich_runs(), "el label renderiza runs enriquecidos")
+
+	# 6) Párrafo de VARIAS líneas: seleccionar todo y capturar el resaltado
+	#    (todas las líneas deben tener la misma altura de selección).
+	canvas.switch_tool("paragraph")
+	await _frames()
+	var p2: Node2D = canvas.current_tool.create_at_center()
+	await _frames()
+	var long_txt := "Primera linea de prueba aqui. Segunda linea de prueba aqui. Tercera linea final."
+	p2.set_meta("text", long_txt)
+	(p2.get_node("DisplayLabel") as Label).text = long_txt
+	p2.position += Vector2(0, 140)
+	if cam:
+		cam.global_position = p2.global_position + Vector2(175, 60)
+	canvas.switch_tool("paragraph")
+	await _frames()
+	tool = canvas.current_tool
+	tool._check_and_trigger_edit_at(p2)
+	await _frames()
+	await _select(p2, 0, long_txt.length())
+	await _shot("5_seleccion_multilinea")
+	var v2 = p2.get_node_or_null("VectorRichText")
+	if v2 and v2.has_method("get_line_count"):
+		var hs: Array = []
+		for i in v2.get_line_count():
+			hs.append(snappedf((v2.get_line_rect(i) as Rect2).size.y, 0.01))
+		print("E2E líneas: ", hs)
+		_check(hs.size() >= 2 and hs.max() - hs.min() < 0.5, "todas las líneas miden lo mismo de alto")
+	await _key(KEY_ESCAPE)
 
 	print("E2E RESULT: ", "PASS" if fails.is_empty() else "FAIL (%d)" % fails.size())
 	quit(0 if fails.is_empty() else 1)

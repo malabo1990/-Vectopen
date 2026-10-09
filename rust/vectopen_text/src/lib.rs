@@ -364,6 +364,13 @@ impl VectorRichText {
                 self.stop_editing_internal();
                 return;
             }
+            // Grosor con teclado (como Figma): Ctrl+Alt+. más grueso,
+            // Ctrl+Alt+, más fino — sobre la selección o todo el texto.
+            Key::PERIOD | Key::COMMA if ctrl && key.is_alt_pressed() => {
+                let delta = if key.get_keycode() == Key::PERIOD { 100 } else { -100 };
+                self.step_weight(delta);
+                modified_text = true;
+            }
             Key::A if ctrl => {
                 self.editor.select_all(total);
                 self.notify_selection_changed();
@@ -371,7 +378,14 @@ impl VectorRichText {
             Key::B if ctrl => {
                 let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
                 let all_on = self.doc.range_all(s, e, |st| st.bold);
-                self.doc.apply_style_range(s, e, |st| st.bold = !all_on);
+                self.doc.apply_style_range(s, e, |st| {
+                    st.bold = !all_on;
+                    // Quitar negrita también baja un peso >= 700 puesto con
+                    // Ctrl+Alt+. (si no, seguiría viéndose gruesa).
+                    if all_on && st.weight >= 700.0 {
+                        st.weight = 400.0;
+                    }
+                });
                 modified_text = true;
             }
             Key::I if ctrl => {
@@ -1026,11 +1040,62 @@ impl VectorRichText {
         self.base_mut().queue_redraw();
     }
 
+    /// Fuentes reales por peso: `roman`/`italic` = {peso:int → Font}.
+    #[func]
+    pub fn set_weight_fonts(&mut self, roman: VarDictionary, italic: VarDictionary, base_weight: i64) {
+        let conv = |d: &VarDictionary| {
+            let mut m = std::collections::HashMap::new();
+            for (k, v) in d.iter_shared() {
+                if let (Ok(w), Ok(f)) = (k.try_to::<i64>(), v.try_to::<Gd<Font>>()) {
+                    m.insert(w as i32, f);
+                }
+            }
+            m
+        };
+        self.style_fonts.roman_w = conv(&roman);
+        self.style_fonts.italic_w = conv(&italic);
+        self.style_fonts.base_weight = base_weight as i32;
+        self.recalculate();
+        self.base_mut().queue_redraw();
+    }
+
+    /// Sube/baja el grosor (±100) de la selección (o de todo el texto).
+    #[func]
+    pub fn apply_weight_step_to_selection(&mut self, delta: i64) {
+        self.step_weight(delta as i32);
+        self.recalculate();
+        let new_txt: GString = self.doc.text.as_str().into();
+        self.base_mut().emit_signal("text_changed", &[new_txt.to_variant()]);
+        self.base_mut().queue_redraw();
+    }
+
     /// Fuentes reales para runs en negrita, cursiva y negrita+cursiva
     /// (p.ej. Inter-Bold / Inter-Italic / Inter-BoldItalic de FontCore).
+    fn step_weight(&mut self, delta: i32) {
+        let total = self.doc.char_count();
+        let (s, e) = self.editor.selected_range().unwrap_or((0, total));
+        // Peso de partida: el del primer carácter del rango.
+        let mut pos = 0usize;
+        let mut cur = 400;
+        for r in &self.doc.runs {
+            if s < pos + r.length || pos + r.length == total {
+                cur = self.style_fonts.effective_weight(&r.style);
+                break;
+            }
+            pos += r.length;
+        }
+        let new_w = (cur + delta).clamp(100, 900);
+        self.doc.apply_style_range(s, e, |st| {
+            st.weight = new_w as f32;
+            st.bold = new_w >= 700;
+        });
+    }
+
     #[func]
     pub fn set_style_fonts(&mut self, bold: Option<Gd<Font>>, italic: Option<Gd<Font>>, bold_italic: Option<Gd<Font>>) {
-        self.style_fonts = StyleFonts { bold, italic, bold_italic };
+        self.style_fonts.bold = bold;
+        self.style_fonts.italic = italic;
+        self.style_fonts.bold_italic = bold_italic;
         self.recalculate();
         self.base_mut().queue_redraw();
     }

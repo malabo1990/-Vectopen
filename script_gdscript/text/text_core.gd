@@ -10,6 +10,8 @@
 # del editor (tests headless / CI / editor abierto).
 extends RefCounted
 
+const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+
 ## Garantiza el editor en línea del contenedor de texto (MultiLineEdit para
 ## párrafos, TitleEdit para títulos) y el autowrap del párrafo. Los textos
 ## cargados de un .vectopen / pegados solo traían el DisplayLabel: sin
@@ -183,3 +185,36 @@ static func apply_vrt_fonts(vrt, shape: Node2D) -> void:
 		var f: Font = fc.get_font(sp)
 		return f if f != base and not (f is FontVariation and (f as FontVariation).base_font == base) else null
 	vrt.set_style_fonts(styled.call(true, false), styled.call(false, true), styled.call(true, true))
+	# Fuentes reales por PESO (grosor por run: Ctrl+Alt+. / Ctrl+Alt+,).
+	if vrt.has_method("set_weight_fonts"):
+		var roman := {}
+		var italic := {}
+		for wt in range(100, 1000, 100):
+			var sp := spec.duplicate()
+			sp["weight"] = wt
+			sp["italic"] = false
+			roman[wt] = fc.get_font(sp)
+			sp["italic"] = true
+			italic[wt] = fc.get_font(sp)
+		vrt.set_weight_fonts(roman, italic, w)
+
+## Grosor con teclado (Ctrl+Alt+. / Ctrl+Alt+,): ±100 sobre la selección del
+## editor en línea (runs, vía `apply_range` con undo de la herramienta) o, sin
+## selección, sobre el peso de todo el texto (InspectorCore → font_weight).
+static func weight_step(tool: Object, shape: Node2D, ed: TextEdit, delta: int) -> void:
+	var base_w := int(shape.get_meta("font_weight", 400))
+	var sel = sel_range(ed) if ed else null
+	if sel != null and int(sel["end"]) > int(sel["start"]):
+		var start := int(sel["start"])
+		var end := int(sel["end"])
+		var runs := TextRuns.runs_of(shape, ed.text.length())
+		var nw := clampi(TextRuns.weight_at(runs, start, base_w) + delta, 100, 900)
+		tool._apply_style_to_range(shape, start, end, func(r: Dictionary) -> Dictionary:
+			r["weight"] = nw
+			r["bold"] = nw >= 700
+			return r)
+		return
+	var st := Engine.get_main_loop() as SceneTree
+	var ic = st.root.get_node_or_null("InspectorCore") if st else null
+	if ic and ic.has_method("apply"):
+		ic.apply("font_weight", clampi(base_w + delta, 100, 900))

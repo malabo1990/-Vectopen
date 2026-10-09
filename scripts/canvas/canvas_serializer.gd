@@ -844,6 +844,7 @@ static func _runs_to_data(runs: Array) -> Array:
 		}
 		if r.has("stroke_color"): o["stroke_color"] = _col(r["stroke_color"])
 		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
+		if int(r.get("weight", 400)) != 400: o["weight"] = int(r["weight"])
 		out.append(o)
 	return out
 
@@ -860,6 +861,7 @@ static func _runs_from_data(data: Array) -> Array:
 		}
 		if r.has("stroke_color"): o["stroke_color"] = _to_col(r["stroke_color"])
 		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
+		if r.has("weight"): o["weight"] = int(r["weight"])
 		out.append(o)
 	return out
 

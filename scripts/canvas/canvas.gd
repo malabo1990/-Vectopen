@@ -373,6 +373,18 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# Grosor del texto seleccionado con teclado (como Figma): Ctrl+Alt+. más
+	# grueso, Ctrl+Alt+, más fino (100..900). Editando, lo gestiona el editor.
+	if event.ctrl_pressed and event.alt_pressed and event.keycode in [KEY_PERIOD, KEY_COMMA]:
+		var ic_w := get_node_or_null("/root/InspectorCore")
+		if ic_w and ic_w.has_method("current_props"):
+			var props_w: Dictionary = ic_w.current_props()
+			if props_w.has("font_weight") and not bool(props_w["font_weight"].get("mixed", false)):
+				var cur_w := int(props_w["font_weight"].get("value", 400))
+				ic_w.apply("font_weight", clampi(cur_w + (100 if event.keycode == KEY_PERIOD else -100), 100, 900))
+				get_viewport().set_input_as_handled()
+				return
+
 	# Atajo de letra SOLO sin modificadores (misma regla que TOOL_SWITCH_KEYS):
 	# antes Ctrl+B se leía como "b" y cambiaba a la herramienta Pincel.
 	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:

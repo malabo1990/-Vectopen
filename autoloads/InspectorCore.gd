@@ -976,6 +976,13 @@ func _write_text_color(shape, theme_key: String, value: Color) -> void:
 			vrt.set_stroke_color(value)
 			vrt.set_stroke_width(sw)
 		vrt.queue_redraw()
+		# El editor nativo aplica el color a SU selección: llevar esos runs al
+		# meta y a la etiqueta (antes el color de la selección no se guardaba).
+		if vrt.has_method("get_runs_meta") and String(vrt.get_text()) == String(shape.get_meta("text", "")):
+			var vruns: Array = vrt.get_runs_meta()
+			shape.set_meta("runs", vruns)
+			if dl and dl.has_method("set_rich_runs"):
+				dl.set_rich_runs(vruns)
 	var ed: Control = shape.get_node_or_null("MultiLineEdit")
 	if ed == null:
 		ed = shape.get_node_or_null("TitleEdit")

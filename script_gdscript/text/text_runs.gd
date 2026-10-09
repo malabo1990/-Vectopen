@@ -62,7 +62,8 @@ static func merge_runs(runs: Array) -> Array:
 					and bool(last.get("bold", false)) == bool(r.get("bold", false)) \
 					and bool(last.get("italic", false)) == bool(r.get("italic", false)) \
 					and bool(last.get("underline", false)) == bool(r.get("underline", false)) \
-					and float(last.get("size", 0.0)) == float(r.get("size", 0.0)):
+					and float(last.get("size", 0.0)) == float(r.get("size", 0.0)) \
+					and int(last.get("weight", 400)) == int(r.get("weight", 400)):
 				last["length"] = int(last["length"]) + int(r.get("length", 0))
 				continue
 		out.append((r as Dictionary).duplicate())
@@ -192,3 +193,23 @@ static func slice_runs(runs: Array, a: int, b: int) -> Array:
 			out.append(r)
 		pos += l
 	return out
+
+## Peso efectivo de un run (100..900): "weight" (400 = el de la base del
+## texto, igual que en VectorRichText) y la negrita lo sube al menos a 700.
+static func run_weight(r: Dictionary, base_weight: int) -> int:
+	var w := int(r.get("weight", 400))
+	if w == 400:
+		w = base_weight
+	if bool(r.get("bold", false)):
+		w = maxi(w, 700)
+	return clampi(int(round(w / 100.0)) * 100, 100, 900)
+
+## Peso efectivo del carácter `idx` según los runs.
+static func weight_at(runs: Array, idx: int, base_weight: int) -> int:
+	var pos := 0
+	for r in runs:
+		var l := int(r.get("length", 0))
+		if idx < pos + l:
+			return run_weight(r, base_weight)
+		pos += l
+	return run_weight(runs[runs.size() - 1], base_weight) if not runs.is_empty() else base_weight

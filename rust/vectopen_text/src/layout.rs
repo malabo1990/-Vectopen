@@ -14,6 +14,25 @@ pub struct StyleFonts {
     pub bold: Option<Gd<Font>>,
     pub italic: Option<Gd<Font>>,
     pub bold_italic: Option<Gd<Font>>,
+    /// Fuentes REALES por peso (100..900) en redonda y cursiva
+    /// (VectorRichText.set_weight_fonts). Peso base del texto: los runs con
+    /// weight 400 sin negrita usan la base.
+    pub roman_w: std::collections::HashMap<i32, Gd<Font>>,
+    pub italic_w: std::collections::HashMap<i32, Gd<Font>>,
+    pub base_weight: i32,
+}
+
+impl StyleFonts {
+    /// Peso efectivo de un run: weight (400 = "el de la base"), y la
+    /// negrita lo sube al menos a 700. Redondeado a centenas 100..900.
+    pub fn effective_weight(&self, style: &TextStyle) -> i32 {
+        let base = if self.base_weight > 0 { self.base_weight } else { 400 };
+        let mut w = if (style.weight - 400.0).abs() < 0.5 { base } else { style.weight.round() as i32 };
+        if style.bold {
+            w = w.max(700);
+        }
+        (((w as f32) / 100.0).round() as i32 * 100).clamp(100, 900)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -258,6 +277,16 @@ impl LayoutEngine {
     /// sintético sobre MSDF dejaba muescas blancas en las uniones cóncavas.
     fn resolve_font_variation(base_font: &Gd<Font>, sf: &StyleFonts, style: &TextStyle) -> Gd<Font> {
         let (bold, italic) = (style.bold, style.italic);
+        // Peso por run: archivo REAL de ese peso (Inter-Medium, -Black…).
+        let w = sf.effective_weight(style);
+        let base_w = if sf.base_weight > 0 { sf.base_weight } else { 400 };
+        if w == base_w && !italic {
+            return base_font.clone();
+        }
+        let table = if italic { &sf.italic_w } else { &sf.roman_w };
+        if let Some(f) = table.get(&w) {
+            return f.clone();
+        }
         if !bold && !italic {
             return base_font.clone();
         }
@@ -481,41 +510,34 @@ impl LayoutEngine {
         let base_y = if self.is_paragraph { self.frame.padding_top + self.vert_offset } else { 0.0 };
         let draw_origin = pos + Vector2::new(base_x, base_y);
 
-        let first_style = &doc.runs[0].style;
-        let uniform_fill = doc.runs.iter().all(|r| {
-            r.style.fill_color == first_style.fill_color
-                && (r.style.opacity - first_style.opacity).abs() < 0.001
-        });
-        let uniform_stroke = doc.runs.iter().all(|r| {
-            r.style.stroke_color == first_style.stroke_color
-                && (r.style.stroke_width - first_style.stroke_width).abs() < 0.001
-        });
-
-        let num_cols = if self.is_paragraph { self.frame.columns.max(1) } else { 1 };
-
-        if uniform_fill && uniform_stroke && num_cols <= 1 {
-            let mut final_col = first_style.fill_color;
-            final_col.a *= first_style.opacity;
-            for tp in &self.paragraphs {
-                if first_style.stroke_width > 0.001 && first_style.stroke_color.a > 0.001 {
-                    let mut final_sc = first_style.stroke_color;
-                    final_sc.a *= first_style.opacity;
-                    tp.draw_outline_ex(canvas_rid, draw_origin)
-                        .outline_size(first_style.stroke_width.round() as i32)
-                        .color(final_sc)
-                        .done();
-                }
-                tp.draw_ex(canvas_rid, draw_origin).color(final_col).done();
-            }
-            return;
-        }
-
+        let _ = draw_origin;
         let tsm = TextServerManager::singleton();
         let ts = match tsm.get_primary_interface() {
             Some(ts) => ts,
             None => return,
         };
 
+        // Estilo por carácter: índice → run (búsqueda en los límites de runs).
+        let mut run_ends: Vec<usize> = Vec::with_capacity(doc.runs.len());
+        let mut acc = 0usize;
+        for r in &doc.runs {
+            acc += r.length;
+            run_ends.push(acc);
+        }
+        let style_at = |char_idx: usize| -> &TextStyle {
+            let i = run_ends.partition_point(|&end| end <= char_idx).min(doc.runs.len() - 1);
+            &doc.runs[i].style
+        };
+
+        // Dibujo GLIFO A GLIFO en la posición de línea calculada por el
+        // layout (la misma que usan selección, cursor y hit-test):
+        //  · antes, con color uniforme se usaba TextParagraph.draw, que
+        //    IGNORA el interlineado → el texto se desfasaba de la selección
+        //    (y el resaltado de la última línea "sobraba" por abajo);
+        //  · con varios colores se recortaba la línea con clip_l/clip_r, que
+        //    descarta un glifo entero si su borde pasa el límite por
+        //    redondeo → la última letra de una selección coloreada quedaba
+        //    con el color de al lado.
         for tp in &self.paragraphs {
             let line_count = tp.get_line_count();
             for l in 0..line_count {
@@ -523,72 +545,45 @@ impl LayoutEngine {
                 if l_idx >= self.lines.len() {
                     break;
                 }
+                let line = &self.lines[l_idx];
                 let line_rid = tp.get_line_rid(l);
-                let line_range = tp.get_line_range(l);
-                let l_start = line_range.x as usize;
-                let l_end = line_range.y as usize;
+                let baseline = pos + line.rect.position + Vector2::new(0.0, line.ascent);
+                let glyphs = ts.shaped_text_get_glyphs(line_rid);
 
-                let l_ascent = self.lines[l_idx].ascent;
-                let line_rect_pos = pos + self.lines[l_idx].rect.position;
-                let line_baseline_pos = line_rect_pos + Vector2::new(0.0, l_ascent);
-
-                if uniform_fill && uniform_stroke {
-                    let mut final_col = first_style.fill_color;
-                    final_col.a *= first_style.opacity;
-                    if first_style.stroke_width > 0.001 && first_style.stroke_color.a > 0.001 {
-                        let mut final_sc = first_style.stroke_color;
-                        final_sc.a *= first_style.opacity;
-                        ts.shaped_text_draw_outline_ex(line_rid, canvas_rid, line_baseline_pos)
-                            .outline_size(first_style.stroke_width.round() as i64)
-                            .color(final_sc)
-                            .done();
+                // 2 pasadas: contornos (trazo) debajo, relleno encima.
+                for pass in 0..2 {
+                    let mut x = 0.0f32;
+                    for g in glyphs.iter_shared() {
+                        let advance = g.get("advance").and_then(|v| v.try_to::<f32>().ok()).unwrap_or(0.0);
+                        let repeat = g.get("repeat").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(1).max(1);
+                        let start = g.get("start").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(0).max(0) as usize;
+                        let index = g.get("index").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(0);
+                        let font_rid = g.get("font_rid").and_then(|v| v.try_to::<Rid>().ok());
+                        let font_size = g.get("font_size").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(16);
+                        let offset = g.get("offset").and_then(|v| v.try_to::<Vector2>().ok()).unwrap_or(Vector2::ZERO);
+                        let st = style_at(start);
+                        for _ in 0..repeat {
+                            if let Some(fr) = font_rid {
+                                if index != 0 && fr.is_valid() {
+                                    let gp = baseline + Vector2::new(x, -st.baseline_shift) + offset;
+                                    if pass == 0 {
+                                        if st.stroke_width > 0.001 && st.stroke_color.a > 0.001 {
+                                            let mut sc = st.stroke_color;
+                                            sc.a *= st.opacity;
+                                            ts.font_draw_glyph_outline_ex(fr, canvas_rid, font_size, st.stroke_width.round() as i64, gp, index)
+                                                .color(sc)
+                                                .done();
+                                        }
+                                    } else {
+                                        let mut fc = st.fill_color;
+                                        fc.a *= st.opacity;
+                                        ts.font_draw_glyph_ex(fr, canvas_rid, font_size, gp, index).color(fc).done();
+                                    }
+                                }
+                            }
+                            x += advance;
+                        }
                     }
-                    ts.shaped_text_draw_ex(line_rid, canvas_rid, line_baseline_pos)
-                        .color(final_col)
-                        .done();
-                    continue;
-                }
-
-                let mut char_acc = 0;
-                for r in &doc.runs {
-                    let r_start = char_acc;
-                    let r_end = char_acc + r.length;
-                    char_acc = r_end;
-
-                    if r_end <= l_start || r_start >= l_end {
-                        continue;
-                    }
-
-                    let o_start = l_start.max(r_start);
-                    let o_end = l_end.min(r_end);
-                    if o_start >= o_end {
-                        continue;
-                    }
-
-                    let b_start = ts.shaped_text_get_grapheme_bounds(line_rid, o_start as i64);
-                    let b_end = ts.shaped_text_get_grapheme_bounds(line_rid, (o_end - 1) as i64);
-                    let clip_l = f64::from(b_start.x.min(b_end.y));
-                    let clip_r = f64::from(b_start.x.max(b_end.y));
-
-                    let mut fill_col = r.style.fill_color;
-                    fill_col.a *= r.style.opacity;
-                    let shift_pos = line_baseline_pos - Vector2::new(0.0, r.style.baseline_shift);
-
-                    if r.style.stroke_width > 0.001 && r.style.stroke_color.a > 0.001 {
-                        let mut str_col = r.style.stroke_color;
-                        str_col.a *= r.style.opacity;
-                        ts.shaped_text_draw_outline_ex(line_rid, canvas_rid, shift_pos)
-                            .clip_l(clip_l)
-                            .clip_r(clip_r)
-                            .outline_size(r.style.stroke_width.round() as i64)
-                            .color(str_col)
-                            .done();
-                    }
-                    ts.shaped_text_draw_ex(line_rid, canvas_rid, shift_pos)
-                        .clip_l(clip_l)
-                        .clip_r(clip_r)
-                        .color(fill_col)
-                        .done();
                 }
             }
         }
