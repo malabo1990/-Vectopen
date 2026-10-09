@@ -259,10 +259,9 @@ func _on_vrt_text_changed(new_text: String) -> void:
 	var multi_edit: TextEdit = current_editing_shape.get_node_or_null("MultiLineEdit")
 	if multi_edit:
 		multi_edit.text = new_text
+	var _size_before := _meta_size(current_editing_shape)
 	_fit_height_to_text(current_editing_shape, new_text)
-	var ge := _get_autoload("GlobalEvents")
-	if ge and ge.has_method("emit_safe"):
-		ge.emit_safe("object_transformed")
+	_notify_if_resized(current_editing_shape, _size_before)
 
 func _on_vrt_editing_finished() -> void:
 	commit_text_edit(true)
@@ -288,10 +287,9 @@ func _on_edit_text_changed() -> void:
 	if multi_edit.syntax_highlighter:
 		multi_edit.syntax_highlighter.clear_highlighting_cache()
 	multi_edit.queue_redraw()
+	var _size_before := _meta_size(current_editing_shape)
 	_fit_height_to_text(current_editing_shape, multi_edit.text)
-	var ge := _get_autoload("GlobalEvents")
-	if ge and ge.has_method("emit_safe"):
-		ge.emit_safe("object_transformed")
+	_notify_if_resized(current_editing_shape, _size_before)
 
 ## El BB abraza SOLO en altura (medición determinista: sin estado del
 ## Control, imposible el ratchet). El ancho lo controla el usuario

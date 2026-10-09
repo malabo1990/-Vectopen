@@ -62,6 +62,12 @@ const VECTOR_FONT := 512       # tope de raster del bitmap (fallback); el
 							   # (4096 rasterizaba glifos ENORMES por texto —
 							   # 8.8s por label → bloqueaba con 100+ textos)
 const ZOOM_VECTOR_MIN := 16.0  # a partir de aqui eff fijo + overlay
+## Con formato enriquecido (runs, trazo, sangrías, proporciones) SOLO pinta el
+## overlay vectorial y el Label nativo queda invisible (visible_ratio 0). Antes
+## se le fijaba VECTOR_FONT (512 px) y Godot lo maquetaba igual —invisible—
+## en una caja de miles de px: ~50 ms POR TEXTO al cargar/crear. Ahora el
+## nativo va a un tamaño mínimo y el overlay se escala en _draw.
+const OVERLAY_ONLY_RASTER := 8
 const RASTER_THROTTLE := 0.04  # 4% de cambio de eff para re-rasterizar
 const WORLD_SIZE_META := "world_text_size"
 const CULL_MARGIN := 400.0     # margen de culling (px mundo)
@@ -500,20 +506,26 @@ func _apply_zoom(z: float) -> void:
 		return
 	_last_zoom = z
 	var eff: int
-	if z >= ZOOM_VECTOR_MIN or is_vector_override_active():
-		# A partir de aquí o con proporciones activas: el overlay vectorial mantiene la nitidez.
-		# El bitmap queda FIJO en VECTOR_FONT (1 sola rasterización).
+	var fixed_regime := true
+	if is_vector_override_active():
+		# Solo overlay: el Label nativo es invisible → tamaño mínimo (barato).
+		eff = OVERLAY_ONLY_RASTER
+	elif z >= ZOOM_VECTOR_MIN:
+		# Zoom alto: el overlay vectorial mantiene la nitidez; el bitmap queda
+		# FIJO en VECTOR_FONT (1 sola rasterización).
 		eff = VECTOR_FONT
 	else:
 		eff = clampi(int(round(base_font_size * z)), MIN_FONT, VECTOR_FONT)
-	# RÉGIMEN VECTORIAL YA FIJO: bitmap (eff), escala y overlay NO dependen del
-	# zoom de cámara — no hay NADA que recalcular por frame mientras el usuario
-	# sigue zoomeando. Sin este corte, 200+ labels visibles a zoom >16 hacían
+		fixed_regime = false
+	# RÉGIMEN FIJO: bitmap (eff), escala y overlay NO dependen del zoom de
+	# cámara — no hay NADA que recalcular por frame mientras el usuario sigue
+	# zoomeando. Sin este corte, 200+ labels visibles a zoom >16 hacían
 	# add_theme_font_size_override + queue_redraw cada frame → 1 FPS a 1000x+.
-	if eff == VECTOR_FONT and _last_eff == VECTOR_FONT:
+	if fixed_regime and eff == _last_eff:
 		return
 	# THROTTLE: no re-raster si el eff casi no cambió (energía/velocidad).
-	if _last_eff >= 0 and absf(float(eff - _last_eff)) / maxf(1.0, eff) < RASTER_THROTTLE and eff < VECTOR_FONT:
+	if not fixed_regime and _last_eff >= 0 and _last_eff != OVERLAY_ONLY_RASTER \
+			and absf(float(eff - _last_eff)) / maxf(1.0, eff) < RASTER_THROTTLE:
 		return
 	_last_eff = eff
 	_update_tracking_spacing(eff)
@@ -639,8 +651,13 @@ func _draw() -> void:
 	# El bitmap del Label siempre visible por debajo (garantía), salvo si el régimen vectorial está activo
 	if _last_zoom < ZOOM_VECTOR_MIN and not is_vector_override_active():
 		return
-	# No pagar el bake de contornos para labels fuera de pantalla.
+	# No pagar el bake de contornos para labels fuera de pantalla…
 	if not _is_visible_in_view():
+		return
+	# …ni para labels TRANSPARENTES: con el editor nativo (VectorRichText)
+	# pintando, esta capa queda con self_modulate 0 y hornearla (~100 ms por
+	# texto) no se ve — era el grueso de cargar/crear muchos textos.
+	if self_modulate.a < 0.01 or modulate.a < 0.01:
 		return
 	# Presupuesto global de bakes/frame: si aún no está bakeado y ya se gastó
 	# el cupo, dejamos el bitmap otro frame y volvemos a intentarlo.
@@ -655,6 +672,12 @@ func _draw() -> void:
 		_bakes_this_frame += 1
 
 	var runs := _effective_runs()
+
+	# El overlay se construye a VECTOR_FONT; el Label puede estar a otro
+	# tamaño (OVERLAY_ONLY_RASTER en modo solo-overlay): escalar al dibujar.
+	var k := float(maxi(1, get_theme_font_size("font_size"))) / float(VECTOR_FONT)
+	if not is_equal_approx(k, 1.0):
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 
 	# 1. Dibujar trazo (stroke) detrás del relleno para mantener legibilidad perfecta de la fuente
 	if has_stroke():
@@ -1061,8 +1084,10 @@ func _outline_polygons(outline: Node2D) -> Array[PackedVector2Array]:
 	for child in outline.get_children():
 		if child is Path2D and child.curve:
 			var curve: Curve2D = (child as Path2D).curve
-			curve.bake_interval = 2.0
-			var pts: PackedVector2Array = curve.get_baked_points()
+			# Teselado ADAPTATIVO (más puntos solo donde hay curvatura): antes
+			# get_baked_points cada 2 px a escala 512 → cientos de puntos por
+			# contorno y una triangulación lentísima (~100 ms por texto).
+			var pts: PackedVector2Array = curve.tessellate(5, 2.0)
 			var clean := PackedVector2Array()
 			for p in pts:
 				if clean.is_empty() or clean[-1].distance_to(p) > 0.05:
@@ -1128,7 +1153,22 @@ func _attach_hole(combined: PackedVector2Array, hole: PackedVector2Array) -> Pac
 ## Node2D "Glyph_N" por glifo, con meta run_index/baseline_y/x0/x1, para
 ## poder colorear/subrayar por rango — ver _triangulate_by_glyph.
 func build_outline_path() -> Node2D:
-	return _build_outline_at(maxi(1, get_theme_font_size("font_size")), false)
+	# Siempre a VECTOR_FONT (precisión de contorno; a tamaños pequeños el
+	# hinting deforma) y el contenedor se escala al tamaño actual del Label.
+	# Los puntos se escalan (no el contenedor): el contrato es Path2D con las
+	# coordenadas LOCALES del label al tamaño actual.
+	var fs := maxi(1, get_theme_font_size("font_size"))
+	var c := _build_outline_at(VECTOR_FONT, false)
+	if c and fs != VECTOR_FONT:
+		var k := float(fs) / float(VECTOR_FONT)
+		for ch in c.get_children():
+			if ch is Path2D and (ch as Path2D).curve:
+				var cv: Curve2D = (ch as Path2D).curve
+				for i in cv.point_count:
+					cv.set_point_position(i, cv.get_point_position(i) * k)
+					cv.set_point_in(i, cv.get_point_in(i) * k)
+					cv.set_point_out(i, cv.get_point_out(i) * k)
+	return c
 
 func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var ts := _get_ts()

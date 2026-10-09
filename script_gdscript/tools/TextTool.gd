@@ -305,10 +305,9 @@ func _on_vrt_text_changed(new_text: String) -> void:
 	var title_edit: TextEdit = current_editing_shape.get_node_or_null("TitleEdit")
 	if title_edit:
 		title_edit.text = new_text
+	var _size_before := _meta_size(current_editing_shape)
 	_update_shape_meta_size(current_editing_shape)
-	var ge := _get_autoload("GlobalEvents")
-	if ge and ge.has_method("emit_safe"):
-		ge.emit_safe("object_transformed")
+	_notify_if_resized(current_editing_shape, _size_before)
 
 ## Texto cambiado mientras se edita: el BB abraza el contenido en vivo.
 func _on_edit_text_changed() -> void:
@@ -325,10 +324,9 @@ func _on_edit_text_changed() -> void:
 	if title_edit.syntax_highlighter:
 		title_edit.syntax_highlighter.clear_highlighting_cache()
 	title_edit.queue_redraw()
+	var _size_before := _meta_size(current_editing_shape)
 	_update_shape_meta_size(current_editing_shape)
-	var ge := _get_autoload("GlobalEvents")
-	if ge and ge.has_method("emit_safe"):
-		ge.emit_safe("object_transformed")
+	_notify_if_resized(current_editing_shape, _size_before)
 
 ## Canal único centralizado de confirmación y salida de edición (Vectopen Text Engine)
 func commit_text_edit(switch_tool: bool = true) -> void:

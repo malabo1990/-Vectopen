@@ -597,6 +597,20 @@ func _on_object_transformed() -> void:
 	# quedó fuera del artboard. Refrescamos ese indicador in situ (O(N) barato)
 	# en vez de reconstruir N TreeItems desde cero (O(N) con allocations) en
 	# cada fin de arrastre — con miles de figuras ese rebuild se notaba.
+	# Agrupado a UNA vez por frame: al teclear en un texto llegaba un evento
+	# por tecla y con 300 figuras costaba ~195 ms/tecla.
+	if _refresco_estado_pendiente:
+		return
+	_refresco_estado_pendiente = true
+	_refrescar_indicadores_estado_diferido.call_deferred()
+
+var _refresco_estado_pendiente := false
+## nodo → "fuera|visible|nombre" del último refresco (solo se tocan las filas
+## cuyo estado CAMBIÓ: set_text/set_button del Tree son lo caro).
+var _estado_fila: Dictionary = {}
+
+func _refrescar_indicadores_estado_diferido() -> void:
+	_refresco_estado_pendiente = false
 	_refrescar_indicadores_estado()
 
 ## Guarda contra el eco: cuando reflejamos la selección del lienzo EN el árbol,
@@ -687,6 +701,10 @@ func _refrescar_indicadores_estado() -> void:
 		var ab := _encontrar_artboard_ancestro(nodo)
 		var fuera := es_suelto_top or (ab != null and _esta_fuera_del_artboard(nodo, ab))
 		var base_name := str(nodo.name)
+		var firma := "%s|%s|%s" % [fuera, nodo.visible, base_name]
+		if _estado_fila.get(nodo) == firma and item.get_text(0).begins_with(base_name):
+			continue   # sin cambios: no tocar la fila
+		_estado_fila[nodo] = firma
 		item.set_text(0, base_name + ("  ⚠ fuera del artboard" if fuera else ""))
 		var idx := _indice_boton(item, 2, _BTN_VIS)
 		if idx >= 0:

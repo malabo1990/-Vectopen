@@ -149,3 +149,17 @@ func _find_shape_in_tree(node: Node, gpos: Vector2) -> Node2D:
 		if sub:
 			return sub
 	return null
+
+## Avisa object_transformed SOLO si la caja del texto cambió de tamaño: al
+## teclear se emitía en CADA tecla y el refresco que dispara (panel de capas,
+## caja de selección…) dominaba el coste de escribir.
+func _notify_if_resized(shape: Node2D, before: Vector2) -> void:
+	var now := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
+	if now.is_equal_approx(before):
+		return
+	var ge := _get_autoload("GlobalEvents")
+	if ge and ge.has_method("emit_safe"):
+		ge.emit_safe("object_transformed")
+
+static func _meta_size(shape: Node2D) -> Vector2:
+	return Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
