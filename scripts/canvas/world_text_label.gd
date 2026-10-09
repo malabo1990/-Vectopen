@@ -399,6 +399,7 @@ func apply_font_from_meta() -> void:
 	# Los contornos del overlay vectorial salen de estos bytes: sin vaciarlos,
 	# a zoom alto (o con runs/trazo/sangría) seguía la familia ANTERIOR.
 	_outline_bytes_cache = PackedByteArray()
+	_style_bytes_cache.clear()
 	_apply_font()
 	_outline_dirty = true
 	_polys_baked = false
@@ -1313,15 +1314,47 @@ func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, bold
 		return cache[key]
 	var r: RID = ts.create_font()
 	if r.is_valid():
-		ts.font_set_data(r, base_bytes)
-		if bold and ts.has_method("font_set_embolden"):
+		# Archivo REAL del estilo (Inter-Bold, Inter-Italic… o la variante
+		# del sistema) vía FontCore. Solo si la familia no tiene ese archivo
+		# se sintetiza: emboldening / cizalla.
+		var real := _outline_style_bytes(bold, italic)
+		ts.font_set_data(r, real if not real.is_empty() else base_bytes)
+		var synth_bold := bold and (real.is_empty() or not _style_has_real(true, false))
+		var synth_italic := italic and (real.is_empty() or not _style_has_real(false, true))
+		if synth_bold and ts.has_method("font_set_embolden"):
 			ts.font_set_embolden(r, BOLD_EMBOLDEN)
-		if italic and ts.has_method("font_set_transform"):
+		if synth_italic and ts.has_method("font_set_transform"):
 			# Cizalla sintética: el tope de cada glifo se inclina hacia la
 			# derecha (convención habitual de cursiva sintética/oblique).
 			ts.font_set_transform(r, Transform2D(Vector2(1, 0), Vector2(-ITALIC_SHEAR, 1), Vector2.ZERO))
 	cache[key] = r
 	return r
+
+var _style_bytes_cache: Dictionary = {}   # "b_i" -> PackedByteArray (vacío = sin archivo real)
+
+## Bytes del archivo real para (negrita, cursiva) sobre la spec del texto.
+## Vacío si FontCore devuelve el MISMO archivo que la base (no hay variante).
+func _outline_style_bytes(bold: bool, italic: bool) -> PackedByteArray:
+	var key := "%d_%d" % [1 if bold else 0, 1 if italic else 0]
+	if _style_bytes_cache.has(key):
+		return _style_bytes_cache[key]
+	var out := PackedByteArray()
+	var fc = _font_core()
+	if (bold or italic) and fc and fc.has_method("font_bytes"):
+		var spec: Dictionary = (fc.spec_from_node(_spec_source()) as Dictionary).duplicate()
+		if bold:
+			spec["weight"] = maxi(int(spec.get("weight", 400)), 700)
+		if italic:
+			spec["italic"] = true
+		var b: PackedByteArray = fc.font_bytes(spec)
+		if not b.is_empty() and b != _outline_font_bytes():
+			out = b
+	_style_bytes_cache[key] = out
+	return out
+
+## ¿La familia tiene archivo real para ESE eje de estilo por sí solo?
+func _style_has_real(bold: bool, italic: bool) -> bool:
+	return not _outline_style_bytes(bold, italic).is_empty() or (bold and font_weight() >= 700) or (italic and font_italic())
 
 func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox: float, oy: float) -> void:
 	var data: Dictionary = ts.font_get_glyph_contours(rid, fs, glyph)

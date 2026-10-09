@@ -176,9 +176,7 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 			vrt = ClassDB.instantiate("VectorRichText")
 			vrt.name = "VectorRichText"
 			vrt.set_is_paragraph(true)
-			var fc = get_node_or_null("/root/FontCore")
-			if fc and fc.has_method("get_font"):
-				vrt.set_font(fc.get_font(fc.spec_from_node(hit)))
+			TextCore.apply_vrt_fonts(vrt, hit)
 			var w_init := float(hit.get_meta("width", 350.0))
 			var h_init := float(hit.get_meta("height", 100.0))
 			vrt.set_frame_size(Vector2(w_init, h_init))
@@ -718,9 +716,7 @@ func _create_new_paragraph_at(local_pos: Vector2) -> Node2D:
 		var vrt = ClassDB.instantiate("VectorRichText")
 		vrt.name = "VectorRichText"
 		vrt.set_is_paragraph(true)
-		var fc = get_node_or_null("/root/FontCore")
-		if fc and fc.has_method("get_font"):
-			vrt.set_font(fc.get_font(fc.spec_from_node(new_para)))
+		TextCore.apply_vrt_fonts(vrt, new_para)
 		vrt.set_frame_size(Vector2(350, 100))
 		vrt.set_text_color(Color.BLACK)
 		vrt.set_font_size(24.0)

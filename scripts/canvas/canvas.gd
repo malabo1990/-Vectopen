@@ -287,6 +287,15 @@ func _handle_keyboard(event: InputEventKey) -> void:
 	var focus_owner := get_viewport().gui_get_focus_owner()
 	if focus_owner and (focus_owner is LineEdit or focus_owner is TextEdit or focus_owner is SpinBox or focus_owner is CodeEdit):
 		return
+	# Editor de texto NATIVO (VectorRichText es un Control, no un TextEdit) o
+	# cualquier edición de texto en curso: sin esto, Ctrl+B mientras se
+	# editaba caía al atajo de letra "b" de abajo → herramienta Pincel →
+	# se confirmaba y CERRABA la edición (la negrita solo funcionaba una vez).
+	if focus_owner and focus_owner.has_method("is_editing") and focus_owner.is_editing():
+		return
+	var sm_edit := get_node_or_null("/root/SelectionManager")
+	if sm_edit and sm_edit.has_method("has_active_text_edit") and sm_edit.has_active_text_edit():
+		return
 
 	if VectopenInput.is_action_triggered(event, "canvas_reset_zoom"):
 		_reset_camera()
@@ -364,6 +373,10 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# Atajo de letra SOLO sin modificadores (misma regla que TOOL_SWITCH_KEYS):
+	# antes Ctrl+B se leía como "b" y cambiaba a la herramienta Pincel.
+	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
+		return
 	var unicode_val = event.unicode if event.unicode != 0 else event.keycode
 	var t_char: String = char(unicode_val).to_lower()
 	if _herramientas_registradas.has(t_char):

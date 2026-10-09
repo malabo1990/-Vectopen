@@ -159,3 +159,27 @@ static func register_text_undo(shape: Node2D, before: Dictionary, action_name: S
 	hm.add_do(func() -> void: restore_text_state(shape, after))
 	hm.add_undo(func() -> void: restore_text_state(shape, before))
 	hm.commit()
+
+## Fuentes de FontCore al editor nativo VectorRichText: la normal y las
+## REALES de negrita / cursiva / negrita+cursiva (Inter-Bold, Inter-Italic…).
+## null = la familia no tiene ese archivo → el editor lo sintetiza.
+static func apply_vrt_fonts(vrt, shape: Node2D) -> void:
+	var st := Engine.get_main_loop() as SceneTree
+	var fc = st.root.get_node_or_null("FontCore") if st else null
+	if vrt == null or fc == null or not fc.has_method("get_font"):
+		return
+	var spec: Dictionary = fc.spec_from_node(shape)
+	var base: Font = fc.get_font(spec)
+	vrt.set_font(base)
+	if not vrt.has_method("set_style_fonts"):
+		return
+	var w := int(spec.get("weight", 400))
+	var styled := func(bold: bool, italic: bool) -> Variant:
+		var sp := spec.duplicate()
+		if bold:
+			sp["weight"] = maxi(w, 700)
+		if italic:
+			sp["italic"] = true
+		var f: Font = fc.get_font(sp)
+		return f if f != base and not (f is FontVariation and (f as FontVariation).base_font == base) else null
+	vrt.set_style_fonts(styled.call(true, false), styled.call(false, true), styled.call(true, true))

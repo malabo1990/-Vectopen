@@ -442,6 +442,28 @@ impl TextDocument {
     }
 
     /// Aplica una mutación de estilo a los caracteres en el rango [start, end)
+    /// ¿TODOS los caracteres de [start, end) cumplen `pred`? Base de los
+    /// toggles Ctrl+B/I/U: antes se miraba si había negrita en CUALQUIER
+    /// parte del documento, así que con algo ya en negrita, seleccionar otra
+    /// palabra y pulsar Ctrl+B la DES-negritaba en vez de ponerla.
+    pub fn range_all<F: Fn(&TextStyle) -> bool>(&self, start: usize, end: usize, pred: F) -> bool {
+        let s = start.min(end);
+        let e = start.max(end);
+        if s >= e {
+            return false;
+        }
+        let mut pos = 0;
+        for r in &self.runs {
+            let r_start = pos;
+            let r_end = pos + r.length;
+            pos = r_end;
+            if r_end > s && r_start < e && r.length > 0 && !pred(&r.style) {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn apply_style_range<F: Fn(&mut TextStyle)>(&mut self, start: usize, end: usize, f: F) {
         let total_chars = self.char_count();
         let s = start.min(end).min(total_chars);
@@ -669,5 +691,17 @@ mod tests {
         assert_eq!(TextInteractionState::Idle.to_str(), "idle");
         assert_eq!(TextInteractionState::Editing.to_str(), "editing");
         assert_eq!(TextInteractionState::Committing.to_str(), "committing");
+    }
+
+    #[test]
+    fn test_toggle_bold_mira_solo_la_seleccion() {
+        let mut doc = TextDocument::new("Hola mundo feliz");
+        doc.apply_style_range(0, 4, |st| st.bold = true); // "Hola" en negrita
+        // Seleccionar "mundo" (5..10): NO todo es negrita → el toggle debe PONERLA.
+        assert!(!doc.range_all(5, 10, |st| st.bold));
+        doc.apply_style_range(5, 10, |st| st.bold = true);
+        assert!(doc.range_all(5, 10, |st| st.bold) && doc.range_all(0, 4, |st| st.bold));
+        assert!(!doc.range_all(0, 10, |st| st.bold)); // el espacio 4 no
+        assert!(!doc.range_all(0, 16, |st| st.bold));
     }
 }

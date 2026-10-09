@@ -23,6 +23,20 @@ signal families_changed()
 const BUNDLED := {
 	"Inter": "res://assets/fonts/Inter-Regular.ttf",
 }
+## Pesos/cursivas ESTÁTICOS de las familias empaquetadas (archivos oficiales
+## de Inter, con los solapes de contorno eliminados). Sustituyen a la negrita
+## y cursiva SINTÉTICAS: el emboldening — y también las fuentes VARIABLES, que
+## conservan solapes por diseño — dejan muescas blancas con MSDF (limitación
+## documentada de Godot: MSDF no dibuja bien contornos solapados).
+const BUNDLED_STATIC := {
+	"Inter": {
+		"roman": {300: "Inter-Light", 400: "Inter-Regular", 500: "Inter-Medium", 600: "Inter-SemiBold",
+			700: "Inter-Bold", 800: "Inter-ExtraBold", 900: "Inter-Black"},
+		"italic": {300: "Inter-LightItalic", 400: "Inter-Italic", 500: "Inter-MediumItalic", 600: "Inter-SemiBoldItalic",
+			700: "Inter-BoldItalic", 800: "Inter-ExtraBoldItalic", 900: "Inter-BlackItalic"},
+	},
+}
+const FONTS_DIR := "res://assets/fonts/"
 const DEFAULT_FAMILY := "Inter"
 const DEFAULT_WEIGHT := 400
 const _SAMPLE := "The quick brown fox jumps 0123456789"
@@ -152,6 +166,11 @@ func get_font(spec: Dictionary) -> Font:
 	var italic: bool = spec.get("italic", false)
 	var font: Font = null
 
+	var stf := _static_font(fam, weight, italic)
+	if stf:
+		_font_cache[key] = stf
+		return stf
+
 	if BUNDLED.has(fam):
 		var base = load(BUNDLED[fam])
 		if base is FontFile:
@@ -195,6 +214,47 @@ func get_font(spec: Dictionary) -> Font:
 	_font_cache[key] = font
 	return font
 
+## Ruta del archivo estático de la familia más cercano a `weight` (y cursiva).
+func static_font_path(fam: String, weight: int, italic: bool) -> String:
+	var styles: Dictionary = BUNDLED_STATIC.get(fam, {})
+	var table: Dictionary = styles.get("italic" if italic else "roman", {})
+	if table.is_empty():
+		return ""
+	var best := -1
+	for w in table:
+		if best < 0 or absi(int(w) - weight) < absi(best - weight) \
+				or (absi(int(w) - weight) == absi(best - weight) and int(w) > best):
+			best = int(w)
+	var path := FONTS_DIR + String(table[best]) + ".ttf"
+	return path if ResourceLoader.exists(path) or FileAccess.file_exists(path) else ""
+
+func _static_font(fam: String, weight: int, italic: bool) -> Font:
+	var path := static_font_path(fam, weight, italic)
+	return _load_font_file(path) if not path.is_empty() else null
+
+var _file_cache: Dictionary = {}   # ruta -> FontFile
+
+## Carga un .ttf empaquetado: recurso importado si existe; si aún no se
+## importó (archivo recién añadido, tests headless), directo del archivo.
+func _load_font_file(path: String) -> FontFile:
+	if _file_cache.has(path):
+		return _file_cache[path]
+	var f: FontFile = null
+	if ResourceLoader.exists(path):
+		f = load(path) as FontFile
+	elif FileAccess.file_exists(path):
+		f = FontFile.new()
+		if f.load_dynamic_font(path) != OK:
+			f = null
+	if f:
+		f.multichannel_signed_distance_field = true
+		f.msdf_pixel_range = 16
+		f.msdf_size = 64
+		f.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+		f.generate_mipmaps = true
+	_file_cache[path] = f
+	return f
+
 func default_font() -> Font:
 	return get_font(make_spec())
 
@@ -203,7 +263,18 @@ func default_font() -> Font:
 ## TextServer y lo libera (evita fugas de RID al cerrar).
 func font_bytes(spec: Dictionary) -> PackedByteArray:
 	var fam := String(spec.get("family", DEFAULT_FAMILY))
+	# Bytes desde el FontFile (recurso importado): en un juego EXPORTADO el
+	# .ttf original no se empaqueta y FileAccess devolvía vacío → el overlay
+	# vectorial se quedaba sin contornos.
+	var spath := static_font_path(fam, int(spec.get("weight", DEFAULT_WEIGHT)), bool(spec.get("italic", false)))
+	if not spath.is_empty():
+		var sf := _load_font_file(spath)
+		if sf and not sf.data.is_empty():
+			return sf.data
 	if BUNDLED.has(fam):
+		var bf := _load_font_file(BUNDLED[fam])
+		if bf and not bf.data.is_empty():
+			return bf.data
 		return FileAccess.get_file_as_bytes(BUNDLED[fam])
 	var path := system_font_path(spec)
 	if path.is_empty():

@@ -22,10 +22,23 @@ func test_get_font_bundled_y_variacion_de_peso() -> void:
 	var regular: Font = FontCore.get_font(FontCore.make_spec("Inter", 400, false))
 	assert_object(regular).is_instanceof(FontFile)
 
+	# Negrita REAL (Inter-Bold.ttf), no FontVariation sintética: el
+	# emboldening sobre MSDF dejaba muescas blancas en las letras.
 	var bold: Font = FontCore.get_font(FontCore.make_spec("Inter", 700, false))
-	assert_object(bold).is_instanceof(FontVariation)
+	assert_object(bold).is_instanceof(FontFile)
+	assert_object(bold).is_not_same(regular)
+	assert_str(FontCore.static_font_path("Inter", 700, false)).ends_with("Inter-Bold.ttf")
 	# cacheado: misma spec → mismo recurso
 	assert_object(FontCore.get_font(FontCore.make_spec("Inter", 700, false))).is_same(bold)
+	# cursiva real y peso más cercano (650 → SemiBold 600 / Bold 700: gana el mayor)
+	assert_str(FontCore.static_font_path("Inter", 400, true)).ends_with("Inter-Italic.ttf")
+	assert_str(FontCore.static_font_path("Inter", 100, false)).ends_with("Inter-Light.ttf")
+	assert_str(FontCore.static_font_path("Inter", 650, false)).ends_with("Inter-Bold.ttf")
+	# bytes de contorno = los del archivo del estilo (overlay vectorial)
+	var rb: PackedByteArray = FontCore.font_bytes(FontCore.make_spec("Inter", 400, false))
+	var bb: PackedByteArray = FontCore.font_bytes(FontCore.make_spec("Inter", 700, false))
+	assert_bool(rb.is_empty() or bb.is_empty()).is_false()
+	assert_bool(rb == bb).is_false()
 
 
 func test_get_font_familia_desconocida_cae_en_default() -> void:

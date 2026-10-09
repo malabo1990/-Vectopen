@@ -7,6 +7,15 @@ use crate::model::{
     ContentBounds, FrameBounds, HAlign, TextDocument, TextFrame, TextStyle, VerticalAlignment,
 };
 
+/// Fuentes reales por estilo para los runs (las da FontCore vía
+/// VectorRichText.set_style_fonts). None = sintetizar ese estilo.
+#[derive(Default, Clone)]
+pub struct StyleFonts {
+    pub bold: Option<Gd<Font>>,
+    pub italic: Option<Gd<Font>>,
+    pub bold_italic: Option<Gd<Font>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct LineInfo {
     pub char_start: usize,
@@ -66,7 +75,7 @@ impl LayoutEngine {
         }
     }
     /// Re-calcula la disposición tipográfica completa del documento
-    pub fn reflow(&mut self, doc: &TextDocument, default_font: Option<Gd<Font>>) {
+    pub fn reflow(&mut self, doc: &TextDocument, default_font: Option<Gd<Font>>, style_fonts: &StyleFonts) {
         self.lines.clear();
         self.paragraphs.clear();
         self.vert_offset = 0.0;
@@ -126,7 +135,7 @@ impl LayoutEngine {
                 continue;
             }
             let slice: String = doc_chars[char_offset..char_offset + take].iter().collect();
-            let run_font = Self::resolve_font_variation(&font, &r.style);
+            let run_font = Self::resolve_font_variation(&font, style_fonts, &r.style);
             let fs = r.style.font_size.round().max(4.0) as i32;
 
             let gslice = GString::from(slice.as_str());
@@ -243,17 +252,41 @@ impl LayoutEngine {
         self.paragraphs.push(tp);
     }
 
-    /// Resuelve negrita/cursiva mediante FontVariation sobre la fuente base
-    fn resolve_font_variation(base_font: &Gd<Font>, style: &TextStyle) -> Gd<Font> {
-        if !style.bold && !style.italic {
+    /// Resuelve negrita/cursiva: primero el archivo REAL del estilo
+    /// (StyleFonts: Inter-Bold, Inter-Italic, Inter-BoldItalic…); lo que no
+    /// tenga archivo se sintetiza sobre el más cercano. El emboldening
+    /// sintético sobre MSDF dejaba muescas blancas en las uniones cóncavas.
+    fn resolve_font_variation(base_font: &Gd<Font>, sf: &StyleFonts, style: &TextStyle) -> Gd<Font> {
+        let (bold, italic) = (style.bold, style.italic);
+        if !bold && !italic {
             return base_font.clone();
         }
+        // (fuente, falta_negrita, falta_cursiva)
+        let (src, synth_bold, synth_italic) = match (bold, italic) {
+            (true, true) => match (&sf.bold_italic, &sf.bold, &sf.italic) {
+                (Some(bi), _, _) => (bi.clone(), false, false),
+                (None, Some(b), _) => (b.clone(), false, true),
+                (None, None, Some(i)) => (i.clone(), true, false),
+                _ => (base_font.clone(), true, true),
+            },
+            (true, false) => match &sf.bold {
+                Some(b) => (b.clone(), false, false),
+                None => (base_font.clone(), true, false),
+            },
+            _ => match &sf.italic {
+                Some(i) => (i.clone(), false, false),
+                None => (base_font.clone(), false, true),
+            },
+        };
+        if !synth_bold && !synth_italic {
+            return src;
+        }
         let mut var_font = FontVariation::new_gd();
-        var_font.set_base_font(base_font);
-        if style.bold {
+        var_font.set_base_font(&src);
+        if synth_bold {
             var_font.set_variation_embolden(0.35);
         }
-        if style.italic {
+        if synth_italic {
             var_font.set_variation_transform(godot::builtin::Transform2D::from_cols(
                 Vector2::new(1.0, 0.0),
                 Vector2::new(0.22, 1.0),

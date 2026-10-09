@@ -11,6 +11,7 @@ use godot::global::{Key, MouseButton};
 use godot::prelude::*;
 
 use crate::editor::EditorState;
+use crate::layout::StyleFonts;
 use crate::layout::LayoutEngine;
 use crate::model::{
     HAlign, OverflowMode, TextDocument, TextInteractionState, VarDictionary, VerticalAlignment,
@@ -29,6 +30,12 @@ pub struct VectorRichText {
     layout: LayoutEngine,
     editor: EditorState,
     default_font: Option<Gd<Font>>,
+    /// set_font() explícito (FontCore): el tema ya no lo pisa en ready/recalculate.
+    explicit_font: bool,
+    /// Fuentes REALES por estilo: [negrita, cursiva, negrita+cursiva].
+    /// Sin ellas se sintetiza (emboldening/cizalla), que con MSDF deja
+    /// muescas blancas en las uniones de las letras.
+    style_fonts: StyleFonts,
     accent_color: Color,
     selection_color: Color,
     last_click_msec: u64,
@@ -45,6 +52,8 @@ impl IControl for VectorRichText {
             layout: LayoutEngine::default(),
             editor: EditorState::default(),
             default_font: None,
+            explicit_font: false,
+            style_fonts: StyleFonts::default(),
             accent_color: Color::from_rgb(0.0, 0.478, 1.0),
             selection_color: Color::from_rgba(0.0, 0.478, 1.0, 0.3),
             last_click_msec: 0,
@@ -54,8 +63,10 @@ impl IControl for VectorRichText {
     }
 
     fn ready(&mut self) {
-        let base = self.base();
-        self.default_font = base.get_theme_font("font");
+        if !self.explicit_font {
+            let tf = self.base().get_theme_font("font");
+            self.default_font = tf;
+        }
         self.base_mut().set_mouse_filter(MouseFilter::PASS);
         self.base_mut().set_focus_mode(FocusMode::CLICK);
         self.recalculate();
@@ -85,6 +96,35 @@ impl IControl for VectorRichText {
 
         // 2. Dibujar el texto completo a través del TextParagraph (soporta estilos y colores por letra)
         self.layout.draw(&self.doc, canvas_rid, Vector2::ZERO);
+
+        // 2b. Subrayado / tachado por run (el layout no los dibujaba: el
+        // estilo se guardaba pero nunca se veía). Se usan los rectángulos de
+        // línea del rango (los mismos de la selección).
+        let mut decos: Vec<(Rect2, Color)> = Vec::new();
+        let mut pos = 0usize;
+        for r in &self.doc.runs {
+            let (s, e) = (pos, pos + r.length);
+            pos = e;
+            if r.length == 0 || !(r.style.underline || r.style.strikethrough) {
+                continue;
+            }
+            let mut col = r.style.fill_color;
+            col.a *= r.style.opacity;
+            let thick = (r.style.font_size * 0.06).max(1.0);
+            for lr in self.layout.selection_rects(s, e) {
+                if r.style.underline {
+                    let y = lr.position.y + lr.size.y * 0.86;
+                    decos.push((Rect2::new(Vector2::new(lr.position.x, y), Vector2::new(lr.size.x, thick)), col));
+                }
+                if r.style.strikethrough {
+                    let y = lr.position.y + lr.size.y * 0.52;
+                    decos.push((Rect2::new(Vector2::new(lr.position.x, y), Vector2::new(lr.size.x, thick)), col));
+                }
+            }
+        }
+        for (rect, col) in decos {
+            self.base_mut().draw_rect(rect, col);
+        }
 
         // 3. Dibujar el cursor parpadeante (caret)
         if self.editor.is_editing && self.editor.caret_visible {
@@ -166,6 +206,9 @@ impl IControl for VectorRichText {
             }
         } else if let Ok(key) = event.clone().try_cast::<InputEventKey>() {
             if self.editor.is_editing && key.is_pressed() {
+                // Consumir la tecla: si no, sigue hasta los atajos globales del
+                // lienzo (letras = cambio de herramienta) y cierra la edición.
+                self.base_mut().accept_event();
                 self.handle_key_input(&key);
             }
         }
@@ -327,20 +370,20 @@ impl VectorRichText {
             }
             Key::B if ctrl => {
                 let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
-                let any_bold = self.doc.runs.iter().any(|r| r.style.bold);
-                self.doc.apply_style_range(s, e, |st| st.bold = !any_bold);
+                let all_on = self.doc.range_all(s, e, |st| st.bold);
+                self.doc.apply_style_range(s, e, |st| st.bold = !all_on);
                 modified_text = true;
             }
             Key::I if ctrl => {
                 let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
-                let any_it = self.doc.runs.iter().any(|r| r.style.italic);
-                self.doc.apply_style_range(s, e, |st| st.italic = !any_it);
+                let all_on = self.doc.range_all(s, e, |st| st.italic);
+                self.doc.apply_style_range(s, e, |st| st.italic = !all_on);
                 modified_text = true;
             }
             Key::U if ctrl => {
                 let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
-                let any_u = self.doc.runs.iter().any(|r| r.style.underline);
-                self.doc.apply_style_range(s, e, |st| st.underline = !any_u);
+                let all_on = self.doc.range_all(s, e, |st| st.underline);
+                self.doc.apply_style_range(s, e, |st| st.underline = !all_on);
                 modified_text = true;
             }
             Key::C if ctrl => {
@@ -420,12 +463,15 @@ impl VectorRichText {
     }
 
     pub fn recalculate(&mut self) {
-        let base = self.base();
-        if let Some(tf) = base.get_theme_font("font") {
-            self.default_font = Some(tf);
+        // Antes el tema PISABA la fuente de set_font() en cada recálculo: la
+        // familia/peso elegidos en FontCore nunca llegaban al editor nativo.
+        if !self.explicit_font {
+            if let Some(tf) = self.base().get_theme_font("font") {
+                self.default_font = Some(tf);
+            }
         }
         let old_overset = self.layout.is_overset;
-        self.layout.reflow(&self.doc, self.default_font.clone());
+        self.layout.reflow(&self.doc, self.default_font.clone(), &self.style_fonts);
 
         let min_sz = self.layout.content_size;
         self.base_mut().set_custom_minimum_size(min_sz);
@@ -975,6 +1021,16 @@ impl VectorRichText {
     #[func]
     pub fn set_font(&mut self, font: Gd<Font>) {
         self.default_font = Some(font);
+        self.explicit_font = true;
+        self.recalculate();
+        self.base_mut().queue_redraw();
+    }
+
+    /// Fuentes reales para runs en negrita, cursiva y negrita+cursiva
+    /// (p.ej. Inter-Bold / Inter-Italic / Inter-BoldItalic de FontCore).
+    #[func]
+    pub fn set_style_fonts(&mut self, bold: Option<Gd<Font>>, italic: Option<Gd<Font>>, bold_italic: Option<Gd<Font>>) {
+        self.style_fonts = StyleFonts { bold, italic, bold_italic };
         self.recalculate();
         self.base_mut().queue_redraw();
     }

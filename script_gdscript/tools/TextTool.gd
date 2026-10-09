@@ -274,9 +274,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 			vrt = ClassDB.instantiate("VectorRichText")
 			vrt.name = "VectorRichText"
 			vrt.set_is_paragraph(false)
-			var fc = get_node_or_null("/root/FontCore")
-			if fc and fc.has_method("get_font"):
-				vrt.set_font(fc.get_font(fc.spec_from_node(hit)))
+			TextCore.apply_vrt_fonts(vrt, hit)
 			vrt.set_text_color(hit.get_meta("text_color", Color.BLACK))
 			vrt.set_font_size(float(hit.get_meta("font_size", 24)))
 			vrt.set_text(hit.get_meta("text", "Título Corporativo"))
@@ -437,9 +435,7 @@ func _create_new_title_at(local_pos: Vector2, font_size: int = 24) -> Node2D:
 		var vrt = ClassDB.instantiate("VectorRichText")
 		vrt.name = "VectorRichText"
 		vrt.set_is_paragraph(false)
-		var fc = get_node_or_null("/root/FontCore")
-		if fc and fc.has_method("get_font"):
-			vrt.set_font(fc.get_font(fc.spec_from_node(new_title)))
+		TextCore.apply_vrt_fonts(vrt, new_title)
 		vrt.set_text_color(Color.BLACK)
 		vrt.set_font_size(float(font_size))
 		vrt.set_text(new_title.get_meta("text"))

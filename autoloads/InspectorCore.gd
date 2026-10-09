@@ -859,7 +859,7 @@ func _write_font_face(shape, prop: String, value) -> void:
 			me.add_theme_font_override("font", f)
 		var vrt = shape.get_node_or_null("VectorRichText")
 		if vrt:
-			vrt.set_font(f)
+			TextCore.apply_vrt_fonts(vrt, shape)
 			vrt.add_theme_font_override("font", f)
 			if prop == "font_weight":
 				var fw: int = int(shape.get_meta("font_weight", 400))
