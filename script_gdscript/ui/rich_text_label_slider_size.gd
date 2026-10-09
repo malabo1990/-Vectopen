@@ -2,6 +2,8 @@ extends Control
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
 const _NumField = preload("res://script_gdscript/ui/pro/pro_num_field.gd")
+const _ColorPopover = preload("res://script_gdscript/ui/pro/text_color_popover.gd")
+const TextFormat = preload("res://script_gdscript/text/text_format.gd")
 
 ## Panel de texto (panel_tooltext.tscn) → InspectorCore + FontCore.
 ##
@@ -154,8 +156,15 @@ func _ready() -> void:
 	_setup_font_browser()
 	_setup_align_case_style()
 	_setup_letter_proportions()
-	_setup_indent_row()
+	# Alineación y sangrías son de PÁRRAFO: viven solo en el panel de la
+	# herramienta Texto (antes estaban repetidas en los dos paneles).
+	for rel in ["Panel/VBoxContainer/BoxContainer2", "Panel/VBoxContainer/BoxContainer_Valign"]:
+		var row := get_node_or_null(rel) as CanvasItem
+		if row:
+			row.visible = false
 	_setup_font_color()
+	_setup_format_row()
+	_fit_panel_height.call_deferred()
 
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed") and not ic.changed.is_connected(_sincronizar):
@@ -188,6 +197,7 @@ func _restyle_chips() -> void:
 			_style_chip(b, false)
 	_theme_indent_row()
 	_theme_font_color()
+	_theme_format_row()
 
 func _on_color_slot_changed(_slot: String, _col: Color) -> void:
 	_aplicar_tema()
@@ -961,15 +971,147 @@ func _setup_font_color() -> void:
 	cp.focus_mode = Control.FOCUS_NONE
 	cp.color_changed.connect(_on_font_color_changed)
 	row.add_child(cp)
+	_ColorPopover.attach(cp, "Color del texto")   # selector de color de la app
 	_font_color_btn = cp
 	_theme_font_color()
+
+# ── fila de formato de carácter: B / I / U + trazo (antes solo en el panel
+#    de la herramienta; ahora el formato de letra vive aquí, sin repetirse) ──
+var _fmt_btns: Dictionary = {}          # "bold"|"italic"|"underline" -> Button
+var _stroke_btn: ColorPickerButton = null
+var _stroke_field: Control = null
+var _stroke_before: Dictionary = {}
+
+func _setup_format_row() -> void:
+	var box := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	if box == null or box.has_node("RowFormat"):
+		return
+	var row := HBoxContainer.new()
+	row.name = "RowFormat"
+	row.add_theme_constant_override("separation", 2)
+	box.add_child(row)
+	box.move_child(row, 0)
+	for spec in [["bold", "txt_bold", "Negrita (Ctrl+B)"], ["italic", "txt_italic", "Cursiva (Ctrl+I)"], ["underline", "txt_underline", "Subrayado (Ctrl+U)"]]:
+		var b := Button.new()
+		b.name = "Btn_" + String(spec[0])
+		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = tr(String(spec[2]))
+		b.custom_minimum_size = Vector2(26, 24)
+		b.icon = load("res://icon/UI/%s.svg" % spec[1])
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.pressed.connect(_on_fmt_toggle.bind(String(spec[0])))
+		row.add_child(b)
+		_fmt_btns[String(spec[0])] = b
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(6, 0)
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(gap)
+	_stroke_btn = ColorPickerButton.new()
+	_stroke_btn.name = "StrokeColorPicker"
+	_stroke_btn.color = Color.BLACK
+	_stroke_btn.custom_minimum_size = Vector2(24, 24)
+	_stroke_btn.tooltip_text = tr("Color del trazo / contorno")
+	_stroke_btn.focus_mode = Control.FOCUS_NONE
+	_stroke_btn.color_changed.connect(func(c: Color) -> void:
+		if not _sync_guard:
+			TextFormat.set_prop(get_tree(), "stroke_color", c))
+	var hole := Panel.new()   # trazo = anillo, como en Illustrator
+	hole.name = "Hole"
+	hole.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hole.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hole.offset_left = 6; hole.offset_top = 6; hole.offset_right = -6; hole.offset_bottom = -6
+	_stroke_btn.add_child(hole)
+	row.add_child(_stroke_btn)
+	_ColorPopover.attach(_stroke_btn, "Color del trazo")
+	_stroke_field = _NumField.new("res://icon/UI/txt_stroke_width.svg", "", tr("Grosor del trazo (0 = sin trazo)"))
+	_stroke_field.min_value = 0.0
+	_stroke_field.max_value = 50.0
+	_stroke_field.step = 0.5
+	_stroke_field.custom_minimum_size = Vector2(58, 24)
+	_stroke_field.size_flags_horizontal = Control.SIZE_FILL
+	_stroke_field.scrub_changed.connect(_on_stroke_scrub)
+	_stroke_field.value_changed.connect(_on_stroke_width)
+	row.add_child(_stroke_field)
+	_theme_format_row()
+
+## El .tscn fija 280 px de alto; sin las filas de párrafo sobraba hueco.
+func _fit_panel_height() -> void:
+	var panel := get_node_or_null("Panel") as Control
+	var vb := get_node_or_null("Panel/VBoxContainer") as Control
+	if panel == null or vb == null:
+		return
+	var h := vb.position.y + vb.get_combined_minimum_size().y + 10.0
+	panel.custom_minimum_size.y = h
+	custom_minimum_size.y = 0.0
+	var root_pc := get_parent() as Control
+	if root_pc:
+		root_pc.reset_size()
+
+func _on_fmt_toggle(key: String) -> void:
+	var on := TextFormat.toggle(get_tree(), key)
+	var b: Button = _fmt_btns.get(key)
+	if b:
+		b.set_pressed_no_signal(on)
+		_style_chip(b, on)
+
+## Arrastre del grosor: en vivo (letras seleccionadas o el objeto) y UN undo.
+func _on_stroke_scrub(v: float) -> void:
+	if _sync_guard:
+		return
+	if TextFormat.live(get_tree(), "stroke_width", v):
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return
+	if _stroke_before.is_empty():
+		for s in ic.selection():
+			var b = ic._read(s, "stroke_width")
+			if b != null:
+				_stroke_before[s] = b
+	for s in _stroke_before:
+		if is_instance_valid(s):
+			ic._write(s, "stroke_width", v)
+	ic._post_write()
+
+func _on_stroke_width(v: float) -> void:
+	if _sync_guard:
+		return
+	if TextFormat.commit_live("stroke_width"):
+		return
+	if not _stroke_before.is_empty():
+		var ic := get_node_or_null("/root/InspectorCore")
+		var before := _stroke_before
+		_stroke_before = {}
+		if ic:
+			ic.commit_live("stroke_width", before)
+		return
+	TextFormat.set_prop(get_tree(), "stroke_width", v)
+
+func _theme_format_row() -> void:
+	for k in _fmt_btns:
+		var b: Button = _fmt_btns[k]
+		if is_instance_valid(b):
+			_style_chip(b, b.button_pressed)
+	if is_instance_valid(_stroke_btn):
+		var tc := _get_theme_colors()
+		var hole := _stroke_btn.get_node_or_null("Hole") as Panel
+		if hole:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = tc["input_bg"]
+			sb.border_color = tc["input_border"]
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(2)
+			hole.add_theme_stylebox_override("panel", sb)
+	if is_instance_valid(_stroke_field) and _stroke_field.has_method("apply_theme"):
+		_stroke_field.apply_theme()
 
 func _on_font_color_changed(c: Color) -> void:
 	if _sync_guard:
 		return
 	var ic := get_node_or_null("/root/InspectorCore")
-	if ic and ic.has_method("apply"):
-		ic.apply("fill_color", c)
+	if ic:
+		TextFormat.set_prop(get_tree(), "fill_color", c)   # letras seleccionadas o todo
 
 func _theme_font_color() -> void:
 	if not is_instance_valid(_font_color_btn):
@@ -1013,6 +1155,25 @@ func _sincronizar(props: Dictionary) -> void:
 		_font_color_btn.color = props["fill_color"]["value"]
 	if props.has("font_family") and not props["font_family"]["mixed"]:
 		_reflejar_familia(String(props["font_family"]["value"]))
+	if not _fmt_btns.is_empty():
+		var states := {
+			"bold": props.has("font_weight") and not props["font_weight"]["mixed"] and int(props["font_weight"]["value"]) >= 700,
+			"italic": props.has("font_italic") and not props["font_italic"]["mixed"] and bool(props["font_italic"]["value"]),
+			"underline": not props.is_empty() and TextFormat.is_on(get_tree(), "underline"),
+		}
+		for k in _fmt_btns:
+			var fb: Button = _fmt_btns[k]
+			fb.set_pressed_no_signal(bool(states[k]))
+			_style_chip(fb, bool(states[k]))
+	if is_instance_valid(_stroke_btn) and props.has("stroke_color") and not props["stroke_color"]["mixed"]:
+		_stroke_btn.color = props["stroke_color"]["value"]
+	if is_instance_valid(_stroke_field):
+		if not props.has("stroke_width"):
+			_stroke_field.set_mixed(true, "—")
+		elif props["stroke_width"]["mixed"]:
+			_stroke_field.set_mixed(true)
+		else:
+			_stroke_field.set_value_no_signal(float(props["stroke_width"]["value"]))
 	var opt := get_node_or_null(_STYLE_OPTION) as OptionButton
 	if opt and props.has("font_weight") and not props["font_weight"]["mixed"]:
 		var w := int(props["font_weight"]["value"])

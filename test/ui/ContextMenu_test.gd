@@ -214,9 +214,11 @@ func test_panel_de_texto_alineacion_y_estilo() -> void:
 	HistoryManager.clear()
 
 	var base := _TOOLTEXT + "/BoxContainer/Panel/VBoxContainer"
-	# alinear al centro
-	(panel.get_node(base + "/BoxContainer2/Button4") as Button).pressed.emit()
-	assert_int(dl.horizontal_alignment).is_equal(HORIZONTAL_ALIGNMENT_CENTER)
+	# negrita desde la fila de carácter (la alineación es del panel Texto)
+	(panel.get_node(base + "/RowFormat/Btn_bold") as Button).pressed.emit()
+	assert_int(int(txt.get_meta("font_weight"))).is_equal(700)
+	(panel.get_node(base + "/RowFormat/Btn_bold") as Button).pressed.emit()
+	assert_int(int(txt.get_meta("font_weight"))).is_equal(400)
 	# MAYÚSCULAS
 	(panel.get_node(base + "/BoxContainer4/Button") as Button).pressed.emit()
 	assert_str(String(txt.get_meta("text"))).is_equal("ABC")
@@ -672,57 +674,31 @@ func test_panel_color_sub_tabs_toggle() -> void:
 	assert_bool(colorpack.visible).is_false()
 
 
-## Verifica que los botones de alineación horizontal y vertical en panel_tooltext
-## NO desaparezcan al hacer clic y que los iconos de alineación vertical sean los de texto tipo Figma/Penpot.
-func test_panel_tooltext_align_buttons_remain_visible_on_click() -> void:
+## Tipografía = solo CARÁCTER: alineación y sangrías (párrafo) viven en el
+## panel de la herramienta Texto y aquí no se repiten; a cambio tiene la
+## fila B / I / U + trazo. Los iconos de alineación vertical siguen siendo
+## los de texto tipo Figma/Penpot (text_valign_*), ahora en el panel Texto.
+func test_panel_tooltext_es_solo_caracter() -> void:
 	var s: Node2D = auto_free(load("res://scenes/canvas/canvas.tscn").instantiate())
 	add_child(s)
 	await get_tree().process_frame
-
 	var panel: Control = auto_free(load("res://scenes/ui/panel_tooltext.tscn").instantiate())
 	s.add_child(panel)
 	await get_tree().process_frame
-
-	# 1. Comprobar botones horizontales
-	var h_container := panel.get_node_or_null("BoxContainer/Panel/VBoxContainer/BoxContainer2")
-	assert_object(h_container).override_failure_message("Falta BoxContainer2 en panel_tooltext").is_not_null()
-	var h_buttons: Array[Button] = []
-	for child in h_container.get_children():
-		if child is Button:
-			h_buttons.append(child)
-	assert_int(h_buttons.size()).is_equal(4)
-
-	# Probar clic en cada botón horizontal y asegurar que TODOS siguen visibles
-	for btn in h_buttons:
-		btn.pressed.emit()
-		await get_tree().process_frame
-		for check_btn in h_buttons:
-			assert_bool(check_btn.visible).override_failure_message("El botón %s desapareció tras pulsar %s" % [check_btn.name, btn.name]).is_true()
-
-	# 2. Comprobar botones verticales
-	var v_container := panel.get_node_or_null("BoxContainer/Panel/VBoxContainer/BoxContainer_Valign")
-	assert_object(v_container).override_failure_message("Falta BoxContainer_Valign en panel_tooltext").is_not_null()
-	var v_buttons: Array[Button] = []
-	for child in v_container.get_children():
-		if child is Button:
-			v_buttons.append(child)
-	assert_int(v_buttons.size()).is_equal(3)
-
-	# Probar clic en cada botón vertical y asegurar que TODOS siguen visibles
-	for btn in v_buttons:
-		assert_object(btn.icon).override_failure_message("Botón %s no tiene icono asignado" % btn.name).is_not_null()
-		btn.pressed.emit()
-		await get_tree().process_frame
-		for check_btn in v_buttons:
-			assert_bool(check_btn.visible).override_failure_message("El botón vertical %s desapareció tras pulsar %s" % [check_btn.name, btn.name]).is_true()
-
-	# 3. Comprobar iconos de alineación vertical estilo Figma/Penpot (text_valign_*)
-	var btn_top := panel.get_node("BoxContainer/Panel/VBoxContainer/BoxContainer_Valign/BtnVTop") as Button
-	var btn_mid := panel.get_node("BoxContainer/Panel/VBoxContainer/BoxContainer_Valign/BtnVMiddle") as Button
-	var btn_bot := panel.get_node("BoxContainer/Panel/VBoxContainer/BoxContainer_Valign/BtnVBottom") as Button
-	assert_str(btn_top.icon.resource_path).contains("text_valign_top")
-	assert_str(btn_mid.icon.resource_path).contains("text_valign_middle")
-	assert_str(btn_bot.icon.resource_path).contains("text_valign_bottom")
-
-
+	var vb := "BoxContainer/Panel/VBoxContainer"
+	for rel in ["/BoxContainer2", "/BoxContainer_Valign"]:
+		var row := panel.get_node_or_null(vb + rel) as CanvasItem
+		assert_bool(row == null or not row.visible).override_failure_message("%s no debe verse en Tipografía" % rel).is_true()
+	assert_object(panel.get_node_or_null(vb + "/RowIndents")).is_null()
+	var fmt := panel.get_node_or_null(vb + "/RowFormat")
+	assert_object(fmt).override_failure_message("Falta la fila B/I/U + trazo").is_not_null()
+	for b in ["Btn_bold", "Btn_italic", "Btn_underline", "StrokeColorPicker"]:
+		assert_object(fmt.get_node_or_null(b)).override_failure_message("Falta %s" % b).is_not_null()
+	# Iconos de alineación vertical del panel Texto
+	var pp = auto_free(load("res://script_gdscript/ui/panel_paragraph.gd").new())
+	add_child(pp)
+	await get_tree().process_frame
+	assert_int(pp._valign_btns.size()).is_equal(3)
+	for i in 3:
+		assert_str(String(pp._valign_btns[i].get_meta("icon_path"))).contains(["text_valign_top", "text_valign_middle", "text_valign_bottom"][i])
 

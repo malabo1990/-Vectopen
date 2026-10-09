@@ -1,7 +1,11 @@
-## E2E: el panel de la herramienta Texto (ParagraphConfig) y el panel
-## Tipografía del menú contextual (Panel_tooltext) se mantienen sincronizados
-## EN TIEMPO REAL en ambos sentidos, también durante arrastres y al editar.
-##   godot --path . -s res://test/e2e/text_panels_sync_e2e.gd
+## E2E: panel Texto (párrafo/marco) + panel Tipografía (carácter) abiertos a
+## la vez sobre la app real:
+##  · no se repite ningún control entre los dos;
+##  · Tipografía se actualiza EN TIEMPO REAL (arrastres, deshacer, panel
+##    oculto que se abre) y, editando, refleja y cambia SOLO las letras
+##    seleccionadas, con UN paso de deshacer;
+##  · las muestras de color abren el selector de la app (pickr_color_tool).
+##   godot --path . -s res://test/e2e/text_panels_sync_e2e.gd   (E2E_OUT=carpeta)
 extends SceneTree
 
 var fails: Array[String] = []
@@ -27,22 +31,19 @@ func _press(at: Vector2, down: bool) -> void:
 	Input.parse_input_event(e)
 	await _frames(2)
 
-func _move(at: Vector2, dx: float) -> void:
-	for i in int(absf(dx) / 2.0):
-		var m := InputEventMouseMotion.new()
-		m.position = at
-		m.global_position = at
-		m.relative = Vector2(signf(dx) * 2.0, 0)
-		m.button_mask = MOUSE_BUTTON_MASK_LEFT
-		Input.parse_input_event(m)
-		await process_frame
-	await _frames(2)
+func _click(c: Control) -> void:
+	var at := c.get_global_rect().get_center()
+	await _press(at, true)
+	await _press(at, false)
 
 func _show_all(n: Node) -> void:
 	while n and n != root:
 		if n is CanvasItem:
 			(n as CanvasItem).visible = true
 		n = n.get_parent()
+
+func _sizes(runs: Array) -> Array:
+	return runs.map(func(r): return [int(r.get("length", 0)), float(r.get("size", 0.0))])
 
 func _run() -> void:
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
@@ -61,160 +62,166 @@ func _run() -> void:
 	sm.select(para)
 	ic._sync_selection()
 
-	# Ambos paneles abiertos a la vez (popup de herramienta + menú contextual)
-	tool_p._popup.visible = true
-	_show_all(typo_root)
-	# Raíz del menú contextual: el PanelContainer exterior de tool_in_mouse
-	# (…/PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_tooltext).
+	# Raíz del menú contextual (…/PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBoxContainer/Panel_tooltext)
 	var top: Control = typo_root
 	for i in 5:
 		top = top.get_parent()
-	await _frames(6)
-	tool_p._popup.global_position = Vector2(top.get_global_rect().end.x + 40, 120)
-	await _frames(3)
-	_check(not top.get_global_rect().intersects(tool_p._popup.get_global_rect()), "los dos paneles no se solapan (%s / %s)" % [top.get_global_rect(), tool_p._popup.get_global_rect()])
+	var open_both := func() -> void:
+		tool_p._popup.visible = true
+		_show_all(typo_root)
+		await _frames(3)
+		tool_p._popup.global_position = Vector2(top.get_global_rect().end.x + 40, 120)
+		await _frames(3)
+	await open_both.call()
+	_check(not top.get_global_rect().intersects(tool_p._popup.get_global_rect()), "los dos paneles abiertos sin solaparse")
 	var s_size: Slider = typo._sliders["font_size"]
-	var s_ls: Slider = typo._sliders["letter_spacing"]
 	var s_lead: Slider = typo._sliders["line_spacing"]
 
-	# 1) Texto → Tipografía: escribir tamaño
-	var le: LineEdit = tool_p._fields["font_size"].line_edit()
-	le.text = "48"; le.text_submitted.emit("48")
-	await _frames()
-	_check(is_equal_approx(s_size.value, 48.0), "Texto→Tipografía: tamaño 48 (slider %s)" % s_size.value)
+	# 1) Nada repetido: lo que controla un panel no está en el otro
+	var typo_props := ["font_size", "line_spacing", "letter_spacing", "fill_color", "font_family", "font_weight", "stroke_width"]
+	var dup := typo_props.filter(func(p): return tool_p._fields.has(p))
+	var typo_par_visible := (typo.get_node("Panel/VBoxContainer/BoxContainer2") as CanvasItem).visible \
+		or (typo.get_node("Panel/VBoxContainer/BoxContainer_Valign") as CanvasItem).visible \
+		or typo.get_node_or_null("Panel/VBoxContainer/RowIndents") != null
+	_check(dup.is_empty() and not typo_par_visible, "ningún control repetido entre Texto y Tipografía (%s)" % [dup])
 
-	# 2) Texto → Tipografía EN VIVO durante un arrastre de interletra
-	var c: Vector2 = tool_p._fields["letter_spacing"].line_edit().get_global_rect().get_center()
-	await _press(c, true)
-	await _move(c, 12.0)
-	var live := float(para.get_meta("letter_spacing", 0.0))
-	_check(live > 0.0 and is_equal_approx(s_ls.value, live), "Texto→Tipografía en vivo al arrastrar (meta %s, slider %s)" % [live, s_ls.value])
-	await _press(c, false)
-
-	# 3) Tipografía → Texto EN VIVO al arrastrar un slider + un solo undo
+	# 2) Tipografía en vivo al arrastrar + UN paso de deshacer
 	hm.clear()
-	var before_lead := float(para.get_meta("line_spacing", 0.0))
+	var lead0 := float(ic._read(para, "line_spacing"))
 	s_lead.drag_started.emit()
 	for v in [4.0, 8.0, 12.0]:
 		s_lead.value = v
 		await _frames(1)
-		_check(is_equal_approx(tool_p._fields["line_spacing"].value, v), "Tipografía→Texto en vivo: interlineado %s (campo %s)" % [v, tool_p._fields["line_spacing"].value])
+		_check(is_equal_approx(float(para.get_meta("line_spacing", 0.0)), v), "interlineado EN VIVO al arrastrar: %s" % v)
 	s_lead.drag_ended.emit(true)
 	await _frames()
-	_check(is_equal_approx(float(para.get_meta("line_spacing", 0.0)), 12.0), "interlineado final 12")
 	_check(hm.can_undo(), "arrastre en Tipografía crea su paso de deshacer")
 	hm.undo(); await _frames()
-	_check(is_equal_approx(float(para.get_meta("line_spacing", 0.0)), before_lead), "deshacer vuelve a %s (%s)" % [before_lead, para.get_meta("line_spacing", 0.0)])
-	_check(is_equal_approx(tool_p._fields["line_spacing"].value, before_lead) and is_equal_approx(s_lead.value, before_lead), "tras deshacer AMBOS paneles muestran %s" % before_lead)
+	_check(is_equal_approx(float(ic._read(para, "line_spacing")), lead0) and is_equal_approx(s_lead.value, lead0), "deshacer → %s en objeto y slider" % lead0)
 	_check(not hm.can_undo(), "fue UN solo paso de deshacer")
 
-	# 4) Alineación en ambos sentidos
-	(typo.get_node("Panel/VBoxContainer/BoxContainer2/Button3") as Button).pressed.emit()   # derecha
+	# 3) Cambios hechos fuera (p.ej. deshacer, otro panel, atajos) llegan a Tipografía
+	ic.apply("font_size", 48)
 	await _frames()
-	_check(tool_p._align_btns[2].button_pressed and not tool_p._align_btns[0].button_pressed, "Tipografía→Texto: alineación derecha marcada")
-	tool_p._align_btns[1].pressed.emit()
-	await _frames()
-	_check(typo._current_align == "center", "Texto→Tipografía: alineación centro (%s)" % typo._current_align)
-	tool_p._valign_btns[2].pressed.emit()
-	await _frames()
-	_check(typo._current_valign == "bottom", "Texto→Tipografía: vertical abajo (%s)" % typo._current_valign)
+	_check(is_equal_approx(s_size.value, 48.0), "cambio externo de tamaño → Tipografía 48 (%s)" % s_size.value)
+	hm.undo(); await _frames()
+	_check(is_equal_approx(s_size.value, 24.0), "deshacer externo → Tipografía 24 (%s)" % s_size.value)
 
-	# 5) Estilo / peso
-	tool_p._opt_style.select(4); tool_p._opt_style.item_selected.emit(4)
-	await _frames()
-	var opt: OptionButton = typo.get_node("Panel/BoxContainer/OptionButton")
-	_check(opt.get_item_text(opt.selected) == "Bold", "Texto→Tipografía: estilo Bold (%s)" % (opt.get_item_text(opt.selected) if opt.selected >= 0 else "-"))
-	var reg := -1
-	for i in opt.item_count:
-		if opt.get_item_text(i) == "Regular": reg = i
-	opt.select(reg); opt.item_selected.emit(reg)
-	await _frames()
-	_check(tool_p._opt_style.get_item_text(tool_p._opt_style.selected) == "Regular" and not tool_p._btn_bold.button_pressed, "Tipografía→Texto: estilo Regular y B desmarcada")
-
-	# 6) Color
-	var cp: ColorPickerButton = typo.get_node("Panel/BoxContainer/FontColorPicker")
-	cp.color = Color.RED; cp.color_changed.emit(Color.RED)
-	await _frames()
-	_check(tool_p._cp_fill.color.is_equal_approx(Color.RED), "Tipografía→Texto: color rojo")
-	tool_p._cp_fill.color = Color.BLUE; tool_p._cp_fill.color_changed.emit(Color.BLUE)
-	await _frames()
-	_check(cp.color.is_equal_approx(Color.BLUE), "Texto→Tipografía: color azul")
-
-	# 7) Sangrías
-	var ind: LineEdit = tool_p._fields["indent_left"].line_edit()
-	ind.text = "20"; ind.text_submitted.emit("20")
-	await _frames()
-	_check(is_equal_approx(typo._indent_spins["indent_left"].value, 20.0), "Texto→Tipografía: sangría 20")
-	var ind2: LineEdit = typo._indent_spins["indent_right"].line_edit()
-	ind2.text = "7"; ind2.text_submitted.emit("7")
-	await _frames()
-	_check(is_equal_approx(tool_p._fields["indent_right"].value, 7.0), "Tipografía→Texto: sangría derecha 7")
-
-	# 8) Panel oculto: se pone al día al abrirse
+	# 4) Oculto: se pone al día al abrirse
 	typo_root.visible = false
 	await _frames()
-	le.text = "30"; le.text_submitted.emit("30")
+	ic.apply("font_size", 30)
 	await _frames()
 	typo_root.visible = true
 	await _frames(3)
-	_check(is_equal_approx(s_size.value, 30.0), "Tipografía oculta se actualiza al abrirse (slider %s)" % s_size.value)
+	_check(is_equal_approx(s_size.value, 30.0), "Tipografía oculta se actualiza al abrirse (%s)" % s_size.value)
 
-	# 9) Editando con letras seleccionadas: ambos muestran el tamaño de esas letras
+	# 5) Editando con letras seleccionadas
 	canvas.switch_tool("paragraph")
 	await _frames()
 	canvas.current_tool._check_and_trigger_edit_at(para)
 	await _frames(3)
 	var vrt = para.get_node_or_null("VectorRichText")
 	var native: bool = vrt != null and vrt.is_editing()
+	var te := para.get_node_or_null("MultiLineEdit") as TextEdit
 	ic.apply("text", "Hola mundo")
 	await _frames()
-	if native:
-		vrt.set_selection_range(0, 4)
-	else:
-		var te := para.get_node_or_null("MultiLineEdit") as TextEdit
-		te.select(0, 0, 0, 4)
-	await _frames()
-	tool_p._popup.visible = true
-	_show_all(typo_root)
-	await _frames(2)
-	tool_p._popup.global_position = Vector2(top.get_global_rect().end.x + 40, 120)
-	await _frames(4)
-	var cs: Vector2 = tool_p._fields["font_size"].line_edit().get_global_rect().get_center()
-	await _press(cs, true)
-	await _move(cs, 20.0)
-	var sel_sz := float(tool_p._fields["font_size"].value)
-	_check(sel_sz > 30.0 and is_equal_approx(s_size.value, sel_sz), "editando: Tipografía sigue en vivo el tamaño de las letras (campo %s, slider %s)" % [sel_sz, s_size.value])
-	await _press(cs, false)
-	_check(is_equal_approx(float(tool_p._fields["font_size"].value), sel_sz), "al soltar el campo conserva el tamaño de la selección (%s)" % tool_p._fields["font_size"].value)
-	# mover la selección a letras sin cambiar → ambos vuelven a 30
-	if native:
-		vrt.set_selection_range(6, 9)
-	else:
-		(para.get_node("MultiLineEdit") as TextEdit).select(0, 6, 0, 9)
-	await _frames(4)
-	_check(is_equal_approx(float(tool_p._fields["font_size"].value), 30.0) and is_equal_approx(s_size.value, 30.0), "otra selección → ambos muestran 30 (campo %s, slider %s)" % [tool_p._fields["font_size"].value, s_size.value])
-
-	# 10) Tipografía → letras seleccionadas (editando) + panel Texto lo sigue
-	if native:
-		vrt.set_selection_range(0, 4)
-	else:
-		(para.get_node("MultiLineEdit") as TextEdit).select(0, 0, 0, 4)
-	await _frames(3)
+	var select := func(a: int, b: int) -> void:
+		if native:
+			vrt.set_selection_range(a, b)
+		else:
+			te.select(0, a, 0, b)
+		await _frames(3)
+	await open_both.call()
+	await select.call(0, 4)
 	hm.clear()
-	var sz_before := float(tool_p._fields["font_size"].value)
 	s_size.drag_started.emit()
-	for v in [60.0, 70.0]:
+	for v in [40.0, 50.0]:
 		s_size.value = v
 		await _frames(2)
-		_check(is_equal_approx(float(tool_p._fields["font_size"].value), v), "Tipografía (editando) → Texto en vivo: %s (campo %s)" % [v, tool_p._fields["font_size"].value])
+		var rr: Array = para.get_meta("runs", [])
+		_check(not rr.is_empty() and int(rr[0].get("length", 0)) == 4 and is_equal_approx(float(rr[0].get("size", 0)), v), "editando: solo 'Hola' a %s EN VIVO (%s)" % [v, _sizes(rr)])
 	s_size.drag_ended.emit(true)
 	await _frames(2)
-	var rr: Array = para.get_meta("runs", [])
-	_check(not rr.is_empty() and int(rr[0].get("length", 0)) == 4 and is_equal_approx(float(rr[0].get("size", 0)), 70.0), "solo 'Hola' a 70 (%s)" % [rr.slice(0, 2)])
-	_check(hm.can_undo(), "slider de Tipografía editando: undo")
+	_check(is_equal_approx(s_size.value, 50.0), "Tipografía muestra el tamaño de la selección (50)")
+	await select.call(6, 9)
+	_check(is_equal_approx(s_size.value, 30.0), "otra selección → Tipografía muestra 30 (%s)" % s_size.value)
+	await select.call(0, 4)
+	_check(is_equal_approx(s_size.value, 50.0), "volver a 'Hola' → 50 (%s)" % s_size.value)
+	_check(hm.can_undo(), "arrastre por letras: undo")
 	hm.undo(); await _frames(3)
-	_check(is_equal_approx(float(tool_p._fields["font_size"].value), sz_before) and is_equal_approx(s_size.value, sz_before), "deshacer → ambos paneles vuelven a %s (campo %s, slider %s)" % [sz_before, tool_p._fields["font_size"].value, s_size.value])
+	var any_big := false
+	for r in para.get_meta("runs", []):
+		any_big = any_big or float(r.get("size", 0.0)) > 30.0
+	_check(not any_big, "deshacer → 'Hola' vuelve a 30 (%s)" % [_sizes(para.get_meta("runs", []))])
 	_check(not hm.can_undo(), "UN solo paso de deshacer")
+
+	# B con letras seleccionadas → solo esas letras
+	await select.call(0, 4)
+	hm.clear()
+	var bb: Button = typo._fmt_btns["bold"]
+	bb.pressed.emit()
+	await _frames(3)
+	var rb: Array = para.get_meta("runs", [])
+	var first_bold := not rb.is_empty() and (bool(rb[0].get("bold", false)) or int(rb[0].get("weight", 400)) >= 700) and int(rb[0].get("length", 0)) == 4
+	var rest_bold := rb.size() > 1 and (bool(rb[1].get("bold", false)) or int(rb[1].get("weight", 400)) >= 700)
+	_check(first_bold and not rest_bold and int(para.get_meta("font_weight", 400)) == 400, "B editando → solo 'Hola' en negrita, el objeto sigue a 400")
+	_check(bb.button_pressed, "el botón B se marca con 'Hola' seleccionado")
+	await select.call(6, 9)
+	_check(not bb.button_pressed, "con 'mun' seleccionado el botón B se desmarca")
+	hm.undo(); await _frames(3)
+	var rb2: Array = para.get_meta("runs", [])
+	var any_bold := false
+	for r in rb2:
+		any_bold = any_bold or bool(r.get("bold", false)) or int(r.get("weight", 400)) >= 700
+	_check(not any_bold, "deshacer negrita por letras")
+
+	# 6) Muestras de color → selector de la app (pickr_color_tool.tscn)
+	await select.call(0, 4)
+	var cp: ColorPickerButton = typo.get_node("Panel/BoxContainer/FontColorPicker")
+	await _click(cp)
+	var pop = root.find_child("TextColorPopover", true, false)
+	_check(pop != null and pop.visible and not cp.get_popup().visible, "la muestra abre el selector de la app (no el de Godot)")
+	var pk = pop._pickr if pop else null
+	_check(pk != null and pk.scene_file_path.ends_with("pickr_color_tool.tscn"), "el selector es pickr_color_tool.tscn")
+	if pk:
+		if OS.get_environment("E2E_OUT") != "":
+			await _frames(4)
+			var im := root.get_texture().get_image()
+			var shot_r := Rect2i(pop.get_global_rect().merge(top.get_global_rect()).grow(10)).intersection(Rect2i(Vector2i.ZERO, im.get_size()))
+			im.get_region(shot_r).save_png(OS.get_environment("E2E_OUT") + "/selector_color_tipografia.png")
+		var linked := false
+		var cc = root.get_node("ColorCore")
+		for sig in ["changed", "paint_changed"]:
+			for conn in cc.get_signal_connection_list(sig):
+				linked = linked or (conn["callable"] as Callable).get_object() == pk
+		_check(not linked and bool(pk.get("_from_core")), "selector aislado de ColorCore")
+		var tabs_ok := true
+		for prop in ["tab_linear", "tab_radial", "tab_conic"]:
+			var t = pk.get(prop)
+			tabs_ok = tabs_ok and not (t is CanvasItem and (t as CanvasItem).visible)
+		_check(tabs_ok, "sin pestañas de degradado (texto = color sólido)")
+		hm.clear()
+		var green := Color(0.1, 0.7, 0.3)
+		pk.picker_panel.color_changed.emit(green)
+		await _frames(3)
+		var rc: Array = para.get_meta("runs", [])
+		var c0 = rc[0].get("color") if not rc.is_empty() else null
+		var c1 = rc[1].get("color") if rc.size() > 1 else null
+		_check(c0 is Color and (c0 as Color).is_equal_approx(green) and int(rc[0].get("length", 0)) == 4, "color elegido → solo 'Hola' en verde")
+		_check(not (c1 is Color and (c1 as Color).is_equal_approx(green)), "' mundo' conserva su color")
+		_check(cp.color.is_equal_approx(green), "la muestra muestra el verde")
+		_check(hm.can_undo(), "color por letras con deshacer")
+		await _press(Vector2(5, 900), true)
+		await _press(Vector2(5, 900), false)
+		_check(not pop.visible, "clic fuera cierra el selector")
+		var sb: ColorPickerButton = typo._stroke_btn
+		await _click(sb)
+		_check(pop.visible and pop.current_target() == sb and not sb.get_popup().visible, "la muestra de trazo abre el mismo selector")
+		var esc := InputEventKey.new(); esc.keycode = KEY_ESCAPE; esc.pressed = true
+		Input.parse_input_event(esc)
+		await _frames(2)
+		_check(not pop.visible, "Esc cierra el selector")
 
 	print("E2E modo: ", "nativo" if native else "GDScript")
 	print("E2E RESULT: ", "PASS" if fails.is_empty() else "FAIL (%d)" % fails.size())

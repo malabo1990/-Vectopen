@@ -6,22 +6,22 @@ extends GdUnitTestSuite
 
 const PanelParagraphScript := preload("res://script_gdscript/ui/panel_paragraph.gd")
 
+const TextFormat := preload("res://script_gdscript/text/text_format.gd")
+
+## Panel Texto = solo PÁRRAFO y MARCO (el carácter vive en Tipografía).
 func test_panel_paragraph_widgets_initialization() -> void:
 	var panel = auto_free(PanelParagraphScript.new())
 	add_child(panel)
 	await get_tree().process_frame
 
-	assert_object(panel._btn_bold).is_not_null()
-	assert_object(panel._btn_italic).is_not_null()
-	assert_object(panel._btn_underline).is_not_null()
-	assert_object(panel._spin_size).is_not_null()
-	assert_object(panel._cp_fill).is_not_null()
-	assert_object(panel._cp_stroke).is_not_null()
-	assert_object(panel._spin_stroke).is_not_null()
 	assert_int(panel._align_btns.size()).is_equal(4)
 	assert_int(panel._valign_btns.size()).is_equal(3)
-	assert_bool(panel._fields.has("columns")).is_true()
-	assert_bool(panel._fields.has("column_gap")).is_true()
+	for prop in ["indent_left", "indent_right", "indent_first", "width", "height", "columns", "column_gap"]:
+		assert_bool(panel._fields.has(prop)).override_failure_message("falta %s" % prop).is_true()
+	# Nada de carácter: no se repite con el panel Tipografía
+	for prop in ["font_size", "line_spacing", "letter_spacing", "font_family", "fill_color"]:
+		assert_bool(panel._fields.has(prop)).override_failure_message("%s no debe estar en el panel Texto" % prop).is_false()
+	assert_bool("_btn_bold" in panel).is_false()
 
 func test_panel_paragraph_sync_from_props() -> void:
 	var panel = auto_free(PanelParagraphScript.new())
@@ -29,36 +29,24 @@ func test_panel_paragraph_sync_from_props() -> void:
 	await get_tree().process_frame
 
 	var mock_props := {
-		"font_size": {"value": 36.0, "mixed": false},
-		"fill_color": {"value": Color.RED, "mixed": false},
-		"stroke_color": {"value": Color.GREEN, "mixed": false},
-		"stroke_width": {"value": 3.5, "mixed": false},
-		"font_weight": {"value": 700, "mixed": false},
-		"font_italic": {"value": true, "mixed": false},
 		"text_align": {"value": "center", "mixed": false},
 		"text_valign": {"value": "middle", "mixed": false},
 		"columns": {"value": 3.0, "mixed": false},
 		"column_gap": {"value": 25.0, "mixed": false},
+		"indent_left": {"value": 12.0, "mixed": false},
+		"width": {"value": 300.0, "mixed": true},
 	}
-
 	panel._sync(mock_props)
 
-	assert_float(panel._spin_size.value).is_equal_approx(36.0, 0.01)
-	assert_object(panel._cp_fill.color).is_equal(Color.RED)
-	assert_object(panel._cp_stroke.color).is_equal(Color.GREEN)
-	assert_float(panel._spin_stroke.value).is_equal_approx(3.5, 0.01)
-	assert_bool(panel._btn_bold.button_pressed).is_true()
-	assert_bool(panel._btn_italic.button_pressed).is_true()
 	assert_bool(panel._align_btns[1].button_pressed).is_true() # center
 	assert_bool(panel._valign_btns[1].button_pressed).is_true() # middle
 	assert_float(panel._fields["columns"].value).is_equal_approx(3.0, 0.01)
 	assert_float(panel._fields["column_gap"].value).is_equal_approx(25.0, 0.01)
+	assert_float(panel._fields["indent_left"].value).is_equal_approx(12.0, 0.01)
+	assert_bool(panel._fields["width"].is_mixed()).is_true()
+	assert_bool(panel._fields["height"].is_mixed()).is_true()   # sin dato → "—"
 
-func test_panel_paragraph_format_range_with_mock_editing() -> void:
-	var panel = auto_free(PanelParagraphScript.new())
-	add_child(panel)
-	await get_tree().process_frame
-
+func test_text_format_range_with_mock_editing() -> void:
 	var shape := Node2D.new()
 	shape.set_meta("shape_type", "text_paragraph")
 	shape.set_meta("text", "Hola Mundo")
@@ -77,7 +65,7 @@ func test_panel_paragraph_format_range_with_mock_editing() -> void:
 	ed.syntax_highlighter = WorldTextLabel.RunHighlighter.new(shape)
 
 	# Aplicar formato a un rango (índices 0..4 = "Hola")
-	panel._apply_to_range(shape, ed, 0, 4, func(r: Dictionary) -> Dictionary:
+	TextFormat.apply_to_range(shape, ed, 0, 4, func(r: Dictionary) -> Dictionary:
 		r["color"] = Color.BLUE
 		r["bold"] = true
 		r["stroke_width"] = 2.0
@@ -98,7 +86,7 @@ func test_panel_paragraph_format_range_with_mock_editing() -> void:
 	assert_int(int(runs[1]["length"])).is_equal(6)
 	assert_bool(bool(runs[1]["bold"])).is_false()
 
-	# Validar que el SyntaxHighlighter del TextEdit refleja los colores en vivo
+	# El SyntaxHighlighter del TextEdit refleja los colores en vivo
 	var hl_dict: Dictionary = ed.syntax_highlighter.get_line_syntax_highlighting(0)
 	assert_bool(hl_dict.has(0)).is_true()
 	assert_object(hl_dict[0]["color"]).is_equal(Color.BLUE)

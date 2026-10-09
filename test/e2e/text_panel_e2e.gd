@@ -1,5 +1,8 @@
-## E2E del panel de la herramienta Texto/Párrafo (popup "text" de la barra):
-## diseño (capturas claro/oscuro) + que cada control haga lo que dice.
+## E2E de los paneles de texto sobre la app real:
+##  A) panel de la herramienta Texto (popup "text"): solo PÁRRAFO y MARCO;
+##  B) panel Tipografía (menú contextual): CARÁCTER, con la fila B/I/U + trazo.
+## Diseño (capturas claro/oscuro) + que cada control haga lo que dice, con
+## ratón real sobre los campos numéricos.
 ##   godot --path . -s res://test/e2e/text_panel_e2e.gd   (E2E_OUT=carpeta)
 extends SceneTree
 
@@ -18,24 +21,14 @@ func _check(cond: bool, msg: String) -> void:
 	if not cond:
 		fails.append(msg)
 
-func _shot(popup: Control, tag: String) -> void:
+func _shot(ctrl: Control, tag: String) -> void:
 	await _frames(8)
-	var r := Rect2i(popup.get_global_rect().grow(8))
+	var r := Rect2i(ctrl.get_global_rect().grow(8))
 	var img := root.get_texture().get_image()
 	r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 	img = img.get_region(r)
 	img.resize(r.size.x * 2, r.size.y * 2, Image.INTERPOLATE_NEAREST)
 	img.save_png("%s/%s.png" % [out, tag])
-
-func _mouse(btn: bool, x: float) -> InputEvent:
-	if btn:
-		var e := InputEventMouseButton.new()
-		e.button_index = MOUSE_BUTTON_LEFT
-		e.global_position = Vector2(x, 0)
-		return e
-	var m := InputEventMouseMotion.new()
-	m.global_position = Vector2(x, 0)
-	return m
 
 func _press(at: Vector2, down: bool) -> void:
 	var e := InputEventMouseButton.new()
@@ -48,8 +41,7 @@ func _press(at: Vector2, down: bool) -> void:
 
 ## Movimiento relativo en pasos de 2 px (como un arrastre real).
 func _move(at: Vector2, dx: float) -> void:
-	var n := int(absf(dx) / 2.0)
-	for i in n:
+	for i in int(absf(dx) / 2.0):
 		var m := InputEventMouseMotion.new()
 		m.position = at
 		m.global_position = at
@@ -58,6 +50,12 @@ func _move(at: Vector2, dx: float) -> void:
 		Input.parse_input_event(m)
 		await process_frame
 	await _frames(2)
+
+func _submit(f, txt: String) -> void:
+	var le: LineEdit = f.line_edit()
+	le.text = txt
+	le.text_submitted.emit(txt)
+	await _frames()
 
 func _run() -> void:
 	var env_out := OS.get_environment("E2E_OUT")
@@ -76,14 +74,16 @@ func _run() -> void:
 	var sm = root.get_node("SelectionManager")
 	var canvas = get_first_node_in_group("_vectopen_canvas")
 
-	# 1) Sin selección: capturas de diseño + campos en "—"
+	# ── A) PANEL TEXTO: solo párrafo y marco ──
 	for mode in ["dark", "light"]:
 		tm.set_mode(mode)
 		popup.visible = true
 		await _shot(popup, "panel_vacio_" + mode)
-	_check(pp._fields["font_size"].is_mixed(), "sin selección el tamaño muestra '—'")
+	_check(pp._fields["indent_left"].is_mixed(), "sin selección los campos muestran '—'")
+	var char_props := ["font_size", "line_spacing", "letter_spacing", "fill_color", "font_family"]
+	var repeated := char_props.filter(func(p): return pp._fields.has(p))
+	_check(repeated.is_empty() and not ("_btn_bold" in pp), "el panel Texto no repite nada de carácter (%s)" % [repeated])
 
-	# 2) Párrafo seleccionado → valores reales
 	canvas.switch_tool("paragraph")
 	await _frames()
 	var para: Node2D = canvas.current_tool.create_at_center()
@@ -92,94 +92,63 @@ func _run() -> void:
 	ic._sync_selection()
 	pp._sync({})
 	await _frames()
-	_check(not pp._fields["font_size"].is_mixed() and is_equal_approx(pp._fields["font_size"].value, 24.0), "con selección el tamaño muestra 24")
+	_check(is_equal_approx(pp._fields["width"].value, float(para.get_meta("width"))), "con selección el ancho muestra %s" % para.get_meta("width"))
 	_check(pp._align_btns[0].button_pressed, "alineación izquierda marcada")
-	_check(pp._btn_family.text == "Inter", "familia = Inter (%s)" % pp._btn_family.text)
-	_check(pp._opt_style.get_item_text(pp._opt_style.selected) == "Regular", "estilo = Regular")
 	tm.set_mode("dark")
 	await _shot(popup, "panel_seleccion_dark")
 
-	# 3) Escribir un valor en el campo de tamaño (Intro) + deshacer
 	hm.clear()
-	var le: LineEdit = pp._fields["font_size"].line_edit()
-	le.text = "36"
-	le.text_submitted.emit("36")
-	await _frames()
-	_check(int(para.get_meta("font_size")) == 36, "tamaño escrito 36 → meta %s" % para.get_meta("font_size"))
+	await _submit(pp._fields["indent_left"], "15")
+	_check(is_equal_approx(float(para.get_meta("indent_left", 0.0)), 15.0), "sangría escrita 15")
 	hm.undo(); await _frames()
-	_check(int(para.get_meta("font_size")) == 24, "deshacer tamaño → 24 (%s)" % para.get_meta("font_size"))
+	_check(is_equal_approx(float(para.get_meta("indent_left", 0.0)), 0.0), "deshacer sangría → 0")
+	await _submit(pp._fields["indent_right"], "10*2")
+	_check(is_equal_approx(float(para.get_meta("indent_right", 0.0)), 20.0), "expresión 10*2 → 20")
 
-	# 4) Expresión
-	le.text = "12*3"
-	le.text_submitted.emit("12*3")
-	await _frames()
-	_check(int(para.get_meta("font_size")) == 36, "expresión 12*3 → 36 (%s)" % para.get_meta("font_size"))
-
-	# 5) Arrastre REAL sobre el NÚMERO (no el icono): en vivo + UNA acción de undo
+	# Arrastre REAL sobre el número: en vivo + UNA acción de undo
 	hm.clear()
-	var tr_f = pp._fields["letter_spacing"]
-	var le_tr: LineEdit = tr_f.line_edit()
-	var cn: Vector2 = le_tr.get_global_rect().get_center()
+	var gap_f = pp._fields["column_gap"]
+	var gap0 := float(ic._read(para, "column_gap"))
+	var le_g: LineEdit = gap_f.line_edit()
+	var cn: Vector2 = le_g.get_global_rect().get_center()
 	await _press(cn, true)
-	_check(not le_tr.has_focus(), "pulsar sobre el número no entra a escribir todavía")
+	_check(not le_g.has_focus(), "pulsar sobre el número no entra a escribir todavía")
 	await _move(cn, 12.0)
-	var live := float(para.get_meta("letter_spacing", 0.0))
-	_check(live > 0.0, "arrastre sobre el número: interletra cambia EN VIVO (%s)" % live)
-	_check(not hm.can_undo(), "arrastre: aún sin acción de undo mientras arrastra")
+	var live := float(para.get_meta("column_gap", 0.0))
+	_check(live > gap0, "arrastre sobre el número: medianil cambia EN VIVO (%s → %s)" % [gap0, live])
+	_check(not hm.can_undo(), "aún sin undo mientras arrastra")
 	await _move(cn, 10.0)
 	await _press(cn, false)
-	var fin := float(para.get_meta("letter_spacing", 0.0))
-	_check(fin > live, "arrastre: valor final mayor (%s > %s)" % [fin, live])
-	_check(hm.can_undo(), "arrastre: una acción de undo al soltar")
-	_check(not le_tr.has_focus(), "tras arrastrar no queda en modo escritura")
+	_check(float(para.get_meta("column_gap", 0.0)) > live, "valor final mayor")
+	_check(hm.can_undo() and not le_g.has_focus(), "un undo al soltar y sin modo escritura")
 	_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "el ratón vuelve a ser visible al soltar")
 	hm.undo(); await _frames()
-	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), 0.0), "deshacer arrastre → 0 de una vez (%s)" % para.get_meta("letter_spacing", 0.0))
-	# arrastre hacia la izquierda baja el valor (con tope en el mínimo)
+	_check(is_equal_approx(float(para.get_meta("column_gap", 0.0)), gap0), "deshacer arrastre → %s de una vez" % gap0)
+	_check(not hm.can_undo(), "fue UNA sola acción de undo")
 	await _press(cn, true)
 	await _move(cn, -400.0)
 	await _press(cn, false)
-	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), -10.0), "arrastre a la izquierda topa en el mínimo -10 (%s)" % para.get_meta("letter_spacing", 0.0))
+	_check(is_equal_approx(float(para.get_meta("column_gap", 0.0)), 0.0), "arrastre a la izquierda topa en el mínimo 0")
 	hm.undo(); await _frames()
-	# arrastre sobre el ICONO también funciona
-	var ci: Vector2 = tr_f._lead.get_global_rect().get_center()
+	var ci: Vector2 = gap_f._lead.get_global_rect().get_center()
 	await _press(ci, true)
 	await _move(ci, 8.0)
 	await _press(ci, false)
-	_check(float(para.get_meta("letter_spacing", 0.0)) > 0.0, "arrastre sobre el icono también cambia el valor")
+	_check(float(para.get_meta("column_gap", 0.0)) > gap0, "arrastre sobre el icono también cambia el valor")
 	hm.undo(); await _frames()
-	# clic SIN arrastrar → entra a escribir con todo seleccionado
 	await _press(cn, true)
 	await _press(cn, false)
-	_check(le_tr.has_focus() and le_tr.has_selection(), "clic sin arrastrar → escribe con el valor seleccionado")
-	le_tr.text = "3"
-	le_tr.text_submitted.emit("3")
+	_check(le_g.has_focus() and le_g.has_selection(), "clic sin arrastrar → escribe con el valor seleccionado")
+	le_g.text = "30"; le_g.text_submitted.emit("30")
 	await _frames()
-	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), 3.0), "escrito tras el clic → 3")
+	_check(is_equal_approx(float(para.get_meta("column_gap", 0.0)), 30.0), "escrito tras el clic → 30")
 
-	# 5b) Arrastre del TAMAÑO: en vivo y un solo undo
-	hm.clear()
-	var fs0 := int(para.get_meta("font_size"))
-	var cs: Vector2 = pp._fields["font_size"].line_edit().get_global_rect().get_center()
-	await _press(cs, true)
-	await _move(cs, 20.0)
-	var fs_live := int(para.get_meta("font_size"))
-	_check(fs_live > fs0, "arrastre de tamaño en vivo (%d → %d)" % [fs0, fs_live])
-	await _press(cs, false)
-	_check(hm.can_undo(), "arrastre de tamaño: undo al soltar")
-	hm.undo(); await _frames()
-	_check(int(para.get_meta("font_size")) == fs0, "deshacer arrastre de tamaño → %d (%s)" % [fs0, para.get_meta("font_size")])
-	_check(not hm.can_undo(), "arrastre de tamaño = UNA sola acción de undo")
-
-	# 6) Teclas arriba/abajo en el campo
-	var lf = pp._fields["line_spacing"]
-	var lle: LineEdit = lf.line_edit()
+	var lf_le: LineEdit = pp._fields["indent_first"].line_edit()
 	var k := InputEventKey.new(); k.keycode = KEY_UP; k.pressed = true; k.shift_pressed = true
-	lle.gui_input.emit(k)
+	lf_le.gui_input.emit(k)
 	await _frames()
-	_check(is_equal_approx(float(para.get_meta("line_spacing", 0.0)), 10.0), "Shift+↑ en interlineado → 10 (%s)" % para.get_meta("line_spacing", 0.0))
+	_check(is_equal_approx(float(para.get_meta("indent_first", 0.0)), 10.0), "Shift+↑ en primera línea → 10")
 
-	# 7) Alineación
 	pp._align_btns[1].pressed.emit()
 	await _frames()
 	_check(String(para.get_meta("text_align", "")) == "center", "botón centrar → text_align=center")
@@ -188,71 +157,76 @@ func _run() -> void:
 	pp._valign_btns[2].pressed.emit()
 	await _frames()
 	_check(String(para.get_meta("text_valign", "")) == "bottom", "botón abajo → text_valign=bottom")
-
-	# 8) Estilo (desplegable) y negrita
-	pp._opt_style.select(4)
-	pp._opt_style.item_selected.emit(4)
-	await _frames()
-	_check(int(para.get_meta("font_weight", 400)) == 700, "estilo Bold → peso 700 (%s)" % para.get_meta("font_weight", 400))
-	pp._sync({})
-	_check(pp._btn_bold.button_pressed, "botón B marcado con peso 700")
-	pp._btn_bold.button_pressed = false
-	pp._btn_bold.pressed.emit()
-	await _frames()
-	_check(int(para.get_meta("font_weight", 400)) == 400, "B de nuevo → peso 400 (%s)" % para.get_meta("font_weight", 400))
-
-	# 9) Sangrías y columnas
-	var ind: LineEdit = pp._fields["indent_left"].line_edit()
-	ind.text = "15"; ind.text_submitted.emit("15")
-	await _frames()
-	_check(is_equal_approx(float(para.get_meta("indent_left", 0.0)), 15.0), "sangría izquierda 15")
-	var cols: LineEdit = pp._fields["columns"].line_edit()
-	cols.text = "2"; cols.text_submitted.emit("2")
-	await _frames()
+	await _submit(pp._fields["columns"], "2")
 	_check(int(para.get_meta("columns", 1)) == 2, "columnas 2")
 
-	# 10) Mixto: dos párrafos con tamaños distintos
 	canvas.switch_tool("paragraph")
 	await _frames()
 	var p2: Node2D = canvas.current_tool.create_at_center()
 	await _frames()
 	sm.select(p2)
 	ic._sync_selection()
-	ic.apply("font_size", 50)
-	if sm.has_method("set_selection"):
-		sm.set_selection([para, p2])
+	ic.apply("width", 220)
+	sm.set_selection([para, p2])
 	ic._sync_selection()
 	pp._sync({})
 	await _frames()
-	_check(pp._fields["font_size"].is_mixed(), "dos tamaños distintos → 'Mixto'")
+	_check(pp._fields["width"].is_mixed(), "dos anchos distintos → 'Mixto'")
 	tm.set_mode("light")
 	await _shot(popup, "panel_mixto_light")
-
-	# 11) Panel de texto del menú contextual (clic derecho) dentro de la app
 	popup.visible = false
+	sm.select(para)
+	ic._sync_selection()
+
+	# ── B) TIPOGRAFÍA: carácter, con B/I/U + trazo ──
 	var ctx: Control = root.find_child("Panel_tooltext", true, false)
-	_check(ctx != null, "panel de texto del menú contextual presente")
-	if ctx:
-		var top: Control = ctx
-		var n: Node = ctx
-		while n and n != root:
-			if n is CanvasItem:
-				(n as CanvasItem).visible = true
-			if n is Control:
-				top = n
-			n = n.get_parent()
-		top.position = Vector2(60, 60)
-		tm.set_mode("dark")
-		await _frames(6)
-		var box: Control = ctx.get_node("BoxContainer")
-		var font_row: Control = box.get_node("Panel/BoxContainer")
-		_check(font_row.get_combined_minimum_size().x <= box.get_node("Panel").size.x + 0.5, "fila familia/estilo/color cabe en el panel (%s ≤ %s)" % [font_row.get_combined_minimum_size().x, box.get_node("Panel").size.x])
-		_check(box._indent_spins.size() == 3 and box._indent_spins["indent_left"].has_method("set_mixed"), "sangrías con campos de icono")
-		var vb: Control = box.get_node("Panel/VBoxContainer")
-		for c in vb.get_children():
-			print("  fila ", c.name, " min=", (c as Control).get_combined_minimum_size().x)
-		_check(vb.get_combined_minimum_size().x <= 192.5, "filas del panel contextual caben en 192 px (%s)" % vb.get_combined_minimum_size().x)
-		await _shot(ctx, "panel_contextual_dark")
+	_check(ctx != null, "panel Tipografía presente")
+	var n: Node = ctx
+	while n and n != root:
+		if n is CanvasItem:
+			(n as CanvasItem).visible = true
+		n = n.get_parent()
+	tm.set_mode("dark")
+	await _frames(6)
+	var box = ctx.get_node("BoxContainer")
+	var vb: Control = box.get_node("Panel/VBoxContainer")
+	_check(not (vb.get_node("BoxContainer2") as CanvasItem).visible and not (vb.get_node("BoxContainer_Valign") as CanvasItem).visible and vb.get_node_or_null("RowIndents") == null, "Tipografía no repite alineación ni sangrías")
+	_check(box.get_node("Panel/BoxContainer").get_combined_minimum_size().x <= box.get_node("Panel").size.x + 0.5, "fila familia/estilo/color cabe")
+	_check(vb.get_combined_minimum_size().x <= 192.5, "filas de Tipografía caben en 192 px (%s)" % vb.get_combined_minimum_size().x)
+	await _shot(ctx, "panel_tipografia_dark")
+
+	var bb: Button = box._fmt_btns["bold"]
+	hm.clear()
+	bb.pressed.emit(); await _frames()
+	_check(int(para.get_meta("font_weight", 400)) == 700 and bb.button_pressed, "B → peso 700 y marcado")
+	var opt: OptionButton = box.get_node("Panel/BoxContainer/OptionButton")
+	_check(opt.selected >= 0 and opt.get_item_text(opt.selected) == "Bold", "el estilo muestra Bold")
+	bb.pressed.emit(); await _frames()
+	_check(int(para.get_meta("font_weight", 400)) == 400 and not bb.button_pressed, "B otra vez → 400")
+	box._fmt_btns["italic"].pressed.emit(); await _frames()
+	_check(bool(para.get_meta("font_italic", false)), "I → cursiva")
+	box._fmt_btns["underline"].pressed.emit(); await _frames()
+	var und := true
+	for r in para.get_meta("runs", []):
+		und = und and bool(r.get("underline", false))
+	_check(und and box._fmt_btns["underline"].button_pressed, "U → todo subrayado y marcado")
+	hm.undo(); await _frames()
+	var und2 := false
+	for r in para.get_meta("runs", []):
+		und2 = und2 or bool(r.get("underline", false))
+	_check(not und2, "deshacer subrayado")
+
+	await _submit(box._stroke_field, "2")
+	_check(is_equal_approx(float(para.get_meta("stroke_width", 0.0)), 2.0), "grosor de trazo escrito 2")
+	hm.clear()
+	var cs: Vector2 = box._stroke_field.line_edit().get_global_rect().get_center()
+	await _press(cs, true)
+	await _move(cs, 8.0)
+	var sw_live := float(para.get_meta("stroke_width", 0.0))
+	_check(sw_live > 2.0 and not hm.can_undo(), "arrastre del grosor en vivo (%s) sin undo aún" % sw_live)
+	await _press(cs, false)
+	hm.undo(); await _frames()
+	_check(is_equal_approx(float(para.get_meta("stroke_width", 0.0)), 2.0) and not hm.can_undo(), "deshacer arrastre de grosor → 2 en UN paso")
 
 	print("E2E RESULT: ", "PASS" if fails.is_empty() else "FAIL (%d)" % fails.size())
 	for f in fails:
