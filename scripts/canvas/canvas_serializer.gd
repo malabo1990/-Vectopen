@@ -203,9 +203,10 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		if node.has_meta("stroke_color"): base["stroke_color"] = _col(node.get_meta("stroke_color"))
 		if node.has_meta("columns"): base["columns"] = int(node.get_meta("columns"))
 		if node.has_meta("column_gap"): base["column_gap"] = float(node.get_meta("column_gap"))
-		var _lp = node.get_meta("letter_proportions", {})
-		if _lp is Dictionary and not (_lp as Dictionary).is_empty():
-			base["letter_proportions"] = (_lp as Dictionary).duplicate(true)
+		for _fxk in ["letter_proportions", "letter_wave", "letter_tracking_ramp"]:
+			var _lp = node.get_meta(_fxk, {})
+			if _lp is Dictionary and not (_lp as Dictionary).is_empty():
+				base[_fxk] = (_lp as Dictionary).duplicate(true)
 		# Encadenamiento de marcos: enlaces (por nombre de nodo: las rutas
 		# absolutas cambian al recargar) + historia completa (el sobrante
 		# que no cabe en ningún marco solo vive aquí).
@@ -924,8 +925,9 @@ static func _text_from(d: Dictionary) -> Node2D:
 	if d.has("stroke_color"): cont.set_meta("stroke_color", _to_col(d["stroke_color"]))
 	if d.has("columns"): cont.set_meta("columns", int(d["columns"]))
 	if d.has("column_gap"): cont.set_meta("column_gap", float(d["column_gap"]))
-	if d.get("letter_proportions") is Dictionary:
-		cont.set_meta("letter_proportions", (d["letter_proportions"] as Dictionary).duplicate(true))
+	for _fxk in ["letter_proportions", "letter_wave", "letter_tracking_ramp"]:
+		if d.get(_fxk) is Dictionary:
+			cont.set_meta(_fxk, (d[_fxk] as Dictionary).duplicate(true))
 	for _k in ["next_paragraph", "prev_paragraph", "raw_story_text", "frame_id", "next_paragraph_id", "prev_paragraph_id"]:
 		if d.has(_k): cont.set_meta(_k, String(d[_k]))
 	if d.get("story_runs") is Array:

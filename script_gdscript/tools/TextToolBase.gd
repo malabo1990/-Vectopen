@@ -10,6 +10,7 @@
 extends ToolBase
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
+const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 
 
 # ── Estado de edición ─────────────────────────────────────────────────────────
@@ -163,3 +164,18 @@ func _notify_if_resized(shape: Node2D, before: Vector2) -> void:
 
 static func _meta_size(shape: Node2D) -> Vector2:
 	return Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
+
+## Efectos de letras (panel "Letras avanzadas"): mientras se edita, el editor
+## nativo muestra el formato real (sin efectos) para no hornearlos en los
+## runs; al salir se vuelven a pintar y la caja se reajusta.
+func _letter_fx_edit_begin(shape: Node2D, vrt) -> void:
+	if vrt and LetterFx.has_fx(shape):
+		TextCore.set_vrt_runs(vrt, shape.get_meta("runs", []))
+
+func _letter_fx_edit_end(shape: Node2D) -> void:
+	if not is_instance_valid(shape) or not LetterFx.has_fx(shape):
+		return
+	TextCore.refresh_letter_fx(shape)
+	var ic = _get_autoload("InspectorCore")
+	if ic and ic.has_method("_refit_text_shape"):
+		ic._refit_text_shape(shape)

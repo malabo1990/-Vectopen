@@ -206,6 +206,7 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 			if not vrt.editing_finished.is_connected(_on_vrt_editing_finished):
 				vrt.editing_finished.connect(_on_vrt_editing_finished)
 			vrt.start_editing()
+			_letter_fx_edit_begin(hit, vrt)
 			if click_global != Vector2.ZERO and vrt.has_method("hit_test") and vrt.has_method("select_word_at"):
 				var vrt_pos: Vector2 = hit.to_local(click_global)
 				var hit_idx: int = vrt.hit_test(vrt_pos)
@@ -481,6 +482,7 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 			multi_edit.release_focus()
 		multi_edit.visible = false
 
+	_letter_fx_edit_end(shape)
 	TextCore.register_text_undo(shape, _edit_before, "Editar párrafo")
 	_edit_before = {}
 	_reset_state()

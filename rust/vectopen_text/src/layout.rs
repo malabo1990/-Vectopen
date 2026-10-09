@@ -276,6 +276,20 @@ impl LayoutEngine {
     /// tenga archivo se sintetiza sobre el más cercano. El emboldening
     /// sintético sobre MSDF dejaba muescas blancas en las uniones cóncavas.
     fn resolve_font_variation(base_font: &Gd<Font>, sf: &StyleFonts, style: &TextStyle) -> Gd<Font> {
+        let f = Self::resolve_style_font(base_font, sf, style);
+        // Interletra POR RUN (efectos "interletra progresiva", formato por
+        // letra): antes se guardaba en el run pero el layout la ignoraba.
+        let ls = style.letter_spacing.round() as i32;
+        if ls == 0 {
+            return f;
+        }
+        let mut var_font = FontVariation::new_gd();
+        var_font.set_base_font(&f);
+        var_font.set_spacing(godot::classes::text_server::SpacingType::GLYPH, ls);
+        var_font.upcast()
+    }
+
+    fn resolve_style_font(base_font: &Gd<Font>, sf: &StyleFonts, style: &TextStyle) -> Gd<Font> {
         let (bold, italic) = (style.bold, style.italic);
         // Peso por run: archivo REAL de ese peso (Inter-Medium, -Black…).
         let w = sf.effective_weight(style);

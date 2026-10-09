@@ -11,6 +11,7 @@
 extends RefCounted
 
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 
 ## Garantiza el editor en línea del contenedor de texto (MultiLineEdit para
 ## párrafos, TitleEdit para títulos) y el autowrap del párrafo. Los textos
@@ -349,11 +350,15 @@ static func weight_step(tool: Object, shape: Node2D, ed: TextEdit, delta: int) -
 ## "size" LITERAL: en GDScript size 0/ausente = "el tamaño base del texto", y
 ## el nativo lo tomaba como 0 (o su 24 por defecto) → un texto de 64 se veía
 ## a otro tamaño al reeditarlo o recargarlo. Se rellena con el font_size.
-static func set_vrt_runs(vrt, raw_runs) -> void:
+static func set_vrt_runs(vrt, raw_runs, with_fx: bool = true) -> void:
 	if vrt == null or raw_runs == null:
 		return
 	var shape: Node = vrt.get_parent()
 	var fs := float(shape.get_meta("font_size", 24)) if shape else 24.0
+	# Efectos de letras: al DIBUJAR se materializan en runs por letra. Al
+	# editar no (los runs del editor se vuelcan al meta y los hornearían).
+	if with_fx and shape and LetterFx.has_fx(shape) and not vrt.is_editing():
+		raw_runs = LetterFx.derive_runs(shape, raw_runs if raw_runs is Array else [], String(vrt.get_text()))
 	var typed_runs: Array[Dictionary] = []
 	if raw_runs is Array:
 		for r in raw_runs:
@@ -363,6 +368,19 @@ static func set_vrt_runs(vrt, raw_runs) -> void:
 					d["size"] = fs
 				typed_runs.append(d)
 	vrt.set_runs_meta(typed_runs)
+
+## Vuelve a pintar los efectos de letras del texto (tras cambiarlos, al
+## salir de edición o al cargar) y reajusta la caja.
+static func refresh_letter_fx(shape: Node2D) -> void:
+	if not is_instance_valid(shape):
+		return
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt:
+		set_vrt_runs(vrt, shape.get_meta("runs", []))
+		vrt.queue_redraw()
+	var dl = shape.get_node_or_null("DisplayLabel")
+	if dl and dl.has_method("invalidate_layout"):
+		dl.invalidate_layout()
 
 ## Render/editor nativo VectorRichText del texto (si la extensión existe):
 ## el MISMO motor al crear, editar y RECARGAR. Antes, tras cargar un

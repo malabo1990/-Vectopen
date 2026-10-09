@@ -4,6 +4,8 @@ const TextCore = preload("res://script_gdscript/text/text_core.gd")
 const _NumField = preload("res://script_gdscript/ui/pro/pro_num_field.gd")
 const _ColorPopover = preload("res://script_gdscript/ui/pro/text_color_popover.gd")
 const TextFormat = preload("res://script_gdscript/text/text_format.gd")
+const _LetterFxPopover = preload("res://script_gdscript/ui/pro/letter_fx_popover.gd")
+const _LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 
 ## Panel de texto (panel_tooltext.tscn) → InspectorCore + FontCore.
 ##
@@ -166,6 +168,7 @@ func _ready() -> void:
 	_setup_format_row()
 	_setup_metric_rows()
 	_setup_prop_values()
+	_setup_advanced_button()
 	_fit_panel_height.call_deferred()
 
 	var ic := get_node_or_null("/root/InspectorCore")
@@ -203,6 +206,8 @@ func _restyle_chips() -> void:
 	for prop in _metric_fields:
 		if is_instance_valid(_metric_fields[prop]):
 			_metric_fields[prop].apply_theme()
+	if is_instance_valid(_btn_advanced):
+		_theme_advanced_button(bool(_btn_advanced.get_meta("fx_active", false)))
 	_refresh_prop_values()
 
 func _on_color_slot_changed(_slot: String, _col: Color) -> void:
@@ -1183,6 +1188,62 @@ func _refresh_prop_values() -> void:
 			l.text = "%.2f×" % sl.value
 			l.add_theme_color_override("font_color", tc["text"] if not is_equal_approx(sl.value, 1.0) else tc["text_secondary"])
 
+# ── botón "Letras avanzadas": las proporciones y demás efectos por letra
+#    viven en su propio panel (letter_fx_popover.gd) ──────────────────────
+var _btn_advanced: Button = null
+
+func _setup_advanced_button() -> void:
+	var vb := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	if vb == null or vb.has_node("RowAdvanced"):
+		return
+	# Las proporciones se mudan al panel avanzado (aquí no se repiten).
+	for rel in ["BoxContainer5", "HBoxContainer", "RowPropValues"]:
+		var r := vb.get_node_or_null(rel) as CanvasItem
+		if r:
+			r.visible = false
+	_btn_advanced = Button.new()
+	_btn_advanced.name = "RowAdvanced"
+	_btn_advanced.text = tr("Letras avanzadas")
+	_btn_advanced.tooltip_text = tr("Efectos por letra: proporciones, onda / arco e interletra progresiva")
+	_btn_advanced.focus_mode = Control.FOCUS_NONE
+	_btn_advanced.custom_minimum_size = Vector2(0, 26)
+	_btn_advanced.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_btn_advanced.pressed.connect(_on_advanced_pressed)
+	vb.add_child(_btn_advanced)
+	_theme_advanced_button(false)
+
+## Contenedor visible más externo del menú (para abrir el panel a su lado).
+func _menu_anchor() -> Control:
+	var vp := get_viewport_rect().size
+	var a: Control = self
+	var n: Node = get_parent()
+	while n is Control:
+		var cr := (n as Control).get_global_rect()
+		if cr.size.x > vp.x * 0.5 or cr.size.y > vp.y * 0.95 or not cr.grow(1.0).encloses(get_global_rect()):
+			break
+		a = n
+		n = n.get_parent()
+	return a
+
+func _on_advanced_pressed() -> void:
+	var anchor := _menu_anchor()
+	anchor.set_meta("letter_fx_button", _btn_advanced)
+	_LetterFxPopover.toggle_from(anchor)
+
+func _theme_advanced_button(active: bool) -> void:
+	if not is_instance_valid(_btn_advanced):
+		return
+	var accent := ProUIStyle.col("ACCENT")
+	_btn_advanced.add_theme_stylebox_override("normal", ProUIStyle.flat(Color(accent, 0.22) if active else ProUIStyle.col("INPUT_BG"), 5, accent if active else ProUIStyle.col("INPUT_BORDER"), 8, 0))
+	_btn_advanced.add_theme_stylebox_override("hover", ProUIStyle.flat(Color(accent, 0.32) if active else ProUIStyle.col("BUTTON_HOVER"), 5, accent if active else ProUIStyle.col("BORDER_STRONG"), 8, 0))
+	_btn_advanced.add_theme_stylebox_override("pressed", ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 5, accent, 8, 0))
+	_btn_advanced.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_btn_advanced.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+	for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+		_btn_advanced.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
+	_btn_advanced.icon = ProUIStyle.icon("res://icon/UI/txt_fx.svg", accent if active else ProUIStyle.col("TEXT_SECONDARY"), 16)
+	_btn_advanced.set_meta("fx_active", active)
+
 ## El .tscn fija 280 px de alto; sin las filas de párrafo sobraba hueco.
 func _fit_panel_height() -> void:
 	var panel := get_node_or_null("Panel") as Control
@@ -1287,6 +1348,15 @@ func _sincronizar(props: Dictionary) -> void:
 	for prop in _sliders:
 		if props.has(prop) and not props[prop]["mixed"]:
 			(_sliders[prop] as Slider).value = float(props[prop]["value"])
+	if is_instance_valid(_btn_advanced):
+		var fx_on := false
+		for fk in ["letter_proportions", "letter_wave", "letter_tracking_ramp"]:
+			if props.has(fk) and not props[fk]["mixed"] and props[fk]["value"] is Dictionary:
+				var probe := Node.new()
+				probe.set_meta(fk, props[fk]["value"])
+				fx_on = fx_on or _LetterFx.has_fx(probe)
+				probe.free()
+		_theme_advanced_button(fx_on)
 	for mprop in _metric_fields:
 		var mf = _metric_fields[mprop]
 		if not props.has(mprop):

@@ -39,7 +39,7 @@ const PROPS := [
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
 	"stroke_dash_len", "stroke_dash_gap",
-	"letter_proportions",
+	"letter_proportions", "letter_wave", "letter_tracking_ramp",
 	"effects",
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
 	"sides", "is_regular",
@@ -232,9 +232,10 @@ func _read(shape, prop):
 		"font_italic":
 			if _is_text(shape): return bool(shape.get_meta("font_italic", false))
 			return null
-		"letter_proportions":
+		"letter_proportions", "letter_wave", "letter_tracking_ramp":
 			if _is_text(shape):
-				return shape.get_meta("letter_proportions", {})
+				var lv = shape.get_meta(prop, {})
+				return (lv as Dictionary).duplicate() if lv is Dictionary else {}
 			return null
 		"fill_paint":
 			return _read_fill_paint(shape)
@@ -674,7 +675,24 @@ func commit_live_multi(props_before: Dictionary, action_name: String = "Inspecto
 		hm.add_undo(undo_fn)
 		hm.commit()
 
+const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
+
+## Con efectos de letras activos, el editor nativo pinta runs DERIVADOS (por
+## letra): antes de escribir se le dan los runs reales, para que lo que
+## _sync_vrt_runs lea de vuelta no hornee los efectos, y después se repintan.
 func _write(shape, prop, value) -> void:
+	if not is_instance_valid(shape):
+		return
+	var vrt = shape.get_node_or_null("VectorRichText") if shape is Node else null
+	var fx: bool = vrt != null and _is_text(shape) and LetterFx.has_fx(shape) and not vrt.is_editing() \
+		and not (prop in ["letter_proportions", "letter_wave", "letter_tracking_ramp"])
+	if fx:
+		TextCore.set_vrt_runs(vrt, shape.get_meta("runs", []), false)
+	_write_prop(shape, prop, value)
+	if fx and is_instance_valid(shape):
+		TextCore.refresh_letter_fx(shape)
+
+func _write_prop(shape, prop, value) -> void:
 	if not is_instance_valid(shape):
 		return
 	match prop:
@@ -761,6 +779,8 @@ func _write(shape, prop, value) -> void:
 			_write_font_face(shape, prop, value)
 		"letter_proportions":
 			_write_letter_proportions(shape, value)
+		"letter_wave", "letter_tracking_ramp":
+			_write_letter_fx(shape, prop, value)
 		"indent_left", "indent_right", "indent_first":
 			_write_indent(shape, prop, value)
 		"columns", "column_gap":
@@ -1200,6 +1220,28 @@ func _write_letter_proportions(shape, value) -> void:
 			dl.set_letter_proportions(value if value is Dictionary else {})
 		elif dl.has_method("queue_redraw"):
 			dl.queue_redraw()
+	_after_letter_fx(shape)
+
+## Onda / arco e interletra progresiva (panel Letras avanzadas): metas del
+## texto; el motor nativo y el overlay las pintan letra a letra.
+func _write_letter_fx(shape, prop: String, value) -> void:
+	if not _is_text(shape):
+		return
+	if value is Dictionary and not (value as Dictionary).is_empty():
+		shape.set_meta(prop, (value as Dictionary).duplicate())
+	elif shape.has_meta(prop):
+		shape.remove_meta(prop)
+	var dl = shape.get_node_or_null("DisplayLabel")
+	if dl and dl.has_method("invalidate_layout"):
+		dl.invalidate_layout()
+	_after_letter_fx(shape)
+
+## Tras cambiar cualquier efecto de letras: repintar y reajustar la caja
+## (con las proporciones la primera letra puede ser el doble de grande).
+func _after_letter_fx(shape) -> void:
+	TextCore.refresh_letter_fx(shape)
+	if String(shape.get_meta("shape_type", "")) == "text_title":
+		_refit_text_shape(shape)
 
 ## Sangrías Publisher (unidades de mundo): left/right 0..500,
 ## first -500..500 (negativa = francesa). Meta + re-bake del overlay.
@@ -1264,7 +1306,7 @@ func _refit_text_shape(shape: Node2D) -> void:
 		if vrt:
 			vrt.set_frame_size(Vector2(w, 100000.0))
 			var csz: Vector2 = vrt.get_content_size()
-			h = maxf(40.0, csz.y)
+			h = maxf(40.0, csz.y + LetterFx.wave_extent(shape, String(shape.get_meta("text", "")).length()))
 			vrt.set_frame_size(Vector2(w, h))
 			vrt.custom_minimum_size = Vector2(w, h)
 			vrt.size = Vector2(w, h)
@@ -1281,6 +1323,8 @@ func _refit_text_shape(shape: Node2D) -> void:
 		var sz := Vector2(250.0, 40.0)
 		if vrt:
 			var csz: Vector2 = vrt.get_content_size()
+			# El motor nativo no cuenta el desplazamiento vertical de la onda.
+			csz.y += LetterFx.wave_extent(shape, String(shape.get_meta("text", "")).length())
 			sz = Vector2(maxf(csz.x + 24.0, 120.0), maxf(csz.y + 6.0, 36.0))
 			vrt.custom_minimum_size = sz
 			vrt.size = sz

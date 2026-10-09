@@ -27,6 +27,7 @@ extends Label
 class_name WorldTextLabel
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
+const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 
 
 ## Fuente por defecto (fallback si FontCore no está o la familia no resuelve).
@@ -172,6 +173,12 @@ func get_effective_letter_proportions() -> Dictionary:
 	return {}
 
 func _calculate_glyph_scale(mode: String, t: float, s_start: float, s_mid: float, s_mid2: float, s_end: float) -> float:
+	if mode == "":
+		return 1.0
+	# Misma curva de 4 puntos que el motor nativo (LetterFx), también para
+	# el modo "custom" del panel Letras avanzadas.
+	return LetterFx.scale_at({"start": s_start, "mid": s_mid, "mid2": s_mid2, "end": s_end}, t)
+	@warning_ignore("unreachable_code")
 	match mode:
 		"Aaa", "aaA":
 			if not is_equal_approx(s_mid, lerpf(s_start, s_end, 1.0 / 3.0)) or not is_equal_approx(s_mid2, lerpf(s_start, s_end, 2.0 / 3.0)):
@@ -576,8 +583,40 @@ func set_world_size(ws: Vector2) -> void:
 
 ## Mínimo del contenido en unidades de mundo (medición directa sin depender
 ## de si el Label está visible o en el árbol, compatible con runs y autowrap).
+## Nodo con las metas de efectos de letras: el contenedor del texto o el label.
+func _fx_host() -> Object:
+	var p := get_parent()
+	return p if p and LetterFx.has_fx(p) else self
+
+func _has_letter_fx() -> bool:
+	return LetterFx.has_fx(_fx_host())
+
+## Caja real del título con efectos (proporciones, onda, interletra): se mide
+## sobre el contorno vectorial, que es lo que se dibuja.
+func _fx_world_size() -> Vector2:
+	var outline := _build_outline_at(maxi(1, base_font_size), true)
+	if outline == null:
+		return Vector2.ZERO
+	var font := get_theme_font("font")
+	var max_x := 0.0
+	var top := 0.0
+	var bottom := 0.0
+	for g in outline.get_children():
+		var cfs := int(g.get_meta("char_fs", base_font_size))
+		var by := float(g.get_meta("baseline_y", 0.0)) + float(g.get_meta("y_shift", 0.0))
+		max_x = maxf(max_x, float(g.get_meta("x1", 0.0)))
+		top = minf(top, by - font.get_ascent(cfs))
+		bottom = maxf(bottom, by + font.get_descent(cfs))
+	outline.free()
+	return Vector2(maxf(max_x, 20.0), maxf(bottom - top, 24.0))
+
 func get_world_minimum_size(custom_text: String = "") -> Vector2:
 	var body := custom_text if custom_text != "" else text
+	if autowrap_mode == TextServer.AUTOWRAP_OFF and (custom_text == "" or custom_text == text) \
+			and not body.is_empty() and (_has_letter_fx() or has_letter_proportions()):
+		var fxs := _fx_world_size()
+		if fxs != Vector2.ZERO:
+			return fxs
 	if body.is_empty():
 		var fs_empty := maxi(1, base_font_size)
 		var f_empty := get_theme_font("font")
@@ -792,7 +831,7 @@ func has_rich_runs() -> bool:
 	return false
 
 func is_vector_override_active() -> bool:
-	return has_letter_proportions() or has_indents() or has_sized_runs() or has_rich_runs() or has_stroke()
+	return has_letter_proportions() or _has_letter_fx() or has_indents() or has_sized_runs() or has_rich_runs() or has_stroke()
 
 func _sync_visibility() -> void:
 	if is_vector_override_active():
@@ -1250,6 +1289,11 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var s_mid2 := float(prop.get("mid2", s_mid))
 	var s_end := float(prop.get("end", 1.0))
 	var total_chars := maxi(1, text.length())
+	# Onda / arco e interletra progresiva (panel Letras avanzadas).
+	var fx_host: Object = _fx_host()
+	var fx_wave := LetterFx.wave(fx_host)
+	var fx_ramp := LetterFx.ramp(fx_host)
+	var fx_wrng := LetterFx.wave_range(fx_wave, text.length())
 	var ls: float = letter_spacing_world() * font_scale
 
 	# Altura por línea: la manda su run más grande (antes todas medían fs y
@@ -1260,6 +1304,16 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 	var total_text_h: float = maxf(0.0, float(lines.size() - 1)) * ls_extra
 	for line in lines:
 		var lf := _line_fs(line, fs) if sized else fs
+		if has_prop:
+			# Proporciones: la letra más grande de la línea manda la altura
+			# (si no, la 1ª letra agrandada salía por encima de la caja).
+			var ls_start := int(line.get("start", 0))
+			for j in String(line.get("text", "")).length():
+				var tj := float(ls_start + j) / maxf(1.0, float(total_chars - 1))
+				var cfs := maxi(2, int(round(fs * _calculate_glyph_scale(prop_mode, tj, s_start, s_mid, s_mid2, s_end))))
+				if sized:
+					cfs = maxi(cfs, _sized_char_fs(runs, ls_start + j, cfs))
+				lf = maxi(lf, cfs)
 		line_fss.append(lf)
 		total_text_h += font.get_height(lf)
 	var y_top := 0.0
@@ -1292,6 +1346,9 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			# _measure: fuente SIN la variación de tracking + ls a escala fs
 			# (antes el tracking se sumaba dos veces y descentraba la línea).
 			line_w = _measure(line_text, fs)
+		if not fx_ramp.is_empty():
+			for j in line_text.length():
+				line_w += LetterFx.ramp_at(fx_ramp, LetterFx.t_of(line_start + j, text.length())) * font_scale
 		# Alineación dentro de la columna sangrada; la 1ª línea de cada
 		# párrafo suma indent_first (negativa = francesa, sin salir de 0).
 		var col_w := box_w
@@ -1329,7 +1386,9 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			var codepoint: int = line_text.unicode_at(i)
 			var glyph: int = ts.font_get_glyph_index(rid, char_fs, codepoint, 0)
 			var adv: float = ts.font_get_glyph_advance(rid, char_fs, glyph).x
-			var char_adv := (adv if adv > 0.0 else font.get_char_size(codepoint, char_fs).x) + ls
+			var t_fx := LetterFx.t_of(char_idx, text.length())
+			var char_adv := (adv if adv > 0.0 else font.get_char_size(codepoint, char_fs).x) + ls + LetterFx.ramp_at(fx_ramp, t_fx) * font_scale
+			var fx_dy := (LetterFx.wave_shift(fx_wave, char_idx, text.length(), fx_wrng) if not fx_wave.is_empty() else 0.0) * font_scale
 			if codepoint == 32:
 				char_adv += just_extra
 			if glyph <= 0:
@@ -1344,13 +1403,14 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 				glyph_group.set_meta("x0", cx)
 				glyph_group.set_meta("x1", next_cx)
 				glyph_group.set_meta("char_fs", char_fs)
-				_append_glyph_path(ts, rid, char_fs, glyph, glyph_group, cx, y_offset)
+				glyph_group.set_meta("y_shift", -fx_dy)
+				_append_glyph_path(ts, rid, char_fs, glyph, glyph_group, cx, y_offset - fx_dy)
 				if glyph_group.get_child_count() > 0:
 					container.add_child(glyph_group)
 				else:
 					glyph_group.free()  # nunca entró al árbol: huérfano si no se libera a mano
 			else:
-				_append_glyph_path(ts, rid, char_fs, glyph, container, cx, y_offset)
+				_append_glyph_path(ts, rid, char_fs, glyph, container, cx, y_offset - fx_dy)
 			cx = next_cx
 		y_top += font.get_height(line_fss[li]) + ls_extra
 

@@ -256,6 +256,7 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 			if not vrt.editing_finished.is_connected(_on_vrt_editing_finished):
 				vrt.editing_finished.connect(_on_vrt_editing_finished)
 			vrt.start_editing()
+			_letter_fx_edit_begin(hit, vrt)
 			vrt.select_all()
 			return
 
@@ -379,6 +380,7 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 			title_edit.release_focus()
 			title_edit.visible = false
 
+	_letter_fx_edit_end(shape)
 	TextCore.register_text_undo(shape, _edit_before, "Editar texto")
 	_edit_before = {}
 	_reset_state()
