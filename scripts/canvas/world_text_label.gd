@@ -1072,6 +1072,10 @@ func _triangulate_contours(contours: Array) -> Array:
 			if outer.size() >= 3 and Geometry2D.triangulate_polygon(outer).size() > 0:
 				polys.append(outer)
 			continue
+		# Huecos de derecha a izquierda (por su punto más a la izquierda): así
+		# el rayo de cada puente no cruza los puentes ya insertados ("B", "8").
+		holes.sort_custom(func(p: PackedVector2Array, q: PackedVector2Array) -> bool:
+			return _min_x(p) > _min_x(q))
 		var combined := PackedVector2Array(outer)
 		for hole in holes:
 			combined = _attach_hole(combined, hole)
@@ -1098,6 +1102,12 @@ func _outline_polygons(outline: Node2D) -> Array[PackedVector2Array]:
 				res.append(clean)
 	return res
 
+func _min_x(pts: PackedVector2Array) -> float:
+	var m := INF
+	for p in pts:
+		m = minf(m, p.x)
+	return m
+
 func _signed_area(pts: PackedVector2Array) -> float:
 	var a := 0.0
 	for i in pts.size():
@@ -1114,34 +1124,57 @@ func _reversed(pts: PackedVector2Array) -> PackedVector2Array:
 		out.append(pts[i - 1])
 	return out
 
+## Une un hueco al contorno exterior con un puente (polígono simple para
+## triangular). Puente estándar: rayo horizontal hacia la izquierda desde el
+## punto más a la izquierda del hueco hasta la arista MÁS CERCANA que corta;
+## se inserta ese punto de corte. Antes se buscaba un VÉRTICE a <2 px de
+## altura: con el teselado adaptativo los tramos rectos casi no tienen
+## vértices, el puente caía en cualquier sitio, el polígono se cruzaba y la
+## "a" / la "e" desaparecían.
 func _attach_hole(combined: PackedVector2Array, hole: PackedVector2Array) -> PackedVector2Array:
-	if hole.size() < 3:
+	if hole.size() < 3 or combined.size() < 3:
 		return combined
 	var min_i := 0
 	for i in hole.size():
 		if hole[i].x < hole[min_i].x:
 			min_i = i
-	var hx: float = hole[min_i].x
-	var hy: float = hole[min_i].y
-	var best_idx := -1
-	var best_dist := 0.0
-	for i in combined.size():
-		var cp: Vector2 = combined[i]
-		if absf(cp.y - hy) < 2.0 and cp.x < hx:
-			var d := hx - cp.x
-			if best_idx < 0 or d < best_dist:
-				best_idx = i
-				best_dist = d
-	if best_idx < 0:
-		best_idx = 0
+	var hp: Vector2 = hole[min_i]
+	var best_edge := -1
+	var best_x := -INF
+	var n := combined.size()
+	for i in n:
+		var a: Vector2 = combined[i]
+		var b: Vector2 = combined[(i + 1) % n]
+		if is_equal_approx(a.y, b.y):
+			continue
+		if (a.y - hp.y) * (b.y - hp.y) > 0.0:
+			continue   # la arista no cruza la horizontal del hueco
+		var x := a.x + (hp.y - a.y) * (b.x - a.x) / (b.y - a.y)
+		if x <= hp.x and x > best_x:
+			best_x = x
+			best_edge = i
 	var out := PackedVector2Array()
-	for i in combined.size():
-		out.append(combined[i])
-		if i == best_idx:
+	if best_edge < 0:
+		# Sin corte (contorno raro): puente al vértice más cercano.
+		var bi := 0
+		for i in n:
+			if combined[i].distance_squared_to(hp) < combined[bi].distance_squared_to(hp):
+				bi = i
+		for i in n:
 			out.append(combined[i])
-			for k in range(min_i, hole.size() + min_i):
+			if i == bi:
+				for k in range(min_i, hole.size() + min_i + 1):
+					out.append(hole[k % hole.size()])
+				out.append(combined[i])
+		return out
+	var bridge := Vector2(best_x, hp.y)
+	for i in n:
+		out.append(combined[i])
+		if i == best_edge:
+			out.append(bridge)
+			for k in range(min_i, hole.size() + min_i + 1):
 				out.append(hole[k % hole.size()])
-			out.append(out[best_idx])
+			out.append(bridge)
 	return out
 
 # ------------------------------------------------------------------ outline builder
