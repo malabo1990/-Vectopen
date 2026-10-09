@@ -365,7 +365,7 @@ func _on_field_scrub(v: float, prop: String) -> void:
 	for s in (_scrub_before[prop] as Dictionary):
 		if is_instance_valid(s):
 			ic._write(s, prop, v)
-	ic._post_write()
+	ic.post_write_live()
 
 func _on_field_scrub_end(_v: float, _prop: String) -> void:
 	pass   # value_changed llega justo después → _on_field confirma

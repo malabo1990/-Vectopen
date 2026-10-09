@@ -594,7 +594,7 @@ func _aplicar_live(prop: String, val: float) -> void:
 	for s in (_drag_before[prop] as Dictionary):
 		if is_instance_valid(s):
 			ic._write(s, prop, val)
-	ic._post_write()
+	ic.post_write_live()
 
 func _aplicar(prop: String) -> void:
 	if _sync_guard:
@@ -891,7 +891,7 @@ func _aplicar_proportions_live() -> void:
 	for shape in (_drag_before["letter_proportions"] as Dictionary):
 		if is_instance_valid(shape):
 			ic._write(shape, "letter_proportions", data)
-	ic._post_write()
+	ic.post_write_live()
 
 # ── fila de sangrías Publisher (creada por código: el .tscn no tiene nodos) ──
 var _indent_spins: Dictionary = {}  # prop -> SpinBox/SpinBoxValue
@@ -1281,7 +1281,7 @@ func _on_stroke_scrub(v: float) -> void:
 	for s in _stroke_before:
 		if is_instance_valid(s):
 			ic._write(s, "stroke_width", v)
-	ic._post_write()
+	ic.post_write_live()
 
 func _on_stroke_width(v: float) -> void:
 	if _sync_guard:

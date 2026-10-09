@@ -70,7 +70,9 @@ func _ready() -> void:
 	_build()
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed"):
-		ic.changed.connect(func(_p) -> void: if visible: _sync())
+		# Mientras se arrastra en ESTE panel no se resincroniza (ya muestra
+		# el valor que se está escribiendo).
+		ic.changed.connect(func(_p) -> void: if visible and _live_before.is_empty() and _drag_pt < 0: _sync())
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m) -> void: _apply_theme())
@@ -455,7 +457,7 @@ func _live(prop: String, value: Dictionary) -> void:
 	for s in (_live_before[prop] as Dictionary):
 		if is_instance_valid(s):
 			ic._write(s, prop, value.duplicate())
-	ic._post_write()
+	ic.post_write_live()
 
 ## Fin de arrastre ya escrito en vivo → UN paso de deshacer.
 func _commit_if_live(prop: String) -> bool:

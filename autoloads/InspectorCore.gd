@@ -64,6 +64,8 @@ func _ready() -> void:
 func _on_event(_a = null, _b = null) -> void:
 	if not is_inside_tree():
 		return   # app shutting down: listeners and autoloads are leaving the tree
+	if _in_post_write:
+		return   # _post_write ya avisa una vez
 	_sync_selection()
 	changed.emit(current_props())
 
@@ -617,6 +619,7 @@ func apply_multi(props_values: Dictionary, action_name: String = "Inspector · t
 ## de cada figura ahora mismo. No re-ejecuta la escritura (ya está hecha).
 func commit_live(prop: String, before: Dictionary) -> void:
 	if not (prop in PROPS):
+		_set_draft(false)
 		return
 	var recs := []
 	for s in before:
@@ -627,6 +630,7 @@ func commit_live(prop: String, before: Dictionary) -> void:
 			continue
 		recs.append({"s": s, "before": before[s], "after": aft})
 	if recs.is_empty():
+		_set_draft(false)
 		return
 	var do_fn := func() -> void:
 		for r in recs:
@@ -642,6 +646,7 @@ func commit_live(prop: String, before: Dictionary) -> void:
 		hm.add_do(do_fn)
 		hm.add_undo(undo_fn)
 		hm.commit()
+	_post_write()   # fin del arrastre: ahora sí el aviso completo (calidad, capas…)
 
 ## Registra UNA acción de undo conjunta para múltiples propiedades YA aplicadas en vivo.
 ## `props_before`: {prop_name: {figura: valor_previo}}
@@ -1464,12 +1469,57 @@ func _sync_doc(shape) -> void:
 		shape.doc_position = DVec2.from_v2(shape.position)
 
 func _post_write() -> void:
+	_set_draft(false)
 	if _mt and _mt.has_method("_update_bounding_box"):
 		_mt._update_bounding_box()
 	var ge := get_node_or_null("/root/GlobalEvents")
 	if ge:
+		# object_style_changed vuelve a entrar en _on_event → changed: antes
+		# los paneles se sincronizaban DOS veces por escritura (~8 ms extra).
+		_in_post_write = true
 		ge.emit_safe("object_style_changed")
+		_in_post_write = false
 	changed.emit(current_props())
+
+var _in_post_write := false
+var _live_pending := false
+var _draft_shapes: Array = []
+
+## Escritura EN VIVO (arrastres): sin object_style_changed (la caja de
+## selección pesada, capas, miniaturas…) y con UN solo aviso por fotograma
+## aunque lleguen varios movimientos. El aviso completo llega al soltar
+## (commit_live / apply → _post_write).
+func post_write_live() -> void:
+	_set_draft(true)
+	if _live_pending:
+		return
+	_live_pending = true
+	_flush_live.call_deferred()
+
+func _flush_live() -> void:
+	_live_pending = false
+	if _mt and _mt.has_method("_update_bounding_box"):
+		_mt._update_bounding_box()
+	changed.emit(current_props())
+
+## Contorno vectorial en baja resolución mientras se arrastra (modo sin
+## extensión nativa: rehornear 512 px por paso costaba ~34 ms).
+func _set_draft(on: bool) -> void:
+	if on:
+		for s in _selection:
+			if not is_instance_valid(s) or s in _draft_shapes:
+				continue
+			var dl = s.get_node_or_null("DisplayLabel") if s is Node else null
+			if dl and dl.has_method("set_draft") and dl.has_method("is_vector_override_active") and dl.is_vector_override_active():
+				dl.set_draft(true)
+				_draft_shapes.append(s)
+	elif not _draft_shapes.is_empty():
+		for s in _draft_shapes:
+			if is_instance_valid(s):
+				var dl = s.get_node_or_null("DisplayLabel")
+				if dl and dl.has_method("set_draft"):
+					dl.set_draft(false)
+		_draft_shapes.clear()
 
 # ── alineación / distribución ────────────────────────────────────────────────
 ## mode: left | center_h | right | top | middle | bottom

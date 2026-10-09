@@ -37,17 +37,17 @@ func _check_style(weight: int, italic: bool) -> void:
 	var fails: Array[String] = []
 	for ch in CHARSET:
 		lbl.text = ch
-		var outline: Node2D = lbl._build_outline_at(WorldTextLabel.VECTOR_FONT)
+		# Contorno plano (Path2D reales): con un solo carácter todos sus
+		# contornos son del mismo glifo. (El agrupado del overlay usa la caché.)
+		var outline: Node2D = lbl._build_outline_at(WorldTextLabel.VECTOR_FONT, false)
 		if outline == null:
 			fails.append("%s sin contorno" % ch)
 			continue
 		var got := 0.0
 		var want := 0.0
 		var any_poly := false
-		for g in outline.get_children():
-			var contours: Array[PackedVector2Array] = lbl._outline_polygons(g)
-			if contours.is_empty():
-				continue
+		var contours: Array[PackedVector2Array] = lbl._outline_polygons(outline)
+		if not contours.is_empty():
 			var polys: Array = lbl._triangulate_contours(contours)
 			any_poly = any_poly or not polys.is_empty()
 			for p in polys:

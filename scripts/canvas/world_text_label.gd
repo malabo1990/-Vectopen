@@ -86,6 +86,17 @@ var _last_text := ""
 var _last_h_align: int = -1
 var _last_v_align: int = -1
 var _cached_outline: Node2D = null   # contornos VECTOR_FONT (una vez)
+## Arrastrando un efecto (Letras avanzadas, tamaño…) el contorno se hornea a
+## DRAFT_FONT (≈16× menos puntos que 512) y a calidad completa al soltar.
+const DRAFT_FONT := 128
+var _draft := false
+var _outline_fs := VECTOR_FONT
+
+func set_draft(on: bool) -> void:
+	if on == _draft:
+		return
+	_draft = on
+	invalidate_layout()
 var _outline_dirty := true
 var _cached_polys: Array = []        # Array[{"poly": PackedVector2Array, "run": int}]
 var _cached_strokes: Array = []      # Array[{"contours": Array[PackedVector2Array], "run": int}]
@@ -591,24 +602,42 @@ func _fx_host() -> Object:
 func _has_letter_fx() -> bool:
 	return LetterFx.has_fx(_fx_host())
 
-## Caja real del título con efectos (proporciones, onda, interletra): se mide
-## sobre el contorno vectorial, que es lo que se dibuja.
+## Caja real del título con efectos (proporciones, onda, interletra), con
+## métricas de fuente (sin construir contornos: ~0,1 ms en vez de ~9 ms).
 func _fx_world_size() -> Vector2:
-	var outline := _build_outline_at(maxi(1, base_font_size), true)
-	if outline == null:
-		return Vector2.ZERO
 	var font := get_theme_font("font")
-	var max_x := 0.0
-	var top := 0.0
-	var bottom := 0.0
-	for g in outline.get_children():
-		var cfs := int(g.get_meta("char_fs", base_font_size))
-		var by := float(g.get_meta("baseline_y", 0.0)) + float(g.get_meta("y_shift", 0.0))
-		max_x = maxf(max_x, float(g.get_meta("x1", 0.0)))
-		top = minf(top, by - font.get_ascent(cfs))
-		bottom = maxf(bottom, by + font.get_descent(cfs))
-	outline.free()
-	return Vector2(maxf(max_x, 20.0), maxf(bottom - top, 24.0))
+	var body := text
+	var n := body.length()
+	if font == null or n == 0:
+		return Vector2.ZERO
+	var fs := maxi(1, base_font_size)
+	var host := _fx_host()
+	var prop := get_effective_letter_proportions()
+	var has_prop := not prop.is_empty() and String(prop.get("mode", "")) != ""
+	var rmp := LetterFx.ramp(host)
+	var runs := _effective_runs()
+	var ls := letter_spacing_world()
+	var w := 0.0
+	var line_w := 0.0
+	var max_fs := fs
+	var lines := 1
+	for i in n:
+		var cp := body.unicode_at(i)
+		if cp == 10:
+			w = maxf(w, line_w)
+			line_w = 0.0
+			lines += 1
+			continue
+		var t := LetterFx.t_of(i, n)
+		var cfs := fs
+		if has_prop:
+			cfs = maxi(2, int(round(fs * LetterFx.scale_at(prop, t))))
+		cfs = _sized_char_fs(runs, i, cfs)
+		max_fs = maxi(max_fs, cfs)
+		line_w += font.get_char_size(cp, cfs).x + ls + LetterFx.ramp_at(rmp, t)
+	w = maxf(w, line_w)
+	var h := float(font.get_height(max_fs)) * lines + LetterFx.wave_extent(host, n)
+	return Vector2(maxf(w, 20.0), maxf(h, 24.0))
 
 func get_world_minimum_size(custom_text: String = "") -> Vector2:
 	var body := custom_text if custom_text != "" else text
@@ -714,13 +743,13 @@ func _draw() -> void:
 
 	# El overlay se construye a VECTOR_FONT; el Label puede estar a otro
 	# tamaño (OVERLAY_ONLY_RASTER en modo solo-overlay): escalar al dibujar.
-	var k := float(maxi(1, get_theme_font_size("font_size"))) / float(VECTOR_FONT)
+	var k := float(maxi(1, get_theme_font_size("font_size"))) / float(_outline_fs)
 	if not is_equal_approx(k, 1.0):
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 
 	# 1. Dibujar trazo (stroke) detrás del relleno para mantener legibilidad perfecta de la fuente
 	if has_stroke():
-		var base_scale := float(VECTOR_FONT) / float(maxi(1, base_font_size))
+		var base_scale := float(_outline_fs) / float(maxi(1, base_font_size))
 		var def_sw := stroke_width() * base_scale
 		var def_sc := stroke_color()
 		for s in _get_stroke_polys():
@@ -969,7 +998,8 @@ func _get_outline() -> Node2D:
 	if _cached_outline != null:
 		_cached_outline.queue_free()
 		_cached_outline = null
-	_cached_outline = _build_outline_at(VECTOR_FONT)
+	_outline_fs = DRAFT_FONT if _draft else VECTOR_FONT
+	_cached_outline = _build_outline_at(_outline_fs)
 	_cached_polys = []
 	_cached_strokes = []
 	_cached_underlines = []
@@ -999,10 +1029,23 @@ func _bake_glyph_data() -> void:
 	for glyph_node in outline.get_children():
 		if not (glyph_node is Node2D):
 			continue
+		var run_idx := int(glyph_node.get_meta("run_index", 0))
+		if glyph_node.has_meta("gk"):
+			var entry: Dictionary = _glyph_cache.get(String(glyph_node.get_meta("gk")), {})
+			if entry.is_empty():
+				continue
+			var gs := float(glyph_node.get_meta("gs", 1.0))
+			var go: Vector2 = glyph_node.get_meta("go", Vector2.ZERO)
+			var cs: Array[PackedVector2Array] = []
+			for c in entry["contours"]:
+				cs.append(_xform_pts(c, gs, go))
+			_cached_strokes.append({"contours": cs, "run": run_idx})
+			for poly in entry["polys"]:
+				_cached_polys.append({"poly": _xform_pts(poly, gs, go), "run": run_idx})
+			continue
 		var contours := _outline_polygons(glyph_node)
 		if contours.is_empty():
 			continue
-		var run_idx := int(glyph_node.get_meta("run_index", 0))
 		_cached_strokes.append({"contours": contours, "run": run_idx})
 		for poly in _triangulate_contours(contours):
 			_cached_polys.append({"poly": poly, "run": run_idx})
@@ -1404,8 +1447,13 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 				glyph_group.set_meta("x1", next_cx)
 				glyph_group.set_meta("char_fs", char_fs)
 				glyph_group.set_meta("y_shift", -fx_dy)
-				_append_glyph_path(ts, rid, char_fs, glyph, glyph_group, cx, y_offset - fx_dy)
-				if glyph_group.get_child_count() > 0:
+				# Contorno de la CACHÉ de glifos (se escala y desplaza): sin
+				# reconstruir curvas ni triangular en cada cambio.
+				var gk := _cached_glyph(ts, rid, _font_key(base_bytes, TextRuns.run_weight(run, font_weight()), bool(run.get("italic", false))), glyph)
+				if gk != "":
+					glyph_group.set_meta("gk", gk)
+					glyph_group.set_meta("gs", float(char_fs) / float(GLYPH_REF))
+					glyph_group.set_meta("go", Vector2(cx, y_offset - fx_dy))
 					container.add_child(glyph_group)
 				else:
 					glyph_group.free()  # nunca entró al árbol: huérfano si no se libera a mano
@@ -1414,8 +1462,7 @@ func _build_outline_at(fs_use: int, grouped: bool = true) -> Node2D:
 			cx = next_cx
 		y_top += font.get_height(line_fss[li]) + ls_extra
 
-	for rid in rid_cache.values():
-		ts.free_rid(rid)
+	# (los RID son compartidos: _shared_rids; no se liberan aquí)
 	if container.get_child_count() == 0:
 		container.queue_free()
 		return null
@@ -1443,9 +1490,23 @@ func _outline_font_bytes() -> PackedByteArray:
 ## configurado (font_set_embolden / font_set_transform) la primera vez que se
 ## pide, cacheado en `cache` para el resto de glifos de esta misma tanda de
 ## build. El llamador libera TODOS los RID de `cache` al terminar.
+## Clave de la fuente REAL con la que se dibuja (familia + archivo + estilo +
+## estilo base, porque la síntesis depende de él).
+func _font_key(base_bytes: PackedByteArray, weight: int, italic: bool) -> String:
+	return "%s|%d|%d|%d|%d|%d" % [String(_text_meta("font_family", "Inter")), base_bytes.size(), weight,
+		1 if italic else 0, font_weight(), 1 if font_italic() else 0]
+
+## RIDs de TextServer compartidos entre horneados y labels: antes se creaban y
+## cargaban (font_set_data del .ttf entero) en CADA horneado.
+static var _shared_rids: Dictionary = {}
+
 func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, weight: int, italic: bool) -> RID:
 	var key := "%d_%d" % [weight, 1 if italic else 0]
 	if cache.has(key):
+		return cache[key]
+	var fkey := _font_key(base_bytes, weight, italic)
+	if _shared_rids.has(fkey):
+		cache[key] = _shared_rids[fkey]
 		return cache[key]
 	var r: RID = ts.create_font()
 	if r.is_valid():
@@ -1462,6 +1523,7 @@ func _get_rid_for_style(ts, base_bytes: PackedByteArray, cache: Dictionary, weig
 				# derecha (convención habitual de cursiva sintética/oblique).
 				ts.font_set_transform(r, Transform2D(Vector2(1, 0), Vector2(-ITALIC_SHEAR, 1), Vector2.ZERO))
 	cache[key] = r
+	_shared_rids[fkey] = r
 	return r
 
 var _style_bytes_cache: Dictionary = {}   # "peso_cursiva" -> PackedByteArray (vacío = usar la base)
@@ -1482,6 +1544,33 @@ func _outline_style_bytes(weight: int, italic: bool) -> PackedByteArray:
 		if not b.is_empty() and b != _outline_font_bytes():
 			out = b
 	_style_bytes_cache[key] = out
+	return out
+
+# ------------------------------------------------------------------ glyph cache
+## Contornos y triángulos de cada glifo a GLYPH_REF px, una sola vez por
+## (fuente, glifo). Cada horneado solo los escala (tamaño de la letra) y
+## desplaza (posición): con efectos de letras se rehornea en cada paso de un
+## arrastre y reconstruir curvas + triangular costaba ~19 ms por texto.
+const GLYPH_REF := 512
+static var _glyph_cache: Dictionary = {}   # "fkey#glyph" -> {contours, polys}
+
+func _cached_glyph(ts, rid: RID, fkey: String, glyph: int) -> String:
+	var key := "%s#%d" % [fkey, glyph]
+	if _glyph_cache.has(key):
+		return key if not (_glyph_cache[key]["contours"] as Array).is_empty() else ""
+	var tmp := Node2D.new()
+	_append_glyph_path(ts, rid, GLYPH_REF, glyph, tmp, 0.0, 0.0)
+	var contours := _outline_polygons(tmp)
+	tmp.free()
+	var polys: Array = _triangulate_contours(contours) if not contours.is_empty() else []
+	_glyph_cache[key] = {"contours": contours, "polys": polys}
+	return key if not contours.is_empty() else ""
+
+static func _xform_pts(pts: PackedVector2Array, s: float, o: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	out.resize(pts.size())
+	for i in pts.size():
+		out[i] = pts[i] * s + o
 	return out
 
 func _append_glyph_path(ts, rid: RID, fs: int, glyph: int, container: Node2D, ox: float, oy: float) -> void:
