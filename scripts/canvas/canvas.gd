@@ -156,6 +156,12 @@ func _new_tool(script: Script):
 	return tool
 
 func change_tool(new_tool) -> void:
+	# Cambiar a la MISMA herramienta no hace nada: si no, _free_orphan_tool la
+	# liberaba y quedaba asignada ya liberada (p.ej. al salir del modo borrador
+	# del lápiz con _tool_before_eraser == current_tool) → todo el lienzo y los
+	# paneles fallaban con "previously freed instance".
+	if new_tool != null and new_tool == current_tool:
+		return
 	if current_tool and current_tool.has_method("deactivate"):
 		current_tool.deactivate()
 

@@ -164,6 +164,8 @@ func _ready() -> void:
 			row.visible = false
 	_setup_font_color()
 	_setup_format_row()
+	_setup_metric_rows()
+	_setup_prop_values()
 	_fit_panel_height.call_deferred()
 
 	var ic := get_node_or_null("/root/InspectorCore")
@@ -198,6 +200,10 @@ func _restyle_chips() -> void:
 	_theme_indent_row()
 	_theme_font_color()
 	_theme_format_row()
+	for prop in _metric_fields:
+		if is_instance_valid(_metric_fields[prop]):
+			_metric_fields[prop].apply_theme()
+	_refresh_prop_values()
 
 func _on_color_slot_changed(_slot: String, _col: Color) -> void:
 	_aplicar_tema()
@@ -1035,6 +1041,148 @@ func _setup_format_row() -> void:
 	row.add_child(_stroke_field)
 	_theme_format_row()
 
+# ── tamaño / interlineado / interletra: icono + número + slider ─────────────
+## Antes eran tres sliders sueltos alrededor de una "A" grande, sin número
+## visible. Ahora cada uno es una fila: campo con icono (editable, arrastrable,
+## acepta "12*2") + slider, como el resto de controles de la app.
+var _metric_fields: Dictionary = {}   # prop -> ProNumField
+var _field_scrubbed: Dictionary = {}  # prop -> true mientras se arrastra el campo
+
+const _METRICS := [
+	["font_size", "txt_size", "Tamaño de letra", 4.0, 400.0, 1.0, "pt"],
+	["line_spacing", "txt_leading", "Interlineado", -100.0, 400.0, 1.0, "px"],
+	["letter_spacing", "txt_tracking", "Espaciado entre letras", -50.0, 200.0, 0.5, "px"],
+]
+
+func _setup_metric_rows() -> void:
+	var vb := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	if vb == null or vb.has_node("RowMetrics") or _sliders.is_empty():
+		return
+	var box := VBoxContainer.new()
+	box.name = "RowMetrics"
+	box.add_theme_constant_override("separation", 4)
+	vb.add_child(box)
+	vb.move_child(box, 0)
+	for m in _METRICS:
+		var prop: String = m[0]
+		var sl: Slider = _sliders.get(prop)
+		if sl == null:
+			continue
+		var row := HBoxContainer.new()
+		row.name = "Row_" + prop
+		row.add_theme_constant_override("separation", 6)
+		box.add_child(row)
+		var f: Control = _NumField.new("res://icon/UI/%s.svg" % m[1], "", tr(String(m[2])))
+		f.min_value = float(m[3])
+		f.max_value = float(m[4])
+		f.step = float(m[5])
+		f.suffix = String(m[6])
+		f.custom_minimum_size = Vector2(80, 24)
+		f.size_flags_horizontal = Control.SIZE_FILL
+		f.set_value_no_signal(sl.value)
+		row.add_child(f)
+		_metric_fields[prop] = f
+		if sl is VSlider:
+			# El interlineado era vertical (al lado de la "A"): uno horizontal.
+			var hs := HSlider.new()
+			hs.name = sl.name
+			hs.min_value = sl.min_value
+			hs.max_value = sl.max_value
+			hs.step = sl.step
+			hs.value = sl.value
+			hs.tooltip_text = sl.tooltip_text
+			hs.value_changed.connect(_on_value_changed.bind(prop))
+			hs.drag_started.connect(_on_drag_started)
+			hs.drag_ended.connect(_on_drag_ended.bind(prop))
+			sl = hs
+			_sliders[prop] = hs
+		else:
+			sl.get_parent().remove_child(sl)
+		sl.layout_mode = 2
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sl.custom_minimum_size = Vector2(40, 20)
+		# Lo escrito en el campo puede salir del recorrido del slider.
+		sl.allow_greater = true
+		sl.allow_lesser = true
+		row.add_child(sl)
+		sl.value_changed.connect(func(v: float) -> void: f.set_value_no_signal(v))
+		f.value_changed.connect(_on_metric_field.bind(prop))
+		f.scrub_changed.connect(_on_metric_scrub.bind(prop))
+		f.scrub_ended.connect(func(_v: float) -> void: _on_drag_ended(true, prop))
+	# Sin la "A" grande: familia arriba y las filas debajo.
+	var big_a := get_node_or_null("Panel/Label") as CanvasItem
+	if big_a:
+		big_a.visible = false
+	var font_row := get_node_or_null("Panel/BoxContainer") as Control
+	for c in [font_row, vb]:
+		if c:
+			c.anchor_left = 0.0
+			c.anchor_right = 1.0
+			c.offset_left = 5.0    # filas de 188 px en un panel de 198
+			c.offset_right = -5.0
+	if font_row:
+		font_row.offset_top = 8.0
+		font_row.offset_bottom = 36.0
+	vb.offset_top = 44.0
+
+func _on_metric_field(v: float, prop: String) -> void:
+	if _field_scrubbed.get(prop, false):
+		_field_scrubbed.erase(prop)   # el arrastre ya se aplicó y registró
+		return
+	var sl: Slider = _sliders.get(prop)
+	if sl:
+		sl.value = v   # → _on_value_changed → aplica con undo
+
+func _on_metric_scrub(v: float, prop: String) -> void:
+	if not _field_scrubbed.get(prop, false):
+		_field_scrubbed[prop] = true
+		_on_drag_started()
+	var sl: Slider = _sliders.get(prop)
+	if sl:
+		sl.value = v   # en vivo (arrastrando)
+
+# ── proporciones: el valor de cada slider, visible ──────────────────────────
+var _prop_value_labels: Dictionary = {}   # key -> Label
+
+func _setup_prop_values() -> void:
+	var vb := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	var srow := get_node_or_null("Panel/VBoxContainer/HBoxContainer") as Control
+	if vb == null or srow == null or vb.has_node("RowPropValues"):
+		return
+	var row := HBoxContainer.new()
+	row.name = "RowPropValues"
+	row.add_theme_constant_override("separation", srow.get_theme_constant("separation"))
+	vb.add_child(row)
+	vb.move_child(row, srow.get_index() + 1)
+	for key in ["start", "mid", "mid2", "end"]:
+		var sl: Slider = _prop_sliders.get(key)
+		if sl == null:
+			continue
+		var l := Label.new()
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.custom_minimum_size.x = sl.custom_minimum_size.x
+		l.add_theme_font_size_override("font_size", 10)
+		l.tooltip_text = sl.tooltip_text
+		row.add_child(l)
+		_prop_value_labels[key] = l
+		sl.value_changed.connect(func(_v: float) -> void: _refresh_prop_values())
+	if is_instance_valid(_btn_prop_reset):
+		var pad := Control.new()
+		pad.custom_minimum_size.x = _btn_prop_reset.custom_minimum_size.x
+		row.add_child(pad)
+	_refresh_prop_values()
+
+func _refresh_prop_values() -> void:
+	var tc := _get_theme_colors()
+	for key in _prop_value_labels:
+		var l: Label = _prop_value_labels[key]
+		var sl: Slider = _prop_sliders.get(key)
+		if is_instance_valid(l) and sl:
+			l.text = "%.2f×" % sl.value
+			l.add_theme_color_override("font_color", tc["text"] if not is_equal_approx(sl.value, 1.0) else tc["text_secondary"])
+
 ## El .tscn fija 280 px de alto; sin las filas de párrafo sobraba hueco.
 func _fit_panel_height() -> void:
 	var panel := get_node_or_null("Panel") as Control
@@ -1139,6 +1287,14 @@ func _sincronizar(props: Dictionary) -> void:
 	for prop in _sliders:
 		if props.has(prop) and not props[prop]["mixed"]:
 			(_sliders[prop] as Slider).value = float(props[prop]["value"])
+	for mprop in _metric_fields:
+		var mf = _metric_fields[mprop]
+		if not props.has(mprop):
+			mf.set_mixed(true, "—")
+		elif props[mprop]["mixed"]:
+			mf.set_mixed(true)
+		else:
+			mf.set_value_no_signal(float(props[mprop]["value"]))
 	for iprop in _indent_spins:
 		if props.has(iprop) and not props[iprop]["mixed"]:
 			var sp = _indent_spins[iprop]

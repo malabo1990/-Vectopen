@@ -195,6 +195,46 @@ func _run() -> void:
 	_check(vb.get_combined_minimum_size().x <= 192.5, "filas de Tipografía caben en 192 px (%s)" % vb.get_combined_minimum_size().x)
 	await _shot(ctx, "panel_tipografia_dark")
 
+	# Sin la "A": tamaño / interlineado / interletra con número visible
+	_check(not (box.get_node("Panel/Label") as CanvasItem).visible, "la 'A' grande ya no está")
+	var ff = box._metric_fields["font_size"]
+	var fsl: Slider = box._sliders["font_size"]
+	_check(ff.is_visible_in_tree() and fsl.is_visible_in_tree() and ff.line_edit().text == str(int(ic._read(para, "font_size"))), "tamaño con número visible (%s)" % ff.line_edit().text)
+	hm.clear()
+	await _submit(ff, "36")
+	_check(int(para.get_meta("font_size")) == 36 and is_equal_approx(fsl.value, 36.0), "escribir 36 → texto y slider a 36")
+	hm.undo(); await _frames()
+	_check(ff.line_edit().text == "24", "deshacer → el número vuelve a 24 (%s)" % ff.line_edit().text)
+	fsl.value = 60.0
+	await _frames()
+	_check(ff.line_edit().text == "60" and int(para.get_meta("font_size")) == 60, "mover el slider actualiza el número (%s)" % ff.line_edit().text)
+	await _submit(ff, "300")
+	_check(int(para.get_meta("font_size")) == 300, "se puede escribir más allá del recorrido del slider (300)")
+	await _submit(ff, "24")
+	hm.clear()
+	var lf = box._metric_fields["letter_spacing"]
+	var cl: Vector2 = lf.line_edit().get_global_rect().get_center()
+	await _press(cl, true)
+	await _move(cl, 10.0)
+	var ls_live := float(para.get_meta("letter_spacing", 0.0))
+	_check(ls_live > 0.0 and is_equal_approx(box._sliders["letter_spacing"].value, ls_live) and not hm.can_undo(), "arrastrar el número de interletra: en vivo, slider sigue, sin undo aún (%s)" % ls_live)
+	await _press(cl, false)
+	_check(hm.can_undo(), "al soltar: un undo")
+	hm.undo(); await _frames()
+	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), 0.0) and lf.line_edit().text == "0" and not hm.can_undo(), "deshacer → 0 en UN paso y el número también")
+	box._on_prop_button_pressed("Aaa")
+	await _frames()
+	_check(box._prop_value_labels["start"].text == "1.60×", "proporciones muestran su valor (%s)" % box._prop_value_labels["start"].text)
+	box.reset_letter_proportions()
+	await _frames()
+	_check(box._prop_value_labels["start"].text == "1.00×", "restablecer → 1.00×")
+	sm.select_none() if sm.has_method("select_none") else sm.set_selection([])
+	ic._sync_selection(); box._sincronizar(ic.current_props())
+	await _frames()
+	_check(ff.is_mixed(), "sin selección el tamaño muestra '—'")
+	sm.select(para); ic._sync_selection(); box._sincronizar(ic.current_props())
+	await _frames()
+
 	var bb: Button = box._fmt_btns["bold"]
 	hm.clear()
 	bb.pressed.emit(); await _frames()

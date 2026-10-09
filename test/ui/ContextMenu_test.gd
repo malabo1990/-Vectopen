@@ -126,7 +126,7 @@ func test_panel_de_texto_slider_aplica_font_size() -> void:
 	InspectorCore._sync_selection()
 	HistoryManager.clear()
 
-	var slider := panel.get_node(_TOOLTEXT + "/BoxContainer/Panel/Label/HSlider") as Slider
+	var slider := panel.get_node(_TOOLTEXT + "/BoxContainer/Panel/VBoxContainer/RowMetrics/Row_font_size/HSlider") as Slider
 	assert_object(slider).is_not_null()
 	slider.value = 72.0   # cambio discreto → apply inmediato
 	await get_tree().process_frame
