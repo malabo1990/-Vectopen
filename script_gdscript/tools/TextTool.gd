@@ -242,6 +242,23 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 		var display_label: Control = hit.get_node_or_null("DisplayLabel")
 		var title_edit: TextEdit = TextCore.ensure_inline_editor(hit)
 
+		# Editor NATIVO si existe, en EXCLUSIVA (como ParagraphTool): antes se
+		# mostraban a la vez TitleEdit y VectorRichText → texto DOBLE y algo
+		# desplazado mientras se editaba (más alto/grueso que sin editar).
+		var vrt = TextCore.ensure_vrt(hit)
+		if vrt:
+			if display_label: display_label.visible = false
+			if title_edit: title_edit.visible = false
+			_prev_edit_text = String(hit.get_meta("text", ""))
+			vrt.visible = true
+			if not vrt.text_changed.is_connected(_on_vrt_text_changed):
+				vrt.text_changed.connect(_on_vrt_text_changed)
+			if not vrt.editing_finished.is_connected(_on_vrt_editing_finished):
+				vrt.editing_finished.connect(_on_vrt_editing_finished)
+			vrt.start_editing()
+			vrt.select_all()
+			return
+
 		if display_label: display_label.visible = false
 		if title_edit:
 			title_edit.visible = true
@@ -268,24 +285,6 @@ func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
 				title_edit.caret_changed.connect(_on_title_edit_caret_changed)
 			title_edit.grab_focus()
 			title_edit.select_all()
-
-		var vrt = hit.get_node_or_null("VectorRichText")
-		if vrt == null and ClassDB.class_exists("VectorRichText"):
-			vrt = ClassDB.instantiate("VectorRichText")
-			vrt.name = "VectorRichText"
-			vrt.set_is_paragraph(false)
-			TextCore.apply_vrt_fonts(vrt, hit)
-			vrt.set_text_color(hit.get_meta("text_color", Color.BLACK))
-			vrt.set_font_size(float(hit.get_meta("font_size", 24)))
-			vrt.set_text(hit.get_meta("text", "Título Corporativo"))
-			hit.add_child(vrt)
-		if vrt:
-			vrt.start_editing()
-			vrt.select_all()
-			if not vrt.text_changed.is_connected(_on_vrt_text_changed):
-				vrt.text_changed.connect(_on_vrt_text_changed)
-			if not vrt.editing_finished.is_connected(_on_vrt_editing_finished):
-				vrt.editing_finished.connect(_on_vrt_editing_finished)
 
 func _on_vrt_editing_finished() -> void:
 	commit_text_edit(true)
@@ -609,7 +608,13 @@ func _update_shape_meta_size(shape: Node2D) -> void:
 			current_text = str(shape.get_meta("text"))
 
 		var real_size: Vector2 = Vector2.ZERO
-		if display_label is WorldTextLabel:
+		var vrt_m = shape.get_node_or_null("VectorRichText")
+		if vrt_m and vrt_m.has_method("get_content_size"):
+			# MISMA medida que InspectorCore._refit_text_shape y la recarga:
+			# antes aquí se medía con la etiqueta (40 de alto) y allí con el
+			# nativo (36) → la caja y el texto "saltaban" al recargar.
+			real_size = vrt_m.get_content_size()
+		elif display_label is WorldTextLabel:
 			real_size = display_label.get_world_minimum_size(current_text)
 		else:
 			real_size = display_label.get_combined_minimum_size()
@@ -679,6 +684,11 @@ func _style_title_edit(edit: TextEdit, label: WorldTextLabel) -> void:
 		edit.clear_gutters()
 	edit.scroll_fit_content_height = true
 	edit.scroll_past_end_of_file = false
+	# Mismo interlineado que la etiqueta y compensar la mitad que TextEdit
+	# pone ENCIMA de cada línea (si no, al editar el título bajaba ~2 px).
+	var ls := label.get_theme_constant("line_spacing")
+	edit.add_theme_constant_override("line_spacing", ls)
+	edit.position = Vector2(0.0, -float(ls) * 0.5)
 	var tm = _tm()
 	var accent: Color = tm.get_color(tm.Slot.ACCENT) if tm else Color(0.0, 0.478, 1.0, 1.0)
 	edit.add_theme_color_override("caret_color", accent)

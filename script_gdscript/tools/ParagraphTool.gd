@@ -360,6 +360,9 @@ func _style_multi_edit(edit: TextEdit, label: WorldTextLabel) -> void:
 	elif label.has_theme_constant_override("line_spacing"):
 		ls = label.get_theme_constant("line_spacing")
 	edit.add_theme_constant_override("line_spacing", ls)
+	# TextEdit reparte el interlineado MITAD encima de cada línea; la etiqueta
+	# solo ENTRE líneas → al editar el texto bajaba ls/2 px. Se compensa.
+	edit.position = Vector2(0.0, -float(ls) * 0.5)
 
 	# 3. Sangrías aplicadas a los márgenes del StyleBox (indent_left, indent_right)
 	var transparent := StyleBoxFlat.new()

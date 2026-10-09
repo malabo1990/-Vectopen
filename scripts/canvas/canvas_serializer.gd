@@ -221,6 +221,11 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			base["runs"] = _runs_to_data(node.get_meta("runs"))
 		if node.has_meta("story_runs") and not (node.get_meta("story_runs") as Array).is_empty():
 			base["story_runs"] = _runs_to_data(node.get_meta("story_runs"))
+		# Efectos del panel (sombra, brillo…): en un texto viven en el meta
+		# "effects" y no se guardaban → se perdían al recargar.
+		var _tfx = node.get_meta("effects", [])
+		if _tfx is Array and not (_tfx as Array).is_empty():
+			base["fx"] = _enc_deep(_tfx)
 		return base
 
 	if node is VectorCircle:
@@ -682,6 +687,35 @@ static func _enc_param(v):
 	return null
 
 
+## Como _enc_param pero entrando en diccionarios/arrays anidados (efectos con
+## "params" que llevan colores/vectores dentro).
+static func _enc_deep(v):
+	if v is Dictionary:
+		var o := {}
+		for k in v:
+			o[k] = _enc_deep(v[k])
+		return o
+	if v is Array:
+		var a := []
+		for e in v:
+			a.append(_enc_deep(e))
+		return a
+	var e = _enc_param(v)
+	return e if e != null else v
+
+static func _dec_deep(v):
+	if v is Dictionary and not v.has("__t"):
+		var o := {}
+		for k in v:
+			o[k] = _dec_deep(v[k])
+		return o
+	if v is Array:
+		var a := []
+		for e in v:
+			a.append(_dec_deep(e))
+		return a
+	return _dec_param(v)
+
 static func _dec_param(v):
 	if v is Dictionary and v.has("__t"):
 		var a = v.get("v", [])
@@ -896,6 +930,8 @@ static func _text_from(d: Dictionary) -> Node2D:
 		if d.has(_k): cont.set_meta(_k, String(d[_k]))
 	if d.get("story_runs") is Array:
 		cont.set_meta("story_runs", _runs_from_data(d["story_runs"]))
+	if d.get("fx") is Array:
+		cont.set_meta("effects", _dec_deep(d["fx"]))
 	var label := WorldTextLabel.new()
 	label.name = "DisplayLabel"
 	label.base_font_size = int(d.get("font_size", 24))
@@ -935,6 +971,8 @@ static func _text_from(d: Dictionary) -> Node2D:
 		cont.set_meta("runs", _runs)
 		if label.has_method("set_rich_runs"):
 			label.set_rich_runs(_runs)
+	# Mismo motor de render que al crear el texto (nativo si existe).
+	TextCore.ensure_vrt(cont)
 	return cont
 
 

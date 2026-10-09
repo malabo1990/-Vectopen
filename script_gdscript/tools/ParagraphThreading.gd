@@ -7,6 +7,7 @@
 class_name ParagraphThreading
 extends RefCounted
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
 
 
 const PORT_SIZE: float = 14.0
@@ -378,7 +379,15 @@ static func _sync_frame_label(frame: Node2D, text: String, w: float, h: float) -
 	var vrt = frame.get_node_or_null("VectorRichText")
 	if vrt:
 		vrt.set_frame_size(Vector2(w, h))
-		vrt.set_text(text)
+		# set_text REINICIA el formato del nativo (colores, negritas, tamaños,
+		# trazo): solo si el texto cambió, y luego se reaplican los runs del
+		# marco. Antes, redimensionar un párrafo (que re-fluye) borraba todo
+		# su formato.
+		if String(vrt.get_text()) != text:
+			vrt.set_text(text)
+		var fr: Array = frame.get_meta("runs", [])
+		if not fr.is_empty() and TextRuns.runs_len(fr) == text.length():
+			TextCore.set_vrt_runs(vrt, fr)
 		vrt.queue_redraw()
 
 ## Rectángulo global del puerto de enlace/desbordamiento (esquina inferior derecha)

@@ -218,3 +218,85 @@ static func weight_step(tool: Object, shape: Node2D, ed: TextEdit, delta: int) -
 	var ic = st.root.get_node_or_null("InspectorCore") if st else null
 	if ic and ic.has_method("apply"):
 		ic.apply("font_weight", clampi(base_w + delta, 100, 900))
+
+## Runs al editor nativo. VectorRichText exige Array[Dictionary] tipado y lee
+## "size" LITERAL: en GDScript size 0/ausente = "el tamaño base del texto", y
+## el nativo lo tomaba como 0 (o su 24 por defecto) → un texto de 64 se veía
+## a otro tamaño al reeditarlo o recargarlo. Se rellena con el font_size.
+static func set_vrt_runs(vrt, raw_runs) -> void:
+	if vrt == null or raw_runs == null:
+		return
+	var shape: Node = vrt.get_parent()
+	var fs := float(shape.get_meta("font_size", 24)) if shape else 24.0
+	var typed_runs: Array[Dictionary] = []
+	if raw_runs is Array:
+		for r in raw_runs:
+			if r is Dictionary:
+				var d: Dictionary = (r as Dictionary).duplicate()
+				if float(d.get("size", 0.0)) <= 0.0:
+					d["size"] = fs
+				typed_runs.append(d)
+	vrt.set_runs_meta(typed_runs)
+
+## Render/editor nativo VectorRichText del texto (si la extensión existe):
+## el MISMO motor al crear, editar y RECARGAR. Antes, tras cargar un
+## .vectopen se pintaba con WorldTextLabel y el texto cambiaba de posición,
+## altura y hasta de corte de línea respecto a como se creó.
+static func ensure_vrt(shape: Node2D) -> Object:
+	if not is_instance_valid(shape) or not ClassDB.class_exists("VectorRichText"):
+		return null
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt == null:
+		vrt = ClassDB.instantiate("VectorRichText")
+		vrt.name = "VectorRichText"
+		vrt.set_is_paragraph(String(shape.get_meta("shape_type", "")) == "text_paragraph")
+		shape.add_child(vrt)
+	sync_vrt_from_meta(shape, vrt)
+	var dl := shape.get_node_or_null("DisplayLabel") as CanvasItem
+	if dl:
+		dl.self_modulate = Color(1, 1, 1, 0)   # el nativo pinta; la etiqueta queda para medidas
+	return vrt
+
+## Estado completo del nativo desde las metas del texto.
+static func sync_vrt_from_meta(shape: Node2D, vrt) -> void:
+	apply_vrt_fonts(vrt, shape)
+	var txt := String(shape.get_meta("text", ""))
+	vrt.set_text(txt)
+	var sz := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0)))
+	if String(shape.get_meta("shape_type", "")) == "text_paragraph":
+		vrt.set_frame_size(Vector2(float(shape.get_meta("width", 350.0)), float(shape.get_meta("height", 100.0))))
+	elif sz.x > 0.0 and sz.y > 0.0:
+		vrt.custom_minimum_size = sz   # título: misma caja que al crearlo
+		vrt.size = sz
+	vrt.set_text_color(shape.get_meta("text_color", Color.BLACK))
+	vrt.set_font_size(float(shape.get_meta("font_size", 24)))
+	if shape.has_meta("text_align") and vrt.has_method("set_paragraph_align"):
+		vrt.set_paragraph_align(String(shape.get_meta("text_align")))
+	if shape.has_meta("text_valign") and vrt.has_method("set_vertical_alignment"):
+		vrt.set_vertical_alignment(String(shape.get_meta("text_valign")))
+	if shape.has_meta("line_spacing") and vrt.has_method("set_paragraph_line_spacing"):
+		vrt.set_paragraph_line_spacing(float(shape.get_meta("line_spacing")))
+	if vrt.has_method("set_paragraph_indents"):
+		vrt.set_paragraph_indents(float(shape.get_meta("indent_left", 0.0)),
+			float(shape.get_meta("indent_right", 0.0)), float(shape.get_meta("indent_first", 0.0)))
+	if shape.has_meta("columns") and vrt.has_method("set_columns"):
+		vrt.set_columns(int(shape.get_meta("columns")), float(shape.get_meta("column_gap", 20.0)))
+	var runs: Array = shape.get_meta("runs", [])
+	if not runs.is_empty() and TextRuns.runs_len(runs) == txt.length():
+		set_vrt_runs(vrt, runs)
+
+## Escala el tamaño de CADA run (desde la foto `base_runs`) por `ratio` y lo
+## guarda en el meta: así redimensionar con Ctrl conserva tamaños por letra y
+## todo el formato (antes vrt.set_font_size(fs) aplanaba todos los runs).
+## Runs con size 0 (= tamaño base) se quedan así: siguen al font_size.
+static func scale_runs(shape: Node2D, base_runs: Array, ratio: float) -> void:
+	if base_runs.is_empty() or ratio <= 0.0:
+		return
+	var out: Array = []
+	for r in base_runs:
+		var d: Dictionary = (r as Dictionary).duplicate()
+		var sz := float(d.get("size", 0.0))
+		if sz > 0.0:
+			d["size"] = clampf(sz * ratio, 4.0, 400.0)
+		out.append(d)
+	shape.set_meta("runs", out)

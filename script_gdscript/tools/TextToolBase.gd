@@ -63,16 +63,9 @@ static func _get_autoload(autoload_name: String) -> Node:
 		return ml.root.get_node_or_null(autoload_name)
 	return null
 
-## VectorRichText.set_runs_meta exige Array[Dictionary] tipado.
+## Delegado → TextCore.set_vrt_runs (tipado + tamaño base en los runs).
 static func _safe_set_runs_meta(vrt, raw_runs) -> void:
-	if vrt == null or raw_runs == null:
-		return
-	var typed_runs: Array[Dictionary] = []
-	if raw_runs is Array:
-		for r in raw_runs:
-			if r is Dictionary:
-				typed_runs.append(r)
-	vrt.set_runs_meta(typed_runs)
+	TextCore.set_vrt_runs(vrt, raw_runs)
 
 func _switch_to_move_tool(shape: Node2D) -> void:
 	if not (is_instance_valid(canvas) and canvas.has_method("change_tool")):

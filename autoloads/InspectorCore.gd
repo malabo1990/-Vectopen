@@ -861,12 +861,19 @@ func _write_font_face(shape, prop: String, value) -> void:
 		if vrt:
 			TextCore.apply_vrt_fonts(vrt, shape)
 			vrt.add_theme_font_override("font", f)
-			if prop == "font_weight":
-				var fw: int = int(shape.get_meta("font_weight", 400))
-				vrt.apply_bold_to_selection(fw >= 700)
-			elif prop == "font_italic":
-				vrt.apply_italic_to_selection(bool(value))
+			# Solo con letras SELECCIONADAS en edición se tocan los runs; para el
+			# objeto entero basta la fuente base (apply_vrt_fonts). Antes, sin
+			# selección, esto se aplicaba a TODOS los runs y borraba la negrita/
+			# cursiva puesta por letra al cambiar el grosor del texto.
+			var vsel: Vector2i = vrt.get_selection_range() if vrt.has_method("get_selection_range") else Vector2i.ZERO
+			if vrt.is_editing() and vsel.x != vsel.y:
+				if prop == "font_weight":
+					var fw: int = int(shape.get_meta("font_weight", 400))
+					vrt.apply_bold_to_selection(fw >= 700)
+				elif prop == "font_italic":
+					vrt.apply_italic_to_selection(bool(value))
 			vrt.queue_redraw()
+			_sync_vrt_runs(shape)
 	_refit_text_shape(shape)
 
 ## Aplica un paint {type, ...} al relleno de la figura.
@@ -976,13 +983,7 @@ func _write_text_color(shape, theme_key: String, value: Color) -> void:
 			vrt.set_stroke_color(value)
 			vrt.set_stroke_width(sw)
 		vrt.queue_redraw()
-		# El editor nativo aplica el color a SU selección: llevar esos runs al
-		# meta y a la etiqueta (antes el color de la selección no se guardaba).
-		if vrt.has_method("get_runs_meta") and String(vrt.get_text()) == String(shape.get_meta("text", "")):
-			var vruns: Array = vrt.get_runs_meta()
-			shape.set_meta("runs", vruns)
-			if dl and dl.has_method("set_rich_runs"):
-				dl.set_rich_runs(vruns)
+		_sync_vrt_runs(shape)
 	var ed: Control = shape.get_node_or_null("MultiLineEdit")
 	if ed == null:
 		ed = shape.get_node_or_null("TitleEdit")
@@ -992,6 +993,23 @@ func _write_text_color(shape, theme_key: String, value: Color) -> void:
 		if ed.syntax_highlighter:
 			ed.syntax_highlighter.clear_highlighting_cache()
 		ed.queue_redraw()
+
+## El editor nativo (VectorRichText) aplica color/tamaño/trazo/estilo a SUS
+## runs: copiarlos al meta y a la etiqueta. Sin esto, al confirmar la edición
+## la herramienta le devolvía los runs VIEJOS del meta y se perdía el cambio
+## (p.ej. un título a 64 volvía a 24 al salir de editar; el color de la
+## selección no se guardaba).
+func _sync_vrt_runs(shape) -> void:
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt == null or not vrt.has_method("get_runs_meta"):
+		return
+	if String(vrt.get_text()) != String(shape.get_meta("text", "")):
+		return
+	var vruns: Array = vrt.get_runs_meta()
+	shape.set_meta("runs", vruns)
+	var dl := _text_label(shape)
+	if dl and dl.has_method("set_rich_runs"):
+		dl.set_rich_runs(vruns)
 
 func _write_text_outline_size(shape, v: float) -> void:
 	shape.set_meta("text_outline", int(v))
@@ -1008,6 +1026,7 @@ func _write_text_outline_size(shape, v: float) -> void:
 		var sc: Color = shape.get_meta("stroke_color", Color.BLACK)
 		vrt.set_stroke_color(sc)
 		vrt.set_stroke_width(maxf(0.0, float(v)))
+		_sync_vrt_runs(shape)
 		vrt.queue_redraw()
 
 ## Contenido de una figura de texto → meta + DisplayLabel + editor inline.
@@ -1070,6 +1089,11 @@ func _write_text_valign(shape, value) -> void:
 			dl._polys_baked = false
 			dl._refresh_local_rect()
 		dl.queue_redraw()
+	# El nativo no recibía la alineación vertical (solo la etiqueta).
+	var vrt_v = shape.get_node_or_null("VectorRichText")
+	if vrt_v and vrt_v.has_method("set_vertical_alignment"):
+		vrt_v.set_vertical_alignment(mode)
+		vrt_v.queue_redraw()
 
 ## Interlineado de una figura de texto: meta + constante de tema en la etiqueta
 ## de display (Label soporta la constante "line_spacing").
@@ -1112,6 +1136,7 @@ func _write_font_size(shape, value) -> void:
 	var vrt = shape.get_node_or_null("VectorRichText")
 	if vrt:
 		vrt.set_font_size(float(fs))
+		_sync_vrt_runs(shape)
 		vrt.queue_redraw()
 	var me: Control = shape.get_node_or_null("MultiLineEdit")
 	if me == null: me = shape.get_node_or_null("LineEdit")

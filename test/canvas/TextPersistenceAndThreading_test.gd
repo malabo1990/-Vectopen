@@ -365,3 +365,31 @@ func test_text_tool_detecta_titulo_rotado() -> void:
 	title.rotation = PI / 2.0
 	var inside := title.to_global(Vector2(30, 10))
 	assert_object(tool._shape_at(inside)).is_same(title)
+
+func test_roundtrip_efectos_de_texto() -> void:
+	var scene := await _canvas()
+	var ab: Node2D = scene.get_node("ArtboardsContainer/Artboard")
+	var tool := await _para_tool(scene, ab)
+	var p: Node2D = tool._create_new_paragraph_at(Vector2(10, 10))
+	p.name = "ConFx"
+	p.set_meta("effects", [{"type": "drop_shadow", "enabled": true, "color": Color(0, 0, 0, 0.5),
+		"params": {"offset": Vector2(4, 4), "tint": Color(1, 0, 0)}}])
+	var holder: Array = []
+	var ab_b := await _roundtrip(ab, holder)
+	var fx: Array = ab_b.get_node("ConFx").get_meta("effects", [])
+	assert_int(fx.size()).is_equal(1)
+	assert_that(fx[0]["color"]).is_equal(Color(0, 0, 0, 0.5))
+	assert_that(fx[0]["params"]["offset"]).is_equal(Vector2(4, 4))
+	assert_that(fx[0]["params"]["tint"]).is_equal(Color(1, 0, 0))
+
+func test_reflow_no_borra_el_formato_del_marco() -> void:
+	var scene := await _canvas()
+	var ab: Node2D = scene.get_node("ArtboardsContainer/Artboard")
+	var tool := await _para_tool(scene, ab)
+	var p: Node2D = tool._create_new_paragraph_at(Vector2(10, 10))
+	var n := String(p.get_meta("text")).length()
+	p.set_meta("runs", [{"length": 5, "bold": true, "color": Color.RED}, {"length": n - 5, "bold": false, "color": Color.BLACK}])
+	ParagraphThreading.reflow_chain(p)   # lo que hacía soltar un redimensionado
+	var runs: Array = p.get_meta("runs")
+	assert_bool(bool(runs[0]["bold"])).is_true()
+	assert_that(runs[0]["color"]).is_equal(Color.RED)

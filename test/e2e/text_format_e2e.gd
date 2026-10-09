@@ -39,6 +39,34 @@ func _key(code: Key, ctrl := false, shift := false, alt := false) -> void:
 		Input.parse_input_event(ev)
 		await _frames(2)
 
+func _mouse_drag(from: Vector2, to: Vector2, ctrl := false) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = from
+	press.global_position = from
+	press.ctrl_pressed = ctrl
+	Input.warp_mouse(from)
+	Input.parse_input_event(press)
+	await _frames(2)
+	for i in range(1, 9):
+		var mv := InputEventMouseMotion.new()
+		var pos := from.lerp(to, i / 8.0)
+		mv.position = pos
+		mv.global_position = pos
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.ctrl_pressed = ctrl
+		Input.parse_input_event(mv)
+		await _frames(1)
+	var rel := InputEventMouseButton.new()
+	rel.button_index = MOUSE_BUTTON_LEFT
+	rel.pressed = false
+	rel.position = to
+	rel.global_position = to
+	rel.ctrl_pressed = ctrl
+	Input.parse_input_event(rel)
+	await _frames(3)
+
 func _check(cond: bool, msg: String) -> void:
 	print(("E2E OK   " if cond else "E2E FAIL ") + msg)
 	if not cond:
@@ -214,6 +242,33 @@ func _run() -> void:
 	await _key(KEY_COMMA, true, false, true)
 	_check(int(p.get_meta("font_weight", 400)) == w0, "Ctrl+Alt+, lo devuelve")
 	_check(dl.has_rich_runs(), "el label renderiza runs enriquecidos")
+
+	# 5b) REDIMENSIONAR con Ctrl arrastrando la esquina con el RATÓN real:
+	#     el formato (negrita/color), los efectos y el tamaño por run se
+	#     conservan; el tamaño escala.
+	var ic5 = root.get_node("InspectorCore")
+	root.get_node("SelectionManager").select(p)
+	ic5.apply("effects", [{"type": "drop_shadow", "enabled": true, "color": Color(0, 0, 0, 0.5), "params": {"offset": Vector2(4, 4)}}])
+	await _frames(3)
+	var fs_before := int(p.get_meta("font_size", 24))
+	var xf: Transform2D = canvas.get_viewport().get_canvas_transform()
+	var corner: Vector2 = xf * (p.global_position + Vector2(float(p.get_meta("width")), float(p.get_meta("height"))))
+	print("E2E runs ANTES: ", p.get_meta("runs", []))
+	await _mouse_drag(corner, corner + Vector2(120, 40), true)
+	print("E2E runs DESPUES: ", p.get_meta("runs", []))
+	await _frames(6)
+	await _shot("5b_tras_resize_ctrl")
+	runs = p.get_meta("runs", [])
+	print("E2E resize: fs %d → %d, runs=%d" % [fs_before, int(p.get_meta("font_size", 0)), runs.size()])
+	_check(int(p.get_meta("font_size", 0)) > fs_before, "Ctrl+arrastre de la esquina agranda la letra")
+	_check(_range_has(runs, 5, 10, "bold"), "tras redimensionar 'mundo' sigue en negrita")
+	_check(_range_color(runs, 11, 16, Color(1, 0, 0)), "tras redimensionar 'feliz' sigue roja")
+	var fx_after = p.get_meta("effects", [])
+	_check(fx_after is Array and (fx_after as Array).size() == 1, "tras redimensionar los EFECTOS siguen ahí")
+	var v5 = p.get_node_or_null("VectorRichText")
+	if v5:
+		var vr: Array = v5.get_runs_meta()
+		_check(_range_has(vr, 5, 10, "bold") and _range_color(vr, 11, 16, Color(1, 0, 0)), "el editor nativo conserva el formato tras redimensionar")
 
 	# 6) Párrafo de VARIAS líneas: seleccionar todo y capturar el resaltado
 	#    (todas las líneas deben tener la misma altura de selección).
