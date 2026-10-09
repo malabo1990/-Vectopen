@@ -401,6 +401,7 @@ func _build_ui() -> void:
 	var row_metrics := _row(sec_char)
 	_spin_size = _num(row_metrics, "txt_size", "", 4.0, 400.0, "Tamaño de fuente", "", 1.0, "pt")
 	_spin_size.value_changed.connect(_fmt_size)
+	_spin_size.scrub_changed.connect(_on_field_scrub.bind("font_size"))
 	_spin_size.set_value_no_signal(24.0)
 	_fields["font_size"] = _spin_size
 	_num(row_metrics, "txt_leading", "", -20.0, 300.0, "Interlineado", "line_spacing", 1.0, "px")
@@ -437,6 +438,7 @@ func _build_ui() -> void:
 	_spin_stroke.size_flags_horizontal = Control.SIZE_FILL
 	_spin_stroke.custom_minimum_size = Vector2(78, 24)
 	_spin_stroke.value_changed.connect(_fmt_stroke_width)
+	_spin_stroke.scrub_changed.connect(_on_field_scrub.bind("stroke_width"))
 	row_fmt.add_child(_spin_stroke)
 
 	# ── Párrafo ──
@@ -531,6 +533,8 @@ func _on_field_scrub(v: float, prop: String) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic == null or not ic.has_method("_write"):
 		return
+	if prop in ["font_size", "stroke_width"] and not _editing().is_empty():
+		return   # editando: se aplica a la selección de letras al soltar
 	if not _scrub_before.has(prop):
 		var before := {}
 		for s in ic.selection():
@@ -542,6 +546,17 @@ func _on_field_scrub(v: float, prop: String) -> void:
 		if is_instance_valid(s):
 			ic._write(s, prop, v)
 	ic._post_write()
+
+## Fin de arrastre ya escrito en vivo → UNA acción de undo. true si lo era.
+func _commit_scrub(prop: String) -> bool:
+	if not _scrub_before.has(prop):
+		return false
+	var before: Dictionary = _scrub_before[prop]
+	_scrub_before.erase(prop)
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("commit_live"):
+		ic.commit_live(prop, before)
+	return true
 
 func _on_field_scrub_end(_v: float, _prop: String) -> void:
 	pass   # value_changed llega justo después → _on_field confirma
@@ -832,6 +847,8 @@ func _fmt_size(v: float) -> void:
 	if _syncing:
 		return
 	var sz := clampf(v, 4.0, 400.0)
+	if _commit_scrub("font_size"):
+		return
 	var ctx := _editing()
 	if not ctx.is_empty():
 		var shape: Node2D = ctx[0]
@@ -912,6 +929,8 @@ func _fmt_stroke_width(v: float) -> void:
 	if _syncing:
 		return
 	var w := maxf(0.0, v)
+	if _commit_scrub("stroke_width"):
+		return
 	var ctx := _editing()
 	if not ctx.is_empty():
 		var shape: Node2D = ctx[0]

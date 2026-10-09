@@ -2,8 +2,10 @@
 # VECTOPEN — CAMPO NUMÉRICO PROFESIONAL (estilo Figma / Illustrator)
 # RUTA: res://script_gdscript/ui/pro/pro_num_field.gd
 # [icono o letra][valor][unidad] en una sola caja de 24 px:
-#   · arrastrar el icono en horizontal ajusta el valor (Shift ×0.1, Ctrl ×10)
-#     → `scrub_changed` en vivo y `scrub_ended` al soltar;
+#   · arrastrar en horizontal sobre el icono O sobre el número ajusta el
+#     valor (Shift ×0.1, Ctrl ×10), con el ratón oculto y sin tope de
+#     pantalla (estilo Blender/Figma) → `scrub_changed` en vivo y
+#     `scrub_ended` al soltar; un clic sin arrastrar entra a escribir;
 #   · el texto acepta expresiones ("12*2", "24+6") y se confirma con Intro o
 #     al perder el foco; Flecha arriba/abajo = ±paso (Shift ×10);
 #   · `set_mixed(true)` muestra "Mixto" cuando la selección no coincide.
@@ -55,7 +57,10 @@ func _init(icon_path: String = "", glyph: String = "", tip: String = "") -> void
 	tooltip_text = tip
 	custom_minimum_size = Vector2(0, H)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mouse_filter = Control.MOUSE_FILTER_PASS
+	# La caja entera recibe el ratón (arrastre); el LineEdit solo mientras
+	# se escribe (si no, el clic le daría el foco antes de poder arrastrar).
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_default_cursor_shape = Control.CURSOR_HSIZE
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -73,10 +78,7 @@ func _init(icon_path: String = "", glyph: String = "", tip: String = "") -> void
 		l.custom_minimum_size = Vector2(18 if _glyph.length() <= 1 else 26, H - 2)
 		l.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
 		_lead = l
-	_lead.mouse_filter = Control.MOUSE_FILTER_STOP
-	_lead.mouse_default_cursor_shape = Control.CURSOR_HSIZE
-	_lead.tooltip_text = tip
-	_lead.gui_input.connect(_on_lead_input)
+	_lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_lead)
 	_edit = LineEdit.new()
 	_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -89,8 +91,11 @@ func _init(icon_path: String = "", glyph: String = "", tip: String = "") -> void
 	_edit.caret_blink = true
 	_edit.context_menu_enabled = false
 	_edit.tooltip_text = tip
+	_edit.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_edit.text_submitted.connect(func(_t: String) -> void: _commit_text(); _edit.release_focus())
-	_edit.focus_exited.connect(_commit_text)
+	_edit.focus_exited.connect(func() -> void:
+		_edit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_commit_text())
 	_edit.focus_entered.connect(_restyle)
 	_edit.gui_input.connect(_on_edit_input)
 	row.add_child(_edit)
@@ -187,35 +192,65 @@ func _on_edit_input(ev: InputEvent) -> void:
 		_edit.caret_column = _edit.text.length()
 		_edit.accept_event()
 
-func _on_lead_input(ev: InputEvent) -> void:
+## Entra a escribir: el LineEdit pasa a recibir el ratón y se selecciona todo.
+func begin_edit() -> void:
+	_edit.mouse_filter = Control.MOUSE_FILTER_STOP
+	_edit.grab_focus()
+	_edit.select_all()
+
+func is_scrubbing() -> bool:
+	return bool(_scrub["active"]) and bool(_scrub["moved"])
+
+func _gui_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
-			_scrub = {"active": true, "x": ev.global_position.x, "v0": value, "moved": false}
+			_scrub = {"active": true, "acc": 0.0, "v0": value, "moved": false,
+				"screen": DisplayServer.mouse_get_position()}
 		elif _scrub["active"]:
+			var moved: bool = _scrub["moved"]
 			_scrub["active"] = false
-			if _scrub["moved"]:
+			if moved:
+				_release_pointer()
 				scrub_ended.emit(value)
 				value_changed.emit(value)
 			else:
-				_edit.grab_focus()
-		_lead.accept_event()
+				begin_edit()
+		accept_event()
 	elif ev is InputEventMouseMotion and _scrub["active"]:
-		var dx: float = ev.global_position.x - float(_scrub["x"])
-		if absf(dx) < 2.0 and not _scrub["moved"]:
+		_scrub["acc"] = float(_scrub["acc"]) + ev.relative.x
+		var acc: float = _scrub["acc"]
+		if absf(acc) < 3.0 and not _scrub["moved"]:
 			return
-		_scrub["moved"] = true
+		if not _scrub["moved"]:
+			_scrub["moved"] = true
+			# Ratón oculto y capturado: se puede arrastrar sin topar con el
+			# borde de la pantalla (al soltar vuelve a donde empezó).
+			if DisplayServer.get_name() != "headless":
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		var mul := 1.0
 		if Input.is_key_pressed(KEY_SHIFT):
 			mul = 0.1
 		elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
 			mul = 10.0
 		var stp := maxf(step, 0.01)
-		var nv := _clamp(float(_scrub["v0"]) + roundf(dx / 2.0) * stp * mul)
+		var nv := _clamp(float(_scrub["v0"]) + roundf(acc / 2.0) * stp * mul)
 		if not is_equal_approx(nv, value) or _mixed:
 			_mixed = false
 			_set_raw(nv)
 			scrub_changed.emit(nv)
-		_lead.accept_event()
+		accept_event()
+
+func _release_pointer() -> void:
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		Input.warp_mouse(Vector2(_scrub.get("screen", Vector2i.ZERO)) - Vector2(DisplayServer.window_get_position()))
+
+## Si la caja desaparece a mitad de arrastre, no dejar el ratón capturado.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE or (what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree()):
+		if _scrub.get("active", false):
+			_scrub["active"] = false
+			_release_pointer()
 
 ## Colores del ThemeManager (claro / oscuro).
 func apply_theme() -> void:

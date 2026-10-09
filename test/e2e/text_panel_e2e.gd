@@ -37,6 +37,28 @@ func _mouse(btn: bool, x: float) -> InputEvent:
 	m.global_position = Vector2(x, 0)
 	return m
 
+func _press(at: Vector2, down: bool) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = down
+	e.position = at
+	e.global_position = at
+	Input.parse_input_event(e)
+	await _frames(2)
+
+## Movimiento relativo en pasos de 2 px (como un arrastre real).
+func _move(at: Vector2, dx: float) -> void:
+	var n := int(absf(dx) / 2.0)
+	for i in n:
+		var m := InputEventMouseMotion.new()
+		m.position = at
+		m.global_position = at
+		m.relative = Vector2(signf(dx) * 2.0, 0)
+		m.button_mask = MOUSE_BUTTON_MASK_LEFT
+		Input.parse_input_event(m)
+		await process_frame
+	await _frames(2)
+
 func _run() -> void:
 	var env_out := OS.get_environment("E2E_OUT")
 	if env_out != "": out = env_out
@@ -93,27 +115,61 @@ func _run() -> void:
 	await _frames()
 	_check(int(para.get_meta("font_size")) == 36, "expresión 12*3 → 36 (%s)" % para.get_meta("font_size"))
 
-	# 5) Arrastre (scrub) del icono de interletra: en vivo + UNA acción de undo
+	# 5) Arrastre REAL sobre el NÚMERO (no el icono): en vivo + UNA acción de undo
 	hm.clear()
 	var tr_f = pp._fields["letter_spacing"]
-	var lead: Control = tr_f._lead
-	lead.gui_input.emit(_mouse(true, 100)); 
-	var down := _mouse(true, 100); down.pressed = true
-	lead.gui_input.emit(down)
-	lead.gui_input.emit(_mouse(false, 110))
-	await _frames(1)
+	var le_tr: LineEdit = tr_f.line_edit()
+	var cn: Vector2 = le_tr.get_global_rect().get_center()
+	await _press(cn, true)
+	_check(not le_tr.has_focus(), "pulsar sobre el número no entra a escribir todavía")
+	await _move(cn, 12.0)
 	var live := float(para.get_meta("letter_spacing", 0.0))
-	_check(live > 0.0, "arrastre: interletra cambia EN VIVO (%s)" % live)
+	_check(live > 0.0, "arrastre sobre el número: interletra cambia EN VIVO (%s)" % live)
 	_check(not hm.can_undo(), "arrastre: aún sin acción de undo mientras arrastra")
-	lead.gui_input.emit(_mouse(false, 120))
-	var up := _mouse(true, 120); up.pressed = false
-	lead.gui_input.emit(up)
-	await _frames()
+	await _move(cn, 10.0)
+	await _press(cn, false)
 	var fin := float(para.get_meta("letter_spacing", 0.0))
 	_check(fin > live, "arrastre: valor final mayor (%s > %s)" % [fin, live])
 	_check(hm.can_undo(), "arrastre: una acción de undo al soltar")
+	_check(not le_tr.has_focus(), "tras arrastrar no queda en modo escritura")
+	_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "el ratón vuelve a ser visible al soltar")
 	hm.undo(); await _frames()
 	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), 0.0), "deshacer arrastre → 0 de una vez (%s)" % para.get_meta("letter_spacing", 0.0))
+	# arrastre hacia la izquierda baja el valor (con tope en el mínimo)
+	await _press(cn, true)
+	await _move(cn, -400.0)
+	await _press(cn, false)
+	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), -10.0), "arrastre a la izquierda topa en el mínimo -10 (%s)" % para.get_meta("letter_spacing", 0.0))
+	hm.undo(); await _frames()
+	# arrastre sobre el ICONO también funciona
+	var ci: Vector2 = tr_f._lead.get_global_rect().get_center()
+	await _press(ci, true)
+	await _move(ci, 8.0)
+	await _press(ci, false)
+	_check(float(para.get_meta("letter_spacing", 0.0)) > 0.0, "arrastre sobre el icono también cambia el valor")
+	hm.undo(); await _frames()
+	# clic SIN arrastrar → entra a escribir con todo seleccionado
+	await _press(cn, true)
+	await _press(cn, false)
+	_check(le_tr.has_focus() and le_tr.has_selection(), "clic sin arrastrar → escribe con el valor seleccionado")
+	le_tr.text = "3"
+	le_tr.text_submitted.emit("3")
+	await _frames()
+	_check(is_equal_approx(float(para.get_meta("letter_spacing", 0.0)), 3.0), "escrito tras el clic → 3")
+
+	# 5b) Arrastre del TAMAÑO: en vivo y un solo undo
+	hm.clear()
+	var fs0 := int(para.get_meta("font_size"))
+	var cs: Vector2 = pp._fields["font_size"].line_edit().get_global_rect().get_center()
+	await _press(cs, true)
+	await _move(cs, 20.0)
+	var fs_live := int(para.get_meta("font_size"))
+	_check(fs_live > fs0, "arrastre de tamaño en vivo (%d → %d)" % [fs0, fs_live])
+	await _press(cs, false)
+	_check(hm.can_undo(), "arrastre de tamaño: undo al soltar")
+	hm.undo(); await _frames()
+	_check(int(para.get_meta("font_size")) == fs0, "deshacer arrastre de tamaño → %d (%s)" % [fs0, para.get_meta("font_size")])
+	_check(not hm.can_undo(), "arrastre de tamaño = UNA sola acción de undo")
 
 	# 6) Teclas arriba/abajo en el campo
 	var lf = pp._fields["line_spacing"]
