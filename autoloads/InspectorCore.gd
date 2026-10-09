@@ -681,6 +681,7 @@ func commit_live_multi(props_before: Dictionary, action_name: String = "Inspecto
 		hm.commit()
 
 const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
+const TextFx = preload("res://script_gdscript/text/text_fx.gd")
 
 ## Con efectos de letras activos, el editor nativo pinta runs DERIVADOS (por
 ## letra): antes de escribir se le dan los runs reales, para que lo que
@@ -829,6 +830,8 @@ func _write_prop(shape, prop, value) -> void:
 			if "effects" in shape:
 				shape.effects = eff_arr.duplicate(true)
 			shape.set_meta("effects", eff_arr.duplicate(true))
+			if _is_text(shape):
+				TextFx.sync(shape)   # los textos los dibuja su propio nodo de efectos
 		"shape_mode":
 			if "shape_mode" in shape: shape.shape_mode = String(value)
 		"start_angle_deg":

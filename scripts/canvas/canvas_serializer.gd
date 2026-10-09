@@ -975,6 +975,9 @@ static func _text_from(d: Dictionary) -> Node2D:
 			label.set_rich_runs(_runs)
 	# Mismo motor de render que al crear el texto (nativo si existe).
 	TextCore.ensure_vrt(cont)
+	# Efectos del panel Efectos (sombra, contorno…): su nodo de dibujo.
+	if cont.has_meta("effects"):
+		load("res://script_gdscript/text/text_fx.gd").sync(cont)
 	return cont
 
 
