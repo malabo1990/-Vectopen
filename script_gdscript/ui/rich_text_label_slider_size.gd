@@ -498,15 +498,36 @@ func _on_style_selected(idx: int) -> void:
 	_set_preview_font(_current_family)
 
 # ── sliders ──────────────────────────────────────────────────────────────────
+## Arrastre: se escribe EN VIVO a través de InspectorCore (así el panel de la
+## herramienta Texto y el resto lo siguen en tiempo real) y al soltar se
+## registra UNA acción de undo con los valores del inicio. Antes se escribía
+## el meta a mano: nadie se enteraba y, al soltar, apply() veía "sin cambio"
+## y no creaba deshacer.
+var _drag_before: Dictionary = {}     # prop -> {figura: valor previo}
+var _drag_text_before: Dictionary = {} # foto del texto en edición (tamaño por letras)
+
 func _on_drag_started() -> void:
 	_dragging = true
+	# Diccionarios NUEVOS (no .clear()): el undo ya registrado guarda una
+	# referencia a la foto anterior y vaciarla le hacía restaurar "nada".
+	_drag_before = {}
+	_drag_text_before = {}
 
 func _on_drag_ended(_value_changed: bool, prop: String) -> void:
 	_dragging = false
-	_aplicar(prop)
+	if not _drag_text_before.is_empty():
+		var shp: Node2D = _drag_text_before.get("_shape")
+		if is_instance_valid(shp):
+			TextCore.register_text_undo(shp, _drag_text_before, "Texto · tamaño (selección)")
+		_drag_text_before = {}
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	if _drag_before.has(prop) and ic and ic.has_method("commit_live"):
+		ic.commit_live(prop, _drag_before[prop])
+		_drag_before.erase(prop)
+	else:
+		_aplicar(prop)
 
-## Cambios discretos se aplican al instante con Undo; durante un arrastre
-## actualizamos en vivo a 60 FPS (_aplicar_live) y creamos la acción atómica en drag_ended.
 func _on_value_changed(v: float, prop: String) -> void:
 	if _sync_guard:
 		return
@@ -515,39 +536,44 @@ func _on_value_changed(v: float, prop: String) -> void:
 	else:
 		_aplicar(prop)
 
+## Editando con letras seleccionadas, el tamaño va a ESAS letras.
+func _editing_size(val: float, live: bool) -> bool:
+	var st := TextCore.selection_style(get_tree())
+	if st.is_empty():
+		return false
+	var shape: Node2D = st["shape"]
+	var before := TextCore.capture_text_state(shape)
+	if live and _drag_text_before.is_empty():
+		_drag_text_before = before
+		_drag_text_before["_shape"] = shape
+	TextCore.apply_selection_size(get_tree(), val)
+	if not live:
+		TextCore.register_text_undo(shape, before, "Texto · tamaño (selección)")
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic:
+		ic._sync_selection()
+		ic.changed.emit(ic.current_props())
+	return true
+
 func _aplicar_live(prop: String, val: float) -> void:
 	if _sync_guard:
 		return
+	if prop == "font_size" and _editing_size(val, true):
+		return
 	var ic := get_node_or_null("/root/InspectorCore")
-	if ic == null: return
-	for shape in ic.selection():
-		shape.set_meta(prop, val)
-		var dl = shape.get_node_or_null("DisplayLabel")
-		if dl:
-			match prop:
-				"font_size":
-					dl.base_font_size = int(round(val))
-					dl.add_theme_font_size_override("font_size", int(round(val)))
-					if dl.has_method("apply_font_from_meta"):
-						dl.apply_font_from_meta()
-				"letter_spacing":
-					dl.set_meta("letter_spacing", int(round(val)))
-					if dl.has_method("apply_font_from_meta"):
-						dl.apply_font_from_meta()
-				"line_spacing":
-					dl.set_meta("line_spacing", int(round(val)))
-					if dl.has_method("apply_font_from_meta"):
-						dl.apply_font_from_meta()
-		var vrt = shape.get_node_or_null("VectorRichText")
-		if vrt:
-			match prop:
-				"font_size":
-					vrt.set_font_size(val)
-				"line_spacing":
-					vrt.set_paragraph_line_spacing(val)
-			vrt.queue_redraw()
-		if ic.has_method("_refit_text_shape"):
-			ic._refit_text_shape(shape)
+	if ic == null or not ic.has_method("_write"):
+		return
+	if not _drag_before.has(prop):
+		var before := {}
+		for s in ic.selection():
+			var b = ic._read(s, prop)
+			if b != null:
+				before[s] = b
+		_drag_before[prop] = before
+	for s in (_drag_before[prop] as Dictionary):
+		if is_instance_valid(s):
+			ic._write(s, prop, val)
+	ic._post_write()
 
 func _aplicar(prop: String) -> void:
 	if _sync_guard:
@@ -555,6 +581,8 @@ func _aplicar(prop: String) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	var s: Slider = _sliders.get(prop)
 	if ic and s:
+		if prop == "font_size" and _editing_size(s.value, false):
+			return
 		ic.apply(prop, s.value)
 
 # ── navegador de fuentes ─────────────────────────────────────────────────────
@@ -800,7 +828,12 @@ func _on_prop_slider_changed(_v: float, _key: String) -> void:
 
 func _on_prop_slider_drag_ended(_val_changed: bool, _key: String) -> void:
 	_dragging = false
-	_aplicar_proportions()
+	var ic := get_node_or_null("/root/InspectorCore")
+	if _drag_before.has("letter_proportions") and ic and ic.has_method("commit_live"):
+		ic.commit_live("letter_proportions", _drag_before["letter_proportions"])
+		_drag_before.erase("letter_proportions")
+	else:
+		_aplicar_proportions()
 
 func _aplicar_proportions() -> void:
 	if _sync_guard:
@@ -826,11 +859,18 @@ func _aplicar_proportions_live() -> void:
 	var s_end := float(_prop_sliders["end"].value) if _prop_sliders.has("end") else 1.0
 	var mode := _current_prop_mode if not _current_prop_mode.is_empty() else "Aaa"
 	var data := {"mode": mode, "start": s_start, "mid": s_mid, "mid2": s_mid2, "end": s_end}
-	for shape in ic.selection():
-		shape.set_meta("letter_proportions", data)
-		var dl = shape.get_node_or_null("DisplayLabel")
-		if dl and dl.has_method("set_letter_proportions"):
-			dl.set_letter_proportions(data)
+	# En vivo vía InspectorCore (los demás paneles lo ven); undo al soltar.
+	if not _drag_before.has("letter_proportions"):
+		var before := {}
+		for shape in ic.selection():
+			var bv = ic._read(shape, "letter_proportions")
+			if bv != null:
+				before[shape] = (bv as Dictionary).duplicate() if bv is Dictionary else bv
+		_drag_before["letter_proportions"] = before
+	for shape in (_drag_before["letter_proportions"] as Dictionary):
+		if is_instance_valid(shape):
+			ic._write(shape, "letter_proportions", data)
+	ic._post_write()
 
 # ── fila de sangrías Publisher (creada por código: el .tscn no tiene nodos) ──
 var _indent_spins: Dictionary = {}  # prop -> SpinBox/SpinBoxValue
@@ -973,6 +1013,22 @@ func _sincronizar(props: Dictionary) -> void:
 		_font_color_btn.color = props["fill_color"]["value"]
 	if props.has("font_family") and not props["font_family"]["mixed"]:
 		_reflejar_familia(String(props["font_family"]["value"]))
+	var opt := get_node_or_null(_STYLE_OPTION) as OptionButton
+	if opt and props.has("font_weight") and not props["font_weight"]["mixed"]:
+		var w := int(props["font_weight"]["value"])
+		var it: bool = props.has("font_italic") and not props["font_italic"]["mixed"] and bool(props["font_italic"]["value"])
+		var want := "Regular"
+		if it:
+			want = "Bold Italic" if w >= 600 else "Italic"
+		elif w >= 700:
+			want = "Bold"
+		elif w >= 600:
+			want = "SemiBold"
+		elif w >= 500:
+			want = "Medium"
+		for i in opt.item_count:
+			if opt.get_item_text(i) == want:
+				opt.select(i)
 	if props.has("text_align") and not props["text_align"]["mixed"]:
 		_current_align = String(props["text_align"]["value"])
 		_actualizar_align_ui()

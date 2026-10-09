@@ -118,11 +118,15 @@ func _ready() -> void:
 	apply_theme()
 
 func set_value_no_signal(v: float) -> void:
+	if is_scrubbing():
+		return   # la sincronización externa no pisa el valor que se arrastra
 	_mixed = false
 	_set_raw(_clamp(v))
 
 ## Sin valor común: campo vacío con `placeholder` ("Mixto" o "—" sin selección).
 func set_mixed(mixed: bool, placeholder: String = "Mixto") -> void:
+	if is_scrubbing():
+		return
 	_mixed = mixed
 	_placeholder = placeholder
 	_refresh_text()

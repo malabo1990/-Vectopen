@@ -394,7 +394,46 @@ func current_props() -> Dictionary:
 		if prop == "name" and _selection.size() > 1:
 			continue
 		out[prop] = {"value": vals[0], "mixed": mixed}
+	_overlay_editing_style(out)
 	return out
+
+## Editando un texto: los paneles muestran el formato de las LETRAS
+## seleccionadas (o junto al cursor), no el del objeto entero. Así el panel
+## Texto y el panel Tipografía coinciden también a mitad de edición.
+func _overlay_editing_style(out: Dictionary) -> void:
+	var st := TextCore.selection_style(get_tree())
+	if st.is_empty() or not (st["shape"] in _selection):
+		return
+	out["font_size"] = {"value": float(st["size"]), "mixed": false}
+	out["font_weight"] = {"value": int(st["weight"]), "mixed": false}
+	out["font_italic"] = {"value": bool(st["italic"]), "mixed": false}
+	if st.has("color"):
+		out["fill_color"] = {"value": st["color"], "mixed": false}
+	if st.has("stroke_width"):
+		out["stroke_width"] = {"value": float(st["stroke_width"]), "mixed": false}
+	if st.has("stroke_color"):
+		out["stroke_color"] = {"value": st["stroke_color"], "mixed": false}
+
+## Mientras se edita texto, avisar a los paneles cuando cambian la
+## selección / cursor / formato de las letras (sin esto solo se enteraban al
+## salir de la edición). Comparación barata por fotograma.
+var _edit_key := ""
+
+func _process(_dt: float) -> void:
+	var st := TextCore.selection_style(get_tree()) if is_inside_tree() else {}
+	var key := ""
+	if not st.is_empty():
+		# Solo el FORMATO visible (no la posición del cursor): mover el cursor
+		# o escribir sin cambiar de estilo no repinta todos los paneles
+		# (costaba ~6 ms por tecla).
+		key = "%d|%s|%s|%s|%s|%s|%s" % [st["shape"].get_instance_id(), st["size"], st["weight"],
+			st["italic"], st.get("underline", false), st.get("color", ""), st.get("stroke_width", "")]
+	if key != _edit_key:
+		var was_editing := _edit_key != ""
+		_edit_key = key
+		if key != "" or was_editing:
+			_sync_selection()
+			changed.emit(current_props())
 
 func _approx_eq(a, b) -> bool:
 	if a is float and b is float: return is_equal_approx(a, b)

@@ -70,6 +70,129 @@ static func editing_range(tree: SceneTree) -> Array:
 		return []
 	return [shape, ed, int(sel["start"]), int(sel["end"])]
 
+## [shape, editor] del texto EN EDICIÓN (VectorRichText nativo o TextEdit),
+## con o sin selección. Vacío si no se está editando.
+static func editing_context(tree: SceneTree) -> Array:
+	if tree == null:
+		return []
+	var canvas = tree.get_first_node_in_group("_vectopen_canvas")
+	if canvas == null or not ("current_tool" in canvas):
+		return []
+	var t = canvas.current_tool
+	var flag = t.get("is_editing") if t != null else null
+	if flag == null or not bool(flag):
+		return []
+	var shape: Node2D = t.get("current_editing_shape")
+	if not is_instance_valid(shape):
+		return []
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt and vrt.has_method("is_editing") and vrt.is_editing():
+		return [shape, vrt]
+	for n in ["TitleEdit", "MultiLineEdit"]:
+		var ed := shape.get_node_or_null(n) as TextEdit
+		if ed and ed.visible:
+			return [shape, ed]
+	return []
+
+## Formato de las letras SELECCIONADAS (o junto al cursor) del texto en
+## edición: {shape, start, end, size, color, weight, italic, underline,
+## stroke_width, stroke_color}. Vacío si no se edita. Es lo que deben
+## mostrar los paneles mientras se edita (no el tamaño base del objeto).
+static func selection_style(tree: SceneTree) -> Dictionary:
+	var ctx := editing_context(tree)
+	if ctx.is_empty():
+		return {}
+	var shape: Node2D = ctx[0]
+	var ed = ctx[1]
+	var start := 0
+	var end := 0
+	var runs: Array = []
+	if ed.has_method("is_editing"):
+		var sr: Vector2i = ed.get_selection_range()
+		start = mini(sr.x, sr.y)
+		end = maxi(sr.x, sr.y)
+		if start == end:
+			start = int(ed.get_caret_index())
+			end = start
+		runs = ed.get_runs_meta()
+	else:
+		var te := ed as TextEdit
+		var sel = sel_range(te)
+		if sel != null:
+			start = int(sel["start"])
+			end = int(sel["end"])
+		else:
+			start = flat_off(te, te.get_caret_line(), te.get_caret_column())
+			end = start
+		runs = shape.get_meta("runs", [])
+	# Con cursor sin selección manda la letra ANTERIOR (lo que se escribirá).
+	var idx := start if end > start else maxi(0, start - 1)
+	var base_fs := float(shape.get_meta("font_size", 24))
+	var out := {"shape": shape, "start": start, "end": end, "size": base_fs,
+		"weight": int(shape.get_meta("font_weight", 400)), "italic": bool(shape.get_meta("font_italic", false)),
+		"underline": false}
+	var pos := 0
+	var run: Dictionary = {}
+	for r in runs:
+		var ln := int(r.get("length", 0))
+		if idx < pos + ln or r == runs[runs.size() - 1]:
+			run = r
+			break
+		pos += ln
+	if run.is_empty():
+		return out
+	var sz := float(run.get("size", 0.0))
+	if sz > 0.0:
+		out["size"] = sz
+	if run.has("color"):
+		out["color"] = run["color"]
+	out["weight"] = int(TextRuns.run_weight(run, int(out["weight"])))
+	out["italic"] = bool(run.get("italic", out["italic"]))
+	out["underline"] = bool(run.get("underline", false))
+	if run.has("stroke_width"):
+		out["stroke_width"] = float(run["stroke_width"])
+	if run.has("stroke_color"):
+		out["stroke_color"] = run["stroke_color"]
+	return out
+
+## Tamaño `sz` a las letras seleccionadas del texto en edición (nativo o
+## TextEdit; sin selección en TextEdit = todo el texto). SIN undo: quien
+## llama hace capture_text_state antes y register_text_undo al terminar.
+## Devuelve la forma editada o null si no se está editando.
+static func apply_selection_size(tree: SceneTree, sz: float) -> Node2D:
+	var ctx := editing_context(tree)
+	if ctx.is_empty():
+		return null
+	var shape: Node2D = ctx[0]
+	var ed = ctx[1]
+	sz = clampf(sz, 4.0, 400.0)
+	if ed.has_method("is_editing"):
+		ed.apply_font_size_to_selection(sz)
+		shape.set_meta("runs", ed.get_runs_meta())
+		ed.queue_redraw()
+	else:
+		var te := ed as TextEdit
+		var sel = sel_range(te)
+		var a := 0
+		var b := te.text.length()
+		if sel != null and int(sel["end"]) > int(sel["start"]):
+			a = int(sel["start"])
+			b = int(sel["end"])
+		TextRuns.apply_range(shape, shape.get_node_or_null("DisplayLabel"), te.text.length(), a, b, func(r: Dictionary) -> Dictionary:
+			r["size"] = sz
+			return r)
+		if te.syntax_highlighter:
+			te.syntax_highlighter.clear_highlighting_cache()
+		te.queue_redraw()
+	var dl = shape.get_node_or_null("DisplayLabel")
+	if dl and dl.has_method("set_rich_runs"):
+		dl.set_rich_runs(shape.get_meta("runs", []))
+	var canvas = tree.get_first_node_in_group("_vectopen_canvas")
+	var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
+	if t and t.has_method("_fit_height_to_text"):
+		t._fit_height_to_text(shape, String(ed.get_text() if ed.has_method("is_editing") else ed.text))
+	return shape
+
 ## Rango [start,end) de la selección del editor, en offsets planos. null sin selección.
 static func sel_range(ed: TextEdit) -> Variant:
 	if ed == null or not ed.has_selection():
@@ -129,6 +252,9 @@ static func restore_text_state(shape: Node2D, st: Dictionary) -> void:
 		var vrt = shape.get_node_or_null("VectorRichText")
 		if vrt:
 			vrt.set_text(t)
+			# Sin esto, deshacer un formato por letras con el editor nativo
+			# abierto dejaba los runs viejos dibujados.
+			set_vrt_runs(vrt, shape.get_meta("runs", []))
 	if dl is WorldTextLabel:
 		dl.set_rich_runs(shape.get_meta("runs", []))
 		if st.get("width") != null and st.get("height") != null:

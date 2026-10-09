@@ -534,7 +534,8 @@ func _on_field_scrub(v: float, prop: String) -> void:
 	if ic == null or not ic.has_method("_write"):
 		return
 	if prop in ["font_size", "stroke_width"] and not _editing().is_empty():
-		return   # editando: se aplica a la selección de letras al soltar
+		_scrub_text_live(prop, v)   # letras seleccionadas: en vivo sobre ellas
+		return
 	if not _scrub_before.has(prop):
 		var before := {}
 		for s in ic.selection():
@@ -547,8 +548,85 @@ func _on_field_scrub(v: float, prop: String) -> void:
 			ic._write(s, prop, v)
 	ic._post_write()
 
+## Arrastre de tamaño / grosor con texto EN EDICIÓN: se aplica en vivo a
+## las letras seleccionadas (sin undo por paso); al soltar, _commit_scrub
+## registra UNA acción con la foto inicial.
+var _scrub_text: Dictionary = {}   # prop -> {shape, before, start, end}
+
+func _scrub_text_live(prop: String, v: float) -> void:
+	var ctx := _editing()
+	if ctx.is_empty():
+		return
+	var shape: Node2D = ctx[0]
+	var ed = ctx[1]
+	if not _scrub_text.has(prop):
+		var rec := {"shape": shape, "before": TextCore.capture_text_state(shape), "start": 0, "end": 0}
+		if ed is TextEdit:
+			var sel = _sel_range(ed)
+			if sel != null and int(sel["end"]) > int(sel["start"]):
+				rec["start"] = int(sel["start"])
+				rec["end"] = int(sel["end"])
+			else:
+				rec["end"] = (ed as TextEdit).text.length()
+		_scrub_text[prop] = rec
+	var r: Dictionary = _scrub_text[prop]
+	if ed.has_method("is_editing"):
+		if prop == "font_size":
+			ed.apply_font_size_to_selection(clampf(v, 4.0, 400.0))
+		else:
+			ed.apply_stroke_to_selection(ed.get_stroke_color(), maxf(0.0, v))
+		shape.set_meta("runs", ed.get_runs_meta())
+		ed.queue_redraw()
+	else:
+		var key := "size" if prop == "font_size" else "stroke_width"
+		var val := clampf(v, 4.0, 400.0) if prop == "font_size" else maxf(0.0, v)
+		_apply_to_range(shape, ed, int(r["start"]), int(r["end"]), func(run: Dictionary) -> Dictionary:
+			run[key] = val
+			return run)
+	var dl = shape.get_node_or_null("DisplayLabel")
+	if dl and dl.has_method("set_rich_runs"):
+		dl.set_rich_runs(shape.get_meta("runs", []))
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
+	if t and t.has_method("_fit_height_to_text"):
+		t._fit_height_to_text(shape, String(ed.get_text() if ed.has_method("is_editing") else ed.text))
+	_notify_panels()
+
+## Formato sobre la selección del editor NATIVO: aplica, guarda los runs y
+## registra UN paso de deshacer. Antes no había undo y además se escribía el
+## tamaño / color / trazo BASE del objeto entero aunque solo se hubieran
+## seleccionado unas letras.
+func _vrt_apply(shape: Node2D, ed, action_name: String, fn: Callable) -> void:
+	var before := TextCore.capture_text_state(shape)
+	fn.call()
+	shape.set_meta("runs", ed.get_runs_meta())
+	ed.queue_redraw()
+	var dl = shape.get_node_or_null("DisplayLabel")
+	if dl and dl.has_method("set_rich_runs"):
+		dl.set_rich_runs(shape.get_meta("runs", []))
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
+	if t and t.has_method("_fit_height_to_text"):
+		t._fit_height_to_text(shape, ed.get_text())
+	TextCore.register_text_undo(shape, before, action_name)
+	_notify_panels()
+
+## Cambios por letras (fuera de InspectorCore.apply): avisar a TODOS los
+## paneles (Tipografía incluido) con las propiedades ya actualizadas.
+func _notify_panels() -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_signal("changed"):
+		ic._sync_selection()
+		ic.changed.emit(ic.current_props())
+
 ## Fin de arrastre ya escrito en vivo → UNA acción de undo. true si lo era.
 func _commit_scrub(prop: String) -> bool:
+	if _scrub_text.has(prop):
+		var r: Dictionary = _scrub_text[prop]
+		_scrub_text.erase(prop)
+		if is_instance_valid(r["shape"]):
+			TextCore.register_text_undo(r["shape"], r["before"], "Texto · %s (selección)" % ("tamaño" if prop == "font_size" else "grosor de trazo"))
+		return true
 	if not _scrub_before.has(prop):
 		return false
 	var before: Dictionary = _scrub_before[prop]
@@ -707,18 +785,16 @@ func _fmt_toggle(key: String) -> void:
 		var shape: Node2D = ctx[0]
 		var ed = ctx[1]
 		if ed.has_method("is_editing"):
-			match key:
-				"bold":
-					var cur: bool = _btn_bold.button_pressed if is_instance_valid(_btn_bold) else false
-					ed.apply_bold_to_selection(cur)
-				"italic":
-					var cur: bool = _btn_italic.button_pressed if is_instance_valid(_btn_italic) else false
-					ed.apply_italic_to_selection(cur)
-				"underline":
-					var cur: bool = _btn_underline.button_pressed if is_instance_valid(_btn_underline) else false
-					ed.apply_underline_to_selection(cur)
-			shape.set_meta("runs", ed.get_runs_meta())
-			ed.queue_redraw()
+			var btn: Button = {"bold": _btn_bold, "italic": _btn_italic, "underline": _btn_underline}.get(key)
+			var on: bool = btn.button_pressed if is_instance_valid(btn) else false
+			var fn := func() -> void:
+				if key == "bold":
+					ed.apply_bold_to_selection(on)
+				elif key == "italic":
+					ed.apply_italic_to_selection(on)
+				else:
+					ed.apply_underline_to_selection(on)
+			_vrt_apply(shape, ed, "Texto · %s (selección)" % key, fn)
 			return
 		var ed_te: TextEdit = ed as TextEdit
 		var sel = _sel_range(ed_te)
@@ -808,14 +884,7 @@ func _fmt_color(color: Color) -> void:
 		var shape: Node2D = ctx[0]
 		var ed = ctx[1]
 		if ed.has_method("is_editing"):
-			ed.apply_color_to_selection(color)
-			shape.set_meta("runs", ed.get_runs_meta())
-			shape.set_meta("text_color", color)
-			ed.queue_redraw()
-			var dl = shape.get_node_or_null("DisplayLabel")
-			if dl and dl.has_method("set_rich_runs"):
-				dl.set_rich_runs(ed.get_runs_meta())
-				dl.queue_redraw()
+			_vrt_apply(shape, ed, "Texto · color (selección)", func() -> void: ed.apply_color_to_selection(color))
 			return
 		var ed_te: TextEdit = ed as TextEdit
 		var sel = _sel_range(ed_te)
@@ -854,14 +923,7 @@ func _fmt_size(v: float) -> void:
 		var shape: Node2D = ctx[0]
 		var ed = ctx[1]
 		if ed.has_method("is_editing"):
-			ed.apply_font_size_to_selection(sz)
-			shape.set_meta("runs", ed.get_runs_meta())
-			shape.set_meta("font_size", int(sz))
-			ed.queue_redraw()
-			var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
-			var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
-			if t and t.has_method("_fit_height_to_text"):
-				t._fit_height_to_text(shape, ed.get_text())
+			_vrt_apply(shape, ed, "Texto · tamaño (selección)", func() -> void: ed.apply_font_size_to_selection(sz))
 			return
 		var ed_te: TextEdit = ed as TextEdit
 		var sel = _sel_range(ed_te)
@@ -898,11 +960,7 @@ func _fmt_stroke_color(color: Color) -> void:
 		var ed = ctx[1]
 		if ed.has_method("is_editing"):
 			var sw: float = float(ed.get_stroke_width())
-			ed.apply_stroke_to_selection(color, sw)
-			shape.set_meta("runs", ed.get_runs_meta())
-			shape.set_meta("stroke_color", color)
-			shape.set_meta("text_outline_color", color)
-			ed.queue_redraw()
+			_vrt_apply(shape, ed, "Texto · color de trazo (selección)", func() -> void: ed.apply_stroke_to_selection(color, sw))
 			return
 		var ed_te: TextEdit = ed as TextEdit
 		var sel = _sel_range(ed_te)
@@ -937,11 +995,7 @@ func _fmt_stroke_width(v: float) -> void:
 		var ed = ctx[1]
 		if ed.has_method("is_editing"):
 			var sc: Color = ed.get_stroke_color()
-			ed.apply_stroke_to_selection(sc, w)
-			shape.set_meta("runs", ed.get_runs_meta())
-			shape.set_meta("stroke_width", w)
-			shape.set_meta("text_outline", int(w))
-			ed.queue_redraw()
+			_vrt_apply(shape, ed, "Texto · grosor de trazo (selección)", func() -> void: ed.apply_stroke_to_selection(sc, w))
 			return
 		var ed_te: TextEdit = ed as TextEdit
 		var sel = _sel_range(ed_te)
@@ -1061,71 +1115,11 @@ func _sync(props: Dictionary = {}) -> void:
 		if is_instance_valid(_btn_italic):
 			_btn_italic.button_pressed = bool(props["font_italic"].get("value", false))
 
-	var ctx := _editing()
-	if not ctx.is_empty():
-		var shape: Node2D = ctx[0]
-		var ed = ctx[1]
-		if ed.has_method("is_editing"):
-			if is_instance_valid(_cp_fill):
-				_cp_fill.color = ed.get_text_color()
-			if is_instance_valid(_cp_stroke):
-				_cp_stroke.color = ed.get_stroke_color()
-			if is_instance_valid(_spin_stroke):
-				if _spin_stroke.has_method("set_value_no_signal"):
-					_spin_stroke.set_value_no_signal(float(ed.get_stroke_width()))
-				elif "value" in _spin_stroke:
-					_spin_stroke.value = float(ed.get_stroke_width())
-			if is_instance_valid(_spin_size):
-				if _spin_size.has_method("set_value_no_signal"):
-					_spin_size.set_value_no_signal(float(ed.get_font_size()))
-				elif "value" in _spin_size:
-					_spin_size.value = float(ed.get_font_size())
-		elif ed is TextEdit:
-			var ed_te: TextEdit = ed as TextEdit
-			var sel = _sel_range(ed_te)
-			var cursor: int = 0
-			if sel != null:
-				cursor = int(sel["start"])
-			else:
-				var cl: int = ed_te.get_caret_line()
-				for l in range(cl):
-					cursor += ed_te.get_line(l).length() + 1
-				cursor += ed_te.get_caret_column()
-			var runs := _runs_of(shape, ed_te.text.length())
-			var acc := 0
-			var r_active: Dictionary = {}
-			for r in runs:
-				acc += int(r.get("length", 0))
-				if cursor < acc:
-					r_active = r
-					break
-			if r_active.is_empty() and not runs.is_empty():
-				r_active = runs[runs.size() - 1]
-			if not r_active.is_empty():
-				if r_active.has("color") and is_instance_valid(_cp_fill):
-					_cp_fill.color = r_active["color"]
-				if r_active.has("stroke_color") and is_instance_valid(_cp_stroke):
-					_cp_stroke.color = r_active["stroke_color"]
-				if r_active.has("stroke_width") and is_instance_valid(_spin_stroke):
-					if _spin_stroke.has_method("set_value_no_signal"):
-						_spin_stroke.set_value_no_signal(float(r_active["stroke_width"]))
-					elif _spin_stroke.has_method("set_value"):
-						_spin_stroke.set_value(float(r_active["stroke_width"]))
-					elif "value" in _spin_stroke:
-						_spin_stroke.value = float(r_active["stroke_width"])
-				if r_active.has("size") and is_instance_valid(_spin_size):
-					if _spin_size.has_method("set_value_no_signal"):
-						_spin_size.set_value_no_signal(float(r_active["size"]))
-					elif _spin_size.has_method("set_value"):
-						_spin_size.set_value(float(r_active["size"]))
-					elif "value" in _spin_size:
-						_spin_size.value = float(r_active["size"])
-				if r_active.has("bold") and is_instance_valid(_btn_bold):
-					_btn_bold.button_pressed = bool(r_active["bold"])
-				if r_active.has("italic") and is_instance_valid(_btn_italic):
-					_btn_italic.button_pressed = bool(r_active["italic"])
-				if r_active.has("underline") and is_instance_valid(_btn_underline):
-					_btn_underline.button_pressed = bool(r_active["underline"])
+	# Editando: InspectorCore.current_props ya trae el formato de las letras
+	# seleccionadas (tamaño, color, peso…), igual para todos los paneles.
+	var st := TextCore.selection_style(get_tree())
+	if not st.is_empty() and is_instance_valid(_btn_underline):
+		_btn_underline.button_pressed = bool(st.get("underline", false))
 
 	if is_instance_valid(_btn_bold): _style_button(_btn_bold, _btn_bold.button_pressed)
 	if is_instance_valid(_btn_italic): _style_button(_btn_italic, _btn_italic.button_pressed)
