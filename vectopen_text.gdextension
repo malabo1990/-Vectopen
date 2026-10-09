@@ -12,3 +12,5 @@ macos.debug =             "res://rust/vectopen_text/target/debug/libvectopen_tex
 macos.release =           "res://rust/vectopen_text/target/release/libvectopen_text.dylib"
 macos.debug.arm64 =       "res://rust/vectopen_text/target/debug/libvectopen_text.dylib"
 macos.release.arm64 =     "res://rust/vectopen_text/target/release/libvectopen_text.dylib"
+ios.debug =               "res://rust/vectopen_text/target/aarch64-apple-ios/debug/libvectopen_text.dylib"
+ios.release =             "res://rust/vectopen_text/target/aarch64-apple-ios/release/libvectopen_text.dylib"
