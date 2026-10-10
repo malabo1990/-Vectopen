@@ -54,6 +54,12 @@ func _ready() -> void:
 	_sync_from_inspector()
 	# Pestaña "Filters" (grano, duotono, neón, glitch…): se crea por código.
 	(func() -> void: load("res://script_gdscript/ui/panels/effects/filters_panel.gd").install(self)).call_deferred()
+	# Pestaña "Shader": área de código + biblioteca de shaders guardados.
+	(func() -> void: load("res://script_gdscript/ui/panels/effects/shader_panel.gd").install(self)).call_deferred()
+	# Pestaña "Vectorizar": imagen → trazados Bézier (GDExtension nativo).
+	(func() -> void: load("res://script_gdscript/ui/panels/effects/vectorize_panel.gd").install(self)).call_deferred()
+	# Pestaña "Script": scripts GDScript con la API + gestor de complementos.
+	(func() -> void: load("res://script_gdscript/ui/panels/effects/script_panel.gd").install(self)).call_deferred()
 	_restyle()
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):

@@ -154,7 +154,9 @@ func test_para_click_afuera_sale_a_movetool_muestra_bb_y_permite_drag() -> void:
 
 	# 4. Verificar arrastre con MoveTool para mover el párrafo
 	var init_pos: Vector2 = shape.global_position
-	var click_pt: Vector2 = init_pos + Vector2(50, 30)
+	# Los eventos llevan coordenadas de PANTALLA: la cámara centra el
+	# artboard, así que el punto del mundo se pasa por la transformación.
+	var click_pt: Vector2 = scene.get_canvas_transform() * (init_pos + Vector2(50, 30))
 
 	var ev_press := InputEventMouseButton.new()
 	ev_press.button_index = MOUSE_BUTTON_LEFT

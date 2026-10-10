@@ -150,6 +150,11 @@ func _theme_subpanels() -> void:
 
 	for sub_name in ["polygon", "text", "Selector"]:
 		var p = parent_tools.get_node_or_null(sub_name) as PanelContainer
+		# Paneles con tema propio (p.ej. Polígonos: pestañas con icono y
+		# estado activo): el estilo genérico de abajo les borraba el fondo.
+		if is_instance_valid(p) and p.has_method("_apply_theme"):
+			p._apply_theme()
+			continue
 		if is_instance_valid(p):
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = surface_c

@@ -142,6 +142,7 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 	print("Crear Triangulo - VectorPolygon [Pos: ", local_pos, " Size: ", size, "]")
 

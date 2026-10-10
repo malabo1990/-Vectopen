@@ -123,10 +123,11 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	var new_shape = VectorCircle.new()
 	new_shape.name = NameUtils.unique_child_name(artboard, "Círculo")
-	new_shape.shape_mode = shape_mode
-	new_shape.start_angle_deg = start_angle_deg
-	new_shape.end_angle_deg = end_angle_deg
-	new_shape.inner_radius_ratio = inner_radius_ratio
+	# Forma del panel de Polígonos (anillo / tarta / arco).
+	new_shape.shape_mode = String(PanelPolygon.setting("shape_mode", shape_mode))
+	new_shape.start_angle_deg = float(PanelPolygon.setting("start_angle_deg", start_angle_deg))
+	new_shape.end_angle_deg = float(PanelPolygon.setting("end_angle_deg", end_angle_deg))
+	new_shape.inner_radius_ratio = float(PanelPolygon.setting("ring_ratio", inner_radius_ratio))
 	new_shape.set_doc_position(DVec2.from_v2(local_pos + size / 2.0))
 	new_shape.set_doc_extent(DVec2.from_v2(size))
 	new_shape.fill_color = FILL_COLOR
@@ -135,6 +136,7 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 	print("Crear Círculo - VectorCircle [Pos: ", new_shape.position, " Size: ", size, "]")
 

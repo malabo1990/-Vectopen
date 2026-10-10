@@ -252,6 +252,9 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["points_count"] = node.points_count
 		base["inner_radius_ratio"] = node.inner_radius_ratio
 		base["corner_radius"] = node.corner_radius
+		if "inner_corner_radius" in node:
+			base["inner_corner_radius"] = node.inner_corner_radius
+			base["star_angle"] = node.star_angle
 		_add_style(base, node)
 		return base
 	if node is VectorRectangle:
@@ -267,6 +270,19 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["kind"] = "poly"
 		base["verts"] = _pv2_to_arr(node.vertices)
 		base["closed"] = node.closed
+		# Parámetros (antes solo los vértices: al recargar un polígono regular
+		# perdía lados / radio y el panel contaba los puntos del redondeo).
+		base["regular"] = node.is_regular
+		base["sides"] = node.sides
+		base["radius"] = node.radius
+		base["corner_radius"] = node.corner_radius
+		base["poly_angle"] = node.get("poly_angle")
+		base["poly_aspect"] = node.get("poly_aspect")
+		if not node.base_vertices.is_empty():
+			base["base_verts"] = _pv2_to_arr(node.base_vertices)
+		for mk in ["shape_kind", "drop_radius", "drop_rotation", "drop_curvature"]:
+			if node.has_meta(mk):
+				base["m_" + mk] = node.get_meta(mk)
 		_add_style(base, node)
 		return base
 	if node is VectorBooleanScript:
@@ -288,6 +304,21 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["in"] = _pv2_to_arr(ins)
 		base["out"] = _pv2_to_arr(outs)
 		base["path_closed"] = bool(node.get_meta("is_closed", false))
+		# Subtrazados (agujeros / islas, regla par-impar)
+		var _subs = node.get("subpaths") if "subpaths" in node else []
+		if _subs is Array and not (_subs as Array).is_empty():
+			var sl: Array = []
+			for c in _subs:
+				if c is Curve2D:
+					var sp := PackedVector2Array()
+					var si := PackedVector2Array()
+					var so := PackedVector2Array()
+					for i in c.point_count:
+						sp.append(c.get_point_position(i))
+						si.append(c.get_point_in(i))
+						so.append(c.get_point_out(i))
+					sl.append({"pts": _pv2_to_arr(sp), "in": _pv2_to_arr(si), "out": _pv2_to_arr(so)})
+			base["subs"] = sl
 		if "fill_color" in node:
 			base["fill"] = _col(node.get("fill_color"))
 		if "stroke_color" in node:
@@ -655,6 +686,10 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 	var _flt = node.get_meta("filters", []) if node.has_meta("filters") else []
 	if _flt is Array and not (_flt as Array).is_empty():
 		d["filters"] = _enc_deep(_flt)
+	# SHADER del usuario (pestaña Shader): código + parámetros.
+	var _cs = node.get_meta("custom_shader", null) if node.has_meta("custom_shader") else null
+	if _cs is Dictionary and not (_cs as Dictionary).is_empty():
+		d["custom_shader"] = _enc_deep(_cs)
 
 
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
@@ -679,6 +714,9 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 			node.set_meta(mk, _dec_param(d["fx_meta"][mk]))
 	if d.get("filters") is Array and not (d["filters"] as Array).is_empty():
 		node.set_meta("filters", _dec_deep(d["filters"]))
+	if d.get("custom_shader") is Dictionary:
+		node.set_meta("custom_shader", _dec_deep(d["custom_shader"]))
+	if node.has_meta("filters") or node.has_meta("custom_shader"):
 		load("res://script_gdscript/shapes/filter_fx.gd").sync(node)
 
 
@@ -791,6 +829,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 			s.set("points_count", int(d.get("points_count", 5)))
 			s.set("inner_radius_ratio", float(d.get("inner_radius_ratio", 0.382)))
 			s.set("corner_radius", float(d.get("corner_radius", 0.0)))
+			s.set("inner_corner_radius", float(d.get("inner_corner_radius", -1.0)))
+			s.set("star_angle", float(d.get("star_angle", 0.0)))
 			_read_style(s, d)
 			s.name = d.get("name", "Estrella")
 			return s
@@ -808,6 +848,19 @@ static func _element_from(d: Dictionary) -> Node2D:
 			var p := VectorPolygon.new()
 			p.vertices = _arr_to_pv2(d.get("verts", []))
 			p.closed = d.get("closed", true)
+			for mk in ["shape_kind", "drop_radius", "drop_rotation", "drop_curvature"]:
+				if d.has("m_" + mk):
+					p.set_meta(mk, d["m_" + mk])
+			if bool(d.get("regular", false)):
+				p.set("poly_angle", float(d.get("poly_angle", 0.0)))
+				p.set("poly_aspect", float(d.get("poly_aspect", 1.0)))
+				p.radius = float(d.get("radius", 70.0))
+				p.corner_radius = float(d.get("corner_radius", 0.0))
+				p.sides = int(d.get("sides", 5))
+				p.is_regular = true
+			elif d.has("base_verts"):
+				p.base_vertices = _arr_to_pv2(d["base_verts"])
+				p.corner_radius = float(d.get("corner_radius", 0.0))
 			_read_style(p, d)
 			p.name = d.get("name", "Poligono")
 			return p
@@ -835,6 +888,17 @@ static func _element_from(d: Dictionary) -> Node2D:
 			if d.has("stroke"): vp.set("stroke_color", _to_col(d["stroke"]))
 			if d.has("stroke_w"): vp.set("stroke_width", float(d["stroke_w"]))
 			vp.set("closed", bool(d.get("path_closed", false)))
+			if d.get("subs") is Array:
+				var subs: Array[Curve2D] = []
+				for sd in d["subs"]:
+					var sc := Curve2D.new()
+					var sp := _arr_to_pv2(sd.get("pts", []))
+					var si := _arr_to_pv2(sd.get("in", []))
+					var so := _arr_to_pv2(sd.get("out", []))
+					for i in sp.size():
+						sc.add_point(sp[i], si[i] if i < si.size() else Vector2.ZERO, so[i] if i < so.size() else Vector2.ZERO)
+					subs.append(sc)
+				vp.set("subpaths", subs)
 			for k in _PATH_STROKE_KEYS:
 				if d.has(k):
 					var v = _arr_to_pv2(d[k]) if k == "stroke_profile" else d[k]

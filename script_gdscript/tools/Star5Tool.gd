@@ -148,6 +148,7 @@ func _spawn_shape(local_center: Vector2, radius_out: float, rotation_angle: floa
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 
 # ── Renderizado de Guías en Pantalla (Previsualización elástica) ──────────────

@@ -54,6 +54,29 @@ func get_undo_name() -> String:
 func get_redo_name() -> String:
 	return _undo_redo.get_redo_name()
 
+## Registra la creación de una figura YA añadida a la escena (una herramienta
+## de dibujo, un panel…): deshacer la quita, rehacer la vuelve a poner en el
+## mismo padre y posición. No ejecuta nada ahora.
+func record_create(node: Node, action_name: String = "") -> void:
+	if not is_instance_valid(node) or node.get_parent() == null:
+		return
+	var parent := node.get_parent()
+	var idx := node.get_index()
+	var owner_node := node.owner
+	register_action(action_name if not action_name.is_empty() else "Crear %s" % node.name)
+	add_do(func() -> void:
+		if is_instance_valid(parent) and is_instance_valid(node) and node.get_parent() == null:
+			parent.add_child(node)
+			parent.move_child(node, mini(idx, parent.get_child_count() - 1))
+			node.owner = owner_node)
+	add_undo(func() -> void:
+		if is_instance_valid(node) and node.get_parent() == parent:
+			var sm := get_node_or_null("/root/SelectionManager")
+			if sm and sm.has_method("is_selected") and sm.is_selected(node):
+				sm.deselect(node)
+			parent.remove_child(node))
+	commit()
+
 func clear() -> void:
 	_undo_redo.clear()
 

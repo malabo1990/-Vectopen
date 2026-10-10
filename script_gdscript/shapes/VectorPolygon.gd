@@ -1,6 +1,7 @@
 @tool
 extends VectorShape
 class_name VectorPolygon
+const CornerRound = preload("res://script_gdscript/shapes/corner_round.gd")
 
 @export var vertices: PackedVector2Array = []
 @export var closed: bool = true
@@ -20,6 +21,21 @@ class_name VectorPolygon
 @export var radius: float = 70.0:
 	set(v):
 		radius = maxf(1.0, v)
+		if is_regular:
+			_recalculate_regular_polygon()
+
+## Polígono regular: giro de la forma (°) y proporción ancho/alto (1 =
+## inscrito en un círculo). Con ellos el triángulo, el cuadrado o el rombo
+## son el MISMO polígono regular (3 / 4 lados, giro 45°, proporción…).
+@export var poly_angle: float = 0.0:
+	set(v):
+		poly_angle = v
+		if is_regular:
+			_recalculate_regular_polygon()
+
+@export var poly_aspect: float = 1.0:
+	set(v):
+		poly_aspect = clampf(v, 0.05, 20.0)
 		if is_regular:
 			_recalculate_regular_polygon()
 
@@ -49,9 +65,10 @@ func _init() -> void:
 func _recalculate_regular_polygon() -> void:
 	var raw_points := PackedVector2Array()
 	var total_vertices := maxi(3, sides)
+	var off := deg_to_rad(poly_angle) - PI / 2.0
 	for i in range(total_vertices):
-		var angle: float = i * (TAU / float(total_vertices)) - (PI / 2.0)
-		raw_points.append(Vector2(cos(angle), sin(angle)) * radius)
+		var angle: float = i * (TAU / float(total_vertices)) + off
+		raw_points.append(Vector2(cos(angle) * radius * poly_aspect, sin(angle) * radius))
 
 	if corner_radius > 0.05 and raw_points.size() >= 3:
 		vertices = _round_polygon_corners(raw_points, corner_radius)
@@ -62,28 +79,7 @@ func _recalculate_regular_polygon() -> void:
 	queue_redraw()
 
 func _round_polygon_corners(raw_points: PackedVector2Array, c_radius: float) -> PackedVector2Array:
-	var rounded := PackedVector2Array()
-	var n: int = raw_points.size()
-	for i in range(n):
-		var p_prev: Vector2 = raw_points[(i - 1 + n) % n]
-		var p_curr: Vector2 = raw_points[i]
-		var p_next: Vector2 = raw_points[(i + 1) % n]
-
-		var d_prev: float = p_curr.distance_to(p_prev)
-		var d_next: float = p_curr.distance_to(p_next)
-		var max_r: float = minf(d_prev, d_next) * 0.45
-		var r: float = clampf(c_radius, 0.0, max_r)
-
-		if r > 0.1:
-			var v_before: Vector2 = p_curr + (p_prev - p_curr).normalized() * r
-			var v_after: Vector2 = p_curr + (p_next - p_curr).normalized() * r
-			for step in range(5):
-				var t: float = float(step) / 4.0
-				var bz: Vector2 = (1.0 - t) * (1.0 - t) * v_before + 2.0 * (1.0 - t) * t * p_curr + t * t * v_after
-				rounded.append(bz)
-		else:
-			rounded.append(p_curr)
-	return rounded
+	return CornerRound.round(raw_points, PackedFloat32Array([c_radius]), 0.45)
 
 func get_effect_points() -> PackedVector2Array:
 	return vertices

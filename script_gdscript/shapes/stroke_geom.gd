@@ -140,6 +140,65 @@ static func _rail(m: Dictionary, pts: PackedVector2Array, closed: bool, width: f
 		var tick := PackedVector2Array([p - nrm, p + nrm])
 		_strip(m, tick, _const_half(2, line_w * 0.5), false, 0, 0)
 
+## Une el agujero `hole` al contorno `outer` por los vértices más cercanos
+## (puente de ida y vuelta): un polígono simple que se puede triangular.
+static func bridge(outer: PackedVector2Array, hole_in: PackedVector2Array) -> PackedVector2Array:
+	# El agujero se recorre en sentido CONTRARIO al contorno: si no, el
+	# polígono puenteado no se puede triangular (y no se dibujaba nada).
+	var hole := hole_in
+	if Geometry2D.is_polygon_clockwise(hole) == Geometry2D.is_polygon_clockwise(outer):
+		hole = hole_in.duplicate()
+		hole.reverse()
+	var bi := 0
+	var bj := 0
+	var bd := INF
+	for i in outer.size():
+		for j in range(0, hole.size(), maxi(1, hole.size() / 64)):
+			var dd := outer[i].distance_squared_to(hole[j])
+			if dd < bd:
+				bd = dd
+				bi = i
+				bj = j
+	var res := PackedVector2Array()
+	for i in range(bi + 1):
+		res.append(outer[i])
+	for k in range(hole.size() + 1):
+		res.append(hole[(bj + k) % hole.size()])
+	for i in range(bi, outer.size()):
+		res.append(outer[i])
+	return res
+
+## Anillos (polígonos cerrados) → polígonos simples rellenables con la regla
+## PAR-IMPAR: profundidad de anidamiento par = relleno, impar = agujero.
+static func evenodd_fill(rings: Array) -> Array:
+	var n := rings.size()
+	var depth := PackedInt32Array()
+	depth.resize(n)
+	for i in n:
+		var r: PackedVector2Array = rings[i]
+		if r.size() < 3:
+			depth[i] = -1
+			continue
+		var d := 0
+		for j in n:
+			if i != j and (rings[j] as PackedVector2Array).size() >= 3 \
+					and Geometry2D.is_point_in_polygon(r[0], rings[j]):
+				d += 1
+		depth[i] = d
+	var out: Array = []
+	for i in n:
+		if depth[i] < 0 or depth[i] % 2 == 1:
+			continue
+		var poly: PackedVector2Array = rings[i]
+		for j in n:
+			if depth[j] == depth[i] + 1 and Geometry2D.is_point_in_polygon((rings[j] as PackedVector2Array)[0], rings[i]):
+				poly = bridge(poly, rings[j])
+		if not Geometry2D.triangulate_polygon(poly).is_empty():
+			out.append(poly)
+		else:
+			out.append_array(Geometry2D.decompose_polygon_in_convex(poly))
+	return out
+
 ## Quita los micro-tramos (más cortos que `tol`) y los "picos" que vuelven
 ## hacia atrás. Un clic con un temblor del ratón deja manejadores de 2–3 px
 ## en una esquina: la curva hace ahí un bucle diminuto que, al engordarlo,

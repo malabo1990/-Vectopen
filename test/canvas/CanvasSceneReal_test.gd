@@ -22,8 +22,10 @@ func test_escena_real_titulo_artboard_funcional() -> void:
 	var label := artboard.get_node_or_null("ArtboardTitle") as Control
 	assert_object(label).is_not_null()
 	assert_that(label.text).is_equal("Artboard")
-	assert_that(label.scale).is_equal(Vector2.ONE)
-	assert_that(label.position).is_equal(Vector2(0, -20))
+	# Tamaño FIJO EN PANTALLA (como Figma): escala = 1/zoom, 22 px encima.
+	var zoom: float = label.get_viewport().get_canvas_transform().get_scale().x
+	assert_float(label.scale.x * zoom).is_equal_approx(1.0, 0.001)
+	assert_float(label.position.y * zoom).is_equal_approx(-22.0, 0.01)
 	assert_that(label.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
 	assert_that(label.gui_input.is_connected(Callable(artboard, "_on_title_gui_input"))).is_true()
 
@@ -38,8 +40,6 @@ func test_escena_real_zoom_maximo_no_deforma_artboard() -> void:
 
 	var size_antes: Vector2 = artboard.artboard_size
 	var scale_artboard_antes := artboard.scale
-	var label_world_antes: Vector2 = label.size * label.scale  # rect en MUNDO
-	var label_pos_antes := label.position
 
 	var p := Vector2(400, 300)
 	for i in 30:
@@ -49,11 +49,13 @@ func test_escena_real_zoom_maximo_no_deforma_artboard() -> void:
 	assert_that(cam.zoom.x).is_greater(1000.0)
 	assert_that(artboard.scale).is_equal(Vector2.ONE)
 	assert_that(artboard.artboard_size).is_equal(size_antes)
-	# El título es WorldTextLabel: su scale local cambia (compensación de
-	# re-rasterizado) pero su RECT EN MUNDO debe mantenerse constante.
-	var label_world_final: Vector2 = label.size * label.scale
-	assert_that(label_world_final.distance_to(label_world_antes)).is_less(24.0)
-	assert_that(label.position).is_equal(label_pos_antes)
+	# El título mantiene su tamaño EN PANTALLA (escala = 1/zoom) y no se
+	# deforma: escala uniforme y siempre 22 px de pantalla sobre el artboard.
+	var zoom: float = label.get_viewport().get_canvas_transform().get_scale().x
+	assert_float(label.scale.x).is_equal_approx(label.scale.y, 1e-9)
+	assert_float(label.scale.x * zoom).is_equal_approx(1.0, 0.001)
+	assert_float(label.position.y * zoom).is_equal_approx(-22.0, 0.01)
+	assert_float(label.position.x).is_equal(0.0)
 
 func test_escena_real_drag_artboard_funciona() -> void:
 	var scene := _instanciar_canvas()

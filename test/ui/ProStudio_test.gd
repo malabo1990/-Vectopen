@@ -24,16 +24,14 @@ func test_pro_studio_color_swatches_and_modes() -> void:
 	assert_object(studio._swatch_fill).is_not_null()
 	assert_object(studio._swatch_stroke).is_not_null()
 
-	# Cambio de modo RGB a HSL
-	studio._toggle_color_mode(true)
-	assert_bool(studio._is_hsl_mode).is_true()
-	assert_that(studio._lbl_c1.text).is_equal("H")
-	assert_float(studio._slider_c1.max_value).is_equal(360.0)
-
-	studio._toggle_color_mode(false)
-	assert_bool(studio._is_hsl_mode).is_false()
-	assert_that(studio._lbl_c1.text).is_equal("R")
-	assert_float(studio._slider_c1.max_value).is_equal(255.0)
+	# Desde 2026-09-27 el color se edita con el selector compartido
+	# (pickr_color_tool.tscn) dentro de la página, no con deslizadores RGB/HSL.
+	assert_object(studio._pickr_instance).is_not_null()
+	assert_bool(studio._pickr_instance.get_parent() == studio._sec_color).is_true()
+	studio._set_color_target("stroke")
+	assert_str(studio._active_color_target).is_equal("stroke")
+	studio._set_color_target("fill")
+	assert_str(studio._active_color_target).is_equal("fill")
 
 func test_pro_studio_stroke_and_transform_controls() -> void:
 	var studio = auto_free(ProStudioScript.new())
@@ -101,7 +99,7 @@ func test_pro_studio_typography_and_effects() -> void:
 	assert_object(studio._chk_outline).is_not_null()
 	assert_object(studio._chk_color_overlay).is_not_null()
 
-func test_pro_studio_rotation_clock_and_gradients() -> void:
+func test_pro_studio_rotation_clock() -> void:
 	var studio = auto_free(ProStudioScript.new())
 	add_child(studio)
 	await get_tree().process_frame
@@ -112,16 +110,6 @@ func test_pro_studio_rotation_clock_and_gradients() -> void:
 	studio._clock_rot.angle_changed.emit(45.0)
 	assert_float(studio._spin_rot.value).is_equal(45.0)
 
-	# Modos de gradiente y forma
-	assert_object(studio._btn_grad_solid).is_not_null()
-	assert_object(studio._btn_grad_linear).is_not_null()
-	assert_object(studio._btn_grad_radial).is_not_null()
-	studio._set_gradient_mode("linear")
-
-	assert_object(studio._btn_shape_circle).is_not_null()
-	assert_object(studio._btn_shape_triangle).is_not_null()
-	assert_object(studio._btn_shape_square).is_not_null()
-	studio._set_picker_shape(0)
 
 func test_pro_studio_adapts_to_light_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
@@ -141,20 +129,6 @@ func test_pro_studio_adapts_to_light_theme() -> void:
 
 	# Restaurar modo previo
 	tm.set_mode(prev_mode)
-
-func test_pro_studio_color_popover_open_and_close() -> void:
-	var studio = auto_free(ProStudioScript.new())
-	add_child(studio)
-	await get_tree().process_frame
-
-	assert_object(studio._btn_open_picker).is_not_null()
-	studio._open_color_popover("fill", studio._swatch_fill)
-	assert_object(studio._color_popover).is_not_null()
-	assert_bool(studio._color_popover.visible).is_true()
-
-	# Cierra al volver a solicitar la misma acción o con el botón
-	studio._open_color_popover("fill", studio._swatch_fill)
-	assert_bool(studio._color_popover.visible).is_false()
 
 func test_pro_studio_ref_point_neutral_styling() -> void:
 	var studio = auto_free(ProStudioScript.new())
@@ -186,8 +160,6 @@ func test_pro_studio_rebuilds_with_theme_colors() -> void:
 	var idle_btn: Button = studio._ref_points[0]
 	var sb: StyleBoxFlat = idle_btn.get_theme_stylebox("normal")
 	assert_that(sb.bg_color.is_equal_approx(tm.get_color(tm.Slot.INPUT_BG))).is_true()
-	var track: StyleBoxFlat = studio._slider_c1.get_theme_stylebox("slider")
-	assert_that(track.bg_color.is_equal_approx(tm.get_color(tm.Slot.INPUT_BG))).is_true()
 	tm.set_mode(prev_mode)
 
 func test_pro_studio_text_align_uses_core_modes() -> void:

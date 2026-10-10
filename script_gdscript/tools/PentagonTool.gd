@@ -90,14 +90,18 @@ func _calculate_geometry() -> Dictionary:
 # Generador matemático de los vértices de un polígono regular por CPU
 func _generate_pentagon_points(center: Vector2, radius: float, rotation_angle: float) -> PackedVector2Array:
 	var points = PackedVector2Array()
-	var total_vertices: int = maxi(3, sides_count)
-	
+	var total_vertices: int = _sides()
+	var off := deg_to_rad(float(PanelPolygon.setting("poly_angle", 0.0))) + rotation_angle
+	var aspect := float(PanelPolygon.setting("poly_aspect", 1.0))
 	for i in range(total_vertices):
 		# Dividimos los 360° en total_vertices partes. Restamos PI/2 para apuntar hacia arriba.
-		var angle: float = i * (PI * 2.0 / total_vertices) - (PI / 2.0) + rotation_angle
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
-		
+		var angle: float = i * (PI * 2.0 / total_vertices) - (PI / 2.0) + off
+		points.append(center + Vector2(cos(angle) * aspect, sin(angle)) * radius)
 	return points
+
+## Lados: los del panel de Polígonos (o `sides_count` sin panel).
+func _sides() -> int:
+	return maxi(3, int(PanelPolygon.setting("sides", sides_count)))
 
 
 func _finalize_pentagon() -> void:
@@ -119,11 +123,18 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 
 	print("[PentagonTool]: Instanciando VectorPolygon en el Artboard...")
 
+	# Polígono REGULAR paramétrico (lados, giro, proporción y redondeo del
+	# panel): sigue siendo editable desde el panel después de dibujarlo.
 	var new_shape = VectorPolygon.new()
-	var shape_label: String = "Pentágono" if sides_count == 5 else ("Polígono %dP" % sides_count)
-	new_shape.name = NameUtils.unique_child_name(artboard, shape_label)
+	var sides := _sides()
+	new_shape.name = NameUtils.unique_child_name(artboard, PanelPolygon._poly_name(sides))
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
-	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_pentagon_points(Vector2.ZERO, radius, rotation_angle)))
+	new_shape.radius = radius
+	new_shape.poly_angle = float(PanelPolygon.setting("poly_angle", 0.0)) + rad_to_deg(rotation_angle)
+	new_shape.poly_aspect = float(PanelPolygon.setting("poly_aspect", 1.0))
+	new_shape.corner_radius = float(PanelPolygon.setting("corner_radius", 0.0))
+	new_shape.sides = sides
+	new_shape.is_regular = true
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH
@@ -131,6 +142,7 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 
 # ── Renderizado de Guías en Pantalla (Previsualización elástica) ──────────────

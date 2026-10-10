@@ -726,6 +726,9 @@ func _draw() -> void:
 	# El redibujado de herramientas se procesa en _tool_overlay (z_index=4096)
 	# para que los nodos, tiradores Bézier y contornos nunca queden cubiertos
 	# por el relleno opaco de las figuras ni por los artboards hijos.
+	# Las regiones sucias ya se han consumido con este redibujado: si no se
+	# vacían, crecen sin fin durante toda la sesión.
+	_dirty_regions.clear()
 	var ov := _get_tool_overlay()
 	if is_instance_valid(ov):
 		ov.queue_redraw()

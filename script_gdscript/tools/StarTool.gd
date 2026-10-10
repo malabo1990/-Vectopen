@@ -7,6 +7,7 @@ extends ToolBase
 
 func activate() -> void:
 	super()
+	_pull_settings()
 	print("\n[StarTool]: Herramienta ACTIVADA (Paramétrica).")
 
 func deactivate() -> void:
@@ -91,11 +92,14 @@ func _spawn_shape(local_center: Vector2, radius_out: float, rotation_angle: floa
 	if not artboard:
 		return
 
+	_pull_settings()
 	var new_shape := VectorStar.new()
 	new_shape.name = NameUtils.unique_child_name(artboard, "Estrella")
 	new_shape.points_count = points_count
 	new_shape.inner_radius_ratio = inner_radius_ratio
 	new_shape.corner_radius = corner_radius
+	new_shape.inner_corner_radius = float(PanelPolygon.setting("inner_corner_radius", -1.0))
+	new_shape.star_angle = float(PanelPolygon.setting("star_angle", 0.0))
 	new_shape.size = Vector2(radius_out * 2.0, radius_out * 2.0)
 	new_shape.rotation = rotation_angle
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
@@ -106,6 +110,7 @@ func _spawn_shape(local_center: Vector2, radius_out: float, rotation_angle: floa
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 func draw_preview(c: Node2D) -> void:
 	if not is_drawing or not is_instance_valid(c):
@@ -133,3 +138,9 @@ func draw_preview(c: Node2D) -> void:
 		if current_scale <= 0.001: current_scale = 1.0
 		var line_width: float = clampf(1.2 / current_scale, 0.6, 3.0)
 		c.draw_polyline(stroke_preview, COLOR_PREVIEW_S, line_width, true)
+
+## Puntas, profundidad y redondeo del panel de Polígonos.
+func _pull_settings() -> void:
+	points_count = maxi(3, int(PanelPolygon.setting("points_count", points_count)))
+	inner_radius_ratio = float(PanelPolygon.setting("inner_radius_ratio", inner_radius_ratio))
+	corner_radius = float(PanelPolygon.setting("star_radius", corner_radius))

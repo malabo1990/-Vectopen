@@ -68,13 +68,25 @@ var _glass_dirty := true
 var _glass_xf := Transform2D()
 var _polys_ref = null
 
+# ── SHADER DEL USUARIO (pestaña Shader) ──────────────────────────────────────
+# Capa opcional por encima de los filtros: host → [shader del usuario] →
+# [filtros] → objeto. Meta "custom_shader" = {name, code, params, margin,
+# enabled}. El código es un canvas_item de Godot que lee el render del objeto
+# con un sampler hint_screen_texture (como los filtros).
+var _cgroup := RID()
+var _cmat: ShaderMaterial = null
+var _ccode := ""
+var _cs_ref = null
+var _cmargin := -1.0
+static var _shader_cache: Dictionary = {}   # código -> Shader
+
 # ── API ─────────────────────────────────────────────────────────────────────
 ## Crea / actualiza / quita los filtros del objeto según su meta "filters".
 static func sync(s: Node) -> void:
 	if not (s is CanvasItem) or not is_instance_valid(s):
 		return
 	var node = s.get_node_or_null(NAME)
-	if enabled_filters(s).is_empty():
+	if enabled_filters(s).is_empty() and get_custom(s).is_empty():
 		if node:
 			node.uninstall()
 			# Fuera del árbol YA (ver TextFx.sync): un sync en el mismo frame no
@@ -111,6 +123,23 @@ static func make(t: String) -> Dictionary:
 static func get_filters(s: Node) -> Array:
 	var raw = s.get_meta("filters", []) if s.has_meta("filters") else []
 	return raw if raw is Array else []
+
+## Shader del usuario activo ({} si no hay o está desactivado).
+static func get_custom(s: Node) -> Dictionary:
+	var c = s.get_meta("custom_shader", null) if s.has_meta("custom_shader") else null
+	if c is Dictionary and bool(c.get("enabled", true)) and String(c.get("code", "")).strip_edges() != "":
+		return c
+	return {}
+
+static func shader_for(code: String) -> Shader:
+	if _shader_cache.has(code):
+		return _shader_cache[code]
+	if _shader_cache.size() > 64:
+		_shader_cache.clear()
+	var sh := Shader.new()
+	sh.code = code
+	_shader_cache[code] = sh
+	return sh
 
 static func enabled_filters(s: Node) -> Array:
 	var out: Array = []
@@ -150,10 +179,12 @@ func refresh(force: bool) -> void:
 	if not is_instance_valid(shape) or not shape.is_inside_tree():
 		return
 	var raw = shape.get_meta("filters") if shape.has_meta("filters") else null
-	if force or not is_same(raw, _fx_ref):
+	var craw = shape.get_meta("custom_shader") if shape.has_meta("custom_shader") else null
+	if force or not is_same(raw, _fx_ref) or not is_same(craw, _cs_ref):
 		_fx_ref = raw
+		_cs_ref = craw
 		var list := enabled_filters(shape)
-		var sig := var_to_str(list)
+		var sig := var_to_str(list) + "|" + var_to_str(get_custom(shape))
 		if force or sig != _sig:
 			_sig = sig
 			_active.clear()
@@ -227,12 +258,14 @@ func uninstall() -> void:
 	if is_instance_valid(shape) and shape.is_inside_tree():
 		RenderingServer.canvas_item_set_parent(shape.get_canvas_item(), _parent_rid())
 		RenderingServer.canvas_item_set_draw_index(shape.get_canvas_item(), shape.get_index())
-	for r in [_glass, _group, _host]:
+	for r in [_glass, _group, _cgroup, _host]:
 		if r.is_valid():
 			RenderingServer.free_rid(r)
 	_glass = RID()
 	_group = RID()
+	_cgroup = RID()
 	_host = RID()
+	_cmargin = -1.0
 	_idx = -1
 	_margin = -1.0
 
@@ -268,14 +301,40 @@ func _layout() -> void:
 			_mat.shader = load(FX_SHADER)
 		RenderingServer.canvas_item_set_material(_group, _mat.get_rid())
 		_margin = -1.0
-	var target := _group if need_group else _host
+	# Shader del usuario: grupo propio entre el host y los filtros.
+	var need_custom := not get_custom(shape).is_empty()
+	if need_custom and not _cgroup.is_valid():
+		_cgroup = RenderingServer.canvas_item_create()
+		RenderingServer.canvas_item_set_parent(_cgroup, _host)
+		if _cmat == null:
+			_cmat = ShaderMaterial.new()
+		RenderingServer.canvas_item_set_material(_cgroup, _cmat.get_rid())
+		_cmargin = -1.0
+	var outer := _cgroup if need_custom else _host
+	if _group.is_valid():
+		RenderingServer.canvas_item_set_parent(_group, outer)
+	var target := _group if need_group else outer
 	RenderingServer.canvas_item_set_parent(shape.get_canvas_item(), target)
 	if not need_group and _group.is_valid():
 		RenderingServer.free_rid(_group)
 		_group = RID()
+	if not need_custom and _cgroup.is_valid():
+		RenderingServer.free_rid(_cgroup)
+		_cgroup = RID()
+		_ccode = ""
 
 # ── parámetros ──────────────────────────────────────────────────────────────
 func _apply_params() -> void:
+	var cs := get_custom(shape) if is_instance_valid(shape) else {}
+	if _cmat and not cs.is_empty():
+		var code := String(cs.get("code", ""))
+		if code != _ccode:
+			_ccode = code
+			_cmat.shader = shader_for(code)
+		var params = cs.get("params", {})
+		if params is Dictionary:
+			for k in params:
+				_cmat.set_shader_parameter(String(k), params[k])
 	if _mat:
 		var m := _mat
 		var on := func(t: String) -> bool: return _active.has(t)
@@ -341,6 +400,22 @@ func _needed_margin_local() -> float:
 
 func _update_transform_uniforms() -> void:
 	var zoom := _l2s.get_scale().abs().x
+	if _cmat and _cgroup.is_valid():
+		# Uniformes de ayuda (si el shader los declara): pantalla <-> local
+		# del objeto y zoom, como los filtros.
+		var inv0 := _l2s.affine_inverse()
+		_cmat.set_shader_parameter("u_l2s_x", _l2s.x)
+		_cmat.set_shader_parameter("u_l2s_y", _l2s.y)
+		_cmat.set_shader_parameter("u_l2s_o", _l2s.origin)
+		_cmat.set_shader_parameter("u_s2l_x", inv0.x)
+		_cmat.set_shader_parameter("u_s2l_y", inv0.y)
+		_cmat.set_shader_parameter("u_s2l_o", inv0.origin)
+		_cmat.set_shader_parameter("u_zoom", zoom)
+		var cm := ceilf(float(get_custom(shape).get("margin", 0.0)) * zoom) + 2.0
+		if not is_equal_approx(cm, _cmargin):
+			_cmargin = cm
+			RenderingServer.canvas_item_set_canvas_group_mode(_cgroup,
+				RenderingServer.CANVAS_GROUP_MODE_TRANSPARENT, cm, true, cm, false)
 	if _mat:
 		var inv := _l2s.affine_inverse()
 		_mat.set_shader_parameter("u_l2s_x", _l2s.x)

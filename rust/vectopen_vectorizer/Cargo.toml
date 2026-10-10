@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 godot = { version = "0.5", features = ["api-4-7"] }
 vtracer = "0.6.5"
+visioncortex = "0.8"
 ort = "2.0.0-rc.13"
 ndarray = "0.17"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }

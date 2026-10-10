@@ -1249,7 +1249,13 @@ func _obtener_rect_global(node: Node2D) -> Rect2:
 		sz.x = maxf(sz.x, 2.0)
 		sz.y = maxf(sz.y, 2.0)
 		return Rect2(min_p - Vector2(1, 1), sz + Vector2(2, 2))
-	if node is VectorShape:
+	if node is VectorShape and node.get_doc_extent() == null and "vertices" in node and not (node.vertices as PackedVector2Array).is_empty():
+		# Polígono regular paramétrico: sin extent de documento, se mide por sus vértices.
+		var vr := Rect2(node.to_global(node.vertices[0]), Vector2.ZERO)
+		for v in node.vertices:
+			vr = vr.expand(node.to_global(v))
+		return vr.grow(1.0)
+	if node is VectorShape and node.get_doc_extent() != null:
 		var ext_v2: Vector2 = node.get_doc_extent().to_v2()
 		var p_min := node.global_position - ext_v2 * 0.5
 		var sz := Vector2(maxf(ext_v2.x, 2.0), maxf(ext_v2.y, 2.0))

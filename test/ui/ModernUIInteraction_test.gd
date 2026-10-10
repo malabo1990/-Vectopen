@@ -62,9 +62,9 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(inner_panel.offset_left).is_equal(0.0)
 	assert_that(inner_panel.anchor_left).is_equal(0.0)
 
-	# 6. Herramientas verticales dentro de Layout deben estar ocultas en Modern
+	# 6. Herramientas verticales: visibles en Modern (acopladas a la izquierda)
 	var vert_tools = inner_panel.find_child("Herramientas", true, false) as Control
-	assert_that(vert_tools.visible).is_false()
+	assert_that(vert_tools.visible).is_true()
 
 	# 7. Capas en modo moderno: sin radios las esquinas (corner_radius = 0)
 	var inner_sb = inner_panel.get_theme_stylebox("panel") as StyleBoxFlat

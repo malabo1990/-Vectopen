@@ -133,12 +133,18 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 	new_shape.name = NameUtils.unique_child_name(artboard, "Rectángulo")
 	new_shape.set_doc_position(DVec2.from_v2(local_pos + size / 2.0))
 	new_shape.set_doc_extent(DVec2.from_v2(size))
+	# Redondeo del panel de Polígonos (radio único o 4 esquinas).
+	new_shape.corner_radius = float(PanelPolygon.setting("rect_radius", 0.0))
+	if bool(PanelPolygon.setting("independent", false)):
+		new_shape.set_corner_radii(Vector4(float(PanelPolygon.setting("corner_tl", 0.0)), float(PanelPolygon.setting("corner_tr", 0.0)),
+			float(PanelPolygon.setting("corner_br", 0.0)), float(PanelPolygon.setting("corner_bl", 0.0))))
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	_commit_new_shape(new_shape)
 
 	print("Crear Rectangulo - VectorRectangle [Pos: ", new_shape.position, " Size: ", size, "]")
 

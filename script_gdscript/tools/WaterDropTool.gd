@@ -90,7 +90,16 @@ func _quad_bezier(p0: Vector2, p1: Vector2, p2: Vector2, t: float) -> Vector2:
 
 # ── Generador de Puntos — Réplica exacta de SVG Nativo ────────────────────────
 
-func _generate_drop_points(center: Vector2, radius: float, rotation_angle: float) -> PackedVector2Array:
+## Contorno de la gota (sistema local: origen = centro del arco).
+## `curvature` 0..1: 0 = lados rectos (punta muy afilada), 0.5 = la gota
+## original del SVG, 1 = lados muy curvos.
+static func drop_points(radius: float, rotation_angle: float = 0.0, curvature: float = 0.5) -> PackedVector2Array:
+	var t := new()
+	var pts: PackedVector2Array = t._generate_drop_points(Vector2.ZERO, radius, rotation_angle, curvature)
+	t.free()
+	return pts
+
+func _generate_drop_points(center: Vector2, radius: float, rotation_angle: float, curvature: float = 0.5) -> PackedVector2Array:
 	var puntos := PackedVector2Array()
 	var r: float = radius
 
@@ -100,8 +109,12 @@ func _generate_drop_points(center: Vector2, radius: float, rotation_angle: float
 	var p_left: Vector2 = Vector2(-0.781250 * r, -0.624218 * r)
 
 	# Controles de las curvas Q
-	var qc_r: Vector2 = Vector2(0.117188 * r, -1.499218 * r)
-	var qc_l: Vector2 = Vector2(-0.117188 * r, -1.499218 * r)
+	# Control de las curvas laterales según la curvatura (0.5 = el original).
+	var c := clampf(curvature, 0.0, 1.0)
+	var qx := lerpf(0.0, 0.117188, c * 2.0) if c <= 0.5 else lerpf(0.117188, 0.6, (c - 0.5) * 2.0)
+	var qy := -1.499218 if c <= 0.5 else lerpf(-1.499218, -1.2, (c - 0.5) * 2.0)
+	var qc_r: Vector2 = Vector2(qx * r, qy * r)
+	var qc_l: Vector2 = Vector2(-qc_r.x, qc_r.y)
 
 	# ── Segmento 1: Q derecha — tip → p_right
 	var segs_q: int = 48
@@ -149,9 +162,15 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 	print("[WaterDropTool]: Instanciando VectorPolygon en el Artboard...")
 
 	var new_shape = VectorPolygon.new()
-	new_shape.name = "Gota_Agua_SVG"
+	new_shape.name = NameUtils.unique_child_name(artboard, "Gota")
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
-	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_drop_points(Vector2.ZERO, radius, rotation_angle)))
+	var curv := float(PanelPolygon.setting("drop_curvature", 0.5))
+	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_drop_points(Vector2.ZERO, radius, rotation_angle, curv)))
+	# Paramétrica: el panel de Polígonos cambia la curvatura de la cola.
+	new_shape.set_meta("shape_kind", "drop")
+	new_shape.set_meta("drop_radius", radius)
+	new_shape.set_meta("drop_rotation", rotation_angle)
+	new_shape.set_meta("drop_curvature", curv)
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH
@@ -159,6 +178,13 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
+	# Con deshacer y seleccionada (antes no se podía deshacer).
+	var hm = Engine.get_main_loop().root.get_node_or_null("HistoryManager") if Engine.get_main_loop() else null
+	if hm and hm.has_method("record_create"):
+		hm.record_create(new_shape)
+	var sm = Engine.get_main_loop().root.get_node_or_null("SelectionManager") if Engine.get_main_loop() else null
+	if sm and sm.has_method("set_selection"):
+		sm.set_selection([new_shape])
 
 
 # ── Preview Elástico ──────────────────────────────────────────────────────────
@@ -170,7 +196,7 @@ func draw_preview(c: Node2D) -> void:
 	var geom: Dictionary = _calculate_geometry()
 	var local_center: Vector2 = c.to_local(geom["center"])
 	var pts: PackedVector2Array = _generate_drop_points(
-		local_center, geom["radius"], geom["rotation"]
+		local_center, geom["radius"], geom["rotation"], float(PanelPolygon.setting("drop_curvature", 0.5))
 	)
 
 	c.draw_colored_polygon(pts, COLOR_PREVIEW_F)

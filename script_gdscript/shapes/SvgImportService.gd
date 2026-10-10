@@ -64,11 +64,29 @@ static func build_from_svg(svg_text: String, parent: Node) -> Array[Path2D]:
 	for path_data in SvgPathParser.parse_document(svg_text):
 		var fill: Color = path_data.fill
 		var translate: Vector2 = path_data.translate
+		# UN VectorPath por <path>: el primer subtrazado es la curva y el resto
+		# van a `subpaths` (par-impar), así los agujeros quedan huecos.
+		var vp: Path2D = null
+		var extra: Array[Curve2D] = []
 		for sub in path_data.subpaths:
-			var vp := _build_vector_path(sub, fill, translate, parent)
-			if vp:
-				created.append(vp)
+			if vp == null:
+				vp = _build_vector_path(sub, fill, translate, parent)
+			elif (sub.anchors as PackedVector2Array).size() >= 2:
+				extra.append(_curve_of(sub))
+		if vp:
+			if not extra.is_empty():
+				vp.set("subpaths", extra)
+			created.append(vp)
 	return created
+
+static func _curve_of(sub: Dictionary) -> Curve2D:
+	var c := Curve2D.new()
+	var anchors: PackedVector2Array = sub.anchors
+	var ins: PackedVector2Array = sub.ins
+	var outs: PackedVector2Array = sub.outs
+	for i in anchors.size():
+		c.add_point(anchors[i], ins[i], outs[i])
+	return c
 
 static func _build_vector_path(sub: Dictionary, fill: Color, translate: Vector2, parent: Node) -> Path2D:
 	var anchors: PackedVector2Array = sub.anchors

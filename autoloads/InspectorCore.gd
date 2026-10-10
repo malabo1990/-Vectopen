@@ -42,9 +42,9 @@ const PROPS := [
 	"stroke_profile", "stroke_pointer_scale",
 	"stroke_dash_len", "stroke_dash_gap",
 	"letter_proportions", "letter_wave", "letter_tracking_ramp",
-	"effects", "filters",
+	"effects", "filters", "custom_shader",
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
-	"sides", "is_regular",
+	"sides", "is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle", "drop_curvature",
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
 ]
 
@@ -293,6 +293,9 @@ func _read(shape, prop):
 			return []
 		"filters":
 			return FilterFx.get_filters(shape).duplicate(true)
+		"custom_shader":
+			var cs = shape.get_meta("custom_shader", {}) if shape.has_meta("custom_shader") else {}
+			return (cs as Dictionary).duplicate(true) if cs is Dictionary else {}
 		"shape_mode":
 			if "shape_mode" in shape: return String(shape.shape_mode)
 			return null
@@ -313,6 +316,12 @@ func _read(shape, prop):
 			return null
 		"is_regular":
 			if "is_regular" in shape: return bool(shape.is_regular)
+		"poly_angle", "poly_aspect", "inner_corner_radius", "star_angle":
+			if prop in shape: return float(shape.get(prop))
+			return null
+		"drop_curvature":
+			if shape.has_meta("drop_curvature"): return float(shape.get_meta("drop_curvature"))
+			return null
 			return null
 		"model_path":
 			if "model_path" in shape: return String(shape.model_path)
@@ -874,6 +883,13 @@ func _write_prop(shape, prop, value) -> void:
 			shape.set_meta("effects", eff_arr.duplicate(true))
 			if _is_text(shape) or shape is Line2D:
 				TextFx.sync(shape)   # textos y trazos de pincel: su propio nodo de efectos
+		"custom_shader":
+			# Pestaña Shader: shader del usuario (meta + motor de filtros).
+			if value is Dictionary and not (value as Dictionary).is_empty():
+				shape.set_meta("custom_shader", (value as Dictionary).duplicate(true))
+			elif shape.has_meta("custom_shader"):
+				shape.remove_meta("custom_shader")
+			FilterFx.sync(shape)
 		"filters":
 			# Pestaña Filtros: meta en cualquier objeto + su nodo de render.
 			var flt: Array = value if value is Array else []
@@ -895,6 +911,17 @@ func _write_prop(shape, prop, value) -> void:
 				shape.sides = maxi(3, int(value))
 		"is_regular":
 			if "is_regular" in shape: shape.is_regular = bool(value)
+		"poly_angle", "poly_aspect", "inner_corner_radius", "star_angle":
+			if prop in shape: shape.set(prop, float(value))
+		"drop_curvature":
+			# Gota paramétrica: se regenera su contorno con la curvatura nueva.
+			if shape.has_meta("drop_radius") and shape.has_method("set_doc_vertices"):
+				var c := clampf(float(value), 0.0, 1.0)
+				shape.set_meta("drop_curvature", c)
+				var pts: PackedVector2Array = load("res://script_gdscript/tools/WaterDropTool.gd").drop_points(
+					float(shape.get_meta("drop_radius")), float(shape.get_meta("drop_rotation", 0.0)), c)
+				shape.set_doc_vertices(DVec2.array_from_v2(pts))
+				shape.queue_redraw()
 		"model_path":
 			if "model_path" in shape:
 				shape.model_path = String(value)

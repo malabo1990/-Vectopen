@@ -1,6 +1,7 @@
 @tool
 extends VectorShape
 class_name VectorStar
+const CornerRound = preload("res://script_gdscript/shapes/corner_round.gd")
 
 @export var size: Vector2 = Vector2(100, 100):
 	set(v):
@@ -23,6 +24,21 @@ class_name VectorStar
 @export var corner_radius: float = 0.0:
 	set(v):
 		corner_radius = maxf(0.0, v)
+		_verts_cache.clear()
+		queue_redraw()
+
+## Redondeo de los VALLES (vértices interiores); -1 = el mismo que el de las
+## puntas (corner_radius). Puntas afiladas + valles redondos = "flor", etc.
+@export var inner_corner_radius: float = -1.0:
+	set(v):
+		inner_corner_radius = v
+		_verts_cache.clear()
+		queue_redraw()
+
+## Giro de la estrella (°): 0 = una punta arriba.
+@export var star_angle: float = 0.0:
+	set(v):
+		star_angle = v
 		_verts_cache.clear()
 		queue_redraw()
 
@@ -71,40 +87,23 @@ func _generate_vertices_for_size(target_size: Vector2) -> PackedVector2Array:
 	var half: Vector2 = target_size / 2.0
 	var total_pts: int = points_count * 2
 
+	var off := deg_to_rad(star_angle) - PI / 2.0
 	for i in range(total_pts):
-		var angle: float = i * (TAU / float(total_pts)) - (PI / 2.0)
+		var angle: float = i * (TAU / float(total_pts)) + off
 		var r_ratio: float = 1.0 if (i % 2 == 0) else inner_radius_ratio
 		var pt: Vector2 = Vector2(cos(angle) * half.x * r_ratio, sin(angle) * half.y * r_ratio)
 		raw_points.append(pt)
 
-	if corner_radius <= 0.001 or raw_points.size() < 3:
+	var inner_r := corner_radius if inner_corner_radius < 0.0 else inner_corner_radius
+	if (corner_radius <= 0.001 and inner_r <= 0.001) or raw_points.size() < 3:
 		return raw_points
+	# Puntas (pares) y valles (impares) con su propio radio; curvas adaptativas.
+	var radii := PackedFloat32Array()
+	radii.resize(total_pts)
+	for i in total_pts:
+		radii[i] = corner_radius if i % 2 == 0 else inner_r
+	return CornerRound.round(raw_points, radii, 0.4)
 
-	# Redondeo suave de esquinas
-	var rounded: PackedVector2Array = PackedVector2Array()
-	var n: int = raw_points.size()
-	for i in range(n):
-		var p_prev: Vector2 = raw_points[(i - 1 + n) % n]
-		var p_curr: Vector2 = raw_points[i]
-		var p_next: Vector2 = raw_points[(i + 1) % n]
-
-		var d_prev: float = p_curr.distance_to(p_prev)
-		var d_next: float = p_curr.distance_to(p_next)
-		var max_r: float = minf(d_prev, d_next) * 0.4
-		var r: float = clampf(corner_radius, 0.0, max_r)
-
-		if r > 0.1:
-			var v_before: Vector2 = p_curr + (p_prev - p_curr).normalized() * r
-			var v_after: Vector2 = p_curr + (p_next - p_curr).normalized() * r
-			# Aproximación bezier cuadrática (5 puntos de curvatura)
-			for step in range(5):
-				var t: float = float(step) / 4.0
-				var bz: Vector2 = (1.0 - t) * (1.0 - t) * v_before + 2.0 * (1.0 - t) * t * p_curr + t * t * v_after
-				rounded.append(bz)
-		else:
-			rounded.append(p_curr)
-
-	return rounded
 
 func to_svg() -> String:
 	var verts: PackedVector2Array = _cached_vertices()

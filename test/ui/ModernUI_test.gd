@@ -28,7 +28,7 @@ func test_modern_bottom_toolbar_components_and_tools() -> void:
 	assert_that(tb._buttons.has("artboard")).is_true()
 	assert_that(tb._buttons.has("rectangle")).is_true()
 	assert_that(tb._buttons.has("ellipse")).is_true()
-	assert_that(tb._buttons.has("pen")).is_true()
+	assert_that(tb._buttons.has("bezier")).is_true()   # la pluma es ahora la herramienta Bézier
 	assert_that(tb._buttons.has("text")).is_true()
 
 	# Selección de herramienta emite señal
@@ -198,7 +198,7 @@ func test_docked_inspector_contextual_sections() -> void:
 	assert_that(inspector.sec_canvas.visible).is_false()
 	assert_that(inspector.sec_typography.visible).is_true()
 	assert_that(inspector.sec_fill.visible).is_true()
-	assert_that(inspector.sec_stroke.visible).is_false()
+	assert_that(inspector.sec_stroke.visible).is_true()   # el texto también tiene trazo (panel de trazo)
 
 	# 3. Con figura vectorial (shape): sec_typography oculta, sec_fill y stroke visibles
 	var shape_node: Node2D = auto_free(Node2D.new())

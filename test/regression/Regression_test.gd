@@ -83,7 +83,8 @@ func test_artboard_titulo_label_funcional() -> void:
 	var label := artboard.get_node_or_null("ArtboardTitle") as Control
 	assert_object(label).is_not_null()
 	assert_that(label.text).is_not_empty()
-	assert_that(label.scale).is_equal(Vector2.ONE)
+	# tamaño fijo en pantalla: escala = 1/zoom
+	assert_float(label.scale.x * label.get_viewport().get_canvas_transform().get_scale().x).is_equal_approx(1.0, 0.001)
 	assert_that(label.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
 	assert_that(label.gui_input.is_connected(Callable(artboard, "_on_title_gui_input"))).is_true()
 	scene.queue_free()

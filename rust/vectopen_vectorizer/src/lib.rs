@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use godot::classes::RefCounted;
 use godot::prelude::*;
@@ -64,6 +65,148 @@ impl ImageVectorizer {
             Ok(()) => GString::new(),
             Err(e) => GString::from(&e),
         }
+    }
+
+    /// Igual que vectorize_to_file pero con TODAS las opciones de vtracer en
+    /// un Dictionary (las que falten usan el preajuste "Photo"):
+    ///   color_mode: "color" | "binary"     hierarchical: "stacked" | "cutout"
+    ///   mode: "spline" (Bézier) | "polygon" | "pixel"
+    ///   filter_speckle, color_precision (1-8), layer_difference (0-255),
+    ///   corner_threshold (°), length_threshold (3.5-10), max_iterations,
+    ///   splice_threshold (°), path_precision (decimales)
+    #[func]
+    fn vectorize_ex(&self, input_path: GString, output_path: GString, opts: VarDictionary) -> GString {
+        match vectorize_impl(&input_path.to_string(), &output_path.to_string(), config_from(&opts)) {
+            Ok(()) => GString::new(),
+            Err(e) => GString::from(&e),
+        }
+    }
+}
+
+/// Opciones de la interfaz (Dictionary) → vtracer::Config. Se hace en el
+/// hilo principal: el Config resultante es Rust puro y viaja a otro hilo.
+fn config_from(opts: &VarDictionary) -> vtracer::Config {
+        let mut config = vtracer::Config::from_preset(vtracer::Preset::Photo);
+        let gi = |k: &str| opts.get(k).and_then(|v| v.try_to::<i64>().ok());
+        let gf = |k: &str| opts.get(k).and_then(|v| v.try_to::<f64>().ok());
+        let gs = |k: &str| opts.get(k).and_then(|v| v.try_to::<GString>().ok()).map(|s| s.to_string());
+        if let Some(s) = gs("color_mode") {
+            config.color_mode = if s == "binary" { vtracer::ColorMode::Binary } else { vtracer::ColorMode::Color };
+        }
+        if let Some(s) = gs("hierarchical") {
+            config.hierarchical = if s == "cutout" { vtracer::Hierarchical::Cutout } else { vtracer::Hierarchical::Stacked };
+        }
+        if let Some(s) = gs("mode") {
+            config.mode = match s.as_str() {
+                "polygon" => visioncortex::PathSimplifyMode::Polygon,
+                "pixel" => visioncortex::PathSimplifyMode::None,
+                _ => visioncortex::PathSimplifyMode::Spline,
+            };
+        }
+        if let Some(v) = gi("filter_speckle") { config.filter_speckle = v.max(0) as usize; }
+        if let Some(v) = gi("color_precision") { config.color_precision = v.clamp(1, 8) as i32; }
+        if let Some(v) = gi("layer_difference") { config.layer_difference = v.clamp(0, 255) as i32; }
+        if let Some(v) = gi("corner_threshold") { config.corner_threshold = v.clamp(0, 180) as i32; }
+        if let Some(v) = gf("length_threshold") { config.length_threshold = v.clamp(3.5, 10.0); }
+        if let Some(v) = gi("max_iterations") { config.max_iterations = v.clamp(1, 50) as usize; }
+        if let Some(v) = gi("splice_threshold") { config.splice_threshold = v.clamp(0, 180) as i32; }
+        if let Some(v) = gi("path_precision") { config.path_precision = Some(v.clamp(0, 8) as u32); }
+        config
+}
+
+fn vectorize_impl(input_path: &str, output_path: &str, config: vtracer::Config) -> Result<(), String> {
+    vtracer::convert_image_to_svg(Path::new(input_path), Path::new(output_path), config)
+}
+
+/// Trabajo en SEGUNDO PLANO (hilo de Rust): GDScript no puede llamar a la
+/// extensión desde un hilo propio (godot-rust lo prohíbe), así que el hilo
+/// lo crea Rust y el hilo no toca la API de Godot. GDScript lanza un
+/// trabajo y consulta is_done() / get_error() cada frame.
+#[derive(GodotClass)]
+#[class(init, base=RefCounted)]
+struct VectorizerJob {
+    base: Base<RefCounted>,
+    state: Arc<Mutex<Option<Result<(), String>>>>,
+}
+
+#[godot_api]
+impl VectorizerJob {
+    /// [quitar fondo] → [×4] → vtracer. Los intermedios van a `tmp_dir`
+    /// (ruta de sistema) y se borran al terminar.
+    #[func]
+    fn start_vectorize(&mut self, input_path: GString, output_svg: GString, opts: VarDictionary,
+            remove_bg: bool, upscale: bool, tmp_dir: GString) {
+        let config = config_from(&opts);
+        let (input, output, tmp) = (input_path.to_string(), output_svg.to_string(), tmp_dir.to_string());
+        self.spawn(move || {
+            let mut cur = input;
+            let mut temps: Vec<String> = Vec::new();
+            let result = (|| {
+                if remove_bg {
+                    let t = format!("{}/vtj_nobg_{}.png", tmp, std::process::id());
+                    remove_background_impl(&cur, &t)?;
+                    temps.push(t.clone());
+                    cur = t;
+                }
+                if upscale {
+                    let t = format!("{}/vtj_x4_{}.png", tmp, std::process::id());
+                    upscale_impl(&cur, &t)?;
+                    temps.push(t.clone());
+                    cur = t;
+                }
+                vectorize_impl(&cur, &output, config)
+            })();
+            for t in temps {
+                let _ = std::fs::remove_file(t);
+            }
+            result
+        });
+    }
+
+    #[func]
+    fn start_remove_background(&mut self, input_path: GString, output_path: GString) {
+        let (i, o) = (input_path.to_string(), output_path.to_string());
+        self.spawn(move || remove_background_impl(&i, &o));
+    }
+
+    #[func]
+    fn start_upscale(&mut self, input_path: GString, output_path: GString) {
+        let (i, o) = (input_path.to_string(), output_path.to_string());
+        self.spawn(move || upscale_impl(&i, &o));
+    }
+
+    #[func]
+    fn is_done(&self) -> bool {
+        self.state.lock().map(|s| s.is_some()).unwrap_or(true)
+    }
+
+    /// "" si terminó bien (o aún no terminó); el mensaje si falló.
+    #[func]
+    fn get_error(&self) -> GString {
+        match self.state.lock() {
+            Ok(s) => match &*s {
+                Some(Err(e)) => GString::from(e),
+                _ => GString::new(),
+            },
+            Err(_) => GString::from("estado del trabajo corrupto"),
+        }
+    }
+}
+
+impl VectorizerJob {
+    fn spawn<F>(&mut self, work: F)
+    where
+        F: FnOnce() -> Result<(), String> + Send + 'static,
+    {
+        let state = Arc::new(Mutex::new(None));
+        self.state = state.clone();
+        std::thread::spawn(move || {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(work))
+                .unwrap_or_else(|_| Err("fallo interno del trabajo nativo".to_string()));
+            if let Ok(mut s) = state.lock() {
+                *s = Some(r);
+            }
+        });
     }
 }
 

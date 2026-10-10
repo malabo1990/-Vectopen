@@ -102,3 +102,14 @@ func _artboard_for_point(world_point: Vector2) -> Node:
 			return act
 	_refresh_dependencies()
 	return artboard
+
+## Cierra la creación de una figura dibujada: un paso de deshacer y queda
+## seleccionada (antes las figuras dibujadas no se podían deshacer).
+func _commit_new_shape(shape: Node) -> void:
+	var root: Node = shape.get_tree().root if shape.is_inside_tree() else null
+	var hm := root.get_node_or_null("HistoryManager") if root else null
+	if hm and hm.has_method("record_create"):
+		hm.record_create(shape)
+	var sm := root.get_node_or_null("SelectionManager") if root else null
+	if sm and sm.has_method("set_selection"):
+		sm.set_selection([shape])

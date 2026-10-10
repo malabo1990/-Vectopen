@@ -69,6 +69,15 @@ const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
 		stroke_pointer_end = v
 		queue_redraw()
 
+## Subtrazados EXTRA del mismo objeto (agujeros o islas), rellenos con la
+## regla par-impar: una "O" o un anillo vectorizado es UN trazado con su
+## hueco (antes cada subtrazado era una forma rellena aparte que tapaba el
+## interior).
+@export var subpaths: Array[Curve2D] = []:
+	set(v):
+		subpaths = v
+		queue_redraw()
+
 ## Perfil de grosor (StrokeProfile): puntos (t, w). Vacío = uniforme.
 @export var stroke_profile: PackedVector2Array = PackedVector2Array():
 	set(v):
@@ -133,11 +142,23 @@ func _draw() -> void:
 		if maybe_render_blur(pts):
 			return
 		draw_effects_shadows(pts)
-		if fill_color.a > 0.0 and pts.size() >= 3 \
-				and not Geometry2D.triangulate_polygon(pts).is_empty():
-			draw_colored_polygon(pts, fill_color)
-		if stroke_width > 0.0:
-			_draw_stroke_mesh(pts, true)
+		if subpaths.is_empty():
+			if fill_color.a > 0.0 and pts.size() >= 3 \
+					and not Geometry2D.triangulate_polygon(pts).is_empty():
+				draw_colored_polygon(pts, fill_color)
+			if stroke_width > 0.0:
+				_draw_stroke_mesh(pts, true)
+		else:
+			var rings: Array = [pts]
+			for c in subpaths:
+				if c and c.point_count >= 2:
+					rings.append(StrokeGeom.curve_points(c))
+			if fill_color.a > 0.0:
+				for poly in StrokeGeom.evenodd_fill(rings):
+					draw_colored_polygon(poly, fill_color)
+			if stroke_width > 0.0:
+				for r in rings:
+					_draw_stroke_mesh(r, true)
 		draw_effects_overlays(pts)
 	elif stroke_width > 0.0:
 		# Bajo una punta la línea acaba en su base (punta afilada, y con el

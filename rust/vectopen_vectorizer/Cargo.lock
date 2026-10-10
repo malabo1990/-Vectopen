@@ -1309,6 +1309,7 @@ dependencies = [
  "image 0.25.10",
  "ndarray",
  "ort",
+ "visioncortex",
  "vtracer",
 ]
 

@@ -24,6 +24,10 @@
   `godot_mcp` plugin; connects to `ws://127.0.0.1:6515`. **Reconnect-loops and
   spams `push_error` into `user://logs/` if that server isn't running** — see
   the disk-hygiene section below.
+- `PluginManager` — Blender-style add-ons (`res://plugins/`, `user://addons/`) and the shared
+  `VectopenAPI` used by add-ons and the Effects → Script tab (`script_gdscript/api/`).
+  Guide: `docs/en/guides/SCRIPTS_AND_ADDONS.md`. Every `VectopenAPI` method must be listed
+  in its `REFERENCE` table (a test enforces it).
 - `VectopenMCPServer` (`script_gdscript/system/VectopenMCPServer.gd`) — embedded
   MCP HTTP server, opt-in via `user://vectopen_mcp.cfg` (`enabled`, port 6520).
 
