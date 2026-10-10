@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 godot = { version = "0.5", features = ["api-4-7"] }
+lyon_tessellation = "1.0"
 unicode-segmentation = "1.12"
 
 [profile.release]

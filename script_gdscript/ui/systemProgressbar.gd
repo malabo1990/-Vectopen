@@ -35,7 +35,7 @@ func _ready() -> void:
 		progress_bar.min_value = valor_minimo
 		progress_bar.max_value = valor_maximo
 		progress_bar.value = clamp(valor_inicial, valor_minimo, valor_maximo)
-		progress_bar.show_percentage = true
+		progress_bar.show_percentage = false
 	
 	# Conectar señales de botones (con protección)
 	if boton_aumentar:

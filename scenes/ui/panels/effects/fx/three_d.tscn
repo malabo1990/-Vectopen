@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://script_gdscript/ui/panels/effects/fx/three_d.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="2_spinbox"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.94921875, 0.94921875, 0.94921875, 1)
@@ -53,13 +54,32 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Depth"
 
-[node name="Depth" type="SpinBox" parent="MarginContainer/VBoxContainer/DepthRow"]
+[node name="Depth" parent="MarginContainer/VBoxContainer/DepthRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.0
 max_value = 100.0
-step = 0.5
-value = 5.0
+step = 1.0
+value = 8.0
+suffix = "px"
+
+[node name="BevelRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BevelRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Bevel"
+
+[node name="Bevel" parent="MarginContainer/VBoxContainer/BevelRow" instance=ExtResource("2_spinbox")]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 0.0
+max_value = 50.0
+step = 1.0
+value = 8.0
+suffix = "px"
 
 [node name="AngleRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -70,10 +90,74 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Angle"
 
-[node name="Angle" type="SpinBox" parent="MarginContainer/VBoxContainer/AngleRow"]
+[node name="Angle" parent="MarginContainer/VBoxContainer/AngleRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.0
 max_value = 360.0
 step = 1.0
 value = 45.0
+suffix = "°"
+
+[node name="HighlightRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/HighlightRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Highlight"
+
+[node name="Highlight" parent="MarginContainer/VBoxContainer/HighlightRow" instance=ExtResource("2_spinbox")]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 5.0
+value = 70.0
+suffix = "%"
+
+[node name="ShadowRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/ShadowRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Shadow"
+
+[node name="Shadow" parent="MarginContainer/VBoxContainer/ShadowRow" instance=ExtResource("2_spinbox")]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 5.0
+value = 60.0
+suffix = "%"
+
+[node name="ContourRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/ContourRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Contour"
+
+[node name="Contour" type="OptionButton" parent="MarginContainer/VBoxContainer/ContourRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+item_count = 5
+selected = 0
+popup/item_0/text = "Curved"
+popup/item_0/id = 0
+popup/item_1/text = "Chisel"
+popup/item_1/id = 1
+popup/item_2/text = "Gaussian"
+popup/item_2/id = 2
+popup/item_3/text = "Ring"
+popup/item_3/id = 3
+popup/item_4/text = "Cone"
+popup/item_4/id = 4
+

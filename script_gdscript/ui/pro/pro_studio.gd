@@ -178,6 +178,9 @@ var _btn_valign_top: Button
 var _btn_valign_middle: Button
 var _btn_valign_bottom: Button
 var _spin_leading: NumericField
+var _spin_indent_l: NumericField
+var _spin_indent_r: NumericField
+var _spin_indent_first: NumericField
 var _text_align: int = 0
 var _text_valign: int = 0
 var _lbl_threading_status: Label
@@ -739,6 +742,32 @@ func _build_typography_page() -> void:
 	)
 	row_lead.add_child(_spin_leading)
 
+	# Fila 3b Párrafo: Sangrías (Publisher: izquierda / derecha / primera línea)
+	var row_indent := _hrow(4)
+	_box_typo_parrafo.add_child(row_indent)
+	row_indent.add_child(_row_label("Sangría", 44.0))
+	_spin_indent_l = _field("Iz ", " px", 0.0, 500.0, 1.0)
+	_spin_indent_l.tooltip_text = tr("Sangría izquierda")
+	_spin_indent_l.value_changed.connect(func(v: float):
+		if not _sync_guard:
+			_apply_inspector_prop("indent_left", v)
+	)
+	row_indent.add_child(_spin_indent_l)
+	_spin_indent_r = _field("De ", " px", 0.0, 500.0, 1.0)
+	_spin_indent_r.tooltip_text = tr("Sangría derecha")
+	_spin_indent_r.value_changed.connect(func(v: float):
+		if not _sync_guard:
+			_apply_inspector_prop("indent_right", v)
+	)
+	row_indent.add_child(_spin_indent_r)
+	_spin_indent_first = _field("1ª ", " px", -500.0, 500.0, 1.0)
+	_spin_indent_first.tooltip_text = tr("Sangría de primera línea (negativa = francesa)")
+	_spin_indent_first.value_changed.connect(func(v: float):
+		if not _sync_guard:
+			_apply_inspector_prop("indent_first", v)
+	)
+	row_indent.add_child(_spin_indent_first)
+
 	# Fila 4 Párrafo: Encadenamiento de marcos de texto (Text Threading)
 	var sep_flow := HSeparator.new()
 	_box_typo_parrafo.add_child(sep_flow)
@@ -1296,6 +1325,12 @@ func _on_inspector_changed(props: Dictionary) -> void:
 	if v != null: _spin_tracking.value = v
 	v = _prop(props, "line_spacing")
 	if v != null: _spin_leading.value = v
+	v = _prop(props, "indent_left")
+	if v != null and is_instance_valid(_spin_indent_l): _spin_indent_l.value = v
+	v = _prop(props, "indent_right")
+	if v != null and is_instance_valid(_spin_indent_r): _spin_indent_r.value = v
+	v = _prop(props, "indent_first")
+	if v != null and is_instance_valid(_spin_indent_first): _spin_indent_first.value = v
 	v = _prop(props, "font_family")
 	if v != null:
 		var fi := FONT_FAMILIES.find(String(v))

@@ -3,6 +3,7 @@
 # AUTOLOAD (Singleton)
 # ==========================================
 extends Node
+const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const TextRuns = preload("res://script_gdscript/text/text_runs.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
 
@@ -38,9 +39,10 @@ const PROPS := [
 	"corner_tl", "corner_tr", "corner_br", "corner_bl",
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
+	"stroke_profile", "stroke_pointer_scale",
 	"stroke_dash_len", "stroke_dash_gap",
 	"letter_proportions", "letter_wave", "letter_tracking_ramp",
-	"effects",
+	"effects", "filters",
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
 	"sides", "is_regular",
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
@@ -263,6 +265,14 @@ func _read(shape, prop):
 			if "stroke_pointer_end" in shape: return int(shape.stroke_pointer_end)
 			if shape.has_meta("stroke_pointer_end"): return int(shape.get_meta("stroke_pointer_end"))
 			return 0
+		"stroke_profile":
+			if "stroke_profile" in shape: return PackedVector2Array(shape.stroke_profile)
+			if shape is Line2D or shape.has_meta("stroke_profile"):
+				return StrokeProfile.normalize(shape.get_meta("stroke_profile", PackedVector2Array()))
+			return null
+		"stroke_pointer_scale":
+			if "stroke_pointer_scale" in shape: return float(shape.stroke_pointer_scale)
+			return null
 		"stroke_align":
 			if "stroke_align" in shape: return int(shape.stroke_align)
 			if shape.has_meta("stroke_align"): return int(shape.get_meta("stroke_align"))
@@ -281,6 +291,8 @@ func _read(shape, prop):
 			if shape.has_meta("effects") and shape.get_meta("effects") is Array:
 				return shape.get_meta("effects").duplicate(true)
 			return []
+		"filters":
+			return FilterFx.get_filters(shape).duplicate(true)
 		"shape_mode":
 			if "shape_mode" in shape: return String(shape.shape_mode)
 			return null
@@ -358,6 +370,22 @@ func _read_fill_paint(shape) -> Variant:
 			"p0": shape.get_gradient_p0_norm(),
 			"p1": shape.get_gradient_p1_norm(),
 			"stops": stops,
+		}
+	# Trazo de pincel con degradado 2D (tecla G): su render lo expone igual
+	# que una figura. Antes se leía "sólido" y ColorCore apagaba el modo
+	# degradado en el acto (los dos puntos no llegaban a verse).
+	var brr: Node = shape.get_node_or_null("StrokeRender") if shape is Line2D else null
+	if brr and brr.has_gradient_fill():
+		var bg: Gradient = brr.fill_gradient
+		var bstops: Array = []
+		for i in bg.get_point_count():
+			bstops.append([bg.get_offset(i), bg.get_color(i)])
+		return {
+			"type": "radial" if int(brr.fill_gradient_type) == 1 else "linear",
+			"angle": float(brr.fill_gradient_angle),
+			"p0": brr.get_gradient_p0_norm(),
+			"p1": brr.get_gradient_p1_norm(),
+			"stops": bstops,
 		}
 	if shape is Line2D and shape.gradient is Gradient and shape.gradient.get_point_count() >= 2:
 		var lg: Gradient = shape.gradient
@@ -682,6 +710,7 @@ func commit_live_multi(props_before: Dictionary, action_name: String = "Inspecto
 
 const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 const TextFx = preload("res://script_gdscript/text/text_fx.gd")
+const FilterFx = preload("res://script_gdscript/shapes/filter_fx.gd")
 
 ## Con efectos de letras activos, el editor nativo pinta runs DERIVADOS (por
 ## letra): antes de escribir se le dan los runs reales, para que lo que
@@ -813,6 +842,19 @@ func _write_prop(shape, prop, value) -> void:
 			var ival := int(value)
 			if "stroke_pointer_end" in shape: shape.stroke_pointer_end = ival
 			shape.set_meta("stroke_pointer_end", ival)
+		"stroke_profile":
+			var prof := StrokeProfile.normalize(value)
+			if "stroke_profile" in shape:
+				shape.stroke_profile = prof
+			elif shape is Line2D:
+				# Pincel: el perfil pasa a ser su width_curve (sustituye a la de
+				# presión; uniforme = sin curva).
+				shape.width_curve = StrokeProfile.to_curve(prof)
+			shape.set_meta("stroke_profile", prof)
+		"stroke_pointer_scale":
+			var fv := clampf(float(value), 0.25, 5.0)
+			if "stroke_pointer_scale" in shape: shape.stroke_pointer_scale = fv
+			shape.set_meta("stroke_pointer_scale", fv)
 		"stroke_align":
 			var ival := int(value)
 			if "stroke_align" in shape: shape.stroke_align = ival
@@ -830,8 +872,13 @@ func _write_prop(shape, prop, value) -> void:
 			if "effects" in shape:
 				shape.effects = eff_arr.duplicate(true)
 			shape.set_meta("effects", eff_arr.duplicate(true))
-			if _is_text(shape):
-				TextFx.sync(shape)   # los textos los dibuja su propio nodo de efectos
+			if _is_text(shape) or shape is Line2D:
+				TextFx.sync(shape)   # textos y trazos de pincel: su propio nodo de efectos
+		"filters":
+			# Pestaña Filtros: meta en cualquier objeto + su nodo de render.
+			var flt: Array = value if value is Array else []
+			shape.set_meta("filters", flt.duplicate(true))
+			FilterFx.sync(shape)
 		"shape_mode":
 			if "shape_mode" in shape: shape.shape_mode = String(value)
 		"start_angle_deg":
@@ -960,6 +1007,11 @@ func _write_fill_paint(shape, value) -> void:
 			shape.clear_fill_gradient()
 		elif shape is Line2D and shape.gradient is Gradient:
 			shape.gradient = null
+		if shape is Line2D and shape.has_meta("brush_grad"):
+			shape.remove_meta("brush_grad")
+			var rr0: Node = shape.get_node_or_null("StrokeRender")
+			if rr0:
+				rr0.queue_redraw()
 		if "fill_color" in shape: shape.fill_color = c
 		elif shape is Polygon2D: shape.color = c
 		elif shape is Line2D: shape.default_color = c
@@ -1013,7 +1065,15 @@ func _write_fill_paint(shape, value) -> void:
 			shape._internal_point_update = false
 		shape.fill_gradient = g
 	elif shape is Line2D:
-		shape.gradient = g
+		# Degradado 2D con dos puntos (el render de calidad del pincel).
+		var rr = load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(shape)
+		shape.gradient = null
+		rr.fill_gradient = g
+		rr.fill_gradient_type = 1 if kind == "radial" else 0
+		if value.has("p0") and value.has("p1"):
+			rr.set_gradient_points(value["p0"], value["p1"])
+		elif not shape.has_meta("brush_grad_a"):
+			rr.set_gradient_points(Vector2(0.1, 0.5), Vector2(0.9, 0.5))
 	elif shape is Polygon2D:
 		shape.color = Color.WHITE
 		shape.texture = _grad_tex_for(g)

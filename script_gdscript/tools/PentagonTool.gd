@@ -4,6 +4,10 @@
 extends ToolBase
 class_name PentagonTool
 
+@export var sides_count: int = 5:
+	set(v):
+		sides_count = maxi(3, v)
+
 func activate() -> void:
 	super()
 	print("\n[PentagonTool]: Herramienta Pentágono ACTIVADA.")
@@ -83,13 +87,13 @@ func _calculate_geometry() -> Dictionary:
 	return {"center": center, "radius": radius, "rotation": rotation_angle}
 
 
-# Generador matemático de los 5 vértices de un pentágono regular por CPU
+# Generador matemático de los vértices de un polígono regular por CPU
 func _generate_pentagon_points(center: Vector2, radius: float, rotation_angle: float) -> PackedVector2Array:
 	var points = PackedVector2Array()
-	var total_vertices = 5
+	var total_vertices: int = maxi(3, sides_count)
 	
 	for i in range(total_vertices):
-		# Dividimos los 360° en 5 partes (pasos de 72°). Restamos PI/2 para apuntar hacia arriba.
+		# Dividimos los 360° en total_vertices partes. Restamos PI/2 para apuntar hacia arriba.
 		var angle: float = i * (PI * 2.0 / total_vertices) - (PI / 2.0) + rotation_angle
 		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
 		
@@ -116,7 +120,8 @@ func _spawn_shape(local_center: Vector2, radius: float, rotation_angle: float) -
 	print("[PentagonTool]: Instanciando VectorPolygon en el Artboard...")
 
 	var new_shape = VectorPolygon.new()
-	new_shape.name = NameUtils.unique_child_name(artboard, "Pentágono")
+	var shape_label: String = "Pentágono" if sides_count == 5 else ("Polígono %dP" % sides_count)
+	new_shape.name = NameUtils.unique_child_name(artboard, shape_label)
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
 	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_pentagon_points(Vector2.ZERO, radius, rotation_angle)))
 	new_shape.fill_color = FILL_COLOR

@@ -4,6 +4,7 @@
 # =============================================================================
 extends Control
 class_name BoundingBox
+const BrushStrokeRender = preload("res://script_gdscript/shapes/brush_stroke_render.gd")
 
 @export_group("Referencias de Interfaz")
 ## Arrastra aquí el panel central o el contenedor que recibirá el arrastre (Drag)
@@ -20,7 +21,7 @@ func _live_selection() -> Array[Node2D]:
 	var sm := get_node_or_null("/root/SelectionManager")
 	if is_instance_valid(sm) and sm.has_method("get_selected"):
 		out.assign(sm.get_selected())
-	elif is_instance_valid(move_tool_reference):
+	if out.is_empty() and is_instance_valid(move_tool_reference):
 		out.assign(move_tool_reference.selected_shapes)
 	return out
 var target_node: Node2D = null # SOLUCIÓN AL CRASH: Satisface la verificación del controlador externo
@@ -675,6 +676,7 @@ func _on_field_y_committed(v: float) -> void:
 
 func _hide_position_fields() -> void:
 	_bound_shape = null
+	_grad_target = null
 	if is_instance_valid(_fields_wrapper):
 		_fields_wrapper.hide()
 
@@ -744,6 +746,12 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 			_show_position_fields_for(shape)
 		else:
 			_hide_position_fields()
+		if shape is VectorShape:
+			_grad_target = shape
+		elif shape is Line2D:
+			_grad_target = BrushStrokeRender.attach(shape)
+		else:
+			_grad_target = null
 	else:
 		# Multi-selección.
 		var mt = move_tool_reference
@@ -1093,6 +1101,12 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 	if node.has_meta("shape_type") and (node.get_meta("shape_type") in ["text_paragraph", "text_title"]):
 		var w: float = float(node.get_meta("width", 350.0))
 		var h: float = float(node.get_meta("height", 65.0))
+		var vrt = node.get_node_or_null("VectorRichText")
+		if vrt:
+			var vs: Vector2 = vrt.get_size()
+			if vs.x > 0.0 and vs.y > 0.0:
+				w = maxf(w, vs.x)
+				h = maxf(h, vs.y)
 		var dl: Control = node.get_node_or_null("DisplayLabel")
 		if dl and str(node.get_meta("shape_type")) == "text_title":
 			var ms: Vector2 = dl.get_world_minimum_size() if dl is WorldTextLabel else dl.get_combined_minimum_size()
@@ -1205,13 +1219,20 @@ func _on_external_stop_selected(_c: Color, idx: int) -> void:
 # ── GRADIENT ANNOTATOR (AFFINITY / FIGMA / ILLUSTRATOR STYLE) ─────────────────
 
 var is_gradient_tool_active: bool = false
+## Objetivo del degradado en el lienzo: la figura (VectorShape) o, en un
+## trazo de pincel (Line2D), su render (brush_stroke_render.gd), que expone la
+## misma API. Sin tipo: son clases distintas.
+var _grad_target = null
 
 func is_gradient_active() -> bool:
 	if is_instance_valid(move_tool_reference) and "is_gradient_mode" in move_tool_reference:
 		return move_tool_reference.is_gradient_mode
-	return is_gradient_tool_active or _annotator_drag_mode != "" or (is_instance_valid(_bound_shape) and _bound_shape.has_gradient_fill())
+	return is_gradient_tool_active or _annotator_drag_mode != "" or (is_instance_valid(_grad_target) and _grad_target.has_gradient_fill())
 
 func deactivate_gradient_mode() -> void:
+	if _grad_notify_pending:
+		_annotator_drag_mode = ""
+		_emit_gradient_changed()
 	is_gradient_tool_active = false
 	_annotator_drag_mode = ""
 	_annotator_drag_stop_idx = -1
@@ -1219,21 +1240,28 @@ func deactivate_gradient_mode() -> void:
 	queue_redraw()
 
 func has_gradient_annotator() -> bool:
-	if not is_instance_valid(_bound_shape) or not visible:
+	if not is_instance_valid(_grad_target) or not visible:
 		return false
-	if not _bound_shape.has_gradient_fill():
+	if not _grad_target.has_gradient_fill():
 		return false
 	return is_gradient_active()
 
 func ensure_shape_gradient_fill() -> void:
-	if is_instance_valid(_bound_shape) and _bound_shape is VectorShape and not _bound_shape.has_gradient_fill():
+	if is_instance_valid(_grad_target) and not (_grad_target is VectorShape) and _grad_target.has_method("ensure_default_gradient"):
+		# Trazo de pincel: su render crea el degradado inicial.
+		if not _grad_target.has_gradient_fill():
+			_grad_target.ensure_default_gradient()
+			queue_redraw()
+			_notify_gradient_changed()
+		return
+	if is_instance_valid(_grad_target) and _grad_target is VectorShape and not _grad_target.has_gradient_fill():
 		var g := Gradient.new()
-		var base_col: Color = _bound_shape.fill_color if _bound_shape.fill_color.a > 0.0 else Color(0.2, 0.5, 0.9, 1.0)
+		var base_col: Color = _grad_target.fill_color if _grad_target.fill_color.a > 0.0 else Color(0.2, 0.5, 0.9, 1.0)
 		g.set_color(0, base_col)
 		g.set_color(1, Color.WHITE if base_col.get_luminance() < 0.6 else Color(0.1, 0.1, 0.1, 1.0))
-		_bound_shape.fill_gradient = g
-		_bound_shape.set_gradient_points(Vector2(0.1, 0.5), Vector2(0.9, 0.5))
-		_bound_shape.queue_redraw()
+		_grad_target.fill_gradient = g
+		_grad_target.set_gradient_points(Vector2(0.1, 0.5), Vector2(0.9, 0.5))
+		_grad_redraw()
 		queue_redraw()
 		_notify_gradient_changed()
 
@@ -1241,18 +1269,18 @@ func handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null)
 	return _handle_annotator_input(event, custom_local_pos)
 
 func _get_gradient_annotator_data() -> Dictionary:
-	if not is_instance_valid(_bound_shape) or not _bound_shape.has_gradient_fill():
+	if not is_instance_valid(_grad_target) or not _grad_target.has_gradient_fill():
 		return {}
-	var g: Gradient = _bound_shape.fill_gradient
+	var g: Gradient = _grad_target.fill_gradient
 	if not is_instance_valid(g) or g.get_point_count() < 2:
 		return {}
 
-	var g_type: int = int(_bound_shape.fill_gradient_type)
-	var angle: float = float(_bound_shape.fill_gradient_angle)
+	var g_type: int = int(_grad_target.fill_gradient_type)
+	var angle: float = float(_grad_target.fill_gradient_angle)
 	var center := size * 0.5
 
-	var norm_p0 := _bound_shape.get_gradient_p0_norm()
-	var norm_p1 := _bound_shape.get_gradient_p1_norm()
+	var norm_p0: Vector2 = _grad_target.get_gradient_p0_norm()
+	var norm_p1: Vector2 = _grad_target.get_gradient_p1_norm()
 	var p0 := Vector2(norm_p0.x * size.x, norm_p0.y * size.y)
 	var p1 := Vector2(norm_p1.x * size.x, norm_p1.y * size.y)
 	var line_vec := p1 - p0
@@ -1467,7 +1495,7 @@ func _hit_gradient_annotator(local_pos: Vector2, inv: float) -> Dictionary:
 	return {"hit": "none", "data": data}
 
 func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null) -> bool:
-	if not is_instance_valid(_bound_shape):
+	if not is_instance_valid(_grad_target):
 		return false
 	if not has_gradient_annotator():
 		return false
@@ -1475,12 +1503,12 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 	# Soporte para borrar stop seleccionado con Delete / Backspace (solo stops intermedios)
 	if event is InputEventKey and event.pressed:
 		if (event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE) and _selected_gradient_stop_idx >= 0:
-			var g: Gradient = _bound_shape.fill_gradient
+			var g: Gradient = _grad_target.fill_gradient
 			if is_instance_valid(g) and g.get_point_count() > 2:
 				if _selected_gradient_stop_idx > 0 and _selected_gradient_stop_idx < g.get_point_count() - 1:
 					g.remove_point(_selected_gradient_stop_idx)
 					_selected_gradient_stop_idx = clampi(_selected_gradient_stop_idx - 1, 0, g.get_point_count() - 1)
-					_bound_shape.queue_redraw()
+					_grad_redraw()
 					queue_redraw()
 					_notify_stop_selected(g.get_color(_selected_gradient_stop_idx))
 					_notify_gradient_changed()
@@ -1498,11 +1526,11 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 			var mode: String = hit_info.get("hit", "none")
 			if mode != "none":
 				_annotator_drag_mode = mode
-				var g: Gradient = _bound_shape.fill_gradient
+				var g: Gradient = _grad_target.fill_gradient
 				_annotator_undo_state = {
-					"angle": _bound_shape.fill_gradient_angle,
-					"p0": _bound_shape.get_gradient_p0_norm(),
-					"p1": _bound_shape.get_gradient_p1_norm(),
+					"angle": _grad_target.fill_gradient_angle,
+					"p0": _grad_target.get_gradient_p0_norm(),
+					"p1": _grad_target.get_gradient_p1_norm(),
 					"offsets": [],
 					"colors": []
 				}
@@ -1540,8 +1568,8 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 					_annotator_drag_stop_idx = -1
 				elif mode == "line":
 					_line_drag_start_pos = local_pos
-					_line_drag_start_p0 = _bound_shape.get_gradient_p0_norm()
-					_line_drag_start_p1 = _bound_shape.get_gradient_p1_norm()
+					_line_drag_start_p0 = _grad_target.get_gradient_p0_norm()
+					_line_drag_start_p1 = _grad_target.get_gradient_p1_norm()
 					_line_drag_has_moved = false
 					_line_click_ratio = float(hit_info.get("ratio", 0.5))
 				queue_redraw()
@@ -1555,13 +1583,13 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 				_line_drag_start_p0 = Vector2(local_pos.x / sz.x, local_pos.y / sz.y)
 				_line_drag_has_moved = false
 				_annotator_undo_state = {
-					"angle": _bound_shape.fill_gradient_angle,
-					"p0": _bound_shape.get_gradient_p0_norm(),
-					"p1": _bound_shape.get_gradient_p1_norm(),
+					"angle": _grad_target.fill_gradient_angle,
+					"p0": _grad_target.get_gradient_p0_norm(),
+					"p1": _grad_target.get_gradient_p1_norm(),
 					"offsets": [],
 					"colors": []
 				}
-				var g: Gradient = _bound_shape.fill_gradient
+				var g: Gradient = _grad_target.fill_gradient
 				if is_instance_valid(g):
 					for i in range(g.get_point_count()):
 						_annotator_undo_state["offsets"].append(g.get_offset(i))
@@ -1572,7 +1600,7 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 			if _annotator_drag_mode != "":
 				if _annotator_drag_mode == "line" and not _line_drag_has_moved:
 					# Clic sin arrastrar sobre la línea: añadir parada de color
-					var g: Gradient = _bound_shape.fill_gradient
+					var g: Gradient = _grad_target.fill_gradient
 					if is_instance_valid(g):
 						var col: Color = g.sample(_line_click_ratio)
 						g.add_point(_line_click_ratio, col)
@@ -1582,7 +1610,7 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 								_annotator_drag_stop_idx = i
 								_selected_gradient_stop_idx = i
 								break
-						_bound_shape.queue_redraw()
+						_grad_redraw()
 						queue_redraw()
 						_notify_stop_selected(col)
 						_notify_gradient_changed()
@@ -1609,8 +1637,8 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 				if _line_drag_has_moved:
 					var delta_local := local_pos - _line_drag_start_pos
 					var delta_norm := Vector2(delta_local.x / sz.x, delta_local.y / sz.y)
-					_bound_shape.set_gradient_points(_line_drag_start_p0 + delta_norm, _line_drag_start_p1 + delta_norm)
-					_bound_shape.queue_redraw()
+					_grad_target.set_gradient_points(_line_drag_start_p0 + delta_norm, _line_drag_start_p1 + delta_norm)
+					_grad_redraw()
 					queue_redraw()
 					_notify_gradient_changed()
 				return true
@@ -1623,8 +1651,8 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 					var dist: float = (target_pos - data_p0).length()
 					target_pos = data_p0 + Vector2(cos(snap_ang), sin(snap_ang)) * dist
 				var norm_p1 := Vector2(target_pos.x / sz.x, target_pos.y / sz.y)
-				_bound_shape.set_gradient_endpoint_1(norm_p1)
-				_bound_shape.queue_redraw()
+				_grad_target.set_gradient_endpoint_1(norm_p1)
+				_grad_redraw()
 				queue_redraw()
 				_notify_gradient_changed()
 				return true
@@ -1637,13 +1665,13 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 					var dist: float = (data_p1 - target_pos).length()
 					target_pos = data_p1 - Vector2(cos(snap_ang), sin(snap_ang)) * dist
 				var norm_p0 := Vector2(target_pos.x / sz.x, target_pos.y / sz.y)
-				_bound_shape.set_gradient_endpoint_0(norm_p0)
-				_bound_shape.queue_redraw()
+				_grad_target.set_gradient_endpoint_0(norm_p0)
+				_grad_redraw()
 				queue_redraw()
 				_notify_gradient_changed()
 				return true
 			elif _annotator_drag_mode == "rot":
-				var norm_p0 := _bound_shape.get_gradient_p0_norm()
+				var norm_p0: Vector2 = _grad_target.get_gradient_p0_norm()
 				var p0_loc: Vector2 = data.p0
 				var cur_span: float = data.span
 				var new_ang: float = (local_pos - p0_loc).angle()
@@ -1651,13 +1679,13 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 					new_ang = roundf(new_ang / (PI / 4.0)) * (PI / 4.0)
 				var new_p1_loc: Vector2 = p0_loc + Vector2(cos(new_ang), sin(new_ang)) * cur_span
 				var norm_p1 := Vector2(new_p1_loc.x / sz.x, new_p1_loc.y / sz.y)
-				_bound_shape.set_gradient_points(norm_p0, norm_p1)
-				_bound_shape.queue_redraw()
+				_grad_target.set_gradient_points(norm_p0, norm_p1)
+				_grad_redraw()
 				queue_redraw()
 				_notify_gradient_changed()
 				return true
 			elif _annotator_drag_mode == "stop" and _annotator_drag_stop_idx >= 0:
-				var g: Gradient = _bound_shape.fill_gradient
+				var g: Gradient = _grad_target.fill_gradient
 				if is_instance_valid(g) and _annotator_drag_stop_idx < g.get_point_count():
 					var line_vec: Vector2 = data.p1 - data.p0
 					var len_sq := maxf(line_vec.length_squared(), 0.0001)
@@ -1671,19 +1699,19 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 							_annotator_drag_stop_idx = i
 							_selected_gradient_stop_idx = i
 							break
-					_bound_shape.queue_redraw()
+					_grad_redraw()
 					queue_redraw()
 					_notify_gradient_changed()
 				return true
 			elif _annotator_drag_mode == "drag_new":
 				if not _line_drag_has_moved and local_pos.distance_squared_to(_line_drag_start_pos) > (4.0 * inv) * (4.0 * inv):
 					_line_drag_has_moved = true
-					if not _bound_shape.has_gradient_fill():
+					if not _grad_target.has_gradient_fill():
 						ensure_shape_gradient_fill()
 				if _line_drag_has_moved:
 					var cur_norm := Vector2(local_pos.x / sz.x, local_pos.y / sz.y)
-					_bound_shape.set_gradient_points(_line_drag_start_p0, cur_norm)
-					_bound_shape.queue_redraw()
+					_grad_target.set_gradient_points(_line_drag_start_p0, cur_norm)
+					_grad_redraw()
 					queue_redraw()
 					_notify_gradient_changed()
 				return true
@@ -1709,22 +1737,43 @@ func _handle_annotator_input(event: InputEvent, custom_local_pos: Variant = null
 
 	return false
 
+## Repintar el objetivo tras mover el degradado. El trazo de pincel no lo
+## necesita: su shader ya recibió los puntos (repintar reconstruía la malla
+## entera en cada movimiento del ratón).
+func _grad_redraw() -> void:
+	if is_instance_valid(_grad_target) and not _grad_target.has_method("_update_material"):
+		_grad_target.queue_redraw()
+
+var _grad_notify_pending := false
+
+## Avisar a los paneles cuesta ~5 ms (se resincronizan): durante un ARRASTRE
+## se acumula y se avisa una vez al soltar (_commit_annotator_undo). Antes se
+## avisaba en cada movimiento del ratón y el arrastre iba a saltos.
 func _notify_gradient_changed() -> void:
-	if not is_instance_valid(_bound_shape):
+	if _annotator_drag_mode != "":
+		_grad_notify_pending = true
+		return
+	_emit_gradient_changed()
+
+func _emit_gradient_changed() -> void:
+	_grad_notify_pending = false
+	if not is_instance_valid(_grad_target):
 		return
 	if GlobalEvents.has_signal("object_style_changed"):
 		GlobalEvents.object_style_changed.emit()
-	if GlobalEvents.has_signal("gradient_changed") and _bound_shape.fill_gradient:
-		GlobalEvents.gradient_changed.emit(_bound_shape.fill_gradient)
+	if GlobalEvents.has_signal("gradient_changed") and _grad_target.fill_gradient:
+		GlobalEvents.gradient_changed.emit(_grad_target.fill_gradient)
 
 func _notify_stop_selected(c: Color) -> void:
 	if GlobalEvents and GlobalEvents.has_signal("gradient_stop_selected"):
 		GlobalEvents.gradient_stop_selected.emit(c, _selected_gradient_stop_idx)
 
 func _commit_annotator_undo() -> void:
-	if not is_instance_valid(_bound_shape) or not _bound_shape.has_gradient_fill():
+	if _grad_notify_pending:
+		_emit_gradient_changed()
+	if not is_instance_valid(_grad_target) or not _grad_target.has_gradient_fill():
 		return
-	var shape := _bound_shape
+	var shape = _grad_target
 	var g: Gradient = shape.fill_gradient
 	if g == null:
 		return

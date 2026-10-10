@@ -18,6 +18,9 @@ extends Node
 ## `font_italic`); InspectorCore la lee/escribe y WorldTextLabel la aplica.
 
 signal families_changed()
+## Una familia de Google Fonts terminó de descargarse (ya resuelve a sus
+## archivos reales; los textos que la usan se refrescan solos).
+signal font_installed(family: String)
 
 ## Fuentes empaquetadas (siempre disponibles, offline). Clave = nombre de familia.
 const BUNDLED := {
@@ -45,9 +48,15 @@ var _families: PackedStringArray = PackedStringArray()
 var _font_cache: Dictionary = {}   # spec_key -> Font
 var _system_scanned: bool = false
 
+var _google: Node = null
+
 func _ready() -> void:
+	_google = load("res://script_gdscript/text/google_fonts.gd").new()
+	_google.name = "GoogleFonts"
+	add_child(_google)
+	_google.installed.connect(_on_google_installed)
 	# Carga inicial inmediata de fuentes empaquetadas (inicio instantáneo en < 1ms)
-	_families = PackedStringArray(BUNDLED.keys())
+	_families = _with_google(PackedStringArray(BUNDLED.keys()))
 	# Escaneo en segundo plano sin congelar el hilo principal del editor
 	WorkerThreadPool.add_task(_async_scan_system_fonts)
 
@@ -55,16 +64,19 @@ func _async_scan_system_fonts() -> void:
 	var seen := {}
 	for f in BUNDLED:
 		seen[f] = true
+	var sys := {}
 	for f in OS.get_system_fonts():
 		var fam_name := String(f).strip_edges()
 		if fam_name != "":
 			seen[fam_name] = true
+			sys[fam_name] = true
 	var arr: Array = seen.keys()
 	arr.sort_custom(func(a, b): return String(a).naturalnocasecmp_to(String(b)) < 0)
-	call_deferred("_apply_scanned_families", PackedStringArray(arr))
+	call_deferred("_apply_scanned_families", PackedStringArray(arr), sys)
 
-func _apply_scanned_families(scanned: PackedStringArray) -> void:
-	_families = scanned
+func _apply_scanned_families(scanned: PackedStringArray, sys: Dictionary = {}) -> void:
+	_system_names = sys
+	_families = _with_google(scanned)
 	_system_scanned = true
 	families_changed.emit()
 
@@ -73,13 +85,15 @@ func refresh_families() -> void:
 	var seen := {}
 	for f in BUNDLED:
 		seen[f] = true
+	_system_names = {}
 	for f in OS.get_system_fonts():
 		var fam_name := String(f).strip_edges()
 		if fam_name != "":
 			seen[fam_name] = true
+			_system_names[fam_name] = true
 	var arr: Array = seen.keys()
 	arr.sort_custom(func(a, b): return String(a).naturalnocasecmp_to(String(b)) < 0)
-	_families = PackedStringArray(arr)
+	_families = _with_google(PackedStringArray(arr))
 	_system_scanned = true
 	families_changed.emit()
 
@@ -104,6 +118,69 @@ func has_family(family: String) -> bool:
 
 func is_bundled(family: String) -> bool:
 	return BUNDLED.has(family)
+
+# ── Google Fonts (descarga bajo demanda, ver google_fonts.gd) ────────────────
+## Añade el catálogo de Google a la lista (sin duplicar las ya instaladas en
+## el sistema) y la deja ordenada.
+func _with_google(fams: PackedStringArray) -> PackedStringArray:
+	var seen := {}
+	for f in fams:
+		seen[String(f)] = true
+	if _google:
+		for g in _google.families():
+			seen[String(g)] = true
+	var arr: Array = seen.keys()
+	arr.sort_custom(func(a, b): return String(a).naturalnocasecmp_to(String(b)) < 0)
+	return PackedStringArray(arr)
+
+## De Google y NO instalada en el sistema (si el SO ya la tiene, se usa esa
+## y no se descarga nada). Una ya descargada sigue siendo de Google.
+func is_google(family: String) -> bool:
+	if _google == null or not _google.has(family):
+		return false
+	return not _system_names.has(family) or _google.is_cached(family)
+
+var _system_names: Dictionary = {}   # familias instaladas en el SO
+
+## "" (no es de Google), "cached", "downloading" o "remote".
+func google_state(family: String) -> String:
+	if not is_google(family):
+		return ""
+	if _google.is_cached(family):
+		return "cached"
+	return "downloading" if _google.is_downloading(family) else "remote"
+
+func google_category(family: String) -> String:
+	return _google.category(family) if is_google(family) else ""
+
+func download_google(family: String) -> void:
+	if is_google(family):
+		_google.download(family)
+
+func _on_google_installed(family: String) -> void:
+	for k in _font_cache.keys():
+		if String(k).begins_with(family + "|"):
+			_font_cache.erase(k)
+	font_installed.emit(family)
+	_refresh_texts_using(family)
+
+## Re-aplica la fuente a los textos que usan `family` (mientras se
+## descargaba se veían con la de respaldo).
+func _refresh_texts_using(family: String) -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var TextCoreS = load("res://script_gdscript/text/text_core.gd")
+	for n in tree.get_nodes_in_group("world_content"):
+		if not (n is WorldTextLabel) or not n.has_method("apply_font_from_meta"):
+			continue
+		var src: Object = n._spec_source()
+		if String(spec_from_node(src).get("family", "")) != family:
+			continue
+		n.apply_font_from_meta()
+		var shape := n.get_parent() as Node2D
+		if shape and shape.get_node_or_null("VectorRichText"):
+			TextCoreS.sync_vrt_from_meta(shape, shape.get_node("VectorRichText"))
 
 func sample_text() -> String:
 	return _SAMPLE
@@ -155,6 +232,24 @@ func style_to_spec_parts(style: String) -> Dictionary:
 	return {"weight": weight, "italic": italic}
 
 # ── recurso Font ─────────────────────────────────────────────────────────────
+## Ajustes de render de las fuentes del lienzo. SIN MSDF: con campo de
+## distancias Godot dibujaba cada letra ~7 % más grande que su contorno real
+## (estirada hacia arriba-derecha), y los efectos, la exportación y el texto
+## no coincidían. La nitidez con zoom la da el sobremuestreo por zoom
+## (WorldTextLabel → VectorRichText.set_oversampling). Antialiasing en GRIS:
+## el LCD deja franjas de color en texto girado / escalado.
+static func setup_canvas_font(f: Font) -> void:
+	if f is FontFile:
+		var ff := f as FontFile
+		ff.multichannel_signed_distance_field = false
+		ff.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+		ff.generate_mipmaps = true
+	elif f is SystemFont:
+		var sf := f as SystemFont
+		sf.multichannel_signed_distance_field = false
+		sf.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+		sf.generate_mipmaps = true
+
 func get_font(spec: Dictionary) -> Font:
 	var key := spec_key(spec)
 	var cached = _font_cache.get(key)
@@ -170,15 +265,16 @@ func get_font(spec: Dictionary) -> Font:
 	if stf:
 		_font_cache[key] = stf
 		return stf
+	# Google aún no descargada: se pide y, mientras, se usa la del sistema
+	# (si la tiene) o la de respaldo. Al terminar, _on_google_installed
+	# limpia esta entrada de la caché y refresca los textos.
+	if is_google(fam):
+		_google.download(fam)
 
 	if BUNDLED.has(fam):
 		var base = load(BUNDLED[fam])
 		if base is FontFile:
-			base.multichannel_signed_distance_field = true
-			base.msdf_pixel_range = 16
-			base.msdf_size = 64
-			base.antialiasing = TextServer.FONT_ANTIALIASING_LCD
-			base.generate_mipmaps = true
+			setup_canvas_font(base)
 		if base is Font:
 			if weight != DEFAULT_WEIGHT:
 				var fv := FontVariation.new()
@@ -194,11 +290,7 @@ func get_font(spec: Dictionary) -> Font:
 		sf.font_names = PackedStringArray([fam])
 		sf.font_weight = weight
 		sf.font_italic = italic
-		sf.multichannel_signed_distance_field = true
-		sf.msdf_pixel_range = 16
-		sf.msdf_size = 64
-		sf.antialiasing = TextServer.FONT_ANTIALIASING_LCD
-		sf.generate_mipmaps = true
+		setup_canvas_font(sf)
 		# fallback legible si el SO no encuentra la familia
 		sf.allow_system_fallback = true
 		font = sf
@@ -206,16 +298,14 @@ func get_font(spec: Dictionary) -> Font:
 	if font == null:
 		font = load(BUNDLED[DEFAULT_FAMILY]) as Font
 		if font is FontFile:
-			font.multichannel_signed_distance_field = true
-			font.msdf_pixel_range = 16
-			font.msdf_size = 64
-			font.antialiasing = TextServer.FONT_ANTIALIASING_LCD
-			font.generate_mipmaps = true
+			setup_canvas_font(font)
 	_font_cache[key] = font
 	return font
 
 ## Ruta del archivo estático de la familia más cercano a `weight` (y cursiva).
 func static_font_path(fam: String, weight: int, italic: bool) -> String:
+	if is_google(fam):
+		return _google_face_path(fam, weight, italic)
 	var styles: Dictionary = BUNDLED_STATIC.get(fam, {})
 	var table: Dictionary = styles.get("italic" if italic else "roman", {})
 	if table.is_empty():
@@ -227,6 +317,17 @@ func static_font_path(fam: String, weight: int, italic: bool) -> String:
 			best = int(w)
 	var path := FONTS_DIR + String(table[best]) + ".ttf"
 	return path if ResourceLoader.exists(path) or FileAccess.file_exists(path) else ""
+
+## Cara descargada más cercana al peso; sin cursiva propia → la redonda.
+func _google_face_path(fam: String, weight: int, italic: bool) -> String:
+	var faces: Dictionary = _google.cached_faces(fam)
+	var table: Dictionary = faces["italic"] if italic and not (faces["italic"] as Dictionary).is_empty() else faces["roman"]
+	var best := -1
+	for w in table:
+		if best < 0 or absi(int(w) - weight) < absi(best - weight) \
+				or (absi(int(w) - weight) == absi(best - weight) and int(w) > best):
+			best = int(w)
+	return String(table[best]) if best > 0 else ""
 
 func _static_font(fam: String, weight: int, italic: bool) -> Font:
 	var path := static_font_path(fam, weight, italic)
@@ -247,11 +348,7 @@ func _load_font_file(path: String) -> FontFile:
 		if f.load_dynamic_font(path) != OK:
 			f = null
 	if f:
-		f.multichannel_signed_distance_field = true
-		f.msdf_pixel_range = 16
-		f.msdf_size = 64
-		f.antialiasing = TextServer.FONT_ANTIALIASING_LCD
-		f.generate_mipmaps = true
+		setup_canvas_font(f)
 	_file_cache[path] = f
 	return f
 

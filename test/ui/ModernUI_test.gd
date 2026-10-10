@@ -147,7 +147,7 @@ func test_adaptive_ui_manager_modern_mode_activation() -> void:
 	# 1. Modo Modern UI activado
 	GlobalUI.set_ui_mode(GlobalUI.MODE_MODERN)
 	assert_that(top_bar.visible).is_true()
-	assert_that(nav_rail.visible).is_true()
+	assert_that(nav_rail.visible).is_false() # side rail removed from Modern
 	assert_that(bottom_toolbar.visible).is_true()
 	assert_that(inspector.visible).is_true()
 
@@ -163,7 +163,7 @@ func test_adaptive_ui_manager_modern_mode_activation() -> void:
 	manager._toggle_focus_canvas()
 	assert_that(manager.is_focus_canvas_active()).is_false()
 	assert_that(top_bar.visible).is_true()
-	assert_that(nav_rail.visible).is_true()
+	assert_that(nav_rail.visible).is_false()
 	assert_that(bottom_toolbar.visible).is_true()
 	assert_that(inspector.visible).is_true()
 
@@ -173,3 +173,47 @@ func test_adaptive_ui_manager_modern_mode_activation() -> void:
 	assert_that(nav_rail.visible).is_false()
 	assert_that(bottom_toolbar.visible).is_false()
 	assert_that(inspector.visible).is_false()
+
+func test_docked_inspector_contextual_sections() -> void:
+	var inspector: Control = auto_free(DockedInspectorScript.new())
+	add_child(inspector)
+
+	# 1. Sin selección: sec_canvas visible, el resto ocultas
+	inspector._on_selection_size_changed(0)
+	assert_that(inspector.sec_canvas.visible).is_true()
+	assert_that(inspector.sec_typography.visible).is_false()
+	assert_that(inspector.sec_fill.visible).is_false()
+	assert_that(inspector.sec_stroke.visible).is_false()
+
+	# 2. Con objeto texto: sec_typography visible, sec_stroke oculta
+	var sm = get_node_or_null("/root/SelectionManager")
+	var text_node: Node2D = auto_free(Node2D.new())
+	text_node.name = "TextNode"
+	text_node.set_meta("shape_type", "text_title")
+	add_child(text_node)
+
+	if sm and sm.has_method("set_selection"):
+		sm.set_selection([text_node])
+	inspector._on_selection_size_changed(1)
+	assert_that(inspector.sec_canvas.visible).is_false()
+	assert_that(inspector.sec_typography.visible).is_true()
+	assert_that(inspector.sec_fill.visible).is_true()
+	assert_that(inspector.sec_stroke.visible).is_false()
+
+	# 3. Con figura vectorial (shape): sec_typography oculta, sec_fill y stroke visibles
+	var shape_node: Node2D = auto_free(Node2D.new())
+	shape_node.name = "ShapeNode"
+	shape_node.set_meta("shape_type", "rectangle")
+	add_child(shape_node)
+
+	if sm and sm.has_method("set_selection"):
+		sm.set_selection([shape_node])
+	inspector._on_selection_size_changed(1)
+	assert_that(inspector.sec_typography.visible).is_false()
+	assert_that(inspector.sec_fill.visible).is_true()
+	assert_that(inspector.sec_stroke.visible).is_true()
+
+	# Limpieza
+	if sm and sm.has_method("clear"):
+		sm.clear()
+	inspector._on_selection_size_changed(0)

@@ -1,6 +1,6 @@
 extends EffectFxBase
 
-@onready var _width: SpinBox = %Width
+@onready var _width: SpinBoxValue = %Width
 @onready var _color: ColorPickerButton = %Color
 
 func _ready() -> void:

@@ -18,6 +18,9 @@ const NAME := "TextFx"
 const BLUR_SHADER := "res://shaders/text_fx_blur.gdshader"
 const INNER_SHADER := "res://shaders/text_fx_inner.gdshader"
 const OUTLINE_SHADER := "res://shaders/text_fx_outline.gdshader"
+const LIGHT_MUL_SHADER := "res://shaders/text_fx_light_mul.gdshader"
+const LIGHT_SCR_SHADER := "res://shaders/text_fx_light_scr.gdshader"
+const FxLight = preload("res://script_gdscript/shapes/fx_light.gd")
 
 var shape: Node2D = null
 var _back: Node2D = null
@@ -50,14 +53,14 @@ static func sync(s: Node2D) -> void:
 	node.refresh(true)
 
 static func canonical(t: String) -> String:
-	var n := t.to_lower().replace(" ", "_")
-	return "3d" if n == "threed" else n
+	return FxLight.canonical(t)
 
 static func enabled_effects(s: Node2D) -> Array:
 	var raw = s.get_meta("effects", []) if s.has_meta("effects") else []
 	var out: Array = []
 	if raw is Array:
-		for fx in raw:
+		# "3D" antiguo → Extrusión + Bisel y relieve
+		for fx in FxLight.migrate_list(raw):
 			if fx is Dictionary and bool(fx.get("enabled", true)):
 				out.append(fx)
 	return out
@@ -101,11 +104,11 @@ var _xf_ref := Transform2D()
 func refresh(force: bool) -> void:
 	if not is_instance_valid(shape):
 		return
-	var dl = shape.get_node_or_null("DisplayLabel")
+	var dl = _geom()
 	if dl == null or not dl.has_method("_get_triangle_polys"):
 		return
 	var polys: Array = dl._get_triangle_polys()
-	var raw = shape.get_meta("effects", null)
+	var raw = shape.get_meta("effects") if shape.has_meta("effects") else null
 	var z := shape.get_global_transform_with_canvas().get_scale().x
 	var fx_changed := force or not is_same(raw, _fx_ref)
 	var fx: Array = []
@@ -141,6 +144,18 @@ func refresh(force: bool) -> void:
 		# zoom costaba ~0,3 ms por texto y frame.
 		_bake_at = Time.get_ticks_msec() + BAKE_DELAY_MS
 
+# ── geometría ────────────────────────────────────────────────────────────────
+## Fuente de polígonos: el label vectorial del texto o, en un trazo de pincel
+## (Line2D), su silueta (stroke_fx_geom.gd, misma interfaz).
+var _stroke_geom = null
+
+func _geom():
+	if shape is Line2D:
+		if _stroke_geom == null:
+			_stroke_geom = load("res://script_gdscript/text/stroke_fx_geom.gd").new(shape)
+		return _stroke_geom
+	return shape.get_node_or_null("DisplayLabel")
+
 # ── capas ───────────────────────────────────────────────────────────────────
 func _ensure_layer(nm: String, front: bool) -> Node2D:
 	var n := shape.get_node_or_null(nm) as Node2D
@@ -148,6 +163,9 @@ func _ensure_layer(nm: String, front: bool) -> Node2D:
 		n = Node2D.new()
 		n.name = nm
 		shape.add_child(n)
+	# Un Line2D se dibuja ANTES que sus hijos: la capa trasera necesita
+	# show_behind_parent para quedar debajo del trazo.
+	n.show_behind_parent = (not front) and shape is Line2D
 	# Detrás de todo (antes del editor / label) o delante de todo.
 	if front:
 		shape.move_child(n, shape.get_child_count() - 1)
@@ -172,25 +190,16 @@ func _build_layers(fx: Array) -> void:
 			"drop_shadow":
 				var g := _group(_back, BLUR_SHADER, e)
 				_drawer(g, "glyphs_offset", e)
-			"3d":
-				# Extrusión exterior opcional + relieve interior (bisel): brillo
-				# en los bordes del lado de la luz y sombra en el opuesto.
-				if bool(e.get("extrude", true)):
-					_drawer(_back, "extrude", e)
-				var bev := float(e.get("bevel", 8.0))
-				if bev > 0.2:
-					var ang := deg_to_rad(float(e.get("angle", 45.0)))
-					var dir := Vector2(cos(ang), sin(ang))
-					for role in ["hi", "lo"]:
-						var gb := _group(_front, INNER_SHADER, e)
-						gb.set_meta("bevel_role", role)
-						var add3 := CanvasItemMaterial.new()
-						add3.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-						var m1 := _drawer(gb, "mask", e)
-						m1.material = add3
-						var m2 := _drawer(gb, "mask_offset", e)
-						m2.material = add3
-						m2.set_meta("off", dir * bev * (0.5 if role == "hi" else -0.5))
+			"extrusion":
+				_drawer(_back, "extrude", e)
+			"3d", "bevel_emboss":
+				# 3D (iluminación, Affinity) / Bisel y relieve (Photoshop): la
+				# máscara de las letras en dos grupos — sombras (multiplicar) y
+				# luces (trama).
+				for pass_name in ["mul", "scr"]:
+					var gl := _group(_front, LIGHT_MUL_SHADER if pass_name == "mul" else LIGHT_SCR_SHADER, e)
+					gl.set_meta("light_pass", pass_name)
+					_drawer(gl, "mask_alpha", e)
 			"outline":
 				var go := _group(_back, OUTLINE_SHADER, e)
 				_drawer(go, "mask", e).material = null
@@ -265,23 +274,27 @@ func _update_uniforms(fx: Array) -> void:
 				"inner_shadow":
 					radius = maxf(0.5, float(e.get("blur", 4.0)))
 					m.set_shader_parameter("u_color", _col(e.get("color"), Color(0, 0, 0, 0.5)))
-				"3d":
-					var role := String(g.get_meta("bevel_role", "hi"))
-					radius = maxf(0.5, float(e.get("bevel", 8.0)) * 0.5)
-					if role == "hi":
-						m.set_shader_parameter("u_color", Color(1, 1, 1, 0.85 * clampf(float(e.get("highlight", 70.0)) / 100.0, 0.0, 1.0)))
-					else:
-						m.set_shader_parameter("u_color", Color(0, 0, 0, 0.75 * clampf(float(e.get("shadow", 60.0)) / 100.0, 0.0, 1.0)))
+				"3d", "bevel_emboss":
+					FxLight.set_uniforms(m, null, e)
+					m.set_shader_parameter("u_px_per_unit", _zoom)
+					var sz := float(e.get("size", e.get("radius", 20.0)))
+					radius = sz + float(e.get("soften", 0.0))
 				"outline":
-					radius = maxf(0.5, float(e.get("width", 2.0)))
+					# la dilatación ya viene en la geometría (_outline_polys)
+					radius = 0.0
 					m.set_shader_parameter("u_color", _col(e.get("color"), Color.BLACK))
 				"inner_glow":
+					# pleno en el borde y se apaga hacia dentro en ~radio
 					radius = maxf(0.5, float(e.get("radius", 8.0)))
 					var c := _col(e.get("color"), Color.WHITE)
 					c.a *= clampf(float(e.get("opacity", 1.0)), 0.0, 1.0)
 					m.set_shader_parameter("u_color", c)
+					m.set_shader_parameter("u_gain", 2.0)
 			m.set_shader_parameter("u_radius", radius * _zoom)
-			g.fit_margin = radius * 2.0 + 4.0
+			# El halo gaussiano llega a 3σ = 1,5 × radio. Margen holgado en
+			# px de pantalla Y en unidades del lienzo (antes radio × 2 sin
+			# zoom: con zoom > 1 el desenfoque se cortaba en el borde).
+			g.fit_margin = radius * 1.7 * maxf(1.0, _zoom) + 4.0
 			if t == "blur" and String(e.get("blur_type", "gaussian")) in ["radial", "spin"]:
 				g.fit_margin = 160.0   # el arrastre radial / giratorio sale lejos
 			g.clear_margin = g.fit_margin
@@ -304,6 +317,8 @@ func _update_centers() -> void:
 		return
 	var vs := vp.get_visible_rect().size
 	var c_local := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0))) * 0.5
+	if shape is Line2D:
+		c_local = _geom().bounds().get_center()
 	var c_screen: Vector2 = shape.get_global_transform_with_canvas() * c_local
 	for g in _front.find_children("*", "CanvasGroup", true, false):
 		if g.get_meta("needs_center", false) and g.visible:
@@ -343,8 +358,8 @@ func _group_rect(g: CanvasGroup, dl) -> Rect2:
 	if canonical(String(e.get("type", ""))) == "drop_shadow":
 		r = r.merge(Rect2(r.position + off, r.size))
 	var radius := maxf(float(e.get("blur", 0.0)), float(e.get("radius", 0.0)))
-	if canonical(String(e.get("type", ""))) == "3d":
-		radius = float(e.get("bevel", 8.0))
+	if canonical(String(e.get("type", ""))) in ["3d", "bevel_emboss"]:
+		radius = float(e.get("size", e.get("radius", 20.0))) + float(e.get("soften", 0.0))
 	elif canonical(String(e.get("type", ""))) == "outline":
 		radius = float(e.get("width", 2.0))
 	var bt := String(e.get("blur_type", "gaussian"))
@@ -357,7 +372,7 @@ func _group_rect(g: CanvasGroup, dl) -> Rect2:
 func _bake() -> void:
 	if not is_instance_valid(shape) or not is_inside_tree():
 		return
-	var dl = shape.get_node_or_null("DisplayLabel")
+	var dl = _geom()
 	if dl == null:
 		return
 	var groups: Array = []
@@ -379,7 +394,15 @@ func _bake() -> void:
 			continue
 		var vp := SubViewport.new()
 		vp.size = px
-		vp.transparent_bg = true
+		var mul_pass: bool = String(g.get_meta("light_pass", "")) == "mul"
+		# la pasada de sombras (multiplicar) se hornea sobre BLANCO y se pinta
+		# con un sprite en multiplicar; el resto, transparente y premultiplicado
+		vp.transparent_bg = not mul_pass
+		if mul_pass:
+			var white := Polygon2D.new()
+			white.polygon = PackedVector2Array([Vector2.ZERO, Vector2(px.x, 0), Vector2(px), Vector2(0, px.y)])
+			white.color = Color.WHITE
+			vp.add_child(white)
 		vp.disable_3d = true
 		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 		var root := Node2D.new()
@@ -387,7 +410,11 @@ func _bake() -> void:
 		vp.add_child(root)
 		var cg := CanvasGroup.new()
 		var m := (g.material as ShaderMaterial).duplicate() as ShaderMaterial
-		m.set_shader_parameter("u_radius", float(m.get_shader_parameter("u_radius")) / maxf(_zoom, 0.0001) * sc)
+		var ur = m.get_shader_parameter("u_radius")
+		if ur != null:
+			m.set_shader_parameter("u_radius", float(ur) / maxf(_zoom, 0.0001) * sc)
+		if g.has_meta("light_pass"):
+			m.set_shader_parameter("u_px_per_unit", sc)
 		if g.get_meta("needs_center", false):
 			var cl := Vector2(float(shape.get_meta("width", 0.0)), float(shape.get_meta("height", 0.0))) * 0.5
 			m.set_shader_parameter("u_center", (cl - rect.position) / rect.size)
@@ -421,7 +448,7 @@ func _bake() -> void:
 			spr.position = j["rect"].position
 			spr.scale = Vector2.ONE / float(j["sc"])
 			var pm := CanvasItemMaterial.new()
-			pm.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+			pm.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL if String(g.get_meta("light_pass", "")) == "mul" else CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
 			spr.material = pm
 			g.get_parent().add_child(spr)
 			g.get_parent().move_child(spr, g.get_index())
@@ -438,6 +465,10 @@ func _bake() -> void:
 # ── ocultar el texto original (desenfoque) ──────────────────────────────────
 func _visible_text_nodes() -> Array:
 	var out: Array = []
+	if shape is Line2D:
+		# Con render de calidad, la que se ve es la de StrokeRender.
+		var rr := shape.get_node_or_null("StrokeRender")
+		return [rr] if rr else [shape]   # self_modulate solo apaga ese nodo
 	var vrt = shape.get_node_or_null("VectorRichText")
 	if vrt:
 		out.append(vrt)
@@ -487,7 +518,7 @@ func _text_color(dl) -> Color:
 func _draw_kind(d: Node2D) -> void:
 	if not is_instance_valid(shape):
 		return
-	var dl = shape.get_node_or_null("DisplayLabel")
+	var dl = _geom()
 	if dl == null:
 		return
 	var polys: Array = dl._get_triangle_polys()
@@ -508,8 +539,14 @@ func _draw_kind(d: Node2D) -> void:
 				_stroke_all(d, dl, Color.WHITE, spread * 2.0 / k)
 		"mask_alpha":
 			d.draw_set_transform_matrix(xf)
-			for p in polys:
-				d.draw_colored_polygon(p["poly"], Color.WHITE)
+			if canonical(String(e.get("type", ""))) == "outline":
+				# Contorno: glifos DILATADOS `width` (offset geométrico exacto,
+				# esquinas redondeadas) — sin anillos ni festones.
+				for poly in _outline_polys(d, polys, maxf(0.5, float(e.get("width", 2.0))) / k):
+					d.draw_colored_polygon(poly, Color.WHITE)
+			else:
+				for p in polys:
+					d.draw_colored_polygon(p["poly"], Color.WHITE)
 		"mask":
 			d.draw_set_transform_matrix(xf)
 			for p in polys:
@@ -546,6 +583,103 @@ func _draw_kind(d: Node2D) -> void:
 			_draw_gradient(d, polys, e, xf)
 		"extrude":
 			_draw_extrude(d, dl, polys, e, xf)
+
+## Glifos dilatados `w` (unidades de los glifos), cacheados en el dibujante
+## mientras no cambien los glifos ni el ancho.
+## La caché vive en el controlador (no en el dibujante): reconstruir capas
+## (arrastrar un valor) u hornear crea dibujantes nuevos y antes se recalculaba
+## el offset de TODAS las letras cada vez.
+var _ol_cache: Dictionary = {"w": -1.0, "src": null, "out": []}
+
+func _outline_polys(_d: Node2D, polys: Array, w: float) -> Array:
+	if is_equal_approx(float(_ol_cache["w"]), w) and is_same(_ol_cache["src"], polys):
+		return _ol_cache["out"]
+	var out: Array = []
+	for p in polys:
+		var src := PackedVector2Array(p["poly"])
+		if src.size() < 3:
+			continue
+		# Caché POR LETRA independiente de su posición: al escribir solo se
+		# calcula el contorno de las letras nuevas (antes +6 ms por cambio).
+		var origin := src[0]
+		var rel: PackedVector2Array = Transform2D(0.0, -origin) * src
+		var key := "%d|%.3f" % [hash(rel), w]
+		var res: Array = _ol_glyphs.get(key, [])
+		if not _ol_glyphs.has(key):
+			res = _outline_one(rel, w)
+			if _ol_glyphs.size() > 1024:
+				_ol_glyphs.clear()
+			_ol_glyphs[key] = res
+		var back := Transform2D(0.0, origin)
+		for poly in res:
+			out.append(back * PackedVector2Array(poly))
+	_ol_cache = {"w": w, "src": polys, "out": out}
+	return out
+
+static func _largest(polys: Array) -> PackedVector2Array:
+	var best := PackedVector2Array()
+	var best_a := -1.0
+	for g in polys:
+		var a := 0.0
+		var n: int = g.size()
+		for i in n:
+			a += g[i].cross(g[(i + 1) % n])
+		if absf(a) > best_a:
+			best_a = absf(a)
+			best = g
+	return best
+
+## Une el hueco `hole` al contorno `outer` por los dos vértices más
+## cercanos (puente de ida y vuelta): polígono simple con el hueco.
+static func _bridge(outer: PackedVector2Array, hole: PackedVector2Array) -> PackedVector2Array:
+	var bi := 0
+	var bj := 0
+	var bd := INF
+	for i in outer.size():
+		for j in range(0, hole.size(), maxi(1, hole.size() / 48)):
+			var dd := outer[i].distance_squared_to(hole[j])
+			if dd < bd:
+				bd = dd
+				bi = i
+				bj = j
+	var res := PackedVector2Array()
+	for i in range(bi + 1):
+		res.append(outer[i])
+	for k in range(hole.size() + 1):
+		res.append(hole[(bj + k) % hole.size()])
+	for i in range(bi, outer.size()):
+		res.append(outer[i])
+	return res
+
+static var _ol_glyphs: Dictionary = {}
+
+## Contorno (dilatación `w`) de UNA letra: exterior(es) con sus huecos unidos.
+static func _outline_one(src: PackedVector2Array, w: float) -> Array:
+	var out: Array = []
+	var grown := Geometry2D.offset_polygon(src, w, Geometry2D.JOIN_ROUND)
+	if grown.size() == 1:
+		out.append(grown[0])
+		return out
+	# Exterior(es) + huecos (orientación contraria, p.ej. el de la "o" ya
+	# encogido): cada hueco se une al exterior con un puente de ancho cero
+	# para que el polígono siga siendo simple y se triangule.
+	var outer_cw := Geometry2D.is_polygon_clockwise(_largest(grown))
+	var outers: Array = []
+	var holes: Array = []
+	for g in grown:
+		if g.size() < 3:
+			continue
+		if Geometry2D.is_polygon_clockwise(g) == outer_cw:
+			outers.append(g)
+		else:
+			holes.append(g)
+	for o in outers:
+		var poly := PackedVector2Array(o)
+		for h in holes:
+			if Geometry2D.is_point_in_polygon(h[0], o):
+				poly = _bridge(poly, h)
+		out.append(poly)
+	return out
 
 func _stroke_all(d: Node2D, dl, col: Color, width_local: float, xf = null) -> void:
 	if xf != null:
@@ -620,8 +754,9 @@ func _draw_gradient(d: Node2D, polys: Array, e: Dictionary, xf: Transform2D) -> 
 ## que se veían como una sombra. La malla se cachea por glifos + parámetros.
 func _draw_extrude(d: Node2D, dl, polys: Array, e: Dictionary, xf: Transform2D) -> void:
 	var key := [polys, var_to_str(e), xf]
-	var cached = d.get_meta("mesh_key", null)
-	var mesh: ArrayMesh = d.get_meta("mesh", null) if cached != null and is_same(cached[0], polys) and cached[1] == key[1] and (cached[2] as Transform2D).is_equal_approx(xf) else null
+	# (get_meta con defecto null avisa si falta: se comprueba con has_meta)
+	var cached = d.get_meta("mesh_key") if d.has_meta("mesh_key") else null
+	var mesh: ArrayMesh = d.get_meta("mesh") if cached != null and d.has_meta("mesh") and is_same(cached[0], polys) and cached[1] == key[1] and (cached[2] as Transform2D).is_equal_approx(xf) else null
 	if mesh == null:
 		var contours: Array = []
 		for st in dl._get_stroke_polys():

@@ -326,10 +326,9 @@ func _apply_font() -> void:
 		if _fallback_font == null:
 			var fb = load(FONT_PATH)
 			if fb is FontFile:
-				fb.multichannel_signed_distance_field = true
-				fb.msdf_pixel_range = 16
-				fb.msdf_size = 64
-				fb.antialiasing = TextServer.FONT_ANTIALIASING_LCD
+				# Mismos ajustes que FontCore.setup_canvas_font (sin MSDF).
+				fb.multichannel_signed_distance_field = false
+				fb.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
 				fb.generate_mipmaps = true
 			_fallback_font = fb as Font
 		_font = _fallback_font
@@ -458,8 +457,48 @@ func _process(_delta: float) -> void:
 		return
 	if absf(z - _last_zoom) < 0.005:
 		_sync_layout_if_content_changed()
+		# el editor nativo puede crearse después (o recrearse): repaso barato
+		if Engine.get_process_frames() % 20 == 0:
+			_sync_vrt_oversampling()
 		return
 	_apply_zoom(z)
+	_sync_vrt_oversampling()
+
+## Nitidez con ZOOM del editor nativo (VectorRichText): sin MSDF cada letra
+## se rasteriza a tamaño × oversampling. Se le pasa la escala real en
+## pantalla, redondeada HACIA ARRIBA en pasos de √2 (pocas entradas en la
+## caché de glifos). Por encima de RASTER_CAP px por letra el nativo deja el
+## raster y dibuja el CONTORNO real (nítido a cualquier zoom); una build
+## antigua sin set_raster_cap se queda con el tope de raster (borrosa, pero
+## sin glifos gigantes en memoria).
+const RASTER_CAP := 1024.0
+var _vrt_os := -1.0
+
+func _sync_vrt_oversampling() -> void:
+	var p := get_parent()
+	if p == null:
+		return
+	var vrt := p.get_node_or_null("VectorRichText") as CanvasItem
+	if vrt == null or not vrt.has_method("set_oversampling") or not vrt.is_inside_tree():
+		return
+	if _vrt_os > 0.0 and absf(float(vrt.call("get_oversampling")) - _vrt_os) > 0.001:
+		_vrt_os = -1.0   # editor recreado: volver a fijarlo
+	var s := vrt.get_global_transform_with_canvas().get_scale().x
+	var vp := vrt.get_viewport()
+	if vp:
+		s *= vp.get_final_transform().get_scale().x
+	s = maxf(absf(s), 0.01)
+	var q := pow(2.0, ceilf(log(s) / log(2.0) * 2.0 - 0.001) / 2.0)
+	if vrt.has_method("set_raster_cap"):
+		if absf(float(vrt.call("get_raster_cap")) - RASTER_CAP) > 0.001:
+			vrt.call("set_raster_cap", RASTER_CAP)
+		q = maxf(q, 0.25)
+	else:
+		var fs := float(maxi(1, base_font_size))
+		q = clampf(q, 0.25, maxf(1.0, RASTER_CAP / fs))
+	if absf(q - _vrt_os) > 0.001:
+		_vrt_os = q
+		vrt.call("set_oversampling", q)
 
 ## Mientras no cambie el zoom, re-fija el layout si el texto o la alineación cambiaron.
 func _sync_layout_if_content_changed() -> void:
@@ -523,6 +562,11 @@ func _apply_zoom(z: float) -> void:
 	if z <= 0.0:
 		return
 	_last_zoom = z
+	_sync_visibility()
+	# El borde antialiasado del overlay mide 1 px de PANTALLA: repintar si el
+	# zoom cambió bastante desde el último dibujo (aunque el régimen sea fijo).
+	if _aa_zoom > 0.0 and absf(log(z / _aa_zoom)) > 0.35:
+		queue_redraw()
 	var eff: int
 	var fixed_regime := true
 	if is_vector_override_active():
@@ -735,6 +779,7 @@ func _draw() -> void:
 			_bake_frame = fr
 			_bakes_this_frame = 0
 		if _bakes_this_frame >= MAX_BAKES_PER_FRAME:
+			_sync_visibility()   # sin overlay todavía: que se vea el bitmap
 			queue_redraw()
 			return
 		_bakes_this_frame += 1
@@ -781,10 +826,40 @@ func _draw() -> void:
 			if run_idx >= 0 and run_idx < runs.size():
 				col = runs[run_idx].get("color", default_col)
 			draw_colored_polygon(e["poly"], col)
+		_draw_aa_edges(runs, default_col, k)
 
 	# 3. Dibujar subrayados
 	for u in _cached_underlines:
 		draw_rect(u["rect"], u["color"])
+
+## Zoom con el que se dibujó el último borde antialiasado (ver _apply_zoom).
+var _aa_zoom := -1.0
+
+## Los polígonos de relleno no tienen antialias: a zoom alto se veían
+## escalones. Se repasa cada contorno con una línea AA de ~1 px de pantalla.
+func _draw_aa_edges(runs: Array, default_col: Color, k: float) -> void:
+	var sx := get_global_transform_with_canvas().get_scale().x
+	var vp := get_viewport()
+	if vp:
+		sx *= vp.get_final_transform().get_scale().x
+	sx *= k
+	if absf(sx) < 0.0001:
+		return
+	_aa_zoom = _last_zoom
+	var w := 1.0 / absf(sx)
+	for s in _cached_strokes:
+		var run_idx: int = s.get("run", 0)
+		var col: Color = default_col
+		if run_idx >= 0 and run_idx < runs.size():
+			col = runs[run_idx].get("color", default_col)
+		for contour in s.get("contours", []):
+			var ring: PackedVector2Array = contour
+			if ring.size() < 3:
+				continue
+			if not ring[0].is_equal_approx(ring[-1]):
+				ring = PackedVector2Array(ring)
+				ring.append(ring[0])
+			draw_polyline(ring, col, w, true)
 
 func font_color() -> Color:
 	var src := _spec_source()
@@ -863,10 +938,13 @@ func is_vector_override_active() -> bool:
 	return has_letter_proportions() or _has_letter_fx() or has_indents() or has_sized_runs() or has_rich_runs() or has_stroke()
 
 func _sync_visibility() -> void:
-	if is_vector_override_active():
-		visible_ratio = 0.0
-	else:
-		visible_ratio = 1.0
+	# Zoom alto con el overlay ya horneado: el bitmap (VECTOR_FONT ampliado
+	# decenas de veces) quedaba debajo y dejaba un halo borroso alrededor de
+	# los polígonos. Mientras no esté horneado, el bitmap sigue de garantía.
+	var overlay_ready := _last_zoom >= ZOOM_VECTOR_MIN and _polys_baked and not _cached_polys.is_empty()
+	var ratio := 0.0 if (is_vector_override_active() or overlay_ready) else 1.0
+	if visible_ratio != ratio:
+		visible_ratio = ratio
 
 # ------------------------------------------------------------------ rich runs
 ## Delegado de compatibilidad → TextRuns.runs_of.
@@ -1051,6 +1129,7 @@ func _bake_glyph_data() -> void:
 			_cached_polys.append({"poly": poly, "run": run_idx})
 	_cached_underlines = _build_underlines(outline)
 	_polys_baked = true
+	_sync_visibility()
 
 ## Agrupa glifos consecutivos (mismo run + misma línea) en segmentos de
 ## subrayado. Aproximación tipográfica razonable (no lee métricas exactas de

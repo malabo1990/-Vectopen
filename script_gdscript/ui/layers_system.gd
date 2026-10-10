@@ -33,6 +33,17 @@ var _contador_label : Label = null
 const SUELTOS_LABEL := "Fuera de artboard"
 var _sueltos_item : TreeItem = null
 
+# ─── PESTAÑAS [ CAPAS | PÁGINAS ] Y FUSIÓN ───
+var _tab_capas_btn: Button = null
+var _tab_paginas_btn: Button = null
+var _fusion_row: HBoxContainer = null
+var _opt_blend_mode: OptionButton = null
+var _slider_opacity: HSlider = null
+var _lbl_opacity: Label = null
+var _paginas_panel: VBoxContainer = null
+var _paginas_list: ItemList = null
+var _active_left_tab: String = "capas"
+
 ## Iconos de las acciones por fila (ojo, candado, máscara de recorte), escalados
 ## a 16 px para que las filas del panel de capas sean compactas.
 const _ICON_PX := 16
@@ -90,7 +101,8 @@ const _TYPE_ICON_PATHS := {
 	"pentagon": "res://icon/UI/pentagon.svg",
 	"star": "res://icon/UI/star.svg",
 	"polygon": "res://icon/UI/hexagon.svg",
-	"path": "res://icon/UI/pen.svg",
+	"path": "res://icon/UI/design_nodoblack.svg",
+	"brush": "res://icon/UI/draw.svg",
 	"text": "res://icon/UI/text-square.svg",
 	"image": "res://icon/UI/media-image.svg",
 	"group": "res://icon/UI/folder.svg",
@@ -103,7 +115,11 @@ static func _type_icon(clave: String) -> Texture2D:
 	if _type_icons.has(clave):
 		return _type_icons[clave]
 	var path: String = _TYPE_ICON_PATHS.get(clave, _TYPE_ICON_PATHS["shape"])
-	var tex := _icon(path)
+	# _icon_blanco (no _icon): estos SVG traen stroke negro fijo; sin pasar a
+	# blanco, set_icon_modulate() en _aplicar_estilo_visibilidad no puede
+	# aclararlos — negro × cualquier color de tema sigue dando negro. Bug real
+	# visto en captura: icono de "Artboard" invisible sobre panel oscuro.
+	var tex := _icon_blanco(path)
 	_type_icons[clave] = tex
 	return tex
 
@@ -119,7 +135,7 @@ func _clave_icono(nodo: Node, tipo: String) -> String:
 	if nodo is Path2D:
 		return "path"
 	if nodo is Line2D:
-		return "path"
+		return "brush"
 	var cls: String = nodo.get_class() if is_instance_valid(nodo) else ""
 	var scr = nodo.get_script() if is_instance_valid(nodo) else null
 	var scr_path: String = ""
@@ -156,12 +172,15 @@ func _ready() -> void:
 		if escena_activa:
 			artboard_container = escena_activa.find_child("ArtboardsContainer", true, false) as Node2D
 
-	var escena := get_tree().current_scene
+	var escena: Node = get_tree().current_scene
+	if escena == null:
+		escena = owner if owner else get_tree().root
 	if escena:
 		_contador_label = escena.find_child("Numer layer", true, false) as Label
 
 	_conectar_botones()
 	_aplicar_tema_panel()
+	_setup_tabs_fusion_pages()
 
 	# Botones por fila (máscara de recorte) → toggle con undo.
 	if is_instance_valid(layer_tree) and not layer_tree.button_clicked.is_connected(_on_tree_button_clicked):
@@ -174,6 +193,10 @@ func _ready() -> void:
 	var gui := get_node_or_null("/root/GlobalUI")
 	if gui and gui.has_signal("ui_mode_changed") and not gui.ui_mode_changed.is_connected(_on_ui_mode_changed):
 		gui.ui_mode_changed.connect(_on_ui_mode_changed)
+
+	var lm := get_node_or_null("/root/LanguageManager")
+	if lm and lm.has_signal("language_changed") and not lm.language_changed.is_connected(_on_language_changed):
+		lm.language_changed.connect(_on_language_changed)
 
 	# Crear timer para actualizaciones batch
 	_setup_update_timer()
@@ -249,9 +272,59 @@ func _volcar_item(it: TreeItem, prof: int, tree: Tree, log_fn: Callable) -> void
 
 func _on_theme_changed(_mode: String) -> void:
 	_aplicar_tema_panel()
+	_refrescar_tema_arbol_recursivo()
 
 func _on_ui_mode_changed(_mode: String) -> void:
 	_aplicar_tema_panel()
+	_refrescar_tema_arbol_recursivo()
+
+func _on_language_changed(_locale: String) -> void:
+	if is_instance_valid(_tab_capas_btn):
+		_tab_capas_btn.text = tr("Layers")
+	if is_instance_valid(_tab_paginas_btn):
+		_tab_paginas_btn.text = tr("Pages")
+	var barra := find_child("ButtonsBar", true, false)
+	if barra:
+		for b in barra.get_children():
+			if b is Button and b.has_meta("tooltip_key"):
+				b.tooltip_text = tr(String(b.get_meta("tooltip_key")))
+	if is_instance_valid(_paginas_panel):
+		for node in _paginas_panel.find_children("", "Control", true, false):
+			if node.has_meta("txt_key"):
+				if "text" in node:
+					node.text = tr(String(node.get_meta("txt_key")))
+
+func _refrescar_tema_arbol_recursivo() -> void:
+	if not is_instance_valid(layer_tree):
+		return
+	var root: TreeItem = layer_tree.get_root()
+	if root == null:
+		return
+	var stack: Array[TreeItem] = []
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		stack.append(child)
+		child = child.get_next()
+	
+	while not stack.is_empty():
+		var it: TreeItem = stack.pop_back()
+		var nodo = it.get_metadata(1)
+		var tipo: String = str(it.get_metadata(0))
+		if tipo == "sueltos":
+			it.set_custom_color(0, Color(0.95, 0.65, 0.15))
+		else:
+			var is_vis: bool = nodo.visible if (is_instance_valid(nodo) and "visible" in nodo) else true
+			var is_lock: bool = bool(nodo.get_meta("locked", false)) if (is_instance_valid(nodo) and nodo.has_meta("locked")) else false
+			_aplicar_estilo_visibilidad(it, is_vis, tipo)
+			_tintar_boton_id(it, _BTN_VIS, is_vis)
+			_tintar_boton_id(it, _BTN_LOCK, is_lock)
+			if is_instance_valid(nodo):
+				_refrescar_boton_clip(it, nodo)
+		
+		var sub: TreeItem = it.get_first_child()
+		while sub != null:
+			stack.append(sub)
+			sub = sub.get_next()
 
 # =============================================================================
 # TEMA DEL PANEL — usa los tokens de diseño (ThemeManager), sin blancos/negros fijos
@@ -261,6 +334,12 @@ func _aplicar_tema_panel() -> void:
 	if tm == null:
 		return
 	var S = tm.Slot
+
+	# The layer counter is hardcoded black in layout.tscn; follow the theme so
+	# it stays readable on dark themes.
+	if is_instance_valid(_contador_label):
+		_contador_label.add_theme_color_override("font_color", tm.get_color(S.TEXT_SECONDARY))
+		_contador_label.add_theme_font_size_override("font_size", 11)
 
 	var panel := get_node_or_null("Panel") as Panel
 	if panel == null:
@@ -306,10 +385,17 @@ func _aplicar_tema_panel() -> void:
 		var hov: Color = tm.get_color(S.BUTTON_HOVER)
 		var prs: Color = tm.get_color(S.BUTTON_PRESSED)
 		var txt: Color = tm.get_color(S.BUTTON_TEXT)
+		var icon_col: Color = tm.get_color(S.ICON_PRIMARY)
+		var icon_hov: Color = tm.get_color(S.PANEL_TEXT)
+		var icon_prs: Color = tm.get_color(S.ACCENT)
 		for b in barra.get_children():
 			if b is Button:
 				b.custom_minimum_size = Vector2(28, 28)
 				b.add_theme_color_override("font_color", txt)
+				b.add_theme_color_override("icon_normal_color", icon_col)
+				b.add_theme_color_override("icon_hover_color", icon_hov)
+				b.add_theme_color_override("icon_pressed_color", icon_prs)
+				b.add_theme_color_override("icon_focus_color", icon_col)
 				b.add_theme_stylebox_override("normal", _chip_sb(chip))
 				b.add_theme_stylebox_override("hover", _chip_sb(hov))
 				b.add_theme_stylebox_override("pressed", _chip_sb(prs))
@@ -319,13 +405,14 @@ func _aplicar_tema_panel() -> void:
 		var inp := _btn_sb(tm.get_color(S.INPUT_BG), tm.get_color(S.INPUT_BORDER))
 		inp.set_content_margin_all(6)
 		buscador.add_theme_stylebox_override("normal", inp)
-		var inp_foco := _btn_sb(tm.get_color(S.INPUT_BG), tm.get_color(S.ACCENT))
+		var inp_foco := _btn_sb(tm.get_color(S.INPUT_BG), tm.get_interactive_color())
 		inp_foco.set_content_margin_all(6)
 		buscador.add_theme_stylebox_override("focus", inp_foco)
 		buscador.add_theme_color_override("font_color", tm.get_color(S.PANEL_TEXT))
 		buscador.add_theme_color_override("font_placeholder_color", tm.get_color(S.TEXT_DISABLED))
 		buscador.add_theme_color_override("caret_color", tm.get_color(S.PANEL_TEXT))
 		buscador.add_theme_font_size_override("font_size", 12)
+	_style_tabs_fusion()
 
 func _btn_sb(c: Color, border: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -371,12 +458,12 @@ func _conectar_botones() -> void:
 		if b and not b.pressed.is_connected(mapa[nombre]):
 			b.pressed.connect(mapa[nombre])
 	# Iconos + tooltips (se entienden mejor que las letras +/+A/-/D/M/G).
-	_icono_boton(barra, "AddLayer", "res://icon/UI/plus-square-dashed.svg", "Nuevo grupo/capa (vacío)")
-	_icono_boton(barra, "AddLayerArtboard", "res://icon/UI/frame-plus-in.svg", "Nuevo artboard")
-	_icono_boton(barra, "DeleteLayer", "res://icon/UI/trash.svg", "Eliminar selección")
-	_icono_boton(barra, "DuplicateLayer", "res://icon/UI/copy.svg", "Duplicar selección")
-	_icono_boton(barra, "GroupLayer", "res://icon/UI/folder.svg", "Agrupar selección (Ctrl+G)")
-	_icono_boton(barra, "MergeLayer", "res://icon/UI/arrow-separate.svg", "Desagrupar (Ctrl+Shift+G)")
+	_icono_boton(barra, "AddLayer", "res://icon/UI/plus-square-dashed.svg", "New group/layer (empty)")
+	_icono_boton(barra, "AddLayerArtboard", "res://icon/UI/frame-plus-in.svg", "New artboard")
+	_icono_boton(barra, "DeleteLayer", "res://icon/UI/trash.svg", "Delete selection")
+	_icono_boton(barra, "DuplicateLayer", "res://icon/UI/copy.svg", "Duplicate selection")
+	_icono_boton(barra, "GroupLayer", "res://icon/UI/folder.svg", "Group selection (Ctrl+G)")
+	_icono_boton(barra, "MergeLayer", "res://icon/UI/arrow-separate.svg", "Ungroup (Ctrl+Shift+G)")
 
 	# Buscador de capas → filtra el árbol (nombre o fichas is:oculto / is:grupo /
 	# is:texto / is:imagen / is:bloqueado / is:seleccionado). El filtro ya está
@@ -389,12 +476,294 @@ func _on_buscar_capas(texto: String) -> void:
 	if is_instance_valid(layer_tree) and layer_tree.has_method("actualizar_filtro_busqueda"):
 		layer_tree.actualizar_filtro_busqueda(texto)
 
+# =============================================================================
+# PESTAÑAS [ CAPAS | PÁGINAS ] Y PANEL DE FUSIÓN / PLIEGOS
+# =============================================================================
+func _setup_tabs_fusion_pages() -> void:
+	if Engine.is_editor_hint():
+		return
+	var vbox := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	if not vbox:
+		vbox = find_child("VBoxContainer", true, false) as VBoxContainer
+	if not vbox:
+		return
+
+	var title_bar := vbox.get_node_or_null("TitleBar") as Control
+
+	# 1. Contenedor de pestañas [ Capas | Páginas ]
+	var tabs_box := HBoxContainer.new()
+	tabs_box.name = "TabsCapasPaginas"
+	tabs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs_box.add_theme_constant_override("separation", 4)
+
+	_tab_capas_btn = Button.new()
+	_tab_capas_btn.text = tr("Layers")
+	_tab_capas_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_capas_btn.custom_minimum_size = Vector2(0, 26)
+	_tab_capas_btn.focus_mode = Control.FOCUS_NONE
+	_tab_capas_btn.add_theme_font_size_override("font_size", 11)
+	_tab_capas_btn.pressed.connect(func(): _switch_left_tab("capas"))
+	tabs_box.add_child(_tab_capas_btn)
+
+	_tab_paginas_btn = Button.new()
+	_tab_paginas_btn.text = tr("Pages")
+	_tab_paginas_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_paginas_btn.custom_minimum_size = Vector2(0, 26)
+	_tab_paginas_btn.focus_mode = Control.FOCUS_NONE
+	_tab_paginas_btn.add_theme_font_size_override("font_size", 11)
+	_tab_paginas_btn.pressed.connect(func(): _switch_left_tab("paginas"))
+	tabs_box.add_child(_tab_paginas_btn)
+
+	if title_bar:
+		vbox.add_child(tabs_box)
+		vbox.move_child(tabs_box, title_bar.get_index() + 1)
+	else:
+		vbox.add_child(tabs_box)
+		vbox.move_child(tabs_box, 0)
+
+	# 2. Fila de fusión y opacidad bajo las pestañas de capas
+	_fusion_row = HBoxContainer.new()
+	_fusion_row.name = "FusionRow"
+	_fusion_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fusion_row.add_theme_constant_override("separation", 6)
+
+	_opt_blend_mode = OptionButton.new()
+	_opt_blend_mode.add_item("Normal")
+	_opt_blend_mode.add_item("Multiplicar")
+	_opt_blend_mode.add_item("Pantalla")
+	_opt_blend_mode.add_item("Superponer")
+	_opt_blend_mode.add_item("Aclarar")
+	_opt_blend_mode.add_item("Oscurecer")
+	_opt_blend_mode.add_item("Diferencia")
+	_opt_blend_mode.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_opt_blend_mode.custom_minimum_size = Vector2(0, 24)
+	_opt_blend_mode.focus_mode = Control.FOCUS_NONE
+	_opt_blend_mode.add_theme_font_size_override("font_size", 10)
+	_opt_blend_mode.item_selected.connect(_on_left_blend_mode_selected)
+	_fusion_row.add_child(_opt_blend_mode)
+
+	_slider_opacity = HSlider.new()
+	_slider_opacity.min_value = 0.0
+	_slider_opacity.max_value = 100.0
+	_slider_opacity.step = 1.0
+	_slider_opacity.value = 100.0
+	_slider_opacity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_slider_opacity.custom_minimum_size = Vector2(60, 20)
+	_slider_opacity.value_changed.connect(_on_left_opacity_changed)
+	_fusion_row.add_child(_slider_opacity)
+
+	_lbl_opacity = Label.new()
+	_lbl_opacity.text = "100%"
+	_lbl_opacity.custom_minimum_size = Vector2(36, 0)
+	_lbl_opacity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lbl_opacity.add_theme_font_size_override("font_size", 10)
+	_fusion_row.add_child(_lbl_opacity)
+
+	vbox.add_child(_fusion_row)
+	vbox.move_child(_fusion_row, tabs_box.get_index() + 1)
+
+	# 3. Panel de Páginas y Pliegos
+	_paginas_panel = VBoxContainer.new()
+	_paginas_panel.name = "PaginasPanel"
+	_paginas_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_paginas_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_paginas_panel.add_theme_constant_override("separation", 8)
+	_paginas_panel.visible = false
+	vbox.add_child(_paginas_panel)
+
+	_build_paginas_panel_content()
+	_style_tabs_fusion()
+
+	var ic = get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_signal("changed"):
+		ic.changed.connect(_on_inspector_props_for_fusion)
+
+func _build_paginas_panel_content() -> void:
+	var lbl_sec := Label.new()
+	lbl_sec.text = tr("PAGES & SPREADS")
+	lbl_sec.set_meta("txt_key", "PAGES & SPREADS")
+	lbl_sec.add_theme_font_size_override("font_size", 11)
+	_paginas_panel.add_child(lbl_sec)
+
+	_paginas_list = ItemList.new()
+	_paginas_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_paginas_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_paginas_list.custom_minimum_size = Vector2(0, 120)
+	_paginas_list.item_selected.connect(_on_pagina_selected)
+	_paginas_panel.add_child(_paginas_list)
+
+	var btn_add_page := Button.new()
+	btn_add_page.text = tr("New Page / Artboard")
+	btn_add_page.set_meta("txt_key", "New Page / Artboard")
+	btn_add_page.custom_minimum_size = Vector2(0, 26)
+	btn_add_page.pressed.connect(_on_btn_add_artboard)
+	_paginas_panel.add_child(btn_add_page)
+
+	# Sangrado
+	var bleed_row := HBoxContainer.new()
+	var lbl_bleed := Label.new()
+	lbl_bleed.text = tr("Bleed:")
+	lbl_bleed.set_meta("txt_key", "Bleed:")
+	lbl_bleed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl_bleed.add_theme_font_size_override("font_size", 10)
+	bleed_row.add_child(lbl_bleed)
+	var spin_bleed := SpinBox.new()
+	spin_bleed.min_value = 0.0
+	spin_bleed.max_value = 50.0
+	spin_bleed.step = 0.5
+	spin_bleed.value = 3.0
+	spin_bleed.suffix = "mm"
+	spin_bleed.custom_minimum_size = Vector2(70, 24)
+	bleed_row.add_child(spin_bleed)
+	_paginas_panel.add_child(bleed_row)
+
+	# Margen
+	var margin_row := HBoxContainer.new()
+	var lbl_margin := Label.new()
+	lbl_margin.text = tr("Margins:")
+	lbl_margin.set_meta("txt_key", "Margins:")
+	lbl_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl_margin.add_theme_font_size_override("font_size", 10)
+	margin_row.add_child(lbl_margin)
+	var spin_margin := SpinBox.new()
+	spin_margin.min_value = 0.0
+	spin_margin.max_value = 100.0
+	spin_margin.step = 1.0
+	spin_margin.value = 15.0
+	spin_margin.suffix = "mm"
+	spin_margin.custom_minimum_size = Vector2(70, 24)
+	margin_row.add_child(spin_margin)
+	_paginas_panel.add_child(margin_row)
+
+func _switch_left_tab(tab: String) -> void:
+	_active_left_tab = tab
+	var is_capas: bool = (tab == "capas")
+	if is_instance_valid(_fusion_row): _fusion_row.visible = is_capas
+	var buscador = find_child("SearchLayers", true, false) as Control
+	if is_instance_valid(buscador): buscador.visible = is_capas
+	var buttons_bar = find_child("ButtonsBar", true, false) as Control
+	if is_instance_valid(buttons_bar): buttons_bar.visible = is_capas
+	var layers_cont = find_child("LayersContainer", true, false) as Control
+	if is_instance_valid(layers_cont): layers_cont.visible = is_capas
+	if is_instance_valid(_paginas_panel):
+		_paginas_panel.visible = not is_capas
+		if not is_capas:
+			_refresh_paginas_list()
+	_style_tabs_fusion()
+
+func _on_left_blend_mode_selected(index: int) -> void:
+	if not is_instance_valid(_opt_blend_mode): return
+	var mode_name: String = _opt_blend_mode.get_item_text(index)
+	var ic = get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("apply"):
+		ic.apply("blend_mode", mode_name)
+
+func _on_left_opacity_changed(val: float) -> void:
+	if is_instance_valid(_lbl_opacity):
+		_lbl_opacity.text = "%d%%" % int(val)
+	# The slider is 0..100 but InspectorCore's "opacity" is 0..1 (modulate.a)
+	var ic = get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("apply"):
+		ic.apply("opacity", val / 100.0)
+
+func _on_inspector_props_for_fusion(props: Dictionary) -> void:
+	if props.has("opacity") and is_instance_valid(_slider_opacity):
+		var op_val: float = float(props["opacity"]["value"]) * 100.0
+		_slider_opacity.set_value_no_signal(op_val)
+		if is_instance_valid(_lbl_opacity):
+			_lbl_opacity.text = "%d%%" % roundi(op_val)
+	if props.has("blend_mode") and is_instance_valid(_opt_blend_mode):
+		var bm_val: String = String(props["blend_mode"]["value"])
+		for i in range(_opt_blend_mode.item_count):
+			if _opt_blend_mode.get_item_text(i) == bm_val:
+				_opt_blend_mode.selected = i
+				break
+
+func _on_pagina_selected(idx: int) -> void:
+	if not is_instance_valid(_paginas_list): return
+	var ab_name: String = _paginas_list.get_item_text(idx)
+	if not is_instance_valid(artboard_container): return
+	var ab := artboard_container.find_child(ab_name, false, false) as Node2D
+	if is_instance_valid(ab):
+		var m := _mgr()
+		if m and m.has_method("set_active_artboard"):
+			m.set_active_artboard(ab)
+		var cam := get_viewport().get_camera_2d()
+		if cam:
+			cam.global_position = ab.global_position + (ab.artboard_size / 2.0 if "artboard_size" in ab else Vector2.ZERO)
+
+func _refresh_paginas_list() -> void:
+	if not is_instance_valid(_paginas_list): return
+	_paginas_list.clear()
+	if not is_instance_valid(artboard_container): return
+	for ch in artboard_container.get_children():
+		if _es_artboard(ch):
+			var idx: int = _paginas_list.add_item(ch.name)
+			var m := _mgr()
+			if m and m.has_method("get_active_artboard") and m.get_active_artboard() == ch:
+				_paginas_list.select(idx)
+
+func _style_tabs_fusion() -> void:
+	var tm := get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	# Active tab outline uses the interactive color (white on dark, blue on light)
+	var accent: Color = tm.get_interactive_color() if (tm and tm.has_method("get_interactive_color")) else (tm.get_color(S.ACCENT) if (tm and S) else Color("0a84ff"))
+	var panel_bg: Color = tm.get_color(S.PANEL_BG) if (tm and S) else Color(0.18, 0.18, 0.20, 1.0)
+	var surface_raised: Color = tm.get_color(S.SURFACE_RAISED) if (tm and S) else Color(0.24, 0.24, 0.26, 1.0)
+	var button_bg: Color = tm.get_color(S.BUTTON_BG) if (tm and S) else panel_bg
+	var panel_text: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color(0.92, 0.92, 0.94, 1.0)
+	var muted: Color = tm.get_color(S.TEXT_SECONDARY) if (tm and S) else Color(0.55, 0.55, 0.58, 1.0)
+	var border_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color(0.24, 0.24, 0.26, 1.0)
+
+	if is_instance_valid(_tab_capas_btn):
+		var is_act: bool = (_active_left_tab == "capas")
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = surface_raised if is_act else button_bg
+		sb.set_corner_radius_all(5)
+		sb.border_width_left = 1; sb.border_width_top = 1; sb.border_width_right = 1; sb.border_width_bottom = 1
+		sb.border_color = accent if is_act else border_col
+		sb.content_margin_left = 6; sb.content_margin_right = 6; sb.content_margin_top = 2; sb.content_margin_bottom = 2
+		_tab_capas_btn.add_theme_stylebox_override("normal", sb)
+		_tab_capas_btn.add_theme_stylebox_override("hover", sb)
+		_tab_capas_btn.add_theme_color_override("font_color", panel_text if is_act else muted)
+
+	if is_instance_valid(_tab_paginas_btn):
+		var is_act: bool = (_active_left_tab == "paginas")
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = surface_raised if is_act else button_bg
+		sb.set_corner_radius_all(5)
+		sb.border_width_left = 1; sb.border_width_top = 1; sb.border_width_right = 1; sb.border_width_bottom = 1
+		sb.border_color = accent if is_act else border_col
+		sb.content_margin_left = 6; sb.content_margin_right = 6; sb.content_margin_top = 2; sb.content_margin_bottom = 2
+		_tab_paginas_btn.add_theme_stylebox_override("normal", sb)
+		_tab_paginas_btn.add_theme_stylebox_override("hover", sb)
+		_tab_paginas_btn.add_theme_color_override("font_color", panel_text if is_act else muted)
+
+	if is_instance_valid(_opt_blend_mode):
+		var sb_opt := StyleBoxFlat.new()
+		sb_opt.bg_color = tm.get_color(S.INPUT_BG) if (tm and S) else panel_bg
+		sb_opt.set_corner_radius_all(4)
+		sb_opt.set_border_width_all(1)
+		sb_opt.border_color = border_col
+		sb_opt.content_margin_left = 6; sb_opt.content_margin_right = 6; sb_opt.content_margin_top = 2; sb_opt.content_margin_bottom = 2
+		_opt_blend_mode.add_theme_stylebox_override("normal", sb_opt)
+		_opt_blend_mode.add_theme_stylebox_override("hover", sb_opt)
+		_opt_blend_mode.add_theme_color_override("font_color", panel_text)
+
+	if is_instance_valid(_lbl_opacity):
+		_lbl_opacity.add_theme_color_override("font_color", muted)
+
+
 func _icono_boton(barra: Node, nombre: String, ruta_icono: String, texto: String) -> void:
 	var b := barra.get_node_or_null(nombre) as Button
 	if not b:
 		return
-	b.tooltip_text = texto
-	var tex := _icon(ruta_icono)
+	b.tooltip_text = tr(texto)
+	b.set_meta("tooltip_key", texto)
+	# _icon_blanco: el Theme global ya tiñe "icon_normal_color" en todos los
+	# Button (ver ThemeManager.gd), pero esa multiplicación no puede aclarar
+	# un SVG con stroke negro — mismo bug que _type_icon, mismo arreglo.
+	var tex := _icon_blanco(ruta_icono)
 	if tex:
 		b.icon = tex
 		b.text = ""
@@ -594,11 +963,9 @@ func _resync_tras_drag() -> void:
 
 func _on_object_transformed() -> void:
 	# Mover/rotar/escalar NO cambia la ESTRUCTURA del árbol, solo si la figura
-	# quedó fuera del artboard. Refrescamos ese indicador in situ (O(N) barato)
-	# en vez de reconstruir N TreeItems desde cero (O(N) con allocations) en
-	# cada fin de arrastre — con miles de figuras ese rebuild se notaba.
-	# Agrupado a UNA vez por frame: al teclear en un texto llegaba un evento
-	# por tecla y con 300 figuras costaba ~195 ms/tecla.
+	# quedó fuera del artboard. Refrescamos ese indicador in situ en vez de
+	# reconstruir N TreeItems. Agrupado a UNA vez por frame: al teclear en un
+	# texto llegaba un evento por tecla y con 300 figuras costaba ~195 ms/tecla.
 	if _refresco_estado_pendiente:
 		return
 	_refresco_estado_pendiente = true
@@ -700,7 +1067,7 @@ func _refrescar_indicadores_estado() -> void:
 		var es_suelto_top: bool = item.get_parent() == _sueltos_item
 		var ab := _encontrar_artboard_ancestro(nodo)
 		var fuera := es_suelto_top or (ab != null and _esta_fuera_del_artboard(nodo, ab))
-		var base_name := str(nodo.name)
+		var base_name := _nombre_visible_nodo(nodo)
 		var firma := "%s|%s|%s" % [fuera, nodo.visible, base_name]
 		if _estado_fila.get(nodo) == firma and item.get_text(0).begins_with(base_name):
 			continue   # sin cambios: no tocar la fila
@@ -746,13 +1113,19 @@ func sincronizar_arbol_completo() -> void:
 	_artboards_conectados.clear()
 
 	# Los hijos directos del contenedor son de DOS clases: artboards y figuras
-	# SUELTAS (fuera de todo artboard). Se muestran por separado.
+	# SUELTAS (fuera de todo artboard). Solo se agrupan si realmente hay figuras sueltas.
+	var hijos_sueltos: Array[Node2D] = []
 	for hijo in artboard_container.get_children():
 		if _es_artboard(hijo):
 			_vincular_senales_artboard(hijo)
 			_construir_nodo_recursivo(raiz_oculta, hijo, hijo)
 		elif hijo is Node2D and hijo.name != "Contorno_Stroke":
-			_construir_nodo_recursivo(_get_sueltos_item(), hijo, null)
+			hijos_sueltos.append(hijo)
+
+	if not hijos_sueltos.is_empty():
+		var item_sueltos := _get_sueltos_item()
+		for hijo_suelto in hijos_sueltos:
+			_construir_nodo_recursivo(item_sueltos, hijo_suelto, null)
 
 	_bloquear_sincronizacion = false
 	_repintar_canvas()
@@ -814,11 +1187,100 @@ func _es_capa(n: Node) -> bool:
 	# Node2D "pelado" con hijos → grupo. Sin hijos → probablemente auxiliar.
 	return n.get_child_count() > 0
 
-## Comprueba si el ORIGEN del nodo cae fuera del rectángulo del artboard.
-## Es una comprobación simple por punto (no el AABB completo de la figura,
-## que ya se calcula de forma más precisa y duplicada en MoveTool.gd y
-## bounding_box.gd) — suficiente para el indicador de aviso del panel de
-## capas sin añadir una tercera copia de esa lógica geométrica.
+func _nombre_visible_nodo(nodo: Node) -> String:
+	if not is_instance_valid(nodo):
+		return ""
+	var n := nodo.name
+	if n.begins_with("@Line2D") or n == "Line2D":
+		return "Dibujo"
+	return n
+
+func _obtener_rect_global(node: Node2D) -> Rect2:
+	if not is_instance_valid(node):
+		return Rect2()
+	if node is Line2D:
+		if node.points.is_empty():
+			return Rect2(node.global_position - Vector2(1, 1), Vector2(2, 2))
+		var p0 := node.to_global(node.points[0])
+		var min_p := p0
+		var max_p := p0
+		for pt in node.points:
+			var gp := node.to_global(pt)
+			min_p.x = minf(min_p.x, gp.x)
+			min_p.y = minf(min_p.y, gp.y)
+			max_p.x = maxf(max_p.x, gp.x)
+			max_p.y = maxf(max_p.y, gp.y)
+		var stroke_pad := maxf(node.width * 0.5, 1.0)
+		min_p -= Vector2(stroke_pad, stroke_pad)
+		max_p += Vector2(stroke_pad, stroke_pad)
+		var sz := max_p - min_p
+		sz.x = maxf(sz.x, 2.0)
+		sz.y = maxf(sz.y, 2.0)
+		return Rect2(min_p, sz)
+	if node is Path2D and node.curve:
+		if node.curve.point_count == 0:
+			return Rect2(node.global_position - Vector2(1, 1), Vector2(2, 2))
+		var p0 := node.to_global(node.curve.get_point_position(0))
+		var min_p := p0
+		var max_p := p0
+		for i in range(node.curve.point_count):
+			var gp := node.to_global(node.curve.get_point_position(i))
+			min_p.x = minf(min_p.x, gp.x)
+			min_p.y = minf(min_p.y, gp.y)
+			max_p.x = maxf(max_p.x, gp.x)
+			max_p.y = maxf(max_p.y, gp.y)
+		var sz := max_p - min_p
+		sz.x = maxf(sz.x, 2.0)
+		sz.y = maxf(sz.y, 2.0)
+		return Rect2(min_p - Vector2(1, 1), sz + Vector2(2, 2))
+	if node is Polygon2D:
+		if node.polygon.is_empty():
+			return Rect2(node.global_position - Vector2(1, 1), Vector2(2, 2))
+		var p0 := node.to_global(node.polygon[0])
+		var min_p := p0
+		var max_p := p0
+		for pt in node.polygon:
+			var gp := node.to_global(pt)
+			min_p.x = minf(min_p.x, gp.x)
+			min_p.y = minf(min_p.y, gp.y)
+			max_p.x = maxf(max_p.x, gp.x)
+			max_p.y = maxf(max_p.y, gp.y)
+		var sz := max_p - min_p
+		sz.x = maxf(sz.x, 2.0)
+		sz.y = maxf(sz.y, 2.0)
+		return Rect2(min_p - Vector2(1, 1), sz + Vector2(2, 2))
+	if node is VectorShape:
+		var ext_v2: Vector2 = node.get_doc_extent().to_v2()
+		var p_min := node.global_position - ext_v2 * 0.5
+		var sz := Vector2(maxf(ext_v2.x, 2.0), maxf(ext_v2.y, 2.0))
+		return Rect2(p_min, sz)
+	if node.has_meta("width") and node.has_meta("height"):
+		var w: float = maxf(float(node.get_meta("width")), 2.0)
+		var h: float = maxf(float(node.get_meta("height")), 2.0)
+		return Rect2(node.global_position, Vector2(w, h))
+	if node is Sprite2D and node.texture:
+		var s: Vector2 = node.texture.get_size() * node.global_scale
+		var p: Vector2 = node.global_position if not node.centered else (node.global_position - s * 0.5)
+		return Rect2(p, Vector2(maxf(s.x, 2.0), maxf(s.y, 2.0)))
+	if node.get_child_count() > 0:
+		var has_child_rect := false
+		var union_rect := Rect2()
+		for ch in node.get_children():
+			if ch is Node2D and ch.name != "Contorno_Stroke" and ch.name != "Render_Visual":
+				var cr := _obtener_rect_global(ch)
+				if cr.size.x > 0.0 and cr.size.y > 0.0:
+					if not has_child_rect:
+						union_rect = cr
+						has_child_rect = true
+					else:
+						union_rect = union_rect.merge(cr)
+		if has_child_rect:
+			return union_rect
+	return Rect2(node.global_position - Vector2(1, 1), Vector2(2, 2))
+
+## Comprueba si el nodo cae completamente fuera del rectángulo del artboard.
+## Utiliza intersección de cajas envolventes (AABB) reales para evitar falsos positivos
+## en líneas o trazos con origen en la esquina superior del artboard.
 func _esta_fuera_del_artboard(real_node: Node2D, artboard_actual: Node2D) -> bool:
 	if real_node == artboard_actual:
 		return false
@@ -826,8 +1288,9 @@ func _esta_fuera_del_artboard(real_node: Node2D, artboard_actual: Node2D) -> boo
 		return true   # figura SUELTA: fuera de todo artboard, por definición
 	if not is_instance_valid(artboard_actual) or not ("artboard_size" in artboard_actual):
 		return false
-	var rect := Rect2(artboard_actual.global_position, artboard_actual.artboard_size)
-	return not rect.has_point(real_node.global_position)
+	var ab_rect := Rect2(artboard_actual.global_position, artboard_actual.artboard_size).grow(4.0)
+	var node_rect := _obtener_rect_global(real_node)
+	return not ab_rect.intersects(node_rect)
 
 func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual: Node2D = null) -> TreeItem:
 	# 1. Identificar el tipo de capa para el estilo visual
@@ -840,6 +1303,8 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 		type = "group"
 
 	# 2. Instanciar el TreeItem de forma segura
+	if is_instance_valid(layer_tree) and layer_tree.columns < 3:
+		layer_tree.columns = 3
 	var item : TreeItem = layer_tree.create_item(parent_item)
 	if not item:
 		return null
@@ -852,7 +1317,8 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 	item.set_cell_mode(1, TreeItem.CELL_MODE_STRING)
 	item.set_cell_mode(2, TreeItem.CELL_MODE_STRING)
 
-	item.set_text(0, real_node.name)
+	var display_name := _nombre_visible_nodo(real_node)
+	item.set_text(0, display_name)
 	item.set_editable(0, true)
 	item.set_icon(0, _type_icon(_clave_icono(real_node, type)))
 	item.set_icon_max_width(0, 14)
@@ -879,7 +1345,7 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 	# Aviso visual si la figura quedó fuera de los límites de su artboard
 	# (arrastrada fuera, o creada con coordenadas fuera de rango).
 	if type != "artboard" and _esta_fuera_del_artboard(real_node, artboard_actual):
-		item.set_text(0, real_node.name + "  ⚠ fuera del artboard")
+		item.set_text(0, display_name + "  ⚠ fuera del artboard")
 		item.set_tooltip_text(0, "Esta figura está fuera de los límites del artboard")
 		if real_node.visible:
 			item.set_custom_color(0, Color(0.95, 0.65, 0.15))  # Naranja de aviso
@@ -901,12 +1367,12 @@ func _tiene_hijos_dibujables(nodo: Node) -> bool:
 ## Color de los botones de fila (ojo/candado/máscara). Los iconos son trazo
 ## negro y se tiñen: ACTIVO = negro (`PANEL_TEXT`); INACTIVO = gris casi blanco,
 ## el mismo que las líneas de jerarquía → casi no se ve, pero el hueco queda.
-const _BOTON_INACTIVO := Color(0.87, 0.87, 0.90, 1.0)
 func _color_boton(positivo: bool) -> Color:
-	if not positivo:
-		return _BOTON_INACTIVO
 	var tm := get_node_or_null("/root/ThemeManager")
-	if tm == null:
+	var S = tm.Slot if tm else null
+	if not positivo:
+		return tm.get_color(S.TEXT_DISABLED) if (tm and S) else Color(0.55, 0.55, 0.58)
+	if tm == null or S == null:
 		return Color(0.1, 0.1, 0.12)
 	return tm.get_color(tm.Slot.PANEL_TEXT)
 
@@ -1010,9 +1476,10 @@ func _set_clip(item: TreeItem, nodo: Node, modo: int) -> void:
 
 ## ¿`n` es un contenedor SIN geometría propia (grupo pelado o texto)?
 func _es_contenedor_sin_cuerpo(n: Node) -> bool:
-	if n is VectorShape or n is Line2D or n is Polygon2D or n is Path2D or n is Sprite2D:
+	if n is VectorShape or n is Line2D or n is Polygon2D or n is Path2D or n is Sprite2D or n.has_method("get_evaluated_geometry"):
 		return false
 	return n is Node2D
+
 
 func _mascara_activa(c: Node) -> bool:
 	return is_instance_valid(c) and c.has_meta("clip_mask") and bool(c.get_meta("clip_mask"))
@@ -1787,6 +2254,12 @@ func _aplicar_estilo_visibilidad(item: TreeItem, esta_visible: bool, tipo: Strin
 		item.set_custom_color(0, c_group)
 	else:
 		item.set_custom_color(0, c_text)
+
+	# Icono de tipo (columna 0): mismo estado visible/oculto que el texto.
+	# set_icon() por sí solo deja el icono en icon_modulate por defecto
+	# (blanco, sin teñir) — sin esto, el icono blanco de _type_icon queda
+	# blanco fijo y se vuelve invisible en un tema claro.
+	item.set_icon_modulate(0, c_dim if not esta_visible else c_text)
 
 
 func _repintar_canvas() -> void:

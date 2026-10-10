@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://panel_brush_scene"]
+
+[ext_resource type="Script" path="res://script_gdscript/ui/panel_brush.gd" id="1_brush"]
+
+[sub_resource type="StyleBoxFlat" id="sb_brush_panel"]
+bg_color = Color(0.14, 0.14, 0.17, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.12)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.25)
+shadow_size = 14
+shadow_offset = Vector2(0, 4)
+
+[node name="brush" type="PanelContainer"]
+visible = false
+custom_minimum_size = Vector2(310, 0)
+offset_left = -330.0
+offset_top = 40.0
+offset_right = -10.0
+offset_bottom = 360.0
+theme_override_styles/panel = SubResource("sb_brush_panel")
+script = ExtResource("1_brush")

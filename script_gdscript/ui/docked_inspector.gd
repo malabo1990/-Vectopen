@@ -76,6 +76,11 @@ var sec_typography: VBoxContainer
 var opt_font_family: OptionButton
 var spin_font_size: NumericField
 var opt_font_weight: OptionButton
+var spin_font_line_spacing: NumericField
+var spin_font_letter_spacing: NumericField
+var spin_font_columns: NumericField
+var spin_font_column_gap: NumericField
+var row_font_columns: HBoxContainer
 var btn_align_left: Button
 var btn_align_center: Button
 var btn_align_right: Button
@@ -735,7 +740,7 @@ func _build_typography_section() -> void:
 	spin_font_size = NumericField.new("Size", " pt", 6.0, 500.0, 1.0)
 	spin_font_size.value = 16.0
 	spin_font_size.custom_minimum_size = Vector2(80, 22)
-	spin_font_size.value_changed.connect(_on_font_size_changed)
+	_bind_live_param(spin_font_size, "font_size", 1.0, true)
 	row_size_align.add_child(spin_font_size)
 
 	var align_row := HBoxContainer.new()
@@ -755,6 +760,40 @@ func _build_typography_section() -> void:
 	btn_align_right.pressed.connect(func(): _set_text_align("right"))
 	align_row.add_child(btn_align_right)
 
+	# Fila 3: Interlineado y Tracking
+	var row_spacing := HBoxContainer.new()
+	row_spacing.add_theme_constant_override("separation", 4)
+	sec_typography.add_child(row_spacing)
+
+	spin_font_line_spacing = NumericField.new("Line", " px", -50.0, 200.0, 1.0)
+	spin_font_line_spacing.custom_minimum_size = Vector2(80, 22)
+	spin_font_line_spacing.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bind_live_param(spin_font_line_spacing, "line_spacing")
+	row_spacing.add_child(spin_font_line_spacing)
+
+	spin_font_letter_spacing = NumericField.new("Track", " px", -20.0, 100.0, 0.5)
+	spin_font_letter_spacing.custom_minimum_size = Vector2(80, 22)
+	spin_font_letter_spacing.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bind_live_param(spin_font_letter_spacing, "letter_spacing")
+	row_spacing.add_child(spin_font_letter_spacing)
+
+	# Fila 4: Columnas y Medianil
+	row_font_columns = HBoxContainer.new()
+	row_font_columns.add_theme_constant_override("separation", 4)
+	sec_typography.add_child(row_font_columns)
+
+	spin_font_columns = NumericField.new("Cols", "", 1.0, 16.0, 1.0)
+	spin_font_columns.custom_minimum_size = Vector2(80, 22)
+	spin_font_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bind_live_param(spin_font_columns, "columns", 1.0, true)
+	row_font_columns.add_child(spin_font_columns)
+
+	spin_font_column_gap = NumericField.new("Gap", " px", 0.0, 200.0, 1.0)
+	spin_font_column_gap.custom_minimum_size = Vector2(80, 22)
+	spin_font_column_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bind_live_param(spin_font_column_gap, "column_gap")
+	row_font_columns.add_child(spin_font_column_gap)
+
 func _on_font_family_selected(idx: int) -> void:
 	if _syncing: return
 	var font_name: String = opt_font_family.get_item_text(idx)
@@ -767,7 +806,16 @@ func _on_font_weight_selected(idx: int) -> void:
 	var weight_name: String = opt_font_weight.get_item_text(idx).to_lower()
 	var ic = get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_method("apply"):
-		ic.apply("font_weight", weight_name)
+		var w_val: int = 400
+		var is_it: bool = false
+		match weight_name:
+			"medium": w_val = 500
+			"bold": w_val = 700
+			"italic":
+				w_val = 400
+				is_it = true
+		ic.apply("font_weight", w_val)
+		ic.apply("font_italic", is_it)
 
 func _on_font_size_changed(val: float) -> void:
 	if _syncing: return
@@ -1722,6 +1770,9 @@ func _on_selection_size_changed(count: int) -> void:
 				if is_instance_valid(transform_panel): transform_panel.visible = true
 				if is_instance_valid(sec_appearance): sec_appearance.visible = true
 				if is_instance_valid(sec_typography): sec_typography.visible = true
+				if is_instance_valid(row_font_columns):
+					var is_para: bool = sel_node != null and sel_node.has_meta("shape_type") and str(sel_node.get_meta("shape_type")) == "text_paragraph"
+					row_font_columns.visible = is_para
 				if is_instance_valid(sec_parametric_circle): sec_parametric_circle.visible = false
 				if is_instance_valid(sec_parametric_star): sec_parametric_star.visible = false
 				if is_instance_valid(sec_parametric_rect): sec_parametric_rect.visible = false
@@ -1731,7 +1782,7 @@ func _on_selection_size_changed(count: int) -> void:
 					var hdr = sec_fill.get_child(0) if sec_fill.get_child_count() > 0 else null
 					if hdr and hdr.get_child_count() > 0 and hdr.get_child(0) is Label:
 						hdr.get_child(0).text = "TEXT COLOR"
-				if is_instance_valid(sec_stroke): sec_stroke.visible = false
+				if is_instance_valid(sec_stroke): sec_stroke.visible = true
 				if is_instance_valid(sec_effects): sec_effects.visible = true
 				if is_instance_valid(sec_export): sec_export.visible = true
 			"image":
@@ -1812,11 +1863,33 @@ func _on_inspector_changed(props: Dictionary) -> void:
 			btn_toggle_visibility.text = "👁" if _current_item_visible else "Ø"
 	if is_instance_valid(spin_font_size) and props.has("font_size") and not props["font_size"].get("mixed", false):
 		spin_font_size.value = float(props["font_size"]["value"])
+	if is_instance_valid(spin_font_line_spacing) and props.has("line_spacing") and not props["line_spacing"].get("mixed", false):
+		spin_font_line_spacing.value = float(props["line_spacing"]["value"])
+	if is_instance_valid(spin_font_letter_spacing) and props.has("letter_spacing") and not props["letter_spacing"].get("mixed", false):
+		spin_font_letter_spacing.value = float(props["letter_spacing"]["value"])
+	if is_instance_valid(spin_font_columns) and props.has("columns") and not props["columns"].get("mixed", false):
+		spin_font_columns.value = float(props["columns"]["value"])
+	if is_instance_valid(spin_font_column_gap) and props.has("column_gap") and not props["column_gap"].get("mixed", false):
+		spin_font_column_gap.value = float(props["column_gap"]["value"])
 	if is_instance_valid(opt_font_family) and props.has("font_family") and not props["font_family"].get("mixed", false):
 		var ff: String = str(props["font_family"]["value"])
 		for i in range(opt_font_family.item_count):
 			if opt_font_family.get_item_text(i).to_lower() == ff.to_lower():
 				opt_font_family.selected = i
+				break
+	if is_instance_valid(opt_font_weight) and (props.has("font_weight") or props.has("font_italic")):
+		var fw: int = int(props["font_weight"]["value"]) if props.has("font_weight") and not props["font_weight"].get("mixed", false) else 400
+		var fi: bool = bool(props["font_italic"]["value"]) if props.has("font_italic") and not props["font_italic"].get("mixed", false) else false
+		var target_w := "Regular"
+		if fi:
+			target_w = "Italic"
+		elif fw >= 700:
+			target_w = "Bold"
+		elif fw >= 500:
+			target_w = "Medium"
+		for i in range(opt_font_weight.item_count):
+			if opt_font_weight.get_item_text(i).to_lower() == target_w.to_lower():
+				opt_font_weight.selected = i
 				break
 	if props.has("text_align") and not props["text_align"].get("mixed", false):
 		_sync_text_align_buttons(str(props["text_align"]["value"]))

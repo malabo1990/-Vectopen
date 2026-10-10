@@ -27,33 +27,32 @@ class_name TransformPanel
 var _BG_PANEL := Color(1.0, 1.0, 1.0, 1.0)
 var _BG_CARD := Color(1.0, 1.0, 1.0, 1.0)
 var _BG_HOVER := Color("eceef2")
-var _ACCENT := Color("0a84ff")
+var _ACCENT := Color(0.35, 0.50, 0.68, 1.0) # tono de acento neutro y suave
 var _TEXT := Color("1c1c1e")
 var _MUTED := Color("6c6c70")
 var _BORDER := Color("d1d1d6")
 
 func _pull_theme() -> void:
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm != null and "Slot" in tm:
+		var S = tm.Slot
+		_BG_PANEL = Color.TRANSPARENT
+		_BG_CARD = tm.get_color(S.INPUT_BG)
+		_BG_HOVER = tm.get_color(S.INPUT_HOVER)
+		_ACCENT = tm.get_color(S.ACCENT)
+		_TEXT = tm.get_color(S.PANEL_TEXT)
+		_MUTED = tm.get_color(S.TEXT_MUTED)
+		_BORDER = tm.get_color(S.INPUT_BORDER)
+		return
+
+	# Fallback si no está ThemeManager
 	_BG_PANEL = Color.TRANSPARENT
 	_BG_CARD = Color("#f1f1f5")
 	_BG_HOVER = Color("#e5e5ea")
-	_ACCENT = Color("#0a84ff")
+	_ACCENT = Color(0.35, 0.50, 0.68, 1.0)
 	_TEXT = Color("#1c1c1e")
 	_MUTED = Color("#6c6c70")
 	_BORDER = Color(0.0, 0.0, 0.0, 0.08)
-
-	var tm := get_node_or_null("/root/ThemeManager")
-	if tm != null:
-		var is_dark := false
-		if tm.has_method("get_mode"):
-			is_dark = tm.get_mode() == "dark"
-		elif "current_mode" in tm:
-			is_dark = tm.current_mode == "dark"
-		if is_dark:
-			_BG_CARD = Color("#2c2c2e")
-			_BG_HOVER = Color("#3a3a3c")
-			_TEXT = Color("#f5f5f7")
-			_MUTED = Color("#8e8e93")
-			_BORDER = Color(1.0, 1.0, 1.0, 0.12)
 
 var _fields: Dictionary = {}          # prop -> Field
 var _rot: Dial = null
@@ -64,6 +63,7 @@ var _has_selection := false
 
 # Bloqueo de proporción y enlace de esquinas
 var _aspect_locked := false
+var _btn_lock_position: Button
 var _aspect_ratio: float = 1.0        # width / height
 var _btn_aspect: Button = null
 
@@ -119,7 +119,7 @@ class Field extends PanelContainer:
 	var _text_col: Color
 	var _muted_col: Color
 
-	func _init(lbl: String, text_col: Color, muted: Color, card: Color, border: Color, accent: Color = Color("0a84ff")) -> void:
+	func _init(lbl: String, text_col: Color, muted: Color, card: Color, border: Color, accent: Color = Color(0.35, 0.50, 0.68, 1.0)) -> void:
 		_card_col = card; _border_col = border; _accent_col = accent
 		_text_col = text_col; _muted_col = muted
 		custom_minimum_size = Vector2(0, 26)
@@ -145,6 +145,9 @@ class Field extends PanelContainer:
 		_le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_le.add_theme_color_override("font_color", text_col)
 		_le.add_theme_font_size_override("font_size", 11)
+		# Narrow minimum so three fields fit a compact panel row; the field
+		# still expands to the space available.
+		_le.add_theme_constant_override("minimum_character_width", 2)
 		_le.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 		_le.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -266,7 +269,7 @@ class Dial extends PanelContainer:
 	var _le: LineEdit = null
 	var _label_node: Label = null
 
-	var _accent := Color("0a84ff")
+	var _accent := Color(0.35, 0.50, 0.68, 1.0)
 	var _muted := Color("6c6c70")
 	var _card := Color("#f1f1f5")
 	var _border := Color(0, 0, 0, 0.08)
@@ -307,6 +310,9 @@ class Dial extends PanelContainer:
 		_le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_le.add_theme_color_override("font_color", _text_col)
 		_le.add_theme_font_size_override("font_size", 11)
+		# Narrow minimum so three fields fit a compact panel row; the field
+		# still expands to the space available.
+		_le.add_theme_constant_override("minimum_character_width", 2)
 		_le.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 		_le.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		_le.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -489,7 +495,7 @@ func _build() -> void:
 	header_box.add_child(btn_rot_cw)
 
 	_btn_presets = _make_icon_button("📐", "Configuración de tamaño de página o elementos (Papel, Dispositivos, Red social, Logo, Icono)")
-	var preset_tex := load("res://icon/UI/preset_menu.svg") as Texture2D
+	var preset_tex := _icon_blanco("res://icon/UI/preset_menu.svg")
 	if preset_tex:
 		_btn_presets.icon = preset_tex
 		_btn_presets.text = ""
@@ -504,6 +510,13 @@ func _build() -> void:
 	root.add_child(row1)
 	row1.add_child(_make_field("pos_x", "X"))
 	row1.add_child(_make_field("pos_y", "Y"))
+	# Position lock: locks the object on the canvas (same lock as the layers panel)
+	_btn_lock_position = _make_icon_button("", "Bloquear objeto (no se podrá mover ni seleccionar en el lienzo)")
+	_btn_lock_position.custom_minimum_size = Vector2(26, 26)
+	_btn_lock_position.icon = _icon_blanco("res://icon/UI/menu/toggle_lock.svg")
+	_btn_lock_position.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_btn_lock_position.pressed.connect(func(): ContextMenuActions.execute("toggle_lock", self))
+	row1.add_child(_btn_lock_position)
 
 	# ── Fila 2: W [ 0 ] | H [ 0 ] (con icono de cadena para bloquear proporción entre W y H) ──
 	var row2 := HBoxContainer.new()
@@ -512,41 +525,53 @@ func _build() -> void:
 	row2.add_child(_make_field("width", "W"))
 	row2.add_child(_make_field("height", "H"))
 
-	_btn_aspect = _make_icon_button("🔗", "Bloquear proporciones (W / H)")
+	_btn_aspect = _make_icon_button("", "Bloquear proporciones (W / H)")
 	_btn_aspect.custom_minimum_size = Vector2(26, 26)
+	_btn_aspect.icon = _icon_blanco("res://icon/UI/menu/link.svg")
+	_btn_aspect.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_btn_aspect.pressed.connect(_toggle_aspect_lock)
 	_update_toggle_button(_btn_aspect, _aspect_locked)
 	row2.add_child(_btn_aspect)
 
-	# ── Fila 3: ∠ [ 0° ] | ⌜ [ 0 ] (con botón para expandir a 4 esquinas independientes) ──
-	var row3 := HBoxContainer.new()
-	row3.add_theme_constant_override("separation", 6)
-	root.add_child(row3)
-
-	_rot = _make_dial(Dial.Kind.ROTATION, "∠", 360.0)
-	row3.add_child(_rot)
-
-	_corners["corner_tl"] = _make_dial(Dial.Kind.RADIUS, "⌜", 400.0)
-	row3.add_child(_corners["corner_tl"])
-
-	_btn_link_corners = _make_icon_button("⊞", "Alternar 4 esquinas independientes (TL, TR, BR, BL)")
-	_btn_link_corners.custom_minimum_size = Vector2(26, 26)
+	# ── Corner radii: 2x2 grid (TL TR / BL BR) above the rotation, so the four
+	# corners read as one block and are not confused with the other fields.
+	# The link toggle in the block header makes one edit drive all four.
+	var corners_header := HBoxContainer.new()
+	corners_header.add_theme_constant_override("separation", 4)
+	root.add_child(corners_header)
+	var corners_lbl := Label.new()
+	corners_lbl.text = "Esquinas"
+	corners_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	corners_lbl.add_theme_color_override("font_color", _MUTED)
+	corners_lbl.add_theme_font_size_override("font_size", 10)
+	corners_header.add_child(corners_lbl)
+	_btn_link_corners = _make_icon_button("", "Enlazar las 4 esquinas (un valor para todas)")
+	_btn_link_corners.custom_minimum_size = Vector2(22, 22)
+	_btn_link_corners.icon = _icon_blanco("res://icon/UI/menu/link.svg")
+	_btn_link_corners.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_btn_link_corners.pressed.connect(_toggle_link_corners)
 	_update_toggle_button(_btn_link_corners, _corners_linked)
-	row3.add_child(_btn_link_corners)
+	corners_header.add_child(_btn_link_corners)
 
-	# ── Fila 4: Esquinas independientes (TR, BR, BL) ──
-	_corners_container = HBoxContainer.new()
-	_corners_container.add_theme_constant_override("separation", 4)
-	_corners_container.visible = not _corners_linked
-	root.add_child(_corners_container)
+	var corners_grid := GridContainer.new()
+	corners_grid.columns = 2
+	corners_grid.add_theme_constant_override("h_separation", 6)
+	corners_grid.add_theme_constant_override("v_separation", 6)
+	root.add_child(corners_grid)
+	_corners_container = null
+	for spec in [["corner_tl", "TL"], ["corner_tr", "TR"], ["corner_bl", "BL"], ["corner_br", "BR"]]:
+		var d := _make_dial(Dial.Kind.RADIUS, spec[1], 400.0)
+		d.tooltip_text = "Radio de esquina %s" % spec[1]
+		_corners[spec[0]] = d
+		corners_grid.add_child(d)
 
-	_corners["corner_tr"] = _make_dial(Dial.Kind.RADIUS, "TR", 400.0)
-	_corners_container.add_child(_corners["corner_tr"])
-	_corners["corner_br"] = _make_dial(Dial.Kind.RADIUS, "BR", 400.0)
-	_corners_container.add_child(_corners["corner_br"])
-	_corners["corner_bl"] = _make_dial(Dial.Kind.RADIUS, "BL", 400.0)
-	_corners_container.add_child(_corners["corner_bl"])
+	# ── Rotation on its own row ──
+	var row_rot := HBoxContainer.new()
+	row_rot.add_theme_constant_override("separation", 6)
+	root.add_child(row_rot)
+	_rot = _make_dial(Dial.Kind.ROTATION, "∠", 360.0)
+	_rot.tooltip_text = "Rotación"
+	row_rot.add_child(_rot)
 
 func _make_icon_button(txt: String, tooltip: String) -> Button:
 	var b := Button.new()
@@ -555,29 +580,66 @@ func _make_icon_button(txt: String, tooltip: String) -> Button:
 	b.custom_minimum_size = Vector2(26, 26)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 10)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = _BG_CARD
-	sb.set_corner_radius_all(4)
-	sb.set_border_width_all(1)
-	sb.border_color = _BORDER
-	sb.set_content_margin_all(2)
-	b.add_theme_stylebox_override("normal", sb)
-	var sb_h := sb.duplicate() as StyleBoxFlat
-	sb_h.bg_color = _BG_HOVER
-	b.add_theme_stylebox_override("hover", sb_h)
-	b.add_theme_color_override("font_color", _MUTED)
-	b.add_theme_color_override("font_hover_color", _TEXT)
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm != null and tm.has_method("style_button"):
+		tm.style_button(b, false, 4)
+	else:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = _BG_CARD
+		sb.set_corner_radius_all(4)
+		sb.set_border_width_all(1)
+		sb.border_color = _BORDER
+		sb.set_content_margin_all(2)
+		b.add_theme_stylebox_override("normal", sb)
+		var sb_h := sb.duplicate() as StyleBoxFlat
+		sb_h.bg_color = _BG_HOVER
+		b.add_theme_stylebox_override("hover", sb_h)
+		b.add_theme_color_override("font_color", _MUTED)
+		b.add_theme_color_override("font_hover_color", _TEXT)
 	return b
+
+## style_button() ya pone icon_normal_color = ICON_PRIMARY en el botón (línea
+## arriba, vía tm.style_button) — pero ese color multiplica sobre la textura
+## del icono, y preset_menu.svg trae dos colores fijos (#2C2D30 casi negro +
+## #0A84FF, que además no coincide con NINGÚN accent real de los 5 presets de
+## ThemeManager — es un azul de export genérico, no del tema). El resultado
+## sin esto: el trazo casi negro se apaga según el preset y los puntos
+## quedan con un azul desteñido impredecible. Blanquear los píxeles antes de
+## crear la textura deja que icon_normal_color sí tiña de forma predecible,
+## igual que el resto de iconos del panel — se pierde el acento de color de
+## los dos puntos, pero se gana que el icono se vea bien en los 5 presets.
+static var _icon_cache: Dictionary = {}
+static func _icon_blanco(path: String) -> Texture2D:
+	if _icon_cache.has(path):
+		return _icon_cache[path]
+	var src: Texture2D = load(path)
+	var tex: Texture2D = src
+	if src:
+		var img := src.get_image()
+		if img:
+			img.convert(Image.FORMAT_RGBA8)
+			for y in img.get_height():
+				for x in img.get_width():
+					var a := img.get_pixel(x, y).a
+					if a > 0.0:
+						img.set_pixel(x, y, Color(1, 1, 1, a))
+			tex = ImageTexture.create_from_image(img)
+	_icon_cache[path] = tex
+	return tex
 
 func _update_toggle_button(b: Button, active: bool) -> void:
 	if b == null:
+		return
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm != null and tm.has_method("style_button"):
+		tm.style_button(b, active, 4)
 		return
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(4)
 	sb.set_content_margin_all(2)
 	sb.set_border_width_all(1)
 	if active:
-		sb.bg_color = Color(0.85, 0.90, 1.0, 1.0)
+		sb.bg_color = tm.get_color(tm.Slot.ACCENT_SOFT) if (tm != null and "Slot" in tm) else Color(0.85, 0.90, 1.0, 1.0)
 		sb.border_color = _ACCENT
 		b.add_theme_color_override("font_color", _ACCENT)
 	else:
@@ -829,6 +891,8 @@ func _on_reset() -> void:
 
 # ─────────────────────────────────────────────────── sincronía con selección
 func _on_props(props: Dictionary) -> void:
+	if not is_inside_tree():
+		return
 	_refresh(props)
 
 func _refresh(props: Dictionary = {}) -> void:

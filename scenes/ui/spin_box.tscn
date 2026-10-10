@@ -91,7 +91,7 @@ shadow_offset = Vector2(0, 3)
 [sub_resource type="Theme" id="Theme_local"]
 
 [node name="Control" type="Control" unique_id=921905472]
-custom_minimum_size = Vector2(118, 24)
+custom_minimum_size = Vector2(50, 24)
 layout_mode = 3
 anchors_preset = 0
 offset_right = 118.0
@@ -100,10 +100,12 @@ theme = SubResource("Theme_local")
 script = ExtResource("5_valuegd")
 
 [node name="BoxContainer" type="BoxContainer" parent="." unique_id=789905986]
-custom_minimum_size = Vector2(118, 24)
-layout_mode = 0
-offset_right = 118.0
-offset_bottom = 24.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 1
 
 [node name="Button" type="Button" parent="BoxContainer" unique_id=1338858682 node_paths=PackedStringArray("progress_bar", "boton_aumentar", "boton_reducir", "boton_reset", "area_drag", "calculadora")]
@@ -122,8 +124,9 @@ area_drag = NodePath("../ProgressBar")
 calculadora = NodePath("../Button4/PanelContainer/MarginContainer/BoxContainer/BoxContainer/LineEdit")
 
 [node name="ProgressBar" type="ProgressBar" parent="BoxContainer" unique_id=1891443808]
-custom_minimum_size = Vector2(44, 24)
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 1
 theme_override_colors/font_color = Color(0.12, 0.12, 0.15, 1)
 theme_override_font_sizes/font_size = 10

@@ -37,6 +37,17 @@ func _ready() -> void:
 	_project_path = ProjectSettings.globalize_path("res://")
 	_started_at_msec = Time.get_ticks_msec()
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Input.use_accumulated_input es true por defecto en Godot 4: varios
+	# InputEventMouseMotion despachados en el mismo frame se FUSIONAN en uno
+	# solo antes de entregarse al árbol. Confirmado en vivo: al enviar
+	# press(shift) + motion(shift) por send_input, el motion llegaba a
+	# MoveTool con shift_pressed=false (el axis-lock de Shift+arrastrar nunca
+	# se activaba) aunque el descriptor JSON sí lo llevara — la fusión estaba
+	# recalculando/perdiendo los modificadores del evento sintético. Como
+	# cada llamada MCP ya despacha UN evento discreto y preciso (no hay nada
+	# que fusionar de nuestro lado), desactivar la acumulación aquí hace que
+	# cada evento llegue exactamente como se construyó.
+	Input.set_use_accumulated_input(false)
 	push_runtime_log("info", "MCPRuntime starting (project=%s)" % _project_path)
 	_attempt_connect()
 
@@ -177,7 +188,20 @@ func _send_input(args: Dictionary) -> Dictionary:
 	var event := _build_input_event(event_desc)
 	if event == null:
 		return {"ok": false, "error": "Could not construct InputEvent from: %s" % str(event_desc)}
+	if event is InputEventMouse:
+		var vp := get_viewport()
+		if vp:
+			vp.warp_mouse(event.position)
 	Input.parse_input_event(event)
+	# Input.use_accumulated_input es true por defecto en Godot 4:
+	# parse_input_event() solo ENCOLA el evento, no lo entrega al árbol de
+	# nodos hasta el próximo flush automático de fin de frame. Como este
+	# handler corre en respuesta a una petición de red (no dentro del propio
+	# bucle de frames), sin este flush explícito el evento podía quedar en el
+	# buffer más tiempo del esperado frente a la siguiente llamada MCP que
+	# consulta el resultado (get_selection, screenshot, etc.), dando la
+	# falsa impresión de que el clic/arrastre sintético no hizo nada.
+	Input.flush_buffered_events()
 	return {
 		"ok": true,
 		"dispatched": event.get_class(),
@@ -198,6 +222,8 @@ func _build_input_event(desc: Dictionary) -> InputEvent:
 			if desc.has("key"):
 				var keystr := str(desc["key"]).to_upper()
 				k.physical_keycode = OS.find_keycode_from_string(keystr)
+				if k.keycode == 0:
+					k.keycode = k.physical_keycode
 			if desc.has("shift"): k.shift_pressed = bool(desc["shift"])
 			if desc.has("ctrl"): k.ctrl_pressed = bool(desc["ctrl"])
 			if desc.has("alt"): k.alt_pressed = bool(desc["alt"])

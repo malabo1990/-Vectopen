@@ -91,6 +91,8 @@ func _connect_events() -> void:
 		ic.changed.connect(_on_inspector_changed)
 
 func _on_inspector_changed(_props: Dictionary) -> void:
+	if not is_inside_tree():
+		return
 	if _syncing:
 		return
 	var sm = get_node_or_null("/root/SelectionManager")

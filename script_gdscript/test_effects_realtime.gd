@@ -5,7 +5,7 @@
 # =============================================================================
 extends Control
 
-const ARTIFACT_DIR := "C:/Users/User/.gemini/antigravity/brain/06b99786-f4f0-4362-b0cf-e6e599ce2686"
+const ARTIFACT_DIR := "C:/Users/User/.gemini/antigravity/brain/e2cde967-7b74-4b4e-b620-1a51af2310f4"
 const SCREENSHOT_PATH := ARTIFACT_DIR + "/realtime_effects_test.png"
 const RES_SCREENSHOT := "res://addons/godot_mcp/cache/screenshots/realtime_effects_test.png"
 

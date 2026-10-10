@@ -15,11 +15,11 @@ func test_header_no_mode_selector_and_no_duplicate_export() -> void:
 	assert_object(inspector.mode_selector).is_not_null()
 	assert_bool(inspector.mode_selector.visible).is_false()
 
-	# 2. ModernTopBar export está oculto para consolidarse únicamente en el inspector
+	# 2. ModernTopBar export button está disponible en la barra superior
 	var top_bar = auto_free(ModernTopBarScript.new())
 	add_child(top_bar)
 	assert_object(top_bar.btn_export).is_not_null()
-	assert_bool(top_bar.btn_export.visible).is_false()
+	assert_bool(top_bar.btn_export.visible).is_true()
 
 func test_empty_selection_shows_canvas_properties_and_hides_shape_sections() -> void:
 	var inspector = auto_free(DockedInspectorScript.new())
@@ -103,3 +103,50 @@ func test_property_rows_compact_structure() -> void:
 	# 4. Export: format + export button
 	assert_object(inspector.opt_export_format).is_not_null()
 	assert_object(inspector.btn_export_selection).is_not_null()
+
+func test_3d_model_inspector_section() -> void:
+	var inspector = auto_free(DockedInspectorScript.new())
+	add_child(inspector)
+
+	# 1. Sin selección -> sec_3d_model oculta
+	inspector._on_selection_size_changed(0)
+	assert_bool(inspector.sec_3d_model.visible).is_false()
+
+	# 2. Selección de objeto 3D
+	var VectorModel3DScript = preload("res://script_gdscript/shapes/VectorModel3D.gd")
+	var m: Node2D = auto_free(VectorModel3DScript.new())
+	m.name = "ModelGLB"
+	m.model_rotation = Vector3(12, 34, 56)
+	m.camera_distance = 4.2
+	m.camera_fov = 50.0
+
+	var sm = get_node_or_null("/root/SelectionManager")
+	if sm:
+		sm.select(m)
+
+	inspector._on_selection_size_changed(1)
+
+	assert_bool(inspector.sec_3d_model.visible).is_true()
+	assert_bool(inspector.sec_fill.visible).is_false()
+	assert_bool(inspector.sec_stroke.visible).is_false()
+	assert_object(inspector.spin_3d_rot_x).is_not_null()
+	assert_object(inspector.spin_3d_rot_y).is_not_null()
+	assert_object(inspector.spin_3d_rot_z).is_not_null()
+	assert_object(inspector.spin_3d_distance).is_not_null()
+	assert_object(inspector.spin_3d_fov).is_not_null()
+	assert_object(inspector.spin_3d_light_energy).is_not_null()
+	assert_object(inspector.btn_3d_reset_view).is_not_null()
+
+	assert_float(inspector.spin_3d_rot_x.value).is_equal_approx(12.0, 0.001)
+	assert_float(inspector.spin_3d_rot_y.value).is_equal_approx(34.0, 0.001)
+	assert_float(inspector.spin_3d_rot_z.value).is_equal_approx(56.0, 0.001)
+	assert_float(inspector.spin_3d_distance.value).is_equal_approx(4.2, 0.001)
+	assert_float(inspector.spin_3d_fov.value).is_equal_approx(50.0, 0.001)
+
+	# 3. Limpiar selección
+	if sm:
+		sm.clear()
+	inspector._on_selection_size_changed(0)
+	assert_bool(inspector.sec_3d_model.visible).is_false()
+
+

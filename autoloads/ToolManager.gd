@@ -81,9 +81,12 @@ func _register_available_tools() -> void:
 	_register_tool("bezier", "Bézier", "res://tools/bezier_tool/bezier_tool.tscn", "B", "Curvas Bézier")
 	_register_tool("rectangle", "Rectángulo", "res://tools/rectangle_tool/rectangle_tool.tscn", "R", "Crear rectángulos")
 	_register_tool("ellipse", "Elipse", "res://tools/ellipse_tool/ellipse_tool.tscn", "E", "Crear elipses")
+	_register_tool("star", "Estrella", "res://tools/star_tool/star_tool.tscn", "S", "Crear estrellas paramétricas")
 	_register_tool("text", "Texto", "res://tools/text_tool/text_tool.tscn", "T", "Insertar texto")
 	_register_tool("hand", "Mano", "res://tools/hand_tool/hand_tool.tscn", "H", "Navegar lienzo")
 	_register_tool("brush", "Pincel", "res://tools/brush_tool/brush_tool.tscn", "", "Pincel vectorial de trazo libre")
+	_register_tool("shape_builder", "Shape Builder", "res://tools/shape_builder_tool/shape_builder_tool.tscn", "Shift+M", "Fusionar o restar regiones de figuras (Smart Fusion)")
+
 
 
 func _register_tool(tool_name: String, display_name: String, scene_path: String, shortcut: String = "", tooltip: String = "") -> void:

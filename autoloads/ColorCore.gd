@@ -109,6 +109,25 @@ func set_paint(paint: Dictionary, target: String = "") -> void:
 	changed.emit(fill_color, stroke_color, active_target)
 	paint_changed.emit(_fill_paint)
 
+func apply_color(c: Color) -> void:
+	set_color(c)
+
+func apply_fill(c: Color) -> void:
+	set_color(c, "fill")
+
+func apply_stroke(c: Color) -> void:
+	set_color(c, "stroke")
+
+func set_fill_mode(mode: String) -> void:
+	if mode == "solid":
+		set_color(fill_color, "fill")
+	elif mode == "linear":
+		var stops = [[0.0, fill_color], [1.0, fill_color.darkened(0.3)]]
+		set_paint(make_linear(stops), "fill")
+	elif mode == "radial":
+		var stops = [[0.0, fill_color], [1.0, fill_color.darkened(0.3)]]
+		set_paint(make_radial(stops), "fill")
+
 func _apply_to_selection(tgt: String) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic == null or not ic.has_method("apply"):
@@ -116,6 +135,7 @@ func _apply_to_selection(tgt: String) -> void:
 	_applying = true
 	if tgt == "fill":
 		ic.apply("fill_paint", _fill_paint)
+		ic.apply("fill_color", fill_color)
 	else:
 		ic.apply("stroke_color", stroke_color)
 	_applying = false
@@ -389,3 +409,99 @@ func _save_state() -> void:
 	cfg.set_value("color", "recents", recents)
 	cfg.set_value("color", "palette", palette)
 	cfg.save(_STATE_PATH)
+
+## 9.3 Paleta del documento: colores utilizados actualmente en figuras del canvas
+func get_document_palette() -> Array[Color]:
+	var colors: Array[Color] = []
+	var canvas := get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	if not is_instance_valid(canvas):
+		return colors
+
+	var nodes_to_check: Array[Node] = [canvas]
+	while not nodes_to_check.is_empty():
+		var n: Node = nodes_to_check.pop_back()
+		if is_instance_valid(n):
+			for child in n.get_children():
+				nodes_to_check.append(child)
+			if n is Node2D and n.name != "Contorno_Stroke":
+				if "fill_color" in n and n.fill_color is Color:
+					_append_unique_color(colors, n.fill_color)
+				elif n.has_meta("fill_color") and n.get_meta("fill_color") is Color:
+					_append_unique_color(colors, n.get_meta("fill_color"))
+				if "stroke_color" in n and n.stroke_color is Color:
+					_append_unique_color(colors, n.stroke_color)
+				elif n.has_meta("stroke_color") and n.get_meta("stroke_color") is Color:
+					_append_unique_color(colors, n.get_meta("stroke_color"))
+	return colors
+
+func _append_unique_color(arr: Array[Color], c: Color) -> void:
+	if c.a <= 0.001:
+		return
+	for existing in arr:
+		if existing.is_equal_approx(c):
+			return
+	arr.append(c)
+
+## 9.3 Exportación e Importación de paletas estándar (JSON y GPL)
+func export_palette_json(path: String) -> bool:
+	var list: Array[String] = []
+	for c in palette:
+		list.append(c.to_html(c.a < 1.0))
+	var json_str := JSON.stringify(list, "  ")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_string(json_str)
+		f.close()
+		return true
+	return false
+
+func import_palette_json(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return false
+	var txt := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(txt)
+	if parsed is Array:
+		for item in parsed:
+			var c := Color.from_string(str(item), Color.BLACK)
+			add_swatch(c)
+		return true
+	return false
+
+func export_palette_gpl(path: String, palette_name: String = "Vectopen Palette") -> bool:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		return false
+	f.store_line("GIMP Palette")
+	f.store_line("Name: " + palette_name)
+	f.store_line("Columns: 8")
+	f.store_line("#")
+	for c in palette:
+		var r := int(round(c.r * 255.0))
+		var g := int(round(c.g * 255.0))
+		var b := int(round(c.b * 255.0))
+		f.store_line("%3d %3d %3d\t#%s" % [r, g, b, c.to_html(false).to_upper()])
+	f.close()
+	return true
+
+func import_palette_gpl(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return false
+	while not f.eof_reached():
+		var line := f.get_line().strip_edges()
+		if line.is_empty() or line.begins_with("#") or line.begins_with("GIMP") or line.begins_with("Name:") or line.begins_with("Columns:"):
+			continue
+		var parts := line.split(" ", false)
+		if parts.size() >= 3 and parts[0].is_valid_int() and parts[1].is_valid_int() and parts[2].is_valid_int():
+			var r := float(parts[0].to_int()) / 255.0
+			var g := float(parts[1].to_int()) / 255.0
+			var b := float(parts[2].to_int()) / 255.0
+			add_swatch(Color(r, g, b, 1.0))
+	f.close()
+	return true

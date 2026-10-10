@@ -1,7 +1,7 @@
 extends EffectFxBase
 
 @onready var _color: ColorPickerButton = %Color
-@onready var _opacity: SpinBox = %Opacity
+@onready var _opacity: SpinBoxValue = %Opacity
 
 func _ready() -> void:
 	effect_name = "Color Overlay"

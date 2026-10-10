@@ -17,15 +17,26 @@ func _ready() -> void:
 	_setup_styles()
 	_build_ui()
 	_sync_active_button()
+	var tm = get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed"):
+		tm.theme_changed.connect(func(_mode):
+			_setup_styles()
+			_sync_active_button()
+		)
 
 func _setup_styles() -> void:
 	custom_minimum_size = Vector2(42, 0)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	
+	var tm = get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	var bg_col: Color = tm.get_color(S.TOOLBAR_BG) if (tm and S) else Color(0.98, 0.98, 0.99, 1.0)
+	var border_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color(0.88, 0.88, 0.90, 1.0)
+
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.98, 0.98, 0.99, 1.0)
+	sb.bg_color = bg_col
 	sb.border_width_right = 1
-	sb.border_color = Color(0.88, 0.88, 0.90, 1.0)
+	sb.border_color = border_col
 	sb.content_margin_left = 4
 	sb.content_margin_right = 4
 	sb.content_margin_top = 8
@@ -96,8 +107,14 @@ func _on_settings_pressed() -> void:
 		ge.emit_safe("request_settings_dialog")
 
 func _sync_active_button() -> void:
+	var tm = get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	var active_bg: Color = tm.get_color(S.SURFACE_RAISED) if (tm and S) else Color(0.86, 0.86, 0.88, 1.0)
+	var text_col: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color(0.05, 0.05, 0.08, 1.0)
+	var muted_col: Color = tm.get_color(S.TEXT_SECONDARY) if (tm and S) else Color(0.4, 0.4, 0.45, 1.0)
+
 	var active_sb := StyleBoxFlat.new()
-	active_sb.bg_color = Color(0.86, 0.86, 0.88, 1.0)
+	active_sb.bg_color = active_bg
 	active_sb.set_corner_radius_all(6)
 
 	var normal_sb := StyleBoxFlat.new()
@@ -108,10 +125,10 @@ func _sync_active_button() -> void:
 		var btn: Button = _buttons[sid]
 		if sid == _active_section and _panel_open:
 			btn.add_theme_stylebox_override("normal", active_sb)
-			btn.add_theme_color_override("font_color", Color(0.05, 0.05, 0.08, 1.0))
+			btn.add_theme_color_override("font_color", text_col)
 		else:
 			btn.add_theme_stylebox_override("normal", normal_sb)
-			btn.add_theme_color_override("font_color", Color(0.4, 0.4, 0.45, 1.0))
+			btn.add_theme_color_override("font_color", muted_col)
 
 func is_panel_open() -> bool:
 	return _panel_open

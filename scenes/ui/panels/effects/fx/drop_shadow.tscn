@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://script_gdscript/ui/panels/effects/fx/drop_shadow.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="2_spinbox"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.96, 0.96, 0.98, 1)
@@ -62,15 +63,14 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Offset X"
 
-[node name="OffsetX" type="SpinBox" parent="MarginContainer/VBoxContainer/OffsetXRow"]
+[node name="OffsetX" parent="MarginContainer/VBoxContainer/OffsetXRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = -100.0
 max_value = 100.0
 step = 0.5
 value = 4.0
-allow_lesser = true
-allow_greater = true
+suffix = "px"
 
 [node name="OffsetYRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -81,15 +81,14 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Offset Y"
 
-[node name="OffsetY" type="SpinBox" parent="MarginContainer/VBoxContainer/OffsetYRow"]
+[node name="OffsetY" parent="MarginContainer/VBoxContainer/OffsetYRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = -100.0
 max_value = 100.0
 step = 0.5
 value = 4.0
-allow_lesser = true
-allow_greater = true
+suffix = "px"
 
 [node name="BlurRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -100,13 +99,32 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Blur"
 
-[node name="Blur" type="SpinBox" parent="MarginContainer/VBoxContainer/BlurRow"]
+[node name="Blur" parent="MarginContainer/VBoxContainer/BlurRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.0
 max_value = 100.0
 step = 0.5
 value = 6.0
+suffix = "px"
+
+[node name="SpreadRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/SpreadRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Spread"
+
+[node name="Spread" parent="MarginContainer/VBoxContainer/SpreadRow" instance=ExtResource("2_spinbox")]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = -100.0
+max_value = 100.0
+step = 0.5
+value = 0.0
+suffix = "px"
 
 [node name="ColorRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2

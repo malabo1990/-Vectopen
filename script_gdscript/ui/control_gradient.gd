@@ -21,6 +21,7 @@ class StopHandle extends Control:
 	signal grabbed(handle: StopHandle)
 	signal moved(handle: StopHandle, new_pos: float)
 	signal duplicate_requested(handle: StopHandle)
+	signal double_clicked(handle: StopHandle)
 
 	var pos_ratio: float = 0.0
 	var color: Color = Color.WHITE:
@@ -40,6 +41,10 @@ class StopHandle extends Control:
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				if event.double_click:
+					double_clicked.emit(self)
+					accept_event()
+					return
 				dragging = true
 				grabbed.emit(self)
 				if event.alt_pressed:
@@ -68,6 +73,11 @@ class StopHandle extends Control:
 		queue_redraw()
 
 signal stop_selected(color: Color)
+## Cada edición del degradado (siempre). Con `emit_global = false` SOLO se
+## emite esto: un editor embebido (p.ej. en el efecto Superposición de
+## degradado) no debe cambiar el relleno de la figura vía ColorCore.
+signal gradient_edited(gradient: Gradient)
+var emit_global: bool = true
 
 # ── Métodos Principales del Editor ─────────────────────────────────────────────
 func _ready() -> void:
@@ -87,6 +97,31 @@ func _ready() -> void:
 	_create_stop_node(0.0, Color.BLACK)
 	_create_stop_node(1.0, Color.WHITE)
 	_select_stop(stops[0])
+
+	_apply_theme()
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
+		tm.theme_changed.connect(_on_theme_changed)
+
+func _on_theme_changed(_mode: String) -> void:
+	_apply_theme()
+
+## The scene hardcodes a white panel and white +/- buttons, which showed as a
+## bright bar under the gradient on dark themes. Follow ThemeManager instead.
+func _apply_theme() -> void:
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	for b in [btn_add, btn_remove]:
+		if not is_instance_valid(b):
+			continue
+		var sb := ProUIStyle.flat(ProUIStyle.col("BUTTON_BG"), 4, ProUIStyle.col("BORDER"), 4, 1)
+		var hov := ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 4, ProUIStyle.col("BORDER"), 4, 1)
+		var prs := ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 4, ProUIStyle.col("ACCENT"), 4, 1)
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", hov)
+		b.add_theme_stylebox_override("pressed", prs)
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		for key in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(key, ProUIStyle.col("PANEL_TEXT"))
 
 # Entrada de teclado global para eliminar con "Supr" o "Backspace"
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -109,10 +144,17 @@ func _create_stop_node(pos: float, color: Color) -> StopHandle:
 	handle.grabbed.connect(_select_stop)
 	handle.moved.connect(_on_grabber_moved)
 	handle.duplicate_requested.connect(_on_duplicate_requested)
+	handle.double_clicked.connect(_on_handle_double_clicked)
 	
 	stops.append(handle)
 	_reposition_single(handle)
 	return handle
+
+func _on_handle_double_clicked(handle: StopHandle) -> void:
+	_select_stop(handle)
+	if is_instance_valid(color_picker):
+		var pop = color_picker.get_popup()
+		if pop: pop.popup_centered()
 
 # ── Lógica de Interacción Avanzada ────────────────────────────────────────────
 
@@ -168,6 +210,11 @@ func _input(event: InputEvent) -> void:
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 			if is_instance_valid(_active_dragging_handle):
 				_active_dragging_handle.dragging = false
+				if is_instance_valid(color_rect):
+					var local_y := color_rect.get_local_mouse_position().y
+					# Arrastrar parada fuera de la barra (> 35px vertical): elimina parada
+					if (local_y < -35.0 or local_y > color_rect.size.y + 35.0) and stops.size() > 2:
+						_remove_stop(_active_dragging_handle)
 			_active_dragging_handle = null
 
 func _on_duplicate_requested(handle: StopHandle) -> void:
@@ -219,15 +266,26 @@ func _add_new_stop_at_center() -> void:
 func _remove_selected() -> void:
 	if not is_instance_valid(selected_handle):
 		return
-		
-	# Necesita al menos 2 paradas de color para un degradado válido
-	if stops.size() <= 2:
+	_remove_stop(selected_handle)
+
+func _remove_stop(handle: StopHandle) -> void:
+	if not is_instance_valid(handle) or stops.size() <= 2:
 		return
-		
-	var to_remove = selected_handle
-	stops.erase(to_remove)
-	to_remove.queue_free()
-	_select_stop(stops[0])
+	stops.erase(handle)
+	handle.queue_free()
+	if selected_handle == handle:
+		_select_stop(stops[0])
+	color_rect.queue_redraw()
+	_emit_gradient()
+
+## 9.2 Invertir gradiente con un solo clic
+func invert_gradient() -> void:
+	if stops.size() < 2:
+		return
+	for stop in stops:
+		stop.pos_ratio = 1.0 - stop.pos_ratio
+	stops.sort_custom(func(a: StopHandle, b: StopHandle): return a.pos_ratio < b.pos_ratio)
+	_reposition_all()
 	color_rect.queue_redraw()
 	_emit_gradient()
 
@@ -291,6 +349,9 @@ var gradient_p1: Vector2 = Vector2(-1, -1)
 ## que lo aplica al relleno de la selección con undo.
 func _emit_gradient() -> void:
 	var g := get_gradient()
+	gradient_edited.emit(g)
+	if not emit_global:
+		return
 	if GlobalEvents.has_signal("gradient_changed"):
 		GlobalEvents.gradient_changed.emit(g)
 	if not is_inside_tree():

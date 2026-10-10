@@ -315,8 +315,8 @@ corner_radius_bottom_left = 50
 [node name="tool_in_Mouse" type="Control" unique_id=1497959650 node_paths=PackedStringArray("target_node")]
 layout_mode = 3
 anchors_preset = 0
-offset_right = 200.0
-offset_bottom = 171.0
+offset_right = 222.0
+offset_bottom = 360.0
 script = ExtResource("1_43s0v")
 target_node = NodePath(".")
 tab_normal_style = SubResource("StyleBoxFlat_tab_normal")
@@ -1449,6 +1449,7 @@ offset_right = 85.1944
 offset_bottom = 79.9374
 
 [node name="Button_configuration" type="Button" parent="." unique_id=1788996333 node_paths=PackedStringArray("nodo_disparador", "target_nodo")]
+visible = false
 layout_mode = 0
 offset_left = 7.0
 offset_top = 8.0

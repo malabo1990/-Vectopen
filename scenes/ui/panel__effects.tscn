@@ -65,9 +65,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -296.0
-offset_top = 54.0
+offset_top = 66.0
 offset_right = -16.0
-offset_bottom = 474.0
+offset_bottom = 486.0
 grow_horizontal = 0
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=98031855]

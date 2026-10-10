@@ -65,6 +65,7 @@ func _register_default_commands() -> void:
 		{"id": "ui_modern", "name": "Switch UI: Modern Panel (Figma Style)", "shortcut": "", "category": "Interface", "action": func(): _set_ui_mode("modern")},
 		{"id": "ui_pro", "name": "Switch UI: Professional Panel (Affinity Style)", "shortcut": "", "category": "Interface", "action": func(): _set_ui_mode("professional")},
 		{"id": "export", "name": "Export Document / Artboard", "shortcut": "Ctrl + E", "category": "File", "action": func(): _export_doc()},
+		{"id": "import_3d", "name": "Import 3D Model (GLB / GLTF)...", "shortcut": "", "category": "File", "action": func(): _import_3d_model()},
 	]
 
 func _build_ui() -> void:
@@ -247,3 +248,9 @@ func _export_doc() -> void:
 	var ge = get_node_or_null("/root/GlobalEvents")
 	if is_instance_valid(ge) and ge.has_signal("request_export_dialog"):
 		ge.emit_safe("request_export_dialog")
+
+func _import_3d_model() -> void:
+	var im = get_node_or_null("/root/ImportExportManager")
+	if is_instance_valid(im) and im.has_method("import_3d_model"):
+		im.import_3d_model()
+

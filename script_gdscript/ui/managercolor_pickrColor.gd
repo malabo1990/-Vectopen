@@ -1,7 +1,7 @@
 # ==========================================
 # RUTA: res://scripts/managercolor_pickrColor.gd
 # ==========================================
-extends Node
+extends PanelContainer
 class_name GestorColor
 
 # 1. Referencias de Interfaz
@@ -32,6 +32,12 @@ signal color_actualizado(nuevo_color: Color)
 var _from_core: bool = false
 var current_tab: String = "solid"
 
+# ── Eyedropper: pick any color visible in the window ──
+const _EYEDROPPER_ICON := "res://icon/UI/menu/eyedropper.svg"
+const _EYEDROPPER_CURSOR := preload("res://icon/UI/cursor/eyedropper.svg")
+var _btn_eyedropper: Button = null
+var _eyedropper_active: bool = false
+
 func _ready() -> void:
 	if _brillo_slider:
 		_brillo_slider.value_changed.connect(_on_brillo_changed)
@@ -50,7 +56,47 @@ func _ready() -> void:
 		if cc.has_signal("paint_changed") and not cc.paint_changed.is_connected(_on_colorcore_paint_changed):
 			cc.paint_changed.connect(_on_colorcore_paint_changed)
 
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm:
+		if tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
+			tm.theme_changed.connect(_on_theme_changed)
+		if tm.has_signal("color_slot_changed") and not tm.color_slot_changed.is_connected(_on_color_slot_changed):
+			tm.color_slot_changed.connect(_on_color_slot_changed)
+
+	_build_eyedropper_button()
 	_conectar_controles_ui()
+	_aplicar_tema()
+
+func _on_theme_changed(_mode: String) -> void:
+	_aplicar_tema()
+
+func _on_color_slot_changed(_slot: String, _col: Color) -> void:
+	_aplicar_tema()
+
+func _aplicar_tema() -> void:
+	if not is_inside_tree():
+		return
+	var tm := get_node_or_null("/root/ThemeManager")
+	if not tm:
+		return
+	var S = tm.Slot
+	var surface_col: Color = tm.get_color(S.PANEL_SURFACE)
+	var border_col: Color = tm.get_color(S.BORDER)
+	var is_dark: bool = tm.is_dark()
+
+	# 1. Fondo sólido para el panel flotante (evita transparencia hacia el fondo)
+	var rsb := StyleBoxFlat.new()
+	rsb.bg_color = surface_col
+	rsb.border_color = border_col
+	rsb.set_border_width_all(1)
+	rsb.set_corner_radius_all(12)
+	rsb.shadow_color = Color(0, 0, 0, 0.35 if is_dark else 0.08)
+	rsb.shadow_size = 12
+	rsb.shadow_offset = Vector2(0, 4)
+	add_theme_stylebox_override("panel", rsb)
+
+	_update_tab_styles()
+	_update_mode_styles()
 
 func _conectar_controles_ui() -> void:
 	if tab_solid: tab_solid.pressed.connect(_on_tab_pressed.bind("solid"))
@@ -195,9 +241,9 @@ func _apply_mode_layout(mode_idx: int) -> void:
 	if root_box:
 		var opacity_box = root_box.get_node_or_null("Circle_color_opasity")
 		var wb_box = root_box.get_node_or_null("Circle_colorWB")
-		# Sliders laterales solo en modo círculo (0)
-		if opacity_box: opacity_box.visible = (mode_idx == 0)
-		if wb_box: wb_box.visible = (mode_idx == 0)
+		# Sliders laterales obsoletos ocultos siempre (el selector HSV ya integra SV y alfa)
+		if opacity_box: opacity_box.visible = false
+		if wb_box: wb_box.visible = false
 
 	if parent_panel:
 		var target_style: StyleBox = style_empty_panel if mode_idx == 2 else style_circle_panel
@@ -221,15 +267,37 @@ func _on_picker_color_changed(new_color: Color) -> void:
 func _apply_btn_style(btn: Button, is_active: bool) -> void:
 	if not is_instance_valid(btn):
 		return
-	var sb: StyleBox = style_tab_active if is_active else style_tab_inactive
-	if sb:
-		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_stylebox_override("hover", sb)
-		btn.add_theme_stylebox_override("pressed", style_tab_active if style_tab_active else sb)
-	btn.add_theme_color_override("icon_normal_color", Color(0.12, 0.12, 0.16, 1.0) if is_active else Color(0.50, 0.52, 0.58, 1.0))
-	btn.add_theme_color_override("icon_hover_color", Color(0.04, 0.52, 1.0, 1.0))
-	btn.add_theme_color_override("icon_pressed_color", Color(0.04, 0.52, 1.0, 1.0))
-	btn.add_theme_color_override("font_color", Color(0.12, 0.12, 0.16, 1.0) if is_active else Color(0.40, 0.42, 0.46, 1.0))
+	var tm := get_node_or_null("/root/ThemeManager") if is_inside_tree() else null
+	var S = tm.Slot if tm else null
+	var text_col: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color(0.12, 0.12, 0.16, 1.0)
+	var muted_col: Color = tm.get_color(S.TEXT_SECONDARY) if (tm and S) else Color(0.50, 0.52, 0.58, 1.0)
+	var accent_col: Color = tm.get_color(S.ACCENT) if (tm and S) else Color(0.04, 0.52, 1.0, 1.0)
+	var surface_col: Color = tm.get_color(S.SURFACE_RAISED) if (tm and S) else Color(0.9, 0.9, 0.92, 1.0)
+	var bg_col: Color = tm.get_color(S.BUTTON_BG) if (tm and S) else Color(0.96, 0.96, 0.98, 1.0)
+	var border_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color(0.85, 0.85, 0.88, 1.0)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = surface_col if is_active else bg_col
+	sb.border_color = accent_col if is_active else border_col
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 2
+	sb.content_margin_right = 2
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+
+	var sb_hov := sb.duplicate() as StyleBoxFlat
+	sb_hov.bg_color = tm.get_color(S.BUTTON_HOVER) if (tm and S) else surface_col
+
+	btn.add_theme_stylebox_override("normal", sb)
+	btn.add_theme_stylebox_override("hover", sb_hov)
+	btn.add_theme_stylebox_override("pressed", sb)
+
+	btn.modulate = Color.WHITE
+	btn.remove_theme_color_override("icon_normal_color")
+	btn.remove_theme_color_override("icon_hover_color")
+	btn.remove_theme_color_override("icon_pressed_color")
+	btn.add_theme_color_override("font_color", text_col if is_active else muted_col)
 	btn.add_theme_font_size_override("font_size", 11)
 
 func _update_tab_styles() -> void:
@@ -248,6 +316,116 @@ func _update_tab_styles() -> void:
 		_apply_btn_style(tab_reflected, current_tab in ["reflected", "reflexionado"])
 
 func _update_mode_styles() -> void:
+	var tm := get_node_or_null("/root/ThemeManager") if is_inside_tree() else null
+	var S = tm.Slot if tm else null
+	var btn_bg: Color = tm.get_color(S.BUTTON_BG) if (tm and S) else Color(0.18, 0.18, 0.21, 1.0)
+	var btn_hov: Color = tm.get_color(S.BUTTON_HOVER) if (tm and S) else Color(0.24, 0.24, 0.28, 1.0)
+	var border_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color(0.24, 0.24, 0.26, 1.0)
+	var panel_text: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color(0.94, 0.94, 0.96, 1.0)
+	var input_bg: Color = tm.get_color(S.INPUT_BG) if (tm and S) else Color(0.11, 0.11, 0.13, 1.0)
+	var input_border: Color = tm.get_color(S.INPUT_BORDER) if (tm and S) else Color(0.24, 0.24, 0.27, 1.0)
+	var icon_primary: Color = tm.get_color(S.ICON_PRIMARY) if (tm and S) else Color(0.9, 0.9, 0.92, 1.0)
+	var accent_col: Color = tm.get_color(S.ACCENT) if (tm and S) else Color(0.04, 0.52, 1.0, 1.0)
+
+	# 1. LineEdit Hex (#3366E6)
+	var line_edit := find_child("LineEdit_dataColor", true, false) as LineEdit
+	if line_edit:
+		var lesb := StyleBoxFlat.new()
+		lesb.bg_color = input_bg
+		lesb.border_color = input_border
+		lesb.set_border_width_all(1)
+		lesb.set_corner_radius_all(6)
+		lesb.content_margin_left = 6
+		lesb.content_margin_right = 6
+		line_edit.add_theme_stylebox_override("normal", lesb)
+		line_edit.add_theme_stylebox_override("focus", lesb)
+		line_edit.add_theme_color_override("font_color", panel_text)
+
+	# 2. Botón copiar hex
+	var btn_copy := find_child("Button", true, false) as Button
+	if btn_copy and btn_copy.get_parent() and btn_copy.get_parent().name == "BoxContainer":
+		var csb := StyleBoxFlat.new()
+		csb.bg_color = btn_bg
+		csb.border_color = border_col
+		csb.set_border_width_all(1)
+		csb.set_corner_radius_all(6)
+		csb.set_content_margin_all(4)
+		btn_copy.add_theme_stylebox_override("normal", csb)
+		var csb_h := csb.duplicate() as StyleBoxFlat
+		csb_h.bg_color = btn_hov
+		btn_copy.add_theme_stylebox_override("hover", csb_h)
+		if btn_copy.icon and tm and tm.has_method("make_white_icon"):
+			btn_copy.icon = tm.make_white_icon(btn_copy.icon, 14)
+		btn_copy.modulate = Color.WHITE
+		btn_copy.add_theme_color_override("icon_normal_color", icon_primary)
+		btn_copy.add_theme_color_override("icon_hover_color", panel_text)
+
+	# 2b. Eyedropper (same chip as copy; accent outline while picking)
+	if is_instance_valid(_btn_eyedropper):
+		var esb := StyleBoxFlat.new()
+		esb.bg_color = btn_bg
+		esb.border_color = accent_col if _eyedropper_active else border_col
+		esb.set_border_width_all(1)
+		esb.set_corner_radius_all(6)
+		esb.set_content_margin_all(3)
+		_btn_eyedropper.add_theme_stylebox_override("normal", esb)
+		_btn_eyedropper.add_theme_stylebox_override("pressed", esb)
+		var esb_h := esb.duplicate() as StyleBoxFlat
+		esb_h.bg_color = btn_hov
+		_btn_eyedropper.add_theme_stylebox_override("hover", esb_h)
+		_btn_eyedropper.add_theme_stylebox_override("hover_pressed", esb_h)
+		_btn_eyedropper.icon = ProUIStyle.icon(_EYEDROPPER_ICON, accent_col if _eyedropper_active else icon_primary, 14)
+
+	# 3. ModeDropdown
+	if is_instance_valid(mode_dropdown):
+		var msb := StyleBoxFlat.new()
+		msb.bg_color = btn_bg
+		msb.border_color = border_col
+		msb.set_border_width_all(1)
+		msb.set_corner_radius_all(6)
+		msb.set_content_margin_all(4)
+		mode_dropdown.add_theme_stylebox_override("normal", msb)
+		var msb_h := msb.duplicate() as StyleBoxFlat
+		msb_h.bg_color = btn_hov
+		mode_dropdown.add_theme_stylebox_override("hover", msb_h)
+		if mode_dropdown.icon and tm and tm.has_method("make_white_icon"):
+			mode_dropdown.icon = tm.make_white_icon(mode_dropdown.icon, 14)
+		mode_dropdown.modulate = Color.WHITE
+		mode_dropdown.add_theme_color_override("icon_normal_color", icon_primary)
+
+	# 4. Botón paleta circular debajo de la rueda
+	var btn_pal := find_child("Button_palleteColor", true, false) as Button
+	if btn_pal:
+		var psb := StyleBoxFlat.new()
+		psb.bg_color = btn_bg
+		psb.border_color = border_col
+		psb.set_border_width_all(1)
+		psb.set_corner_radius_all(14)
+		btn_pal.add_theme_stylebox_override("normal", psb)
+		var psb_h := psb.duplicate() as StyleBoxFlat
+		psb_h.bg_color = btn_hov
+		btn_pal.add_theme_stylebox_override("hover", psb_h)
+		if btn_pal.icon and tm and tm.has_method("make_white_icon"):
+			btn_pal.icon = tm.make_white_icon(btn_pal.icon, 16)
+		btn_pal.modulate = Color.WHITE
+		btn_pal.add_theme_color_override("icon_normal_color", icon_primary)
+		btn_pal.add_theme_color_override("icon_hover_color", accent_col)
+
+	# 5. Botón "+" de añadir a paleta en GridContainer
+	var btn_add := find_child("Button_add", true, false) as Button
+	if btn_add:
+		var asb := StyleBoxFlat.new()
+		asb.bg_color = btn_bg
+		asb.border_color = border_col
+		asb.set_border_width_all(1)
+		asb.set_corner_radius_all(4)
+		btn_add.add_theme_stylebox_override("normal", asb)
+		var asb_h := asb.duplicate() as StyleBoxFlat
+		asb_h.bg_color = btn_hov
+		btn_add.add_theme_stylebox_override("hover", asb_h)
+		btn_add.add_theme_color_override("font_color", panel_text)
+		btn_add.add_theme_color_override("font_hover_color", accent_col)
+
 	if not is_instance_valid(picker_panel) or not picker_panel.has_method("get_picker_mode"):
 		return
 	var cur_mode: int = picker_panel.get_picker_mode()
@@ -354,13 +532,18 @@ func _on_colorcore_paint_changed(paint: Dictionary) -> void:
 					gradient_editor.set_gradient_resource(g, g_type, ang, true, p0, p1)
 					_sync_gradient_guard = false
 
-func _on_colorcore_changed(fill: Color, _stroke: Color, _target: String) -> void:
+func _on_colorcore_changed(fill: Color, stroke: Color, target: String) -> void:
 	if current_tab != "solid":
 		return
+	var c := stroke if target == "stroke" else fill
 	# Solo reflejar visualmente — NO re-emitir al bus (evita realimentación).
-	if is_instance_valid(nodo_color_rect) and nodo_color_rect.color != fill:
-		nodo_color_rect.color = fill
-		color_actualizado.emit(fill)
+	if is_instance_valid(nodo_color_rect) and nodo_color_rect.color != c:
+		nodo_color_rect.color = c
+		if is_instance_valid(picker_panel) and picker_panel.has_method("set_color"):
+			_sync_gradient_guard = true
+			picker_panel.set_color(c)
+			_sync_gradient_guard = false
+		color_actualizado.emit(c)
 
 # 3. Función SET profesional (Modifica el color y lo comunica a todo tu motor)
 func establecer_color(nuevo_color: Color, force: bool = false) -> void:
@@ -369,6 +552,10 @@ func establecer_color(nuevo_color: Color, force: bool = false) -> void:
 
 	if nodo_color_rect.color != nuevo_color or force:
 		nodo_color_rect.color = nuevo_color
+		if is_instance_valid(picker_panel) and picker_panel.has_method("set_color"):
+			_sync_gradient_guard = true
+			picker_panel.set_color(nuevo_color)
+			_sync_gradient_guard = false
 		_notificar_cambio_color(nuevo_color)
 		# Puente al sistema core (aplica a la selección con undo).
 		if not _from_core:
@@ -377,6 +564,77 @@ func establecer_color(nuevo_color: Color, force: bool = false) -> void:
 				var cc := tree.root.get_node_or_null("ColorCore") if tree and tree.root else null
 				if cc and cc.has_method("set_color"):
 					cc.set_color(nuevo_color)
+
+# ── Eyedropper ───────────────────────────────────────────────────────────────
+func _build_eyedropper_button() -> void:
+	var line_edit := find_child("LineEdit_dataColor", true, false) as LineEdit
+	if line_edit == null or is_instance_valid(_btn_eyedropper):
+		return
+	_btn_eyedropper = Button.new()
+	_btn_eyedropper.name = "BtnEyedropper"
+	_btn_eyedropper.custom_minimum_size = Vector2(24, 24)
+	_btn_eyedropper.focus_mode = Control.FOCUS_NONE
+	_btn_eyedropper.toggle_mode = true
+	_btn_eyedropper.tooltip_text = tr("Cuentagotas: haz clic en cualquier parte para copiar su color (Esc cancela)")
+	_btn_eyedropper.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_btn_eyedropper.toggled.connect(_set_eyedropper_active)
+	line_edit.get_parent().add_child(_btn_eyedropper)
+	line_edit.get_parent().move_child(_btn_eyedropper, line_edit.get_index() + 1)
+
+func _set_eyedropper_active(on: bool) -> void:
+	_eyedropper_active = on
+	if is_instance_valid(_btn_eyedropper) and _btn_eyedropper.button_pressed != on:
+		_btn_eyedropper.set_pressed_no_signal(on)
+	if on:
+		Input.set_custom_mouse_cursor(_EYEDROPPER_CURSOR, Input.CURSOR_ARROW, Vector2(3, 21))
+		Input.set_custom_mouse_cursor(_EYEDROPPER_CURSOR, Input.CURSOR_MOVE, Vector2(3, 21))
+		Input.set_custom_mouse_cursor(_EYEDROPPER_CURSOR, Input.CURSOR_POINTING_HAND, Vector2(3, 21))
+	else:
+		Input.set_custom_mouse_cursor(null, Input.CURSOR_ARROW)
+		Input.set_custom_mouse_cursor(null, Input.CURSOR_MOVE)
+		Input.set_custom_mouse_cursor(null, Input.CURSOR_POINTING_HAND)
+		# Let SmartCursor restore its own arrow if it uses one
+		var sc := get_node_or_null("/root/SmartCursor")
+		if sc and sc.has_method("_update_cursor"):
+			sc._update_cursor()
+	_update_mode_styles()
+
+## Color of the rendered window at a viewport position (whatever is on screen:
+## canvas, images, UI).
+func sample_screen_color(viewport_pos: Vector2) -> Color:
+	var vp := get_viewport()
+	if vp == null:
+		return Color.BLACK
+	var img := vp.get_texture().get_image()
+	if img == null or img.is_empty():
+		return Color.BLACK
+	var vis := vp.get_visible_rect().size
+	var k := Vector2(img.get_width() / maxf(vis.x, 1.0), img.get_height() / maxf(vis.y, 1.0))
+	var px := Vector2i(clampi(int(viewport_pos.x * k.x), 0, img.get_width() - 1), clampi(int(viewport_pos.y * k.y), 0, img.get_height() - 1))
+	var c := img.get_pixelv(px)
+	c.a = 1.0
+	return c
+
+func apply_sampled_color(c: Color) -> void:
+	if is_instance_valid(picker_panel) and picker_panel.has_method("set_color"):
+		picker_panel.set_color(c)
+	_on_picker_color_changed(c)
+
+func _input(event: InputEvent) -> void:
+	if not _eyedropper_active:
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_set_eyedropper_active(false)
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			# Clicking the eyedropper button itself just toggles it off
+			if is_instance_valid(_btn_eyedropper) and _btn_eyedropper.get_global_rect().has_point(event.position):
+				return
+			apply_sampled_color(sample_screen_color(event.position))
+		_set_eyedropper_active(false)
+		get_viewport().set_input_as_handled()
 
 # 4. Función GET limpia para que las herramientas de dibujo lean el color plano activo
 func obtener_color() -> Color:

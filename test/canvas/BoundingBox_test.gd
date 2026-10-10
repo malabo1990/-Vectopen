@@ -141,7 +141,8 @@ func test_single_vector_shape_shows_and_syncs_position_fields() -> void:
 	bb._sincronizar_dimensiones_en_canvas()
 
 	assert_object(bb._bound_shape).is_same(shape)
-	assert_bool(bb._fields_wrapper.visible).is_true()
+	# The "W × H" pill replaces the X/Y boxes on canvas; values stay synced
+	assert_bool(bb._fields_wrapper.visible).is_false()
 	assert_float(bb._field_x.value).is_equal_approx(123.5, 1e-6)
 	assert_float(bb._field_y.value).is_equal_approx(-45.25, 1e-6)
 
@@ -1376,6 +1377,77 @@ func test_bounding_box_shift_click_deselects_shape() -> void:
 	assert_array(move_tool.selected_shapes).is_empty()
 
 
+func test_dimension_pill_number_format() -> void:
+	var bb_script = load("res://scenes/canvas/bounding_box.gd")
+	assert_str(bb_script._fmt_num(320.0)).is_equal("320")
+	assert_str(bb_script._fmt_num(12.5)).is_equal("12.5")
+	assert_str(bb_script._fmt_num(0.004)).is_equal("0")
+	assert_str(bb_script._fmt_num(99.126)).is_equal("99.13")
 
+func test_corner_radius_handles_drag_all_and_undo() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape)
+	shape.size = Vector2(200, 120)
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
+	move_tool.selected_shapes = [shape]
+	var bb: Control = auto_free(_BoundingBoxScene.instantiate())
+	root.add_child(bb)
+	bb.move_tool_reference = move_tool
+	bb._sincronizar_dimensiones_en_canvas()
 
+	var centers: Array = bb._radius_handle_centers(1.0)
+	assert_int(centers.size()).is_equal(4)
+	assert_int(bb._radius_handle_at(centers[0])).is_equal(0)
 
+	# Dragging the top-left handle along its diagonal sets all four radii
+	bb._begin_radius_drag(0, true)
+	bb._update_radius_drag(Vector2(20, 20))
+	assert_that(shape.get_corner_radii().is_equal_approx(Vector4(20, 20, 20, 20))).is_true()
+	bb._end_radius_drag()
+	HistoryManager.undo()
+	assert_that(shape.get_corner_radii().is_equal_approx(Vector4.ZERO)).is_true()
+	HistoryManager.redo()
+	assert_that(shape.get_corner_radii().is_equal_approx(Vector4(20, 20, 20, 20))).is_true()
+
+	# Independent corner (Alt): only bottom-right changes, clamped to half the short side
+	bb._begin_radius_drag(2, false)
+	bb._update_radius_drag(Vector2(200, 120) - Vector2(500, 500))
+	var radii: Vector4 = shape.get_corner_radii()
+	assert_float(radii.z).is_equal_approx(60.0, 0.01)
+	assert_float(radii.x).is_equal_approx(20.0, 0.01)
+	bb._end_radius_drag()
+
+func test_rectangle_side_strokes() -> void:
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	shape.stroke_width = 4.0
+	assert_bool(shape.has_side_strokes()).is_false()
+	shape.set_side_width(1, 10.0)
+	assert_bool(shape.has_side_strokes()).is_true()
+	assert_that(shape.get_side_widths().is_equal_approx(Vector4(4, 10, 4, 4))).is_true()
+	shape.clear_side_strokes()
+	assert_bool(shape.has_side_strokes()).is_false()
+
+func test_shift_drag_side_handle_changes_only_that_side_with_undo() -> void:
+	var root: Node2D = auto_free(Node2D.new())
+	add_child(root)
+	var shape: VectorRectangle = auto_free(VectorRectangle.new())
+	root.add_child(shape)
+	shape.size = Vector2(100, 100)
+	shape.stroke_width = 2.0
+	var move_tool: MoveTool = auto_free(MoveTool.new())
+	move_tool.canvas = root
+	move_tool.selected_shapes = [shape]
+	move_tool.start_handle_transform("rc")
+	move_tool.transform_initial_mouse = Vector2(50, 0)
+	move_tool._apply_resize(Vector2(150, 0), {"shift": true, "alt": false})
+	var sides: Vector4 = shape.get_side_widths()
+	assert_float(sides.y).is_equal_approx(2.0 + 100.0 * 0.15, 0.01)
+	assert_float(sides.x).is_equal_approx(2.0, 0.01)
+	assert_float(sides.w).is_equal_approx(2.0, 0.01)
+	# Shift+Alt: uniform again on all four sides
+	move_tool._apply_resize(Vector2(150, 0), {"shift": true, "alt": true})
+	assert_bool(shape.has_side_strokes()).is_false()
+	assert_float(shape.stroke_width).is_equal_approx(17.0, 0.01)

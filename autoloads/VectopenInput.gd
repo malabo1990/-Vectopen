@@ -3,17 +3,22 @@ extends Node
 const CONFIG_PATH := "user://vectopen_inputmap.cfg"
 
 const DEFAULTS: Dictionary = {
-	# --- Herramientas ---
-	"tool_select": [{"key": KEY_Q}],
+	# --- Herramientas (14.1 Letra única) ---
+	"tool_select": [{"key": KEY_V}, {"key": KEY_Q}],
 	"tool_move": [{"key": KEY_V}],
 	"tool_brush": [{"key": KEY_B}],
-	"tool_rectangle": [{"key": KEY_M}],
-	"tool_ellipse": [{"key": KEY_E}],
+	"tool_rectangle": [{"key": KEY_R}, {"key": KEY_M}],
+	"tool_ellipse": [{"key": KEY_O}, {"key": KEY_E}],
 	"tool_pen": [{"key": KEY_P}],
 	"tool_bezier": [{"key": KEY_G}],
 	"tool_text": [{"key": KEY_T}],
 	"tool_hand": [{"key": KEY_H}],
-	"tool_artboard": [{"key": KEY_A}],
+	"tool_artboard": [{"key": KEY_F}, {"key": KEY_A}],
+	"tool_zoom": [{"key": KEY_Z}],
+	"tool_eyedropper": [{"key": KEY_I}],
+	# --- Comandos y Atajos Universales (14.2) ---
+	"command_palette": [{"key": KEY_SLASH, "ctrl": true}, {"key": KEY_K, "ctrl": true}],
+	"artboard_from_selection": [{"key": KEY_G, "ctrl": true, "alt": true}],
 	# --- Canvas / Vista ---
 	"canvas_zoom_in": [{"key": KEY_EQUAL, "ctrl": true}],
 	"canvas_zoom_out": [{"key": KEY_MINUS, "ctrl": true}],
@@ -37,7 +42,7 @@ const DEFAULTS: Dictionary = {
 	"cut": [{"key": KEY_X, "ctrl": true}],
 	"select_all": [{"key": KEY_A, "ctrl": true}],
 	"duplicate": [{"key": KEY_D, "ctrl": true}],
-	"delete": [{"key": KEY_DELETE}, {"key": KEY_BACKSPACE}],
+	"delete": [{"key": KEY_DELETE}, {"key": KEY_BACKSPACE}, {"key": KEY_X}],
 	"deselect": [{"key": KEY_ESCAPE}],
 	# --- Objeto ---
 	"group": [{"key": KEY_G, "ctrl": true}],

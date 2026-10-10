@@ -46,6 +46,33 @@ func set_corner_radii(v: Vector4) -> void:
 
 const ROUNDED_RECT_CORNER_SEGMENTS: int = 16
 
+## Per-side stroke widths (top, right, bottom, left). A negative component means
+## "use stroke_width". All negative = classic uniform stroke.
+@export var stroke_sides: Vector4 = Vector4(-1, -1, -1, -1):
+	set(v):
+		stroke_sides = v
+		queue_redraw()
+
+func has_side_strokes() -> bool:
+	return stroke_sides.x >= 0.0 or stroke_sides.y >= 0.0 or stroke_sides.z >= 0.0 or stroke_sides.w >= 0.0
+
+## Resolved widths (top, right, bottom, left).
+func get_side_widths() -> Vector4:
+	var out := Vector4()
+	for i in 4:
+		out[i] = stroke_sides[i] if stroke_sides[i] >= 0.0 else stroke_width
+	return out
+
+## Sets one side (0 top, 1 right, 2 bottom, 3 left); the others keep their width.
+func set_side_width(side: int, w: float) -> void:
+	var sides := get_side_widths()
+	sides[clampi(side, 0, 3)] = maxf(0.0, w)
+	stroke_sides = sides
+
+func clear_side_strokes() -> void:
+	if has_side_strokes():
+		stroke_sides = Vector4(-1, -1, -1, -1)
+
 func _init() -> void:
 	_register_doc_extent("size")
 
@@ -60,10 +87,29 @@ func get_effect_points() -> PackedVector2Array:
 		Vector2(rect.position.x, rect.end.y),
 	])
 
+func get_shape_type_code() -> int:
+	return 0
+
+func get_shape_corner_radii() -> Vector4:
+	return Vector4(_r_tl, _r_tr, _r_br, _r_bl)
+
+func get_shape_size() -> Vector2:
+	return size
+
 func _draw() -> void:
 	var rect: Rect2 = Rect2(-size/2, size)
 	var pts := get_effect_points()
 	draw_effects_shadows(pts)
+
+	if maybe_render_blur(pts):
+		draw_effects_overlays(pts)
+		return
+
+	if has_side_strokes():
+		draw_fill(pts)
+		_draw_side_strokes(rect)
+		draw_effects_overlays(pts)
+		return
 
 	if _r_tl > 0 or _r_tr > 0 or _r_br > 0 or _r_bl > 0:
 		_draw_custom_rounded_rect(rect, fill_color, stroke_color, stroke_width, 0.0)
@@ -108,6 +154,62 @@ func _draw_custom_rounded_rect(rect: Rect2, _f_color: Color, _s_color: Color, s_
 			stroke_rect = rect.grow(s_width * 0.5)
 		var s_verts := _generate_rounded_rect_vertices(stroke_rect)
 		draw_stroke_ring(s_verts)
+
+## Stroke with an independent width per side. Builds an outer and an inner
+## ring with per-vertex offsets (mitred at sharp corners, width interpolated
+## along rounded corners) and fills the band between them quad by quad.
+func _draw_side_strokes(rect: Rect2) -> void:
+	var w := get_side_widths()   # x top, y right, z bottom, w left
+	var k_out := 0.5
+	var k_in := -0.5
+	if stroke_align == 1:        # inside
+		k_out = 0.0
+		k_in = -1.0
+	elif stroke_align == 2:      # outside
+		k_out = 1.0
+		k_in = 0.0
+	var max_r: float = minf(rect.size.x, rect.size.y) / 2.0
+	var p := rect.position
+	var e := rect.end
+	# corner point, sign, arc centre offset, start angle, width at arc start/end
+	var corners := [
+		[p, Vector2(-1, -1), clampf(_r_tl, 0.0, max_r), PI, w.w, w.x],
+		[Vector2(e.x, p.y), Vector2(1, -1), clampf(_r_tr, 0.0, max_r), -PI / 2.0, w.x, w.y],
+		[e, Vector2(1, 1), clampf(_r_br, 0.0, max_r), 0.0, w.y, w.z],
+		[Vector2(p.x, e.y), Vector2(-1, 1), clampf(_r_bl, 0.0, max_r), PI / 2.0, w.z, w.w],
+	]
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for c in corners:
+		var cp: Vector2 = c[0]
+		var sg: Vector2 = c[1]
+		var r: float = c[2]
+		if r <= 0.0:
+			# Sharp corner: x offset uses the vertical side, y the horizontal one
+			var wx: float = w.w if sg.x < 0 else w.y
+			var wy: float = w.x if sg.y < 0 else w.z
+			var off := Vector2(sg.x * wx, sg.y * wy)
+			outer.append(cp + off * k_out)
+			inner.append(cp + off * k_in)
+			continue
+		var center: Vector2 = cp - sg * r
+		for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
+			var t := float(i) / ROUNDED_RECT_CORNER_SEGMENTS
+			var a: float = c[3] + t * (PI / 2.0)
+			var n := Vector2(cos(a), sin(a))
+			var ww: float = lerpf(c[4], c[5], t)
+			var pt: Vector2 = center + n * r
+			outer.append(pt + n * ww * k_out)
+			inner.append(pt + n * ww * k_in)
+	var col := stroke_color
+	var count := outer.size()
+	for i in count:
+		var j := (i + 1) % count
+		var quad := PackedVector2Array([outer[i], outer[j], inner[j], inner[i]])
+		var area := (quad[1] - quad[0]).cross(quad[3] - quad[0]) + (quad[3] - quad[2]).cross(quad[1] - quad[2])
+		if absf(area) < 0.0001:
+			continue
+		draw_colored_polygon(quad, col)
 
 func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 	var max_r: float = min(rect.size.x, rect.size.y) / 2.0

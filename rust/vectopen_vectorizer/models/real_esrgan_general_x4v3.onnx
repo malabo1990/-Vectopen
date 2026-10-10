@@ -1,0 +1,2565 @@
+
+Qualcomm AI Hub Workbenchaihub-2026.08.28.1:éé	
+ç
+image
+model.body.0.weight
+model.body.0.biasconv2dnode_conv2d"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jê
+	namespaceÜ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.0: torch.nn.modules.conv.Conv2d/conv2d: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÄ
+pkg.torch.onnx.fx_node©%conv2d : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%image, %p_model_body_0_weight, %p_model_body_0_bias, [1, 1], [1, 1]), kwargs = {})JE
+pkg.torch.onnx.name_scopes'['', 'model', 'model.body.0', 'conv2d']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+¸
+conv2d
+val_1prelu
+node_prelu"PReluJí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.1: torch.nn.modules.activation.PReLU/prelu: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J
+pkg.torch.onnx.fx_node‚%prelu : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d, %p_model_body_1_weight), kwargs = {})JD
+pkg.torch.onnx.name_scopes&['', 'model', 'model.body.1', 'prelu']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+ñ
+prelu
+model.body.2.weight
+model.body.2.biasconv2d_1node_conv2d_1"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jì
+	namespaceŞ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.2: torch.nn.modules.conv.Conv2d/conv2d_1: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÆ
+pkg.torch.onnx.fx_node«%conv2d_1 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu, %p_model_body_2_weight, %p_model_body_2_bias, [1, 1], [1, 1]), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.2', 'conv2d_1']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Æ
+conv2d_1
+val_2prelu_1node_prelu_1"PReluJï
+	namespaceá: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.3: torch.nn.modules.activation.PReLU/prelu_1: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¡
+pkg.torch.onnx.fx_node†%prelu_1 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_1, %p_model_body_3_weight), kwargs = {})JF
+pkg.torch.onnx.name_scopes(['', 'model', 'model.body.3', 'prelu_1']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+õ
+prelu_1
+model.body.4.weight
+model.body.4.biasconv2d_2node_conv2d_2"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jì
+	namespaceŞ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.4: torch.nn.modules.conv.Conv2d/conv2d_2: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÈ
+pkg.torch.onnx.fx_node­%conv2d_2 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_1, %p_model_body_4_weight, %p_model_body_4_bias, [1, 1], [1, 1]), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.4', 'conv2d_2']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Æ
+conv2d_2
+val_3prelu_2node_prelu_2"PReluJï
+	namespaceá: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.5: torch.nn.modules.activation.PReLU/prelu_2: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¡
+pkg.torch.onnx.fx_node†%prelu_2 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_2, %p_model_body_5_weight), kwargs = {})JF
+pkg.torch.onnx.name_scopes(['', 'model', 'model.body.5', 'prelu_2']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+õ
+prelu_2
+model.body.6.weight
+model.body.6.biasconv2d_3node_conv2d_3"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jì
+	namespaceŞ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.6: torch.nn.modules.conv.Conv2d/conv2d_3: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÈ
+pkg.torch.onnx.fx_node­%conv2d_3 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_2, %p_model_body_6_weight, %p_model_body_6_bias, [1, 1], [1, 1]), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.6', 'conv2d_3']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Æ
+conv2d_3
+val_4prelu_3node_prelu_3"PReluJï
+	namespaceá: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.7: torch.nn.modules.activation.PReLU/prelu_3: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¡
+pkg.torch.onnx.fx_node†%prelu_3 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_3, %p_model_body_7_weight), kwargs = {})JF
+pkg.torch.onnx.name_scopes(['', 'model', 'model.body.7', 'prelu_3']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+õ
+prelu_3
+model.body.8.weight
+model.body.8.biasconv2d_4node_conv2d_4"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jì
+	namespaceŞ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.8: torch.nn.modules.conv.Conv2d/conv2d_4: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÈ
+pkg.torch.onnx.fx_node­%conv2d_4 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_3, %p_model_body_8_weight, %p_model_body_8_bias, [1, 1], [1, 1]), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.8', 'conv2d_4']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Æ
+conv2d_4
+val_5prelu_4node_prelu_4"PReluJï
+	namespaceá: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.9: torch.nn.modules.activation.PReLU/prelu_4: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¡
+pkg.torch.onnx.fx_node†%prelu_4 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_4, %p_model_body_9_weight), kwargs = {})JF
+pkg.torch.onnx.name_scopes(['', 'model', 'model.body.9', 'prelu_4']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+û
+prelu_4
+model.body.10.weight
+model.body.10.biasconv2d_5node_conv2d_5"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.10: torch.nn.modules.conv.Conv2d/conv2d_5: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÊ
+pkg.torch.onnx.fx_node¯%conv2d_5 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_4, %p_model_body_10_weight, %p_model_body_10_bias, [1, 1], [1, 1]), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.10', 'conv2d_5']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+É
+conv2d_5
+val_6prelu_5node_prelu_5"PReluJğ
+	namespaceâ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.11: torch.nn.modules.activation.PReLU/prelu_5: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¢
+pkg.torch.onnx.fx_node‡%prelu_5 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_5, %p_model_body_11_weight), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.11', 'prelu_5']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+û
+prelu_5
+model.body.12.weight
+model.body.12.biasconv2d_6node_conv2d_6"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.12: torch.nn.modules.conv.Conv2d/conv2d_6: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÊ
+pkg.torch.onnx.fx_node¯%conv2d_6 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_5, %p_model_body_12_weight, %p_model_body_12_bias, [1, 1], [1, 1]), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.12', 'conv2d_6']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+É
+conv2d_6
+val_7prelu_6node_prelu_6"PReluJğ
+	namespaceâ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.13: torch.nn.modules.activation.PReLU/prelu_6: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¢
+pkg.torch.onnx.fx_node‡%prelu_6 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_6, %p_model_body_13_weight), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.13', 'prelu_6']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+û
+prelu_6
+model.body.14.weight
+model.body.14.biasconv2d_7node_conv2d_7"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.14: torch.nn.modules.conv.Conv2d/conv2d_7: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÊ
+pkg.torch.onnx.fx_node¯%conv2d_7 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_6, %p_model_body_14_weight, %p_model_body_14_bias, [1, 1], [1, 1]), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.14', 'conv2d_7']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+É
+conv2d_7
+val_8prelu_7node_prelu_7"PReluJğ
+	namespaceâ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.15: torch.nn.modules.activation.PReLU/prelu_7: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¢
+pkg.torch.onnx.fx_node‡%prelu_7 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_7, %p_model_body_15_weight), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.15', 'prelu_7']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+û
+prelu_7
+model.body.16.weight
+model.body.16.biasconv2d_8node_conv2d_8"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.16: torch.nn.modules.conv.Conv2d/conv2d_8: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÊ
+pkg.torch.onnx.fx_node¯%conv2d_8 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_7, %p_model_body_16_weight, %p_model_body_16_bias, [1, 1], [1, 1]), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.16', 'conv2d_8']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+É
+conv2d_8
+val_9prelu_8node_prelu_8"PReluJğ
+	namespaceâ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.17: torch.nn.modules.activation.PReLU/prelu_8: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¢
+pkg.torch.onnx.fx_node‡%prelu_8 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_8, %p_model_body_17_weight), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.17', 'prelu_8']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+û
+prelu_8
+model.body.18.weight
+model.body.18.biasconv2d_9node_conv2d_9"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jí
+	namespaceß: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.18: torch.nn.modules.conv.Conv2d/conv2d_9: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÊ
+pkg.torch.onnx.fx_node¯%conv2d_9 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_8, %p_model_body_18_weight, %p_model_body_18_bias, [1, 1], [1, 1]), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.18', 'conv2d_9']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ê
+conv2d_9
+val_10prelu_9node_prelu_9"PReluJğ
+	namespaceâ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.19: torch.nn.modules.activation.PReLU/prelu_9: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¢
+pkg.torch.onnx.fx_node‡%prelu_9 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_9, %p_model_body_19_weight), kwargs = {})JG
+pkg.torch.onnx.name_scopes)['', 'model', 'model.body.19', 'prelu_9']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+€
+prelu_9
+model.body.20.weight
+model.body.20.bias	conv2d_10node_conv2d_10"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.20: torch.nn.modules.conv.Conv2d/conv2d_10: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JË
+pkg.torch.onnx.fx_node°%conv2d_10 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_9, %p_model_body_20_weight, %p_model_body_20_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.20', 'conv2d_10']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_10
+val_11prelu_10node_prelu_10"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.21: torch.nn.modules.activation.PReLU/prelu_10: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_10 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_10, %p_model_body_21_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.21', 'prelu_10']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_10
+model.body.22.weight
+model.body.22.bias	conv2d_11node_conv2d_11"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.22: torch.nn.modules.conv.Conv2d/conv2d_11: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_11 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_10, %p_model_body_22_weight, %p_model_body_22_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.22', 'conv2d_11']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_11
+val_12prelu_11node_prelu_11"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.23: torch.nn.modules.activation.PReLU/prelu_11: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_11 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_11, %p_model_body_23_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.23', 'prelu_11']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_11
+model.body.24.weight
+model.body.24.bias	conv2d_12node_conv2d_12"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.24: torch.nn.modules.conv.Conv2d/conv2d_12: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_12 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_11, %p_model_body_24_weight, %p_model_body_24_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.24', 'conv2d_12']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_12
+val_13prelu_12node_prelu_12"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.25: torch.nn.modules.activation.PReLU/prelu_12: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_12 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_12, %p_model_body_25_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.25', 'prelu_12']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_12
+model.body.26.weight
+model.body.26.bias	conv2d_13node_conv2d_13"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.26: torch.nn.modules.conv.Conv2d/conv2d_13: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_13 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_12, %p_model_body_26_weight, %p_model_body_26_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.26', 'conv2d_13']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_13
+val_14prelu_13node_prelu_13"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.27: torch.nn.modules.activation.PReLU/prelu_13: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_13 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_13, %p_model_body_27_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.27', 'prelu_13']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_13
+model.body.28.weight
+model.body.28.bias	conv2d_14node_conv2d_14"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.28: torch.nn.modules.conv.Conv2d/conv2d_14: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_14 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_13, %p_model_body_28_weight, %p_model_body_28_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.28', 'conv2d_14']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_14
+val_15prelu_14node_prelu_14"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.29: torch.nn.modules.activation.PReLU/prelu_14: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_14 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_14, %p_model_body_29_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.29', 'prelu_14']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_14
+model.body.30.weight
+model.body.30.bias	conv2d_15node_conv2d_15"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.30: torch.nn.modules.conv.Conv2d/conv2d_15: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_15 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_14, %p_model_body_30_weight, %p_model_body_30_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.30', 'conv2d_15']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_15
+val_16prelu_15node_prelu_15"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.31: torch.nn.modules.activation.PReLU/prelu_15: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_15 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_15, %p_model_body_31_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.31', 'prelu_15']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_15
+model.body.32.weight
+model.body.32.bias	conv2d_16node_conv2d_16"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.32: torch.nn.modules.conv.Conv2d/conv2d_16: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_16 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_15, %p_model_body_32_weight, %p_model_body_32_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.32', 'conv2d_16']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_16
+val_17prelu_16node_prelu_16"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.33: torch.nn.modules.activation.PReLU/prelu_16: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_16 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_16, %p_model_body_33_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.33', 'prelu_16']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_16
+model.body.34.weight
+model.body.34.bias	conv2d_17node_conv2d_17"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.34: torch.nn.modules.conv.Conv2d/conv2d_17: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_17 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_16, %p_model_body_34_weight, %p_model_body_34_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.34', 'conv2d_17']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_17
+val_18prelu_17node_prelu_17"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.35: torch.nn.modules.activation.PReLU/prelu_17: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_17 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_17, %p_model_body_35_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.35', 'prelu_17']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_17
+model.body.36.weight
+model.body.36.bias	conv2d_18node_conv2d_18"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.36: torch.nn.modules.conv.Conv2d/conv2d_18: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_18 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_17, %p_model_body_36_weight, %p_model_body_36_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.36', 'conv2d_18']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_18
+val_19prelu_18node_prelu_18"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.37: torch.nn.modules.activation.PReLU/prelu_18: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_18 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_18, %p_model_body_37_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.37', 'prelu_18']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_18
+model.body.38.weight
+model.body.38.bias	conv2d_19node_conv2d_19"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.38: torch.nn.modules.conv.Conv2d/conv2d_19: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_19 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_18, %p_model_body_38_weight, %p_model_body_38_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.38', 'conv2d_19']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_19
+val_20prelu_19node_prelu_19"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.39: torch.nn.modules.activation.PReLU/prelu_19: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_19 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_19, %p_model_body_39_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.39', 'prelu_19']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_19
+model.body.40.weight
+model.body.40.bias	conv2d_20node_conv2d_20"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.40: torch.nn.modules.conv.Conv2d/conv2d_20: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_20 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_19, %p_model_body_40_weight, %p_model_body_40_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.40', 'conv2d_20']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_20
+val_21prelu_20node_prelu_20"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.41: torch.nn.modules.activation.PReLU/prelu_20: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_20 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_20, %p_model_body_41_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.41', 'prelu_20']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_20
+model.body.42.weight
+model.body.42.bias	conv2d_21node_conv2d_21"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.42: torch.nn.modules.conv.Conv2d/conv2d_21: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_21 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_20, %p_model_body_42_weight, %p_model_body_42_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.42', 'conv2d_21']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_21
+val_22prelu_21node_prelu_21"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.43: torch.nn.modules.activation.PReLU/prelu_21: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_21 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_21, %p_model_body_43_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.43', 'prelu_21']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_21
+model.body.44.weight
+model.body.44.bias	conv2d_22node_conv2d_22"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.44: torch.nn.modules.conv.Conv2d/conv2d_22: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_22 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_21, %p_model_body_44_weight, %p_model_body_44_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.44', 'conv2d_22']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_22
+val_23prelu_22node_prelu_22"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.45: torch.nn.modules.activation.PReLU/prelu_22: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_22 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_22, %p_model_body_45_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.45', 'prelu_22']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_22
+model.body.46.weight
+model.body.46.bias	conv2d_23node_conv2d_23"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.46: torch.nn.modules.conv.Conv2d/conv2d_23: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_23 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_22, %p_model_body_46_weight, %p_model_body_46_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.46', 'conv2d_23']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_23
+val_24prelu_23node_prelu_23"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.47: torch.nn.modules.activation.PReLU/prelu_23: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_23 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_23, %p_model_body_47_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.47', 'prelu_23']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_23
+model.body.48.weight
+model.body.48.bias	conv2d_24node_conv2d_24"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.48: torch.nn.modules.conv.Conv2d/conv2d_24: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_24 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_23, %p_model_body_48_weight, %p_model_body_48_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.48', 'conv2d_24']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_24
+val_25prelu_24node_prelu_24"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.49: torch.nn.modules.activation.PReLU/prelu_24: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_24 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_24, %p_model_body_49_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.49', 'prelu_24']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_24
+model.body.50.weight
+model.body.50.bias	conv2d_25node_conv2d_25"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.50: torch.nn.modules.conv.Conv2d/conv2d_25: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_25 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_24, %p_model_body_50_weight, %p_model_body_50_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.50', 'conv2d_25']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_25
+val_26prelu_25node_prelu_25"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.51: torch.nn.modules.activation.PReLU/prelu_25: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_25 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_25, %p_model_body_51_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.51', 'prelu_25']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_25
+model.body.52.weight
+model.body.52.bias	conv2d_26node_conv2d_26"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.52: torch.nn.modules.conv.Conv2d/conv2d_26: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_26 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_25, %p_model_body_52_weight, %p_model_body_52_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.52', 'conv2d_26']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_26
+val_27prelu_26node_prelu_26"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.53: torch.nn.modules.activation.PReLU/prelu_26: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_26 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_26, %p_model_body_53_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.53', 'prelu_26']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_26
+model.body.54.weight
+model.body.54.bias	conv2d_27node_conv2d_27"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.54: torch.nn.modules.conv.Conv2d/conv2d_27: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_27 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_26, %p_model_body_54_weight, %p_model_body_54_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.54', 'conv2d_27']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_27
+val_28prelu_27node_prelu_27"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.55: torch.nn.modules.activation.PReLU/prelu_27: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_27 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_27, %p_model_body_55_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.55', 'prelu_27']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_27
+model.body.56.weight
+model.body.56.bias	conv2d_28node_conv2d_28"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.56: torch.nn.modules.conv.Conv2d/conv2d_28: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_28 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_27, %p_model_body_56_weight, %p_model_body_56_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.56', 'conv2d_28']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_28
+val_29prelu_28node_prelu_28"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.57: torch.nn.modules.activation.PReLU/prelu_28: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_28 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_28, %p_model_body_57_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.57', 'prelu_28']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_28
+model.body.58.weight
+model.body.58.bias	conv2d_29node_conv2d_29"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.58: torch.nn.modules.conv.Conv2d/conv2d_29: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_29 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_28, %p_model_body_58_weight, %p_model_body_58_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.58', 'conv2d_29']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_29
+val_30prelu_29node_prelu_29"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.59: torch.nn.modules.activation.PReLU/prelu_29: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_29 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_29, %p_model_body_59_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.59', 'prelu_29']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_29
+model.body.60.weight
+model.body.60.bias	conv2d_30node_conv2d_30"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.60: torch.nn.modules.conv.Conv2d/conv2d_30: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_30 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_29, %p_model_body_60_weight, %p_model_body_60_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.60', 'conv2d_30']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_30
+val_31prelu_30node_prelu_30"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.61: torch.nn.modules.activation.PReLU/prelu_30: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_30 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_30, %p_model_body_61_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.61', 'prelu_30']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_30
+model.body.62.weight
+model.body.62.bias	conv2d_31node_conv2d_31"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.62: torch.nn.modules.conv.Conv2d/conv2d_31: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_31 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_30, %p_model_body_62_weight, %p_model_body_62_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.62', 'conv2d_31']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_31
+val_32prelu_31node_prelu_31"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.63: torch.nn.modules.activation.PReLU/prelu_31: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_31 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_31, %p_model_body_63_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.63', 'prelu_31']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_31
+model.body.64.weight
+model.body.64.bias	conv2d_32node_conv2d_32"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.64: torch.nn.modules.conv.Conv2d/conv2d_32: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_32 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_31, %p_model_body_64_weight, %p_model_body_64_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.64', 'conv2d_32']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+Ñ
+	conv2d_32
+val_33prelu_32node_prelu_32"PReluJñ
+	namespaceã: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.65: torch.nn.modules.activation.PReLU/prelu_32: aten.prelu.defaultJñ
+pkg.torch.onnx.class_hierarchyÎ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.activation.PReLU', 'aten.prelu.default']J¤
+pkg.torch.onnx.fx_node‰%prelu_32 : [num_users=1] = call_function[target=torch.ops.aten.prelu.default](args = (%conv2d_32, %p_model_body_65_weight), kwargs = {})JH
+pkg.torch.onnx.name_scopes*['', 'model', 'model.body.65', 'prelu_32']JÂ
+pkg.torch.onnx.stack_trace£File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 1642, in forward
+    return F.prelu(input, self.weight)
+‚
+prelu_32
+model.body.66.weight
+model.body.66.bias	conv2d_33node_conv2d_33"Conv*
+group *
+pads@@@@ *
+auto_pad"NOTSET *
+strides@@ *
+	dilations@@ Jî
+	namespaceà: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.body.66: torch.nn.modules.conv.Conv2d/conv2d_33: aten.conv2d.defaultJí
+pkg.torch.onnx.class_hierarchyÊ['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.conv.Conv2d', 'aten.conv2d.default']JÌ
+pkg.torch.onnx.fx_node±%conv2d_33 : [num_users=1] = call_function[target=torch.ops.aten.conv2d.default](args = (%prelu_32, %p_model_body_66_weight, %p_model_body_66_bias, [1, 1], [1, 1]), kwargs = {})JI
+pkg.torch.onnx.name_scopes+['', 'model', 'model.body.66', 'conv2d_33']JÑ
+pkg.torch.onnx.stack_trace²File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 77, in forward
+    out = self.body[i](out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 553, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+µ
+	conv2d_33pixel_shufflenode_pixel_shuffle"DepthToSpace*
+mode"CRD *
+	blocksize J‰
+	namespaceû: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/model.upsampler: torch.nn.modules.pixelshuffle.PixelShuffle/pixel_shuffle: aten.pixel_shuffle.defaultJ‚
+pkg.torch.onnx.class_hierarchyß['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'torch.nn.modules.pixelshuffle.PixelShuffle', 'aten.pixel_shuffle.default']J›
+pkg.torch.onnx.fx_node€%pixel_shuffle : [num_users=1] = call_function[target=torch.ops.aten.pixel_shuffle.default](args = (%conv2d_33, 4), kwargs = {})JO
+pkg.torch.onnx.name_scopes1['', 'model', 'model.upsampler', 'pixel_shuffle']JÔ
+pkg.torch.onnx.stack_traceµFile "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 79, in forward
+    out = self.upsampler(out)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/build/ci-envs/qaihm-build/lib/python3.10/site-packages/torch/nn/modules/pixelshuffle.py", line 62, in forward
+    return F.pixel_shuffle(input, self.upscale_factor)
+Â
+image
+ 
+val_34upsample_nearest2dnode_upsample_nearest2d"Resize*&
+keep_aspect_ratio_policy"stretch *
+	antialias  *
+extrapolation_value     *
+exclude_outside  *
+nearest_mode"floor */
+coordinate_transformation_mode"
+asymmetric *
+cubic_coeff_a  @¿ *
+mode"nearest JÓ
+	namespaceÅ: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/upsample_nearest2d: aten.upsample_nearest2d.vecJÕ
+pkg.torch.onnx.class_hierarchy²['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'aten.upsample_nearest2d.vec']J¬
+pkg.torch.onnx.fx_node‘%upsample_nearest2d : [num_users=1] = call_function[target=torch.ops.aten.upsample_nearest2d.vec](args = (%image, None, [4.0, 4.0]), kwargs = {})JA
+pkg.torch.onnx.name_scopes#['', 'model', 'upsample_nearest2d']Jğ
+pkg.torch.onnx.stack_traceÑFile "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 81, in forward
+    base = F.interpolate(x, scale_factor=self.upscale, mode="nearest")
+Ø
+pixel_shuffle
+upsample_nearest2dupscaled_imagenode_add"AddJ¸
+	namespaceª: qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3/model: qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact/add: aten.add.TensorJÉ
+pkg.torch.onnx.class_hierarchy¦['qai_hub_models.models.real_esrgan_general_x4v3.model.Real_ESRGAN_General_x4v3', 'qai_hub_models.extern.basicsr.archs.srvgg_arch.SRVGGNetCompact', 'aten.add.Tensor']Jœ
+pkg.torch.onnx.fx_node%add : [num_users=1] = call_function[target=torch.ops.aten.add.Tensor](args = (%pixel_shuffle, %upsample_nearest2d), kwargs = {})J2
+pkg.torch.onnx.name_scopes['', 'model', 'add']J¹
+pkg.torch.onnx.stack_tracešFile "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/models/templates/super_resolution/model.py", line 79, in forward
+    return self.model(image)
+  File "/local/mnt/workspace/tetraservice-gh-runner/_work/ai-hub-models-internal/ai-hub-models-internal/src/qai_hub_models/extern/basicsr/archs/srvgg_arch.py", line 82, in forward
+    out += base
+main_graph*š@Bmodel.body.0.biasJ€@¢?|??ğ~@Š=Ğ—?Ï‚N?ñyÀ’7 @9À¡œÊ=F¶FÀÓÀ~C@j?º¬Ñ&?¸†BÁ„„­À%íh?Êm?µ=u>Œ×X?ŒØ.?ús?×ÁÌÆÿ¾ğ¡?@Úa›?ùC@Bãê?†À’?pÈ?°„k@Æ?Cş>Õ‘ÀëÑ>?‹µÚ?ô¾¼?=†*À¤ê'¿gUÁcgÙ?É´ŠÁÎ·ÀáË¡?4÷å½K%@#İÙ? [¼TaÖ?5w?€‡¾ÀÕ Aª8ÀœPğ@àş<§¬@>c?‹J6?¸¢^@Ÿo˜ÁE™ì?”Â¹ÀBs#?*š@Bmodel.body.2.biasJ€XxÁÊŸÃ@7yHÀ];£@ìĞ¿ò=&A»Ş'Àš5j?ŠV@Ll¾T(AdÀÔ?¡”yÀ»ÂÊ>¥`@~»æ?”¢c@öEÀd· @¾]Àc©@ÁÓK@šr¿ªuÀàÙ@¡`sÀ$|‘¾4U?òî´Àqyº@ÇºaÀ+x¿XpjÁ~2G¿¹@ü^*@Á7@Ú•;A!È8AHÌcÀhYÁrüŸ?áxÃÀÜ&Á?¹têÀQ Á^«A¤<AöÇ?u¡@,€-> 9×Áğåœ@&pÁš|İ@¿ZAoã@.ò{@ú.@P ¦=D&AÊoX@˜À¿ê:N@*š@Bmodel.body.4.biasJ€¢0À0-H½îqÀSæ™?¢=“@Ò„@ÚºÀŞSÁÈUÆ½)`S@¾Á?Da
+@~6ÀÄì¹¿nÓ@ºB@¡P@–À¿HG¸@¬}¿2 ‰@;(/À&§8?]Ã¾ÀÏ²›?¥¹‚@OÛE@Úä?’—o@5”O?Å¢¾@ A[<«U@û¬@VCğ@à‡…?÷› @ŒÀ¼@”UÀ	Ü?J=zÀ¢‰¼?š¿@¥ù¾Xì ¿~Lß?¨å@ÒÉ|@EyÂ?Akv@ ’'<>€ÀŒ¶?2ÑÄ?ŒÀàú]¿ö”ÀèDj¾t[t¿€OP¼0ù‡?T˜Ì¿| ¯@ñ¡E?*š@Bmodel.body.6.biasJ€§y„@ó?+
+tÀ‡¦˜?ôıİ?Iã=_X¿ÏëÀ7À£@5§€?Í‹µ?¢H@šO°¿xF
+A†bõ¾¬–©?¬Û@”2ÀÜ›œ¿…Y@İ ¾„¯2@_f­¾NC¼ÀKâ˜?n|ƒÀÈçj½.µ£@Gıƒ@Z\¿&ß<P~È¿ñv@øáã?S=Àçx^?İ#ş?¯ú¿¦ŞÀ®×Ô?â7P¿¹ÆÂ¿ò”p¾5²k?˜L@nIB@ö¬Š@±QJ@Ì*ª?¸í—>áQÀ’ŒŸ¿d?}M?€î=¼ııu?UjŠÀ|0ä?“r¬?÷MÀ¶Â? û»@@}«¿*š@Bmodel.body.8.biasJ€ªpÀ”Èe>¡Ä}À"³r@ßÌO?E6#@«¦r@`b ÀËç×@jN?‚sá@öÖ–?b£¶À‹Å@Ğ19>	ƒT?0rª¿}Ï»?>97@ZzX?
+µ&À*İü@ôÉ@<­0>ìP]ÀM%Ä?œo&¾öÀ¾ÀÆ=A\¦ ÀRR1@~b¾ÊAâ–?·>@@Ø…¿:"›@fgÄ¾×N#@Ì€6?f4@Ş*Ï@áÅ>@µ€@Î€¿Ú=@àÏª?€‘Š? Ñß?©…·?²Äı¿pã¾?€¾§É6Àg"À.1÷À`,I¾Ní¯?ğ6@{tÀ¡Z`À’G]@¦c?µ@„?*›@Bmodel.body.10.biasJ€ÉÌ'@¥‰À@H“å@+•Ç¿NÉÔ>ô_	@ŠŞ°@ÛåQ@~8‡@–Ì?b¸À€Q³?D3S@é*ì@Ş½5¿U8Àp¾>­»?$!@e'®?£ò@Ç4İ?É·@ƒñÀ¿0v&@¤ê@/ÇÊ¿€Ç=¤¶ó@&×C@á'Q@^EI¿ãĞ'?²‡{@J@Íµ[?ä'§@`ïg>`íÙ¿xC=¿€ä-=Òê
+AM¢/@RŠ?Séd@Ş¥V@Eå¿¹îX@*!@W™ß?X.@@t*@áZ>ƒ`ê?¬-(@¾, Á,«@Aw@È’?&w?Ş	¾â ‡@Gx(@C:@*›@Bmodel.body.12.biasJ€€NĞ<§ÀÀzn@ô/â?üş¨>h:¿pØ@)zÀTGÀ„éF>´t@ç\•?âOAñ¼@´úÇ?œ}=@<æå¿ù¿Ò>¼¼Å¿‡yÖÀB¾İ¿‡²÷@Rm(A²'í¿öXÉ¿Uq¨?LÁÀ¾-î¾Ğwá@çÁ;Œ@n5!¿„£`¿½l*@'ÓX@ ÇAR#@bVÁëƒÀÿw†@ºçAÊø"@Í*@Xc½Ï$˜@„™b@ MY¿şa<@¢¦=?xĞ??Û•°¿ÊÀÀS£>o€M?€ÉÇ@VÚ_Áˆ2«¿dî™?²Şu@e1@jˆ'À¨rşÀ(U‘¿p\@*›@Bmodel.body.14.biasJ€â2X¿iĞª@Q¶@ôúÆ?XÃl¾öø+@nqÀ=,|?7KW@ØYÂ=<ıÒ¿Öx¿ğ¾ı)%AG=£@Ò S?ò”?ÀÛ”¿„ o@°òAD$ AœEI@à|Ù@*Ò?d ?®IÑ¿
+r@¬vx¾ŒMè@˜à»@Ì•P¾³5`¿“@ÎÀ¿H8¥@0D@¸@—k@öí@âá@æ¼¸ÀïóŒ@Dx«@NÂ¿¨'?)4@–I“>¹“@’¤KA p?¤@5ˆ@ ³…¿,ş@È@{¾„6ÁÀ\«?ÅGØ@âª@\âg¿Œ±D@|h1Á˜ØO@O¨¢À*›@Bmodel.body.16.biasJ€0x¡@¨-È@ú s@
+ŸA@àV¸½a›@ #?“á>€½¨Àp>‚¨H¿œ‘¿’ªå@v¿r@nr@ óó¼}Fé>”É¿<ä ¿j@İ@–8—@gA =.?• ©¿ÒiÎÀÀ¬ˆ@'3£?œvK¾”û@§`CAÊ¿0?ÎÀrÁBAüVé@ÆYD@°@ãlAğe@ª§@°û7@#•¿ÃÇö?F°¾@Î­@ìİO@6%Ï@t™>Bô¿<Öˆ@(—=¶ëÚ@Fn–@¬b:¿ÿ—@¨š@ëĞV@hÎÖ@Üş=]Ó¿ ì4@L_ @ho@CÆ@ÀÎ„@*›@Bmodel.body.18.biasJ€ûí¡@XĞ¿@x³„@™k@¸òØ¾¸A¾*¶??²?ˆ´H@²æÂ¾@Ó@»+¿ËCB@Õ@€Ï7An¦Š@†Š§¿ê(¿$ÚL¿Gò@æº³@½”@Êë™@3+¿+Î¤?ÿŒ?ØY™=¨W ¾ö+d@¦ºõ@w¥@­=¿lÀZoÏ@ã:@º|ïÀfyAõ±Z@^?\@bEŸ@šƒ@ANà3Atşƒ¾ùA'Rö@ AÆ2¯¿È@H¾>Ùc@Ö¥Ì>T¼@ègAdû{¾äåÅ@Ú$AóB	ÀÈÁH¾õ­.ÀPë˜@O£>
+¸ @¼ÆÀr„Àé	À*›@Bmodel.body.20.biasJ€¦ÒÀØQ7@¦Kk@]‡@ÎY|¿‰^ß@Õéü@İ·@ :=¶é¿°À³¿x Aº…@ĞWX@X›'@±>¿<P@9ï¯@ #è@ïeS¿}ö@j­ã@Íïğ¿, Q@'œ'AËÈâ? ˆ<ZºÂ@*ˆN>ú®“@¦/¿e„ô@‚æÉ?š@âÏM@úÿAˆ'@@z>ÒåõÀ/–é@ÚÍ@Ğ“¿@‡ÀĞ*û>»$k@Ë›?ŞÇ¿4j A–B?‡ºÀ_¢ªÀ°Ğd>qy?P0æ@ÌœÊ@°NŸ@ÙĞ¿Î`@’åA`Ã½hÀRä_@*tÌ?*›@Bmodel.body.22.biasJ€rp[¾êw»@s/Ö?şiA–lô>´KÅ@IL§?è{ŠÀ&1KA˜r"?jéå@f(õ¾§qå?˜tN¾€Qà>'‘ç¿‡¸¿çF¸@˜Ù6@ƒğ@˜¶@È¶2>4ò@/›@ K¾Œ @ RéÀ ¼§>dPÔ@¤6§@,Å¿·…wÀĞÒ¢@ ¦ì¿©¹¿îİƒ@ @TW˜?U-‡@(¨Õ@g–s@˜ı¸@W‰@ú[à¿Ò4!?>ìRî><¾ÿùA@É>Æ°@²‘@ Mš>äŒ×@Í{Ñ@²(ÀÇ@@@kz@wäÀDôÉ@r…®@TÎ”@
+£¯@Ş¨@*›@Bmodel.body.24.biasJ€¦âTÀ{0ÕÀ?İš?Û0Ä¿Ìs~>ğ%±À˜Q?‡Ï­@óa£@@J1<¦ğâ?¸È¾AÊœ·¾4ı>ªşŒ?O¿.ë7@:ÈÀ8Â?ıMï>³£ˆ@äè5¿
+"@Âƒ¾Àè+À @÷r½‚A`
+s¿>ı@N¿‚À”®r¿ÔÀí@RÃ@äz°@*o+?Ğx@–<@O>#ßÀ
+-@H<ÀP”ä?P¬„À1k±>´øè¿Ób@à`>pİá½zË°@Èâ%>^€A¿Dú1>ê'Á~¶A4\«@â_Ò¿ŒW @‡™@.òÀÃúN@iÒf@*›@Bmodel.body.26.biasJ€L÷SAıäl¿àÓÁ¿`û½Ò‘„¾ïÀQ
+é@æÁŠÎ@ô{¾UV?ø¿“¬?Ìõ‡@ÈÆ<@Şš@Åì˜?0ÖÖ?<Ón¿şì%ÀÛÂ@€+B½)|>@˜¿G@ŒTAx;¿ÚUÅ>„ÿD@Ö!€?Xr±ÀJ”uÀ`V?Ø¿@l­@ı¢@nëì@,2iÀ~Ä8@Mˆ„@\‹>Qƒ?ĞÌ/ÀWˆG@$×?.©bÁu ^=qœ@!,]@ ?B‰º@®Ö@pµp=T¿s$Œ¾+„A`ªŠ@$œj?¡¸ÀõŸß@1Ú¿tÊ§¾ÄıÀæ|µ¾*›@Bmodel.body.28.biasJ€NÕÆ@´X@Ê]@zê³@À)d¼¸@!Z@tu¿iÿ}¿ôš)¾øèÀšb¾B@ÿ@ø©¶@œ4@™7¢?nù¿{Ü‘À&¤?šŒ‰¿J!:@Ô¼oÀúıÀšOÉ>‹ıMAt|§@"–¾)ÈM@¹ÈX@{eò?@ş”¿©ÛÀïC½×¿~å¿ú×…¿¥q—@Pôm?¾Ìr@ AÙ¿°@=¦³ø?€NÈ¼¦ô¿~{K@E—T>²âµ¿3>À7>?.›¹?jÁ˜OÉ=‰!dÀ—_¿¼ £Á< ¿•=ÀÊn'?k‘‚?.^À4@ªteÀ¨¾*›@Bmodel.body.30.biasJ€,‹ç@ø‰’¾{G²?t÷¿°Ù{=„Wƒ@o7AÍØÕ?&‡À–A¾y¿EÀpÎ=ª:@ïdk@}¸A@eI¶?Š¿$Z>jC?¦@>?8Àø€@JqÀ	<F¿Jv}Àı€V?P$@\ªt>íjÏÀ _à?×ÍÁ†næ¿à•(@ğ‹¾@Âğ¿1Ğ?üï@¤Ê¯¿r›İÀB	@É¾£çÏ@Í²´@›¸qÀ—Há¿±²ZÀKÉ†>ªTı¿ö…¤¿#½º>Üã ?HÍ@øŒø>_¡¿İ%»À<ï²À‚[ê?ÖÇç?¨;…À>3=@“uÁì>C¿ lÀ½ß=*›@Bmodel.body.32.biasJ€/½@£šÀ˜îÀ…Ô@T>è”¾€£]¾Ô•.?¥@?`!(>†CÀút¾*ª@O_¢ÀÆ‰@~s@T!å¿Á<?±u¥¿*ƒ¿Ò—@¿|ÛÀpz?º/"À%,À>Ô!ÀÂ_¸>ĞŠÿ@~êİ@Ö‰Õ@í^À™Á…?T¶½ÀÎŠ·¾ G|½GqÀzV@æeÆ@ß>Ä¡c?¤í@Ír¼@î4@3¾éÀÑö¾ g˜À"t@áhR?À÷?Úuh?µß>¢À=Ó¹?8A
+Q ¿Î#¿TAY?è'Aõ ²@Ö˜?*€’¿ß5@*›@Bmodel.body.34.biasJ€XXu@Ò¯›ÀÄj\¾ºã?ö!‘¾1o†@ª7Ş@nAÍÀ5#„@`ªq½˜Áß¾P‡J¿,æ#@8Ç^@ùß>Ï`_@,8M=Ês¼¿V@>+Á`à…@êºê?$ÑÂ¿½~’¿0ÊC¿fÑw¿Ğ¸6@(ÚU½è	–ÀâVÙÀ Æ¸¾Ê ·Àê~È?1İF@•-ğ¿MàÇ@Ú•eAÊ¬?9`>DéÀ©Ñ>ébA` ŠÀÌt?’¢¿Ú§†@H®@j{¢@!¾@˜0K¾Ä<	@SAü·D¾CˆìÀøã¢@†dĞ?ö„¾RÉİ¿åÙb@Q;@Ò‘­?„@„›s@‰	À*›@Bmodel.body.36.biasJ€±gYÀ\ë¿2š>> .A
+aÔ>ù¾H@AAÀ¬>fğŒ>¸¹¥@¥Òõ¾86!@yøAd{@r›ëÀè)¿4‹b?I×¿n5À¹À€ÀÌ?^UgÀù[<@Š¼@÷ˆÀ§[rÀ¤"€>ŠŸÿÀ­Z¿Ä;À}²LÀç ã?¢jê@x
+›¿JËARIArÀğÀ£pdÀlºì=4Š@2Zä@ùq¿º‘£¾±$!ÀL(¥À}}‡¿ñ;@(x¿v„w¾Ñ¸?DçÀ(Ä½r#rÀ³õ¿ÉgÀö@>}§? 9¿|	$@¥'?r&z@NĞWÀä„?*›@Bmodel.body.38.biasJ€(?¾]"3À~y½@ĞæÊ@Nğ¿'µŒ@¡^À)y‚?0, @{«ó¿âÁ6¿2ø¯¿Şe@ÂrI@€Ö»=ë	Á¸NˆÀì(¢¾||UÀıÔ¿Ë(À€ô›@°¥[>8Êe?È	Æ¿²D¯À}@à~¾5ùÙ@´èÀè–š?ñÀcÑ@ñ*¶@Ê£ñÀf¾@*œÀÊµy@ÜZÀ`É½¼–¦Ç?2ô?ÊöÁ@~™È@:¨@ÈJ>3¯ò¿CİÕ@ÚFÀL<›?ğV¿“@ÚÀ¾=CJÀä™@ÃšÂ@9MDAàu}¿Ê:0@<C9¿ Í@·d ÁœX»¿³-·À*›@Bmodel.body.40.biasJ€ù¾>Íğ–@ÖQP¿V+_ÀU0¿6ü×¿Xæ¿N€AÈ“x>Œùˆ¿r|A°aÚ=ŒŸº¾œt§¿LUÀJ)?èú?”Àdb?
+ @hÍ"¿Lah@ü_†?Ä|?RˆÚ>Wbl@•“@p¹ˆ½N|{?õÀ+®ƒ@‰Ï§?P»?hW=@ÓdÀ>AÜö‹?ÊŒÛ@ÀÌ@FÏ¿L+x@;ÂgÀ*¸z@è°>s@JVú>ì­@d¨A@ÚÇá>¬|z¾hU¬>ì†¹¾Z ¾«¿ÁTA;@±@‡ì^À4m…¿oêëÀ.û­¿&“@0¯ Àæw½?*›@Bmodel.body.42.biasJ€ûQA<†¹?¶>(@lŠ¿Rr¢¾•>0Ä°¼Ëê—@Ú#Í>%î¾Ô'V¾£ß$?,qæ?ÀzAÄb¯¿¬>¿@Åªt¿lşá¿Ñéw¿ş¸OÀJ¿U?Râ	@.æ@$¤?`À™Ç¿@Äo>ğ{Ë=Œ´@öÃ @®‚À”å[?S³@Ò) A-r¿Xj4½xmÀ §¥¼f@gO¿6QQ¿s|É@ìF»@D1@g¿ªĞÉÀùuÀ¿*?IKã?RLŠ>`^·?5¼@\ËZ>¦€¶¿"»@!+?îïÎ?`È@¬R@³#õ¿ÜÑŒ@2d@X’>„@*›@Bmodel.body.44.biasJ€éx@û,—?¼6@MÂ'¿¥g.¿èÓ?;ÌŒ@ÕRŒ@xPl@Ÿ;¿t$	@Xà¨¿Úö|@‘Ï@Ì @‰×ƒ?âã@’kÀ®l‰ÀÌ¿Œ@Ø@N¥P¿§ŸÎ¿S¬?»¡?ÁñR@LØ@•½K¿Œo[À4bÈ?]’È@Êà>Ô»b¿­	•¾Ô/·>Nˆ4AtcÁ¶Ñz¿®{@Mû®?ö. ?FDœ@²R´@t(Ñ?°òï>PÙ˜?«YxÀdù ?ÀĞ½–
+l¿³wãÀ‰,‚@ŠA¿@·F½ôŠ@‰4K@>k?Z? ÀÄêe¿èc?áb€Àª‰õ?‰|@ ï~»*›@Bmodel.body.46.biasJ€q^@úüª@q¿€Ç<œv¨¾Y1‰@ÀZÀdib@.‡ğ?BHš¾Tı‚?ŞpÍ¾N¥¤@2:Ç?0*¹@ÈØ+>ÿô¿_ò§À§šÀš]]@n¥U@êTæ@ôƒ	¿sü¼@†·¿Lõ‹@_>4„i¾,Û¾~AÎù¡@vn?ú·@w%D@*¿šq@ƒ1*Á|@ê?)
+B@êã¾VÚ@
+=RÀ8¾f@!-k@:8w¾ ã?ğÆïÀuÖV@¦ïÚ@¬«Ú>	¿Á–™˜@Ì U¾|È
+¾üº¿öUº@D??ÕÍ¾à¸¿äj?*SÀQZ@âËò¿®«—¿*›@Bmodel.body.48.biasJ€Wız@/c@'æ@òlü?©À …•?˜ƒ¥?6F@ŒŸr@(Ì7Àº"@Ûy•@:Œ@|ıó@›#ğ@H³x?¾a‚@P§	À<Åí¿Ößk?<ÖH?åBã?óE¿ÜXš@ë€õ?£Š?!¦ò¿´ºk¾€ª?:gæ¿¾”?¢#Õ@U¶@p‡Î?„/Á7f’?;CE@7*b@T}@i¿?‚|ö?*Û@Sƒ@DÏ5¿n/°?Ÿ'@>ÚAÀÚí}?Ÿb@”	z=Ã°Æ?ªš~¿/Z'¿<âç?&S¿?&¹@æ;]@½Ñ? E.?xïŸ??4@@%¿…,Aˆv}@*›@Bmodel.body.50.biasJ€`İ.=Ô¿0>’ë>vË-@èFÁ
+PÀ`Ç†¾¡3u@`¿@€´ÁZ6?<Ô?Š´…Àîv´@P”ú½ôé%>OÓË¿FnâÀ^K¿àå2@@ªÏ¿~±T@Ä—>àÃ’À´¯?®?¹´Ä?¿s¾|m@«‡‹?"v@t¦®@Ä@‹¿Èbs?ä—?c¿?z—¢¾ú»‘¿mÙ?Íó@mÀ¾À>=Ë@´[@€Éá= T—@¢>ÇÃ?¤ƒş¿±µõ¿Jùà?g™?@ò9¤¿sÕ@@Ë?$Àÿ²M@¢‹¨@¡ĞÍ¿xÆ2@ ?Ï¾ˆ¼•½LB?®¼‚@*›@Bmodel.body.52.biasJ€Ã%í@Èô÷@üì¾2ë>€:|¿ÛuA ™¿U[•@©Û¿Ï›À­RA¢yg?;dÑ¿Îİ@ß;a@ÃYm@>¶KØ¿Xkó?âãÀ'pŒ@>(Ñ@dôG¿”¡a?ÕÖm@UoÎ?ÌˆÀŠ¿‹öF@CD@–ş—@j¬&@¼6A@ãy@`Í+Áğ9[¾Í×¬@=@@Ö@``¿ëÍ½ØaË½²²3?NCÀ½@uæ?DÌ«@…Š#Aá¯¯@¬1?Öø÷@ 2+=01’½5˜@±¿@ëûy@¾D@D·z?pŞñ=JØZ?Tu@É0˜@J²@ÎgA*›@Bmodel.body.54.biasJ€S,H@(¯€@,¬_@Ä§\@0Øz>LãŞ@c@*@sCó¿&iCÀÈVÕ?Pwó>{™@f™Y?R@%?æ?@áŒÅÀáÆ¿ù‚¾½§@Ò:Ã¿P4Û@Gõˆ?*.@Z“F¿jÄ?(_é?¬]§=ªÀ¡@<@Ê9@­!=@V0M@éÿ‚?eŒ @Uğ£@s¿ê»0¿û–(@I~W@Ìwş¿ÙŞŸ?N¨¯@m«³¾°¤?T–¥¾Á¤Y?—7ç?$¯@àä˜¾!¾†@!-@|‡?(f@ùQ€@ìC.@½•ò¾ñêŠ?‘”Ê>ÃÔ@¢µ>ÆHê@P¬@¦i¯À*›@Bmodel.body.56.biasJ€Ô{z?¶yÓ? @ÒJ@N`Û¾PÕÀg@À/3¿Rİ?IDB?p)@uH4À®hÒ? -ã>’d?ûI‹?ÔùŒÀ(û]À”îÀ>È§?@à»½ôÖt@¾S@Ÿ…?õ9¢@„ş?L¢Ï¾–Œƒ?ß?Pó9@9P@Ì¡™?ˆ~×?dá–¿2™0@!_¿¨$´?7@š?‹H(Àê@ñÎÀ¾`ò½ÀeÊ¾C`/@Ò¤©?*8·ÀI˜@=Â9@O$?à®t¿$|š>J"¥¾ÀE¥¼!,@¼'¿Ig^?6»¥¿p&ì¼5¼‘?|Š@r@Äåf@†µ@*›@Bmodel.body.58.biasJ€1ê¿4¿¿DO¿<¿¤Ï'À?25º?Hû½ê¶?†qc¿–Î@¶jò?hìH?ù#@£ö+@}zœ?%{ø¿b•IÀ9À$İ‘? ]4?7Œ	?'C¾<ŸOÀ î½ßzÕ¿vd†?Ğ½V¯H@²½É>TL¾›/©?åY?.@ÍCé>9‰¿Ä{@N¨?Ğ_?”şê=’q9?`šY@Âok@ :»Aír¿„<?´ùÂ=Øúç¿B¿§?  ó=`‘c¾œ`Á½Ÿ»¿ÈÌı¾‚’+¿+3@Ï·³?0úÉ¿„¤ì?$LÀë™†?;† ÀxTe>
+Á(>*›@Bmodel.body.60.biasJ€øÈÅ¿t¡“¾)">\±?ê¹Å¿pV˜?¤İ‹?Ğª	?FÙ+@ŠÎ¾ÀfC?k±å¾ u?é¸?¨pí=0e?&=€—JÀ
+c?7”Ÿ?ä
+µ?¤?Ì$	@£m³>rÈ>ø?ğjã?¦±	¿VœÇ>i*ƒ?²cK?FÀ¯>hZu>DŞ?ŞÚÀİ7¿¬kÀ×»Ë>³¡½lÅ–>ø½,Ã?
+œ²¿ö(@ßÕİ¾ò²@l_D?¸¢æ=XŞ>N×?ôC>4œ­=¬ë¿ËÁ~¿åÜ?jìõ>Š?ñYí?6(;?úû©>Î?éO’?Æ[?˜”'¿*›@Bmodel.body.62.biasJ€C<¿Ãğ¾¹­?•½ï>R§Í¿…–‘?„~ò>PWl¿ OV>Õ<¿÷$?¾IÖ?C?CC?=–ï¾>ëh¾èƒ3>z¿éó¿•ÒA>°À‹¿˜Õº=¨ó¾˜Vo=|6Û>¸È•¾éÒ ?v»¿ïU¿øÈI?EÌl?>F?{6ô>÷Ş=6Ë	?€’A½7?sIÈ>¶rH?­ø1?B-6>ÿÍ?Öà>ˆ€Ò?¸U,?½?qƒ?¼Åê>çúo>eb¤¿~4³¾Ë¿=4¿«Š¿×å?=DÃ?ôéV?T6ø=&c?ìÜ™¾©ß>d?Ğ¾h,¿8è?*›@Bmodel.body.64.biasJ€r>®@zÖ¦½ÊD>@†@òoK¼NÄJ½RÂ‡>Aæ½=pa$?°Š<¼2ë½>TÉ¤>˜¢T¼½>9¤?°I=¨·>u’>sqd¾dçâ½¨Q€»	·O¾‹§]??`Ç½‹ºó>ÔyÎ>€s¿”µÀ½±w&>¸Â£>XÏ?`ı>ªë=œ
+>>nA?à¨Œ>ş|“>‡=>¤WM½øô¾:T>ğ±’=îâ‘>Àİa>¥·C>Fb¾èq<Ø°>×M?•û°=ê–>NÊÙ>\/ˆ=èPÍ<†T?Oy?ş:>muÈ=`.N=àö§>0]^<€¨¸º
+}«>*Û0Bmodel.body.66.biasJÀ&%o¼E@½€Ì•;\zT;T¦Ó¼hú¼ »[:p£W<øŒ¼€°µ9Ô>O¼r­‚¼¢¿Ç¼pÉ…»À‡i»GÎ¼2'¼ê[½4Á¯;9ó3¼@<×»H!¼ h<´Ø <äáš; ªP<È»¼Ìñ«¼DÁ¼àf‚»Æ»(Iµ¼Xoo¼.Ç#½¨ıŸ;€¼º|`¼Ğœ…¼X§ƒ< À•<ªær¼ o:ŒT¼²˜‹¼&2ú¼0ç¤»¦½»Õ¿¼*’@Bval_1J€Ñr¼§¾í
+¾¼Q¿cÉ}?Ğôo?o8Ÿ¼ ¹¿«œ½|†>† ¾à?±+½ÿ¶{?F¤Ã¾ÒŸ7½A	æ½lé¬¾¾‘y?\¾¾5Í½¿oÚ‚¿ôéÏºæ¤W¾‰Ò>®ô|?Â?›Ào¼î˜{?k¾Â¾x?ÏÀ:´‚”½Ó½®<d>½¶_?2I½mñ¿¸¯T?’i£<®¤½¢+³¼Óî™¾>¼:0¾ö¤(?Å,e?É=„¿p–=%Ê?2Îq?	Ø >ôÇ?öà½<°¬¾Tk ¿Å+.?âBq?JÍ‚<âØF¿TcÌ>œ<*’@Bval_2J€Ÿ§¢¼Ö…è½=>A>Ê€?½¾±*?……¬<+’¾}‰¾0®¾Ú*?ÈQ8>jIh?=¾dEà¾S¯=£óÚ¾G¥©½
+ê]:Eş!¿v‘ş½Íê> Õ¾Äç¾&¯†¾’=¨=¡¾Ô³?S…?õE›½Ø¥'¾â¥µ¾Y½í½¸—)½£¯„¾F¿Ì€8¾-­î=]Î ¾i>¾Ïr$¾µ=÷=¤=Ú§Í½6‰Ü½TÚ™=¹õ’½|Á¡=d_:Š?’>œıx?‡E¾şˆÂ="ˆ?'y¼C“-?Pi>q$Ç¾tG¿äK<­ƒ(¾á™¾EÔy¾q’‹>‡~¢¾*’@Bval_3J€ÍL¿½h½¾/>G3‹¾-€?Àö4>ÏL.½®bh?âÜ¿DÆ€?aq¾\?_y›=êÑ¾t¯¾ÚÔ¶¾;ù>°ú;kæ³¾şş"¾¡'•>z2d¾AÀ>¤D?ˆ <:¸¹><¶=¿Ø>? _†9ĞèC¾n‘§¾~yî¾a&=óÜ½¬/é¾’Ä¨½\Q¾‚—½°>‚xe¾ÚR=ºB¿ ¶^¾¹G«¾C¯…>â	Á¼>ÿ©½#¾¿’=Œ—€?cU?áŞ«½Ğ3|?Äüš>Pòä>|‹>`°/=T·¿P¿=¼=–İ¢¾N»¾¾—Û=äa=*’@Bval_4J€FÉ›¾}‡½ß½¶MR¾j{?¦¸>»`‰¾_ã½[{Ú¾v›~?½…g½v‡o?x™¾ƒ=‰Õ„¾ñ''>ÊƒF?t3”>¼9É¼¢ZT¾ }?ã,`>›œ›½n‡@?IWŞ½¤fè¾@(?¸“?`Ğô>,²>·q$¾ÿ%¿²¬½zò¤:´¾ËwV¾Äoÿ¾U#>Î ¾Á(¼>¢£µ½¼«>’Ík>ìÜ<Ã'¾#?:íç>²z ¾‚T>Ë?æE½=èé\>T…?Ø¾6à¥¾Î@c>¤°‰¾_ê¾ô)>¶0W>ğ#ç¾.ÈÜ=Ô|l>ñÊ??*’@Bval_5J€†*ß¾»Ò¾=pó½Í´Æ¾à¨s?î](¾âM¿[Ô=ºï?Îãr?›x>ÈõQ?ØV¿ê¢J?pE?ª˜M¾‹Š?C÷µ¾ŠÊ¿ì@¾Pi+>™§Ñ>„_ >^‘w?Vƒ¾XÂŞ¾ñ1È=ÚˆŒ?ˆş??ù´Š½kgû¾ô«Ú¾Óıˆ>”§¿‚İu<Ún>_]¼LG?V‰h½º›¿N¢½XAG>;›¾0Å¾dÄ½-ÅÂ>ŠíG?ø\2¾”ˆ?š‡?ø¤>d1o½Xp?ªX©»B%¿‚ñO?0À¾¢‹h>ñÿ¼”8?šê?/†¾•ãg?í"Ä>*’@Bval_6J€ìh«¾˜$]>:±×½`¦8¿“^‡?1 ?A‘!?ï÷¶¾~š»ãô‡?4Ñ´>O?ŒÌ?>“É%?¯pß=VP
+?„ÿo?õ¦>†ş <øº™¾uÉ? üLº`¨>Vg?re<”Ï¾ÁHô>éHH?‚D??E>T@?pŸ§?Ú`½¤°E½ã¡½2¼Q?ªÀà¾‰8>‰>¾¯/{=JA½<-ö=¦t
+?„²?¶>äÜ=gv?v?D_??.Im?Ôı£<À­>Ö€?|ö}>©G[? û£½†>ô5¡¾ü=Ìı>÷[¾Pu=€Ùq?yñ¾*’@Bval_7J€ƒ•>åê0>ŠÌö=Ğí*½Â(f?ğQM?x,x>ÜÂÁ¾ˆRã>ßo?˜Ï´¾è2u?ÓÅ"?Ï^g?…CÎ¾tiİ>ÈP?"²?tµŠ>hLŠ½x §=Tsö½:>º;€?Um¡¾l^Ø¾AR'?V¯™?îÉj?\€:¾dÛZ?(§=\û[?,¿,¿©V<vşt?d“Í>¶[V>©]¾$íİ>BH­>ÍË>=ú»>jç‹¾–«,¾±ÿˆ¾ÓFƒ?’pÔ>Fõ+?,&‰?À:Ç>Ÿè>8<ƒ?X.„>³»½àO¾à¹Â¾Lş>Ôã±=w4?wì6=¥¶å>:´v?Ã¾*’@Bval_8J€ºÍ=øÕ…>¨ÿ>pËî¾DY«?Š!ö>‚>Éı¾ b½½b7™?8;Õ¼.İò?¾2o>ÆÙ|?¨º+?Ë`Q? Ù±?(î>?ÜÜ>!dØ½kŒ¾“š=±EĞ>¥Z\?s¾â»˜½R[e?ç‰?öq?÷G>H&á>Ä¸¿®h>i´†=èp¾Œ¶„?{ë¾ûß9?Jéõ¼Pò>w[¾ÁK2?t3T>ªòò¾²’U?İä6?q§?<(>ÁG?î3s?å*ß>,!Ñ>àÖZ?§‚!?ÑMV>ÖÙW¾êÍ‚¾n‹ >t>Ù;¾ˆ¡¿ÒŸ©>h? Qõ=*’@Bval_9J€}_7>éà@:ë¾×U*¿ºqP?_Oo¾xF[¿+ÿ½E3B=¬ `?î.>ó‘?¤T	?¥Õ‰?¡µ?÷Ã„?ël?«†?4%?yÈ>&àF¾Û6Q½Ê3>^5?êpí;hª[¾;õB?[F_?ø!»h^?peË½à·å=¢ç	>À1³> 8?Q«B?1(¿¶o½¾‚¾XĞ‰>GCM¾zèQ>¿s >Şğá<¸A«>ô=?Æ–R?¾f¯¾J¬n?%¯u?Îá?ì'e>Ö%ƒ?&Ím?¬{¾÷Šâ¾ÅvÎ¾£5Â½B±¿ìÆ½‘©>?.@>1°ğ>à¿ª>*“@Bval_10J€h¡J>J­>ÜbÄ>am>¤]€?´ˆ½N<?dî¾ozu?‚‡?Ü~Á¾Û„?yD>€÷?óON>?Ü3?‹€?pÚm?ğr_?¯¾¾È³¾ø>EO?0¸­?Ş0Ã¾Ë±ï¾DO>ºp?Ø,¦>9] >ü8m?šiÍ¾—rS¾ßŠ ¾†#?´a?¥<>tÇ`¾'¥¾l-p>]?üe´>h˜;?;R½Ş¨¼zœ&?W¢?ÙÓÎ=Â¥"?2ìp? ¿=?û?ô‹?èØ>Ç>è3¾÷òÛ¾L6o>tÏÔ<^ü“¿2Íç¾ÿÒ“½‚E?&M©¾*“@Bval_11J€ÎyÂ¾§Ğ>¶¾R¡ì¼ªxƒ?óƒ[>2@?¶#¿{*˜=ƒï†?Œ¤¾Br?ÄF_>ZY?±ú¾‰Çƒ?©ãk?s?ö©\?»û>MY?ÚY¼>ci?ëØ_?¿=‚Î>8I?;tŠ?°B½MÒ>4£Õ>¹·˜>\à²>h6?VZU?m)?—‘É½¢+y¾…7…¾€¸i½«*~>*2¤>ŠÚÇ>d© ¿·ûø¾~>ã,V?Xh¾#Ë>l†?Lg…?Ø:ó>^…?<?q?Õ>x8è=‰=?t2¾}
+¯=6„†¾XĞ¾_‰±>œ`w¾*“@Bval_12J€V¶"¿şÇñ>bw¾[5}>NEo?¡PB>Én½ ¸½È—€>Æ±U?K(Ã=ô ‰?MN?½­‚?1 ¿Áí}?~‹z?àv?xv_?íÀ®>ÜÑT?+ú'¾°`à>’şo?ô‹;?êîe>„Rm?ğ±?GÁY?¢7?ÖÎì¾– ¾?°N>º
+Ú½Õ‘Õ<j~Ü=Şc5>u¾Èä¾H³¾­#?¾>/A@?ÄëP>ü>·Ï	¾ö'x?u”ˆ>˜%?‚ƒ¤?šdn?ŠÈk>Ãgˆ?^Ö=?§—0?ÚÕQ¾¶Ñ¦>v›?èQ‚¾²x_?6$=Kµ¿½âÅ…?‚Û =*“@Bval_13J€ )?ªs¾¾’%Ú¾{¿Í½‘?,µü>pÏk?¬$?²Ê\?Œ\±?ÇÃ6>ít?ôdÓ>.0?NÛ¾zps?¾µ]?)İ…?7Ú	?8ƒñ>à~ë¾ƒ½P?(©?ïQ“?‘i¢¾70¾Æï‚?Ğm4?f‡D?nö>ßây?\<s?æƒ?d¿>" >é?¢63¾;E?".D>S ?r$Í=÷?Dß=?œñ_½wÈ2>z.>-àn?:Üf¾É-¶>ºÍZ?±po?1%?li1?˜k?–™£½Vkß¾¢Îb<µ¦U?oBá>Ö[<<ŞÂÇ=ÊÆ5>ôµ1?fG>*“@Bval_14J€¼•2?¶b?ñ.ª¾Şy&?ãØ`?ä'÷¾\?ÓOÉ>Ïd>®c`?ºMs>hQˆ?¸-X?Œ0@?Ş?l<?Rşh?ô­n?ªÃ¦>©ñ½qk?ª?Õú°=ôú:?è 5¾Î/?£5?&×9?¿jÀ>(|¾´•q?,¬?‡#ÿ¼‹MG>zè4?©×>Š«{? œv¼÷&>ï–>jô]?¬{Ñ¼ŞóÚ>°7>dqD>&ÏÇ½ÿDu?HÜ;>k h?€Çr?.ƒ?j7?Òku?.ÕZ?n—Y¾Lc ¼‚?Ë>Ù
+r?j‹½Å7B? @¸¾¬>Á>Úİ<*“@Bval_15J€ÚÂ2?ˆ‰¯>š£‹>ƒO?ò§?ÙÑF¼¼z?Wìª¾?³Ì>5‡?œÌ>ycƒ?¦²T?6Ï‡?ÌP¥=Z7‚?èák?²vy?ç‚?¢b0½Ü¬?àÍP>È§>6?>?F¾´L}½pÎ•>ú£? !!?|N?õG*?ôX¥?}¬=€¿+?ª‡?rù?˜#_?F™¾Ø‹ò>ş…²>0)9?‚B?»¾€>1'?Øœæ>8©?cÄ„?.õá><eX?(¤Œ?l?®Œ>j³?ƒ^?E¾#ì¥>gS½:À­Y?ÿG½h+j?î¥á=Ç =ªæŒ½šÄs>*“@Bval_16J€:¥S?ÂN?‰´>;%ˆ‹>gbk?Û˜)>îä…?9ÃÎ<\…±¾PQk?uØ¹<^Ñ‚?)R&?ĞXp?
+ÃŞ>Ìs„?šM¾?Nîš?Ñ‚f?âDî>t¢d?n= Ûí>+ ‘?<ÄB>TxÍ>İ„Ö>0ş?n&‡>_O?ZÆ>«?è? n[?³EH?ãb?4\?Ñ\>SRä=¹š°½Ì½x>’>Iûƒ=•¤¡>Âs?…“y?¾•é><·a?³ŞN?/!A?D?‚o™?”„p??º> Û‡>¸=ˆø=?)™Ÿ»5©N?|:>‰4®:SğÀ=úšE<*“@Bval_17J€†;è¾ìD >4+_>	OŒ?Ñ;?H­p?°Öé¾Eáµ>¨ns?"R=.v?sn¾z
+f?I¿¾bør?F"?VÕT?Vx?H	?“:Œ>úJñ½‘^$?k°‚?÷3Â>Ûšç=#xI?Ol¬?Ö¹Ü>P:?y²>æ‡f?Ú}?f%>QR?b·!?M[l?bv¾Î r?Ü‡»>Ğu¾ş«¢>-™=ÊÊ‡>XìÛ>¡Íó>¥Œ–?U>ü¼ ¿4Ë£?;ïë>óâa>#ëŒ?¤]? {=I¶>C8$>j‚>•º½t¿j?â2k>Ã©	?û‚?x‚ ?*“@Bval_18J€ºûJ>
+1¾8©W=MS?,l?67>Àzi?%ä›=
+>O	ƒ?ˆ·>€~€?Æ*?Ş+q?kQA<‘fr?3?h?®}?c‚[?ºˆ•¾¼<?:¦>F¦½^Y?Œ?Ï¾>Êà4?i‘?Œÿã>ªu¨;‹‰;äŸ?ªÿó½$R ½tjÔ=-ş:?Š47?¯“¾rà‰>0; =õZC?Ÿ>B;
+>„@?,h??şÉS?p–e?…K?¬œ6?TL?Æ¡ ?B?®Ï'?x5??æí¯¾ê>.'¾»Y?YÚÃ>hÒ(?²¤«=_N¤½åæô>¾Úš>*“@Bval_19J€ ¢>îåM¿¸…3>îÊ7?û‚†?j`‹<Rà€?äüg?,Í&?öQ‚?R{T>Ø[?Î•>4‰Á¾´v0?BÚd?ûL‚?.u? Y{?óºS>¨×«½ÜóÉ=€¼Ê>¦j?$À°>6z=÷£U?¬Ì–?dTb½­=|{Â¾FÇB?‚¾q?ğåî½Úu…?ÎL÷>Ø¢U?IuV?•ª=Ò>?öÓ¼†y+?œëÈ>Ë’>ú7>ı T?8¶…?˜ŒY>7o#?p©?Óˆ?‚xÊ¼ò¤?‡B?v•²>ãP>úèˆ¼&|'?TE?‰}u>šQr> ~“>ñIı>ä—ú>*“@Bval_20J€VYó>øÜ‚>T^•=Òë§>^9z?‘ª:=Š»€?œ¢	½dgG>Ğ^~?,$>…‰?I<>lÌÏ½üÍ>¿Ã#?Ò5?.K„?Q¿Y?=ÈÃ>µ`$>äàN<6>?˜m‡?l?D^A¾ÚÛJ?ƒIÃ>HüÇ½ùz?¬[²>T¾>R_S?Ş>¤Î`>Æeò="ßv?‡X>J_¾È»>²Ëh½bBÆ>¡Õ´>ÖGö>*ªM?N×<?‚?š»)?C?ÛA?‰ÔŠ>õÙ>	 &?ÄZ²>< q?á4?ez>Ó?5Ü>Jÿ^»¦2?tƒ/½ãã
+¾Qºd¾*“@Bval_21J€m|¹½Û¹†>_ˆ@?ú»?‰p›?Øª>\á…?HoÛ>-´°>Áp§?İòK? Oh?^’]?i‘¾~=0ŒÈ>˜]…?ã¿p?Ãë?<Œ“½¥Ğ¹>^´’>xš?X§]?++?\w¾²Î£>ÖÎ®?æ$Ã>¥pµ=Rli=¹Ó¢>m%İ¾£>Ehğ½²">óı¾-n­=ÀC>ğT>D#0?Aïû>© E?6÷s¾ĞIm?ï]?æfk?‡Y?­¨=¸Pš?ìeb¾Üø½Nª?W}õ> 8?äˆ?š ¾^>?S÷Á=Á…¼¾*Â=ë^¾E??ˆÏ,?*“@Bval_22J€Ô¦Œ¼œ-x¾l œ>”‹š¾‹ñR?Ç„z=ÌNh?î3E?÷4Ç>Ø’7?Ì£¢>Mc? (?s
+?ry?ü¾¼L+?0…‚?°¼š>æ‹©¾gG?û:…¾"ÆÅ>ğ-?ÜÚ0½GŞ”¾ üA?úŠ‹?
+?d@‹>Æ»Z¾†dN?ô„º>89Ü>Ûâ?9µÛ>Z;¾¸`ë<¦^>TØ=à?ßY·>üid?FÍ{¾:ìd?­g?($=?0T¾tÊ¿½u?Ì5]<,\)?Ü‚?¤šd?ãÃ7?M\>”j ¾98â>Õ‹>Ğş-¿‚—^?Ô·3>€n^>Rt™>*“@Bval_23J€&e¾öÉù½b¨›>ØØ ?ƒ?^@ı>ÖhN?d¸?h>kŒ?R„§¾Ğ§?ø€Ÿ¾Mê>SS?3Iˆ>Òy?}?ùœ?D_?2?©Üp<?Ò=ôµV?ø0ı>Z¥Ğ¾Çîµ>Z2?îká>îK9>6??£}:?ğå<JÒ%?xé½T1r>o$F¾èp?¿5¿¾ï0½n`Ä>c,[?³BI?†x¼½Ão?Úf.?+aŸ>:â.>R’U?,Îv?zÙñ;…?ìÜN?ø×`? u ?µM¼>@
+¼¾
+À=ä9¹¾±H<=İÍ’>rŒğ>ˆ-N?ÎÉ=*“@Bval_24J€î¢ò¾vã?i¤ ?‡˜H?>d}?XB‰>lM³¾±ß?ÌÎ¶>ä^y?¢ùH??Ğ„?7ğÖ¼IÑ¨>gh?ÖJ²>—ŞL?ºÚ~?·®0?ÁŸ>ª. ?x0?:zÎ=Lyu?¤i*?~ˆ¾ÖÚ-?f»q?p™¿½ÅÉ?2Y“>ÙÔ‚?1ÃÊ>Ê.>jø¤½Ü?b¸Ì¾+½œa1?³ƒU¼Ìcv>F‚>3ÓB?§?0Ä¾(-½ ÌÓ¾V/¿¾ğ>cwƒ?ì–i½F“?V¯?†tk?ĞÖ>iM*?<ç=Kr;¾yi*>ù';?èTİ>ÃºÑ>17a?ü1?*“@Bval_25J€î·¾FWî>F5<ù?Zz?¼£f?Š<’¿8ÛÄ=ÌÖ½<‡|?œJæ=…?~Pj>ò½³G?d??¶.? _?U?ßZJ½ÎÇS?cy¾~¬?6`Ö=0+®>æ¬ğ¾>˜¾ÔK‚?¶u4¿‰m¿>ú¾¬Ó~?Cày¾Ì´u>NÉ¾Eÿ?ˆ´g>lI=HvÁ=|›^?¹‘Ğ>!¼?§|)?ö?t16?*[¾Hü«=Æ¾×£¾Rùi?¬5¿rØ\?\·k?È¤†?ŠcÔ½n>™½mòÀ>Úğ;?_€c?¶'¢¾ÚØ<?v¥¾š“L?íÛ!?*“@Bval_26J€¸Ø§>OªQ?K%â>fø?æe?Öëk?¸­Î¿À^$>Öy¾ÿe?=½M?½y‚?¾¥¾2b¿xÓ?ºÚZ?^°>¢gv?¼¤R?N×¿ú&X¾fw;?ÅĞ>ÛD?‹‚à>»Ê?F ¾ø?0W¾RXë¾»8’>9é€?Î¯ã>Îû6?…Ş>c÷˜>|ù½ ¼?	Ï’¾€ü§>'#”½N¥>l>(T=«d½‹Ó²<´v?†#¥¾ ã>2†?f{>È!?=s‚?â†‡?Ë#)¿Ô
+³¾î4d¾T|à>$>?Âğm¾^¯>•g>ªXt>©ÑŞ>*“@Bval_27J€¸;o>~Ü?ÿŠÿ½œ¿ö>¤5r?X[?†$¿î]à>‡‚¿ÿ ?,™İ>ºL{?=!¾Ûb>šìú>ğóD?a$?Ğ.M?Øí‰?2¾í<—SÓ>S,>X>.@?Ÿù?ko8?pÚN¾)ß?³¿k<m=ö¢>da~? ©D¾6wi?äÌp¾7ÿ™>Ô%–¾sx?Zíì==±ÿ>ŒÜ«=ŞHB=/1…¾W \?¦Oœ¾25%¾"í&?Ö7Ñ=,Ç>¦¡s?e€y¾—F?âg?‘~?í~?ñ>5?bñğ¾¿nh?f)!<,’	?`
+,>…Ò¾&a”¾}æ>*“@Bval_28J€Ô5½òj?û#L>KHq½<·x?*/ı>’İ¿^¿M>Â<ß½ˆh?^­™>B„?ğ9:¾ƒ;¹¾…ã†>&ÁÍ½àºŸ>Èei?j7?İĞ¾)<¦¾>ÑC?”í> íI?ëwA>V[	¾üµ¯=²¸?.‘ª>}ì¿—‡>Õ+}?2a¿>êŠ?ù>UÆ>İ±'>–=ˆ¾6U>­ù?µK>üFå¾Ï/×>Öó‡>äc½<{FF¾>@?X€=¹×Î>ŒÆˆ?@¥?Æ’¤>Ì?h?p^)¾›„…>Ø»¾…ê>h]?¶İ?ğÆ>„#¼÷Ë?®F]½*“@Bval_29J€<–½*Ü?¾ÂP?Fr2?®´„?SÏ¾¼ñÛ½úø>@šÃ¾p”?yœ½>Êe¿ÈüÄ;ÁB¾ã-?ëÉ•>šÁá½ßØn?BÈÇ?üªĞ>û¶¡=òç“¾Ğ%¦=Ì6$?ğ‹€»úYç¾‚£¾+‹’?¸æ¾]äA?*k^½˜;‘?gYò>x//?¸¶ >.Åš>´é>Ø¿>òFq?dL>ø1Ú¾ë*Ï¾’[í¾Z°Ô>†¢ä>™áÍ>eyÔ½¾}Ï¾Fb\¾+?¤F‘=Gˆ½­‡?X?Gé?²0ã>$?2é>‡9£½^SŒ¾6¸>7«?vS¼êb0¾*“@Bval_30J€Ç"e? ‡|?>	ı=[†?ÿ|?|ò¿ú?×é4?®Q>Š\x?íŒ½@H|?ì¯>fŸ¶¼bÔÿ=š®>’¨1¾g t?§UH?AŠ”= ió>Ç´"?Eè‘¾j™M>a»R¿¶Œ¾ŠU
+¿c€?Oş@> ÊÅ½(X?ğL„?§ØÌ>¦>š>#`¾“6
+=°eá½J‰³>; ?™R=û„½NLÉ<:<ï>“*Ü½™¿Ö¾RKş¾0‹¾¿tD?•‘—>cƒ?aõ¯¾ BŠ¾cüw?z??"?IÓ;¾½>€Û¥=¨ü8= ?<ù¿•O¾>¶<ªŒ¼*“@Bval_31J€ØxÑ>ôa?Ä´$?ˆ(1>^Vq?„=
+=v&ß<*W¢>~Ü›>Ğ~?@ie¾zNV?Ìæ=”>D`v¾»As?0×> ¥>L©w?ú°¼§š=P*0>?âê>îÓ?¾XndºŠj_=G~?Ö„Å>¾uL>±O×»¢È„?£tÀ<ã?dVì>ñ¿:¿®+—>¼¿="¼;>¨¨Ä¾&àÍ>]w:•œ>sOD;è6n¾œ¸v=“ô?Âš—¾Ò=8>-Ä}?FqÄ=•‡2>CŠz?¬€?Êµ½¾“"¿"ºò=vt=ğ·ê½
+V¾LøF><jÎ¼vùø>YÒ#?*“@Bval_32J€ÉÚ&?J«y?ë>½¾KÈ=–ğè>5t=¤ÿ,=b?z½— m?ŸÜ¯½ÈFÏ;CùÃ=ÈH<Y=æ<t?–9?@@Ù>x–?ãä>„|¼Ñ=>#€5>Dm?g_Ü¼J­E>Ä¢+<kêu?eôn?mH>Ö{?‚áŸ>	;ã>AÔa?.Ì…=HDg?’[l=¢µ?vy?¹}?U(†>DÆ	>ä#’½]•‡=ğß¾–Í‘>\[¸=™e†>~$?ûx?7w¨<Ú•á>ûs?ŞJN?ME>Š1Ì¼»Ï†?»ª¨:f²S>x=Ò˜ >´ŸØ>ígK?3¶¾*“@Bval_33J€öWL>gº‹z?¢Úã>7?Æ:Gã3>Ç<>lq<ö´G?"é>×`>dû&>õ>?Æã >'|?ˆj9?Au?Æ¦z<'N¾>`4/>p“?Xkq?)&=Q Ä¹Å”«>¤‘>oq:?°Õ•»nl{?:jr?-»€?ê›y?#|?½ç>§Ñ?G0Í=•ïi>@‘~?¡÷G?àQu?È~?ñÎ?HJt?Şb>UD—>ò->ZÜ€?}Å>áÜ}?Î¼%=ğëê>™‘B>ùU>µˆ?şL?\Ã4=&–y?x1½<-l>iöÌ="‹>œv‘=çñ’>iÌ=*i@Bmodel.body.0.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset0j
+length6912p*n@@Bmodel.body.2.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset6912j
+length147456p*p@@Bmodel.body.4.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset154368j
+length147456p*p@@Bmodel.body.6.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset301824j
+length147456p*p@@Bmodel.body.8.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset449280j
+length147456p*q@@Bmodel.body.10.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset596736j
+length147456p*q@@Bmodel.body.12.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset744192j
+length147456p*q@@Bmodel.body.14.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset891648j
+length147456p*r@@Bmodel.body.16.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1039104j
+length147456p*r@@Bmodel.body.18.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1186560j
+length147456p*r@@Bmodel.body.20.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1334016j
+length147456p*r@@Bmodel.body.22.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1481472j
+length147456p*r@@Bmodel.body.24.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1628928j
+length147456p*r@@Bmodel.body.26.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1776384j
+length147456p*r@@Bmodel.body.28.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset1923840j
+length147456p*r@@Bmodel.body.30.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2071296j
+length147456p*r@@Bmodel.body.32.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2218752j
+length147456p*r@@Bmodel.body.34.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2366208j
+length147456p*r@@Bmodel.body.36.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2513664j
+length147456p*r@@Bmodel.body.38.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2661120j
+length147456p*r@@Bmodel.body.40.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2808576j
+length147456p*r@@Bmodel.body.42.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset2956032j
+length147456p*r@@Bmodel.body.44.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3103488j
+length147456p*r@@Bmodel.body.46.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3250944j
+length147456p*r@@Bmodel.body.48.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3398400j
+length147456p*r@@Bmodel.body.50.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3545856j
+length147456p*r@@Bmodel.body.52.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3693312j
+length147456p*r@@Bmodel.body.54.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3840768j
+length147456p*r@@Bmodel.body.56.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset3988224j
+length147456p*r@@Bmodel.body.58.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset4135680j
+length147456p*r@@Bmodel.body.60.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset4283136j
+length147456p*r@@Bmodel.body.62.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset4430592j
+length147456p*r@@Bmodel.body.64.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset4578048j
+length147456p*r0@Bmodel.body.66.weightj)
+locationreal_esrgan_general_x4v3.dataj
+offset4725504j
+length110592p*Bval_34J  €?  €?  €@  €@ZŸ
+image
+
+
+
+€
+€"=
+/pkg.torch.export.graph_signature.InputSpec.kind
+USER_INPUT"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNonebk
+upscaled_image
+
+
+
+€
+€"?
+0pkg.torch.export.graph_signature.OutputSpec.kindUSER_OUTPUTjÖ
+model.body.0.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"8
+!pkg.torch.onnx.original_node_namep_model_body_0_biasjÖ
+model.body.2.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"8
+!pkg.torch.onnx.original_node_namep_model_body_2_biasjÖ
+model.body.4.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"8
+!pkg.torch.onnx.original_node_namep_model_body_4_biasjÖ
+model.body.6.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"8
+!pkg.torch.onnx.original_node_namep_model_body_6_biasjÖ
+model.body.8.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"8
+!pkg.torch.onnx.original_node_namep_model_body_8_biasjØ
+model.body.10.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_10_biasjØ
+model.body.12.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_12_biasjØ
+model.body.14.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_14_biasjØ
+model.body.16.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_16_biasjØ
+model.body.18.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_18_biasjØ
+model.body.20.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_20_biasjØ
+model.body.22.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_22_biasjØ
+model.body.24.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_24_biasjØ
+model.body.26.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_26_biasjØ
+model.body.28.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_28_biasjØ
+model.body.30.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_30_biasjØ
+model.body.32.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_32_biasjØ
+model.body.34.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_34_biasjØ
+model.body.36.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_36_biasjØ
+model.body.38.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_38_biasjØ
+model.body.40.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_40_biasjØ
+model.body.42.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_42_biasjØ
+model.body.44.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_44_biasjØ
+model.body.46.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_46_biasjØ
+model.body.48.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_48_biasjØ
+model.body.50.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_50_biasjØ
+model.body.52.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_52_biasjØ
+model.body.54.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_54_biasjØ
+model.body.56.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_56_biasjØ
+model.body.58.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_58_biasjØ
+model.body.60.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_60_biasjØ
+model.body.62.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_62_biasjØ
+model.body.64.bias
+
+
+@"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_64_biasjØ
+model.body.66.bias
+
+
+0"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone"9
+!pkg.torch.onnx.original_node_namep_model_body_66_biasje
+val_1
+
+@
+
+"H
+$pkg.onnxscript.optimizer.folded_from ['model.body.1.weight', 'val_0']je
+val_2
+
+@
+
+"H
+$pkg.onnxscript.optimizer.folded_from ['model.body.3.weight', 'val_0']je
+val_3
+
+@
+
+"H
+$pkg.onnxscript.optimizer.folded_from ['model.body.5.weight', 'val_0']je
+val_4
+
+@
+
+"H
+$pkg.onnxscript.optimizer.folded_from ['model.body.7.weight', 'val_0']je
+val_5
+
+@
+
+"H
+$pkg.onnxscript.optimizer.folded_from ['model.body.9.weight', 'val_0']jf
+val_6
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.11.weight', 'val_0']jf
+val_7
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.13.weight', 'val_0']jf
+val_8
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.15.weight', 'val_0']jf
+val_9
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.17.weight', 'val_0']jg
+val_10
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.19.weight', 'val_0']jg
+val_11
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.21.weight', 'val_0']jg
+val_12
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.23.weight', 'val_0']jg
+val_13
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.25.weight', 'val_0']jg
+val_14
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.27.weight', 'val_0']jg
+val_15
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.29.weight', 'val_0']jg
+val_16
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.31.weight', 'val_0']jg
+val_17
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.33.weight', 'val_0']jg
+val_18
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.35.weight', 'val_0']jg
+val_19
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.37.weight', 'val_0']jg
+val_20
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.39.weight', 'val_0']jg
+val_21
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.41.weight', 'val_0']jg
+val_22
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.43.weight', 'val_0']jg
+val_23
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.45.weight', 'val_0']jg
+val_24
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.47.weight', 'val_0']jg
+val_25
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.49.weight', 'val_0']jg
+val_26
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.51.weight', 'val_0']jg
+val_27
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.53.weight', 'val_0']jg
+val_28
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.55.weight', 'val_0']jg
+val_29
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.57.weight', 'val_0']jg
+val_30
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.59.weight', 'val_0']jg
+val_31
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.61.weight', 'val_0']jg
+val_32
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.63.weight', 'val_0']jg
+val_33
+
+@
+
+"I
+$pkg.onnxscript.optimizer.folded_from!['model.body.65.weight', 'val_0']jæ
+model.body.0.weight
+
+@
+
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone":
+!pkg.torch.onnx.original_node_namep_model_body_0_weightjæ
+model.body.2.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone":
+!pkg.torch.onnx.original_node_namep_model_body_2_weightjæ
+model.body.4.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone":
+!pkg.torch.onnx.original_node_namep_model_body_4_weightjæ
+model.body.6.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone":
+!pkg.torch.onnx.original_node_namep_model_body_6_weightjæ
+model.body.8.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone":
+!pkg.torch.onnx.original_node_namep_model_body_8_weightjè
+model.body.10.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_10_weightjè
+model.body.12.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_12_weightjè
+model.body.14.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_14_weightjè
+model.body.16.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_16_weightjè
+model.body.18.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_18_weightjè
+model.body.20.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_20_weightjè
+model.body.22.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_22_weightjè
+model.body.24.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_24_weightjè
+model.body.26.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_26_weightjè
+model.body.28.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_28_weightjè
+model.body.30.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_30_weightjè
+model.body.32.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_32_weightjè
+model.body.34.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_34_weightjè
+model.body.36.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_36_weightjè
+model.body.38.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_38_weightjè
+model.body.40.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_40_weightjè
+model.body.42.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_42_weightjè
+model.body.44.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_44_weightjè
+model.body.46.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_46_weightjè
+model.body.48.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_48_weightjè
+model.body.50.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_50_weightjè
+model.body.52.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_52_weightjè
+model.body.54.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_54_weightjè
+model.body.56.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_56_weightjè
+model.body.58.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_58_weightjè
+model.body.60.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_60_weightjè
+model.body.62.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_62_weightjè
+model.body.64.weight
+
+@
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_64_weightjè
+model.body.66.weight
+
+0
+@
+
+"<
+/pkg.torch.export.graph_signature.InputSpec.kind	PARAMETER"=
+5pkg.torch.export.graph_signature.InputSpec.persistentNone";
+!pkg.torch.onnx.original_node_namep_model_body_66_weightj
+val_34
+
+
+j"
+conv2d
+
+
+@
+€
+€j!
+prelu
+
+
+@
+€
+€j$
+conv2d_1
+
+
+@
+€
+€j#
+prelu_1
+
+
+@
+€
+€j$
+conv2d_2
+
+
+@
+€
+€j#
+prelu_2
+
+
+@
+€
+€j$
+conv2d_3
+
+
+@
+€
+€j#
+prelu_3
+
+
+@
+€
+€j$
+conv2d_4
+
+
+@
+€
+€j#
+prelu_4
+
+
+@
+€
+€j$
+conv2d_5
+
+
+@
+€
+€j#
+prelu_5
+
+
+@
+€
+€j$
+conv2d_6
+
+
+@
+€
+€j#
+prelu_6
+
+
+@
+€
+€j$
+conv2d_7
+
+
+@
+€
+€j#
+prelu_7
+
+
+@
+€
+€j$
+conv2d_8
+
+
+@
+€
+€j#
+prelu_8
+
+
+@
+€
+€j$
+conv2d_9
+
+
+@
+€
+€j#
+prelu_9
+
+
+@
+€
+€j%
+	conv2d_10
+
+
+@
+€
+€j$
+prelu_10
+
+
+@
+€
+€j%
+	conv2d_11
+
+
+@
+€
+€j$
+prelu_11
+
+
+@
+€
+€j%
+	conv2d_12
+
+
+@
+€
+€j$
+prelu_12
+
+
+@
+€
+€j%
+	conv2d_13
+
+
+@
+€
+€j$
+prelu_13
+
+
+@
+€
+€j%
+	conv2d_14
+
+
+@
+€
+€j$
+prelu_14
+
+
+@
+€
+€j%
+	conv2d_15
+
+
+@
+€
+€j$
+prelu_15
+
+
+@
+€
+€j%
+	conv2d_16
+
+
+@
+€
+€j$
+prelu_16
+
+
+@
+€
+€j%
+	conv2d_17
+
+
+@
+€
+€j$
+prelu_17
+
+
+@
+€
+€j%
+	conv2d_18
+
+
+@
+€
+€j$
+prelu_18
+
+
+@
+€
+€j%
+	conv2d_19
+
+
+@
+€
+€j$
+prelu_19
+
+
+@
+€
+€j%
+	conv2d_20
+
+
+@
+€
+€j$
+prelu_20
+
+
+@
+€
+€j%
+	conv2d_21
+
+
+@
+€
+€j$
+prelu_21
+
+
+@
+€
+€j%
+	conv2d_22
+
+
+@
+€
+€j$
+prelu_22
+
+
+@
+€
+€j%
+	conv2d_23
+
+
+@
+€
+€j$
+prelu_23
+
+
+@
+€
+€j%
+	conv2d_24
+
+
+@
+€
+€j$
+prelu_24
+
+
+@
+€
+€j%
+	conv2d_25
+
+
+@
+€
+€j$
+prelu_25
+
+
+@
+€
+€j%
+	conv2d_26
+
+
+@
+€
+€j$
+prelu_26
+
+
+@
+€
+€j%
+	conv2d_27
+
+
+@
+€
+€j$
+prelu_27
+
+
+@
+€
+€j%
+	conv2d_28
+
+
+@
+€
+€j$
+prelu_28
+
+
+@
+€
+€j%
+	conv2d_29
+
+
+@
+€
+€j$
+prelu_29
+
+
+@
+€
+€j%
+	conv2d_30
+
+
+@
+€
+€j$
+prelu_30
+
+
+@
+€
+€j%
+	conv2d_31
+
+
+@
+€
+€j$
+prelu_31
+
+
+@
+€
+€j%
+	conv2d_32
+
+
+@
+€
+€j$
+prelu_32
+
+
+@
+€
+€j%
+	conv2d_33
+
+
+0
+€
+€j)
+pixel_shuffle
+
+
+
+€
+€j.
+upsample_nearest2d
+
+
+
+€
+€‚‡2
+0pkg.torch.export.ExportedProgram.graph_signatureÒ1
+# inputs
+p_model_body_0_weight: PARAMETER target='model.body.0.weight'
+p_model_body_0_bias: PARAMETER target='model.body.0.bias'
+p_model_body_1_weight: PARAMETER target='model.body.1.weight'
+p_model_body_2_weight: PARAMETER target='model.body.2.weight'
+p_model_body_2_bias: PARAMETER target='model.body.2.bias'
+p_model_body_3_weight: PARAMETER target='model.body.3.weight'
+p_model_body_4_weight: PARAMETER target='model.body.4.weight'
+p_model_body_4_bias: PARAMETER target='model.body.4.bias'
+p_model_body_5_weight: PARAMETER target='model.body.5.weight'
+p_model_body_6_weight: PARAMETER target='model.body.6.weight'
+p_model_body_6_bias: PARAMETER target='model.body.6.bias'
+p_model_body_7_weight: PARAMETER target='model.body.7.weight'
+p_model_body_8_weight: PARAMETER target='model.body.8.weight'
+p_model_body_8_bias: PARAMETER target='model.body.8.bias'
+p_model_body_9_weight: PARAMETER target='model.body.9.weight'
+p_model_body_10_weight: PARAMETER target='model.body.10.weight'
+p_model_body_10_bias: PARAMETER target='model.body.10.bias'
+p_model_body_11_weight: PARAMETER target='model.body.11.weight'
+p_model_body_12_weight: PARAMETER target='model.body.12.weight'
+p_model_body_12_bias: PARAMETER target='model.body.12.bias'
+p_model_body_13_weight: PARAMETER target='model.body.13.weight'
+p_model_body_14_weight: PARAMETER target='model.body.14.weight'
+p_model_body_14_bias: PARAMETER target='model.body.14.bias'
+p_model_body_15_weight: PARAMETER target='model.body.15.weight'
+p_model_body_16_weight: PARAMETER target='model.body.16.weight'
+p_model_body_16_bias: PARAMETER target='model.body.16.bias'
+p_model_body_17_weight: PARAMETER target='model.body.17.weight'
+p_model_body_18_weight: PARAMETER target='model.body.18.weight'
+p_model_body_18_bias: PARAMETER target='model.body.18.bias'
+p_model_body_19_weight: PARAMETER target='model.body.19.weight'
+p_model_body_20_weight: PARAMETER target='model.body.20.weight'
+p_model_body_20_bias: PARAMETER target='model.body.20.bias'
+p_model_body_21_weight: PARAMETER target='model.body.21.weight'
+p_model_body_22_weight: PARAMETER target='model.body.22.weight'
+p_model_body_22_bias: PARAMETER target='model.body.22.bias'
+p_model_body_23_weight: PARAMETER target='model.body.23.weight'
+p_model_body_24_weight: PARAMETER target='model.body.24.weight'
+p_model_body_24_bias: PARAMETER target='model.body.24.bias'
+p_model_body_25_weight: PARAMETER target='model.body.25.weight'
+p_model_body_26_weight: PARAMETER target='model.body.26.weight'
+p_model_body_26_bias: PARAMETER target='model.body.26.bias'
+p_model_body_27_weight: PARAMETER target='model.body.27.weight'
+p_model_body_28_weight: PARAMETER target='model.body.28.weight'
+p_model_body_28_bias: PARAMETER target='model.body.28.bias'
+p_model_body_29_weight: PARAMETER target='model.body.29.weight'
+p_model_body_30_weight: PARAMETER target='model.body.30.weight'
+p_model_body_30_bias: PARAMETER target='model.body.30.bias'
+p_model_body_31_weight: PARAMETER target='model.body.31.weight'
+p_model_body_32_weight: PARAMETER target='model.body.32.weight'
+p_model_body_32_bias: PARAMETER target='model.body.32.bias'
+p_model_body_33_weight: PARAMETER target='model.body.33.weight'
+p_model_body_34_weight: PARAMETER target='model.body.34.weight'
+p_model_body_34_bias: PARAMETER target='model.body.34.bias'
+p_model_body_35_weight: PARAMETER target='model.body.35.weight'
+p_model_body_36_weight: PARAMETER target='model.body.36.weight'
+p_model_body_36_bias: PARAMETER target='model.body.36.bias'
+p_model_body_37_weight: PARAMETER target='model.body.37.weight'
+p_model_body_38_weight: PARAMETER target='model.body.38.weight'
+p_model_body_38_bias: PARAMETER target='model.body.38.bias'
+p_model_body_39_weight: PARAMETER target='model.body.39.weight'
+p_model_body_40_weight: PARAMETER target='model.body.40.weight'
+p_model_body_40_bias: PARAMETER target='model.body.40.bias'
+p_model_body_41_weight: PARAMETER target='model.body.41.weight'
+p_model_body_42_weight: PARAMETER target='model.body.42.weight'
+p_model_body_42_bias: PARAMETER target='model.body.42.bias'
+p_model_body_43_weight: PARAMETER target='model.body.43.weight'
+p_model_body_44_weight: PARAMETER target='model.body.44.weight'
+p_model_body_44_bias: PARAMETER target='model.body.44.bias'
+p_model_body_45_weight: PARAMETER target='model.body.45.weight'
+p_model_body_46_weight: PARAMETER target='model.body.46.weight'
+p_model_body_46_bias: PARAMETER target='model.body.46.bias'
+p_model_body_47_weight: PARAMETER target='model.body.47.weight'
+p_model_body_48_weight: PARAMETER target='model.body.48.weight'
+p_model_body_48_bias: PARAMETER target='model.body.48.bias'
+p_model_body_49_weight: PARAMETER target='model.body.49.weight'
+p_model_body_50_weight: PARAMETER target='model.body.50.weight'
+p_model_body_50_bias: PARAMETER target='model.body.50.bias'
+p_model_body_51_weight: PARAMETER target='model.body.51.weight'
+p_model_body_52_weight: PARAMETER target='model.body.52.weight'
+p_model_body_52_bias: PARAMETER target='model.body.52.bias'
+p_model_body_53_weight: PARAMETER target='model.body.53.weight'
+p_model_body_54_weight: PARAMETER target='model.body.54.weight'
+p_model_body_54_bias: PARAMETER target='model.body.54.bias'
+p_model_body_55_weight: PARAMETER target='model.body.55.weight'
+p_model_body_56_weight: PARAMETER target='model.body.56.weight'
+p_model_body_56_bias: PARAMETER target='model.body.56.bias'
+p_model_body_57_weight: PARAMETER target='model.body.57.weight'
+p_model_body_58_weight: PARAMETER target='model.body.58.weight'
+p_model_body_58_bias: PARAMETER target='model.body.58.bias'
+p_model_body_59_weight: PARAMETER target='model.body.59.weight'
+p_model_body_60_weight: PARAMETER target='model.body.60.weight'
+p_model_body_60_bias: PARAMETER target='model.body.60.bias'
+p_model_body_61_weight: PARAMETER target='model.body.61.weight'
+p_model_body_62_weight: PARAMETER target='model.body.62.weight'
+p_model_body_62_bias: PARAMETER target='model.body.62.bias'
+p_model_body_63_weight: PARAMETER target='model.body.63.weight'
+p_model_body_64_weight: PARAMETER target='model.body.64.weight'
+p_model_body_64_bias: PARAMETER target='model.body.64.bias'
+p_model_body_65_weight: PARAMETER target='model.body.65.weight'
+p_model_body_66_weight: PARAMETER target='model.body.66.weight'
+p_model_body_66_bias: PARAMETER target='model.body.66.bias'
+image: USER_INPUT
+
+# outputs
+add: USER_OUTPUT
+‚8
+2pkg.torch.export.ExportedProgram.range_constraints{}B
+ r
+source_model_type.pt2

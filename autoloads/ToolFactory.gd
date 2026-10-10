@@ -39,6 +39,9 @@ func create_tool_from_scene(scene_path: String) -> Node:
 		else: push_error("ToolFactory: escena no encontrada - ", scene_path)
 		return null
 
+	if scene_path.ends_with(".gd"):
+		return create_tool_from_script(scene_path)
+
 	var scene: PackedScene = _get_cached_scene(scene_path)
 	if not scene:
 		return null
@@ -98,7 +101,8 @@ func _get_cached_scene(scene_path: String) -> PackedScene:
 	if _scene_cache.has(scene_path):
 		return _scene_cache[scene_path]
 
-	var scene: PackedScene = load(scene_path)
-	if scene:
-		_scene_cache[scene_path] = scene
-	return scene
+	var res = load(scene_path)
+	if res is PackedScene:
+		_scene_cache[scene_path] = res
+		return res
+	return null

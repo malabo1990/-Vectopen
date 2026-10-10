@@ -80,8 +80,183 @@ func _ready() -> void:
 	var format_config := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel")
 	if format_config and format_config.has_signal("format_selected"):
 		format_config.format_selected.connect(_on_format_selected_changed)
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox/BtnExport", _on_btn_export_pressed)
 	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox/BtnSave", _on_btn_save_pressed)
 	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox/BtnSaveAs", _on_btn_save_as_pressed)
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox/BtnBrowse", _on_btn_browse_pressed)
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox/BtnFolderDesktop", func(): _on_quick_folder_pressed(OS.SYSTEM_DIR_DESKTOP))
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox/BtnFolderDownloads", func(): _on_quick_folder_pressed(OS.SYSTEM_DIR_DOWNLOADS))
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox/BtnFolderDocs", func(): _on_quick_folder_pressed(OS.SYSTEM_DIR_DOCUMENTS))
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox/BtnFolderPics", func(): _on_quick_folder_pressed(OS.SYSTEM_DIR_PICTURES))
+	_get_and_connect_button("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox/BtnFolderVideos", func(): _on_quick_folder_pressed(OS.SYSTEM_DIR_MOVIES))
+	_setup_drag_and_drop()
+	_connect_export_dialog_event()
+	_connect_theme()
+	_apply_theme()
+
+func _connect_export_dialog_event() -> void:
+	var ge = get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_signal("request_export_dialog"):
+		if not ge.request_export_dialog.is_connected(_on_request_export_dialog):
+			ge.request_export_dialog.connect(_on_request_export_dialog)
+
+func _on_request_export_dialog() -> void:
+	var obj: Object = self
+	if obj is Control:
+		var c = obj
+		c.visible = true
+		c.z_index = 100
+		c.move_to_front()
+		_apply_theme()
+
+func _connect_theme() -> void:
+	var tm = get_node_or_null("/root/ThemeManager")
+	if tm:
+		if tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
+			tm.theme_changed.connect(_on_theme_changed)
+		if tm.has_signal("color_slot_changed") and not tm.color_slot_changed.is_connected(_on_color_slot_changed):
+			tm.color_slot_changed.connect(_on_color_slot_changed)
+
+func _on_theme_changed(_mode: String) -> void:
+	_apply_theme()
+
+func _on_color_slot_changed(_slot: String, _color: Color) -> void:
+	_apply_theme()
+
+func _apply_theme() -> void:
+	var obj: Object = self
+	if not (obj is Control):
+		return
+	var c = obj
+	var tm = get_node_or_null("/root/ThemeManager")
+	var is_dark := true
+	if tm and tm.has_method("is_dark_theme"):
+		is_dark = tm.is_dark_theme()
+	elif tm and tm.has_method("get_current_mode"):
+		is_dark = (tm.get_current_mode() == "dark")
+
+	var bg_col := Color(0.13, 0.13, 0.16, 0.98) if is_dark else Color(0.96, 0.96, 0.98, 0.98)
+	var border_col := Color(1, 1, 1, 0.12) if is_dark else Color(0, 0, 0, 0.15)
+	var text_col := Color(0.95, 0.95, 0.95, 1.0) if is_dark else Color(0.12, 0.12, 0.14, 1.0)
+	var sec_col := Color(0.70, 0.70, 0.75, 1.0) if is_dark else Color(0.35, 0.35, 0.40, 1.0)
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg_col
+	sb.border_color = border_col
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 18
+	sb.shadow_offset = Vector2(0, 4)
+	c.add_theme_stylebox_override("panel", sb)
+
+	var btn_normal := StyleBoxFlat.new()
+	btn_normal.bg_color = Color(0.19, 0.19, 0.23, 0.95) if is_dark else Color(0.92, 0.92, 0.95, 0.95)
+	btn_normal.border_color = border_col
+	btn_normal.set_border_width_all(1)
+	btn_normal.set_corner_radius_all(6)
+
+	var btn_hover := StyleBoxFlat.new()
+	btn_hover.bg_color = Color(0.26, 0.26, 0.32, 1.0) if is_dark else Color(0.86, 0.86, 0.90, 1.0)
+	btn_hover.border_color = Color(0.15, 0.55, 0.95, 0.6)
+	btn_hover.set_border_width_all(1)
+	btn_hover.set_corner_radius_all(6)
+
+	var btn_pressed := StyleBoxFlat.new()
+	btn_pressed.bg_color = Color(0.15, 0.15, 0.18, 1.0) if is_dark else Color(0.78, 0.78, 0.84, 1.0)
+	btn_pressed.border_color = border_col
+	btn_pressed.set_border_width_all(1)
+	btn_pressed.set_corner_radius_all(6)
+
+	var panel_inner := StyleBoxFlat.new()
+	panel_inner.bg_color = Color(0.16, 0.16, 0.20, 0.95) if is_dark else Color(0.93, 0.93, 0.96, 0.95)
+	panel_inner.border_color = border_col
+	panel_inner.set_border_width_all(1)
+	panel_inner.set_corner_radius_all(8)
+
+	var le_style := StyleBoxFlat.new()
+	le_style.bg_color = Color(0.17, 0.17, 0.21, 1.0) if is_dark else Color(0.98, 0.98, 1.0, 1.0)
+	le_style.border_color = border_col
+	le_style.set_border_width_all(1)
+	le_style.set_corner_radius_all(5)
+
+	_apply_theme_recursive(self, is_dark, text_col, sec_col, btn_normal, btn_hover, btn_pressed, panel_inner, le_style)
+
+func _apply_theme_recursive(node: Node, is_dark: bool, text_col: Color, sec_col: Color, btn_n: StyleBoxFlat, btn_h: StyleBoxFlat, btn_p: StyleBoxFlat, p_inner: StyleBoxFlat, le_st: StyleBoxFlat) -> void:
+	for child in node.get_children():
+		if child is Label:
+			child.add_theme_color_override("font_color", text_col)
+		elif child is Button and child.name != "BtnClose":
+			if child.name == "BtnExport":
+				var btn_acc := StyleBoxFlat.new()
+				btn_acc.bg_color = Color(0.12, 0.50, 0.95, 1.0)
+				btn_acc.set_corner_radius_all(6)
+				var btn_acc_h := StyleBoxFlat.new()
+				btn_acc_h.bg_color = Color(0.20, 0.60, 1.0, 1.0)
+				btn_acc_h.set_corner_radius_all(6)
+				child.add_theme_color_override("font_color", Color.WHITE)
+				child.add_theme_color_override("font_hover_color", Color.WHITE)
+				child.add_theme_stylebox_override("normal", btn_acc)
+				child.add_theme_stylebox_override("hover", btn_acc_h)
+				child.add_theme_stylebox_override("pressed", btn_acc)
+			else:
+				child.add_theme_color_override("font_color", text_col)
+				child.add_theme_color_override("font_hover_color", Color.WHITE if is_dark else Color.BLACK)
+				child.add_theme_stylebox_override("normal", btn_n)
+				child.add_theme_stylebox_override("hover", btn_h)
+				child.add_theme_stylebox_override("pressed", btn_p)
+		elif child is PanelContainer and child != self:
+			child.add_theme_stylebox_override("panel", p_inner)
+		elif child is LineEdit:
+			child.add_theme_color_override("font_color", text_col)
+			child.add_theme_stylebox_override("normal", le_st)
+		elif child is Tree:
+			child.add_theme_color_override("font_color", text_col)
+			child.add_theme_color_override("font_selected_color", Color.WHITE if is_dark else Color.BLACK)
+			child.add_theme_stylebox_override("panel", p_inner)
+		_apply_theme_recursive(child, is_dark, text_col, sec_col, btn_n, btn_h, btn_p, p_inner, le_st)
+
+func _setup_drag_and_drop() -> void:
+	if not is_inside_tree():
+		return
+	var win: Window = get_window()
+	if not win and get_tree():
+		win = get_tree().root
+	if win and not win.files_dropped.is_connected(_on_window_files_dropped):
+		win.files_dropped.connect(_on_window_files_dropped)
+
+func _on_window_files_dropped(files: PackedStringArray) -> void:
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	var drop_pos := Vector2.INF
+	if is_instance_valid(canvas) and canvas is Node2D:
+		drop_pos = (canvas as Node2D).get_global_mouse_position()
+
+	for file_path in files:
+		var ext := file_path.get_extension().to_lower()
+		match ext:
+			"glb", "gltf":
+				import_3d_model(file_path, drop_pos)
+			"svg":
+				var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
+				var act: Node = null
+				if mgr:
+					if drop_pos != Vector2.INF:
+						act = mgr.artboard_at_point(drop_pos)
+					if not act:
+						act = mgr.get_active_artboard()
+				if act and act.has_method("import_svg"):
+					act.import_svg(file_path)
+			"png", "jpg", "jpeg", "webp":
+				var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
+				var act: Node = null
+				if mgr:
+					if drop_pos != Vector2.INF:
+						act = mgr.artboard_at_point(drop_pos)
+					if not act:
+						act = mgr.get_active_artboard()
+				if act and act.has_method("vectorize_image"):
+					act.vectorize_image(file_path)
+
 
 func _get_and_connect_button(path: String, callback: Callable) -> void:
 	var btn: Button = get_node_or_null(path)
@@ -107,9 +282,14 @@ func _on_open_file_selected(path: String) -> void:
 		SaveManager.open(path)
 	RecentFilesManager.add_file(path)
 
+var _browse_dialog: FileDialog = null
+
 func _on_btn_nuevo_pressed() -> void:
 	if SaveManager:
 		SaveManager.new_project()
+	var obj: Object = self
+	if obj is Control:
+		obj.visible = false
 
 func _on_btn_save_pressed() -> void:
 	if SaveManager:
@@ -118,6 +298,124 @@ func _on_btn_save_pressed() -> void:
 func _on_btn_save_as_pressed() -> void:
 	if SaveManager:
 		SaveManager.save_as()
+
+func _on_quick_folder_pressed(system_dir_id: int) -> void:
+	var path_edit := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox/PathLineEdit") as LineEdit
+	if path_edit:
+		var dir := OS.get_system_dir(system_dir_id)
+		if dir.is_empty():
+			dir = OS.get_user_data_dir()
+		path_edit.text = dir
+
+func _on_btn_browse_pressed() -> void:
+	if is_instance_valid(_browse_dialog):
+		_browse_dialog.queue_free()
+		_browse_dialog = null
+
+	var fd := FileDialog.new()
+	_browse_dialog = fd
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.title = "Select Export Folder"
+	var path_edit := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox/PathLineEdit") as LineEdit
+	if path_edit and not path_edit.text.strip_edges().is_empty():
+		fd.current_dir = path_edit.text.strip_edges()
+	else:
+		fd.current_dir = OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP)
+
+	fd.dir_selected.connect(func(dir: String):
+		if path_edit:
+			path_edit.text = dir
+		if is_instance_valid(fd):
+			fd.queue_free()
+	)
+	fd.canceled.connect(func():
+		if is_instance_valid(fd):
+			fd.queue_free()
+	)
+	add_child(fd)
+	fd.popup_centered(Vector2i(800, 600))
+
+func _format_name_to_enum(format_str: String) -> int:
+	match format_str.to_upper().replace(" ", "_"):
+		"SVG": return ExportFormat.SVG
+		"PDF": return ExportFormat.PDF
+		"PNG": return ExportFormat.PNG
+		"JPEG", "JPG": return ExportFormat.JPEG
+		"JPEG_XL", "JPEGXL", "JXL": return ExportFormat.JPEG_XL
+		"WEBP": return ExportFormat.WEBP
+		"EPS": return ExportFormat.EPS
+		"TSCN": return ExportFormat.TSCN
+		"SCN": return ExportFormat.SCN
+		"VOP": return ExportFormat.VOP
+		"JSON": return ExportFormat.JSON
+		_: return ExportFormat.SVG
+
+func _format_extension(format_str: String) -> String:
+	match format_str.to_upper().replace(" ", "_"):
+		"SVG": return "svg"
+		"PDF": return "pdf"
+		"PNG": return "png"
+		"JPEG", "JPG": return "jpg"
+		"JPEG_XL", "JPEGXL", "JXL": return "jxl"
+		"WEBP": return "webp"
+		"EPS": return "eps"
+		"TSCN": return "tscn"
+		"SCN": return "scn"
+		"VOP": return "vop"
+		"JSON": return "json"
+		_: return "svg"
+
+func _on_btn_export_pressed() -> void:
+	var tree := get_tree()
+	var mgr := ArtboardManager.find(tree) if tree else null
+	var artboard: Node = null
+	if mgr:
+		artboard = mgr.get_active_artboard()
+	if not artboard and tree:
+		var artboards = tree.get_nodes_in_group("artboards")
+		if artboards.size() > 0:
+			artboard = artboards[0]
+		else:
+			var canvas = tree.get_first_node_in_group("_vectopen_canvas")
+			if canvas:
+				var container = canvas.get_node_or_null("ArtboardsContainer")
+				if container and container.get_child_count() > 0:
+					artboard = container.get_child(0)
+
+	if not artboard:
+		push_error("[Export] No artboard found to export")
+		GlobalEvents.emit_safe("export_error", current_format, "No artboard found to export")
+		return
+
+	var name_edit := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/NameHBox/LineEditName") as LineEdit
+	var path_edit := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/FolderPathHBox/PathLineEdit") as LineEdit
+
+	var file_title := name_edit.text.strip_edges() if name_edit and not name_edit.text.strip_edges().is_empty() else "export"
+	var folder := path_edit.text.strip_edges() if path_edit and not path_edit.text.strip_edges().is_empty() else OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP)
+	if folder.is_empty():
+		folder = OS.get_user_data_dir()
+
+	if not DirAccess.dir_exists_absolute(folder):
+		DirAccess.make_dir_recursive_absolute(folder)
+
+	var ext := _format_extension(current_format)
+	var full_path := folder.path_join(file_title + "." + ext)
+
+	var fmt_enum: ExportFormat = _format_name_to_enum(current_format) as ExportFormat
+
+	var settings := current_export_config.duplicate(true)
+	var spin_res := get_node_or_null("HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/ResolucionHBox/SpinBoxResolucion")
+	if spin_res and "value" in spin_res and float(spin_res.value) > 0.0:
+		settings["scale"] = float(spin_res.value)
+	elif not settings.has("scale"):
+		settings["scale"] = 1.0
+
+	export_artboard(artboard, fmt_enum, full_path, settings)
+
+	var obj: Object = self
+	if obj is Control:
+		obj.visible = false
 
 func _on_format_selected_changed(format: String, config: Dictionary) -> void:
 	current_format = format
@@ -636,6 +934,83 @@ func _import_godot_scene(file_path: String, target_artboard: Node):
 		var instance = scene.instantiate()
 		target_artboard.add_child(instance)
 		GlobalEvents.import_finished.emit(file_path)
+
+func import_3d_model(file_path: String = "", drop_pos: Vector2 = Vector2.INF) -> void:
+	if not file_path.is_empty():
+		_do_import_3d_model(file_path, drop_pos)
+		return
+
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.filters = PackedStringArray(["*.glb ; Modelos 3D GLB (*.glb)", "*.gltf ; Modelos 3D GLTF (*.gltf)"])
+	fd.title = "Importar Modelo 3D"
+	fd.file_selected.connect(func(path: String):
+		_do_import_3d_model(path, drop_pos)
+		fd.queue_free()
+	)
+	fd.canceled.connect(func():
+		fd.queue_free()
+	)
+	var root := get_tree().root if get_tree() else null
+	if root:
+		root.add_child(fd)
+		fd.popup_centered_ratio(0.7)
+
+func _do_import_3d_model(path: String, drop_pos: Vector2 = Vector2.INF) -> Node2D:
+	var model_script = load("res://script_gdscript/shapes/VectorModel3D.gd")
+	if not model_script:
+		push_error("ImportExportManager: No se pudo cargar VectorModel3D.gd")
+		return null
+
+	var model: Node2D = model_script.new()
+	model.name = path.get_file().get_basename()
+	model.load_model(path)
+
+	# Buscar destino en el lienzo: artboard bajo el ratón o artboard activo
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
+	var target_parent: Node = null
+	var target_artboard: Node = null
+	var center_pos := Vector2(200, 200)
+
+	if mgr:
+		if drop_pos != Vector2.INF:
+			target_artboard = mgr.artboard_at_point(drop_pos)
+		if not target_artboard:
+			target_artboard = mgr.get_active_artboard()
+
+		if is_instance_valid(target_artboard):
+			var dl: Node = target_artboard.get_node_or_null("VectorDrawingLayer")
+			target_parent = dl if is_instance_valid(dl) else target_artboard
+			if "artboard_size" in target_artboard:
+				center_pos = target_artboard.artboard_size * 0.5
+
+	if not target_parent:
+		var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+		if is_instance_valid(canvas):
+			var container = canvas.get_node_or_null("ArtboardsContainer")
+			target_parent = container if is_instance_valid(container) else canvas
+		elif get_tree() and get_tree().root:
+			target_parent = get_tree().root
+
+	if target_parent:
+		if drop_pos != Vector2.INF:
+			if target_parent is CanvasItem:
+				model.position = (target_parent as CanvasItem).to_local(drop_pos)
+			else:
+				model.position = drop_pos
+		else:
+			model.position = center_pos
+		target_parent.add_child(model)
+
+		var sm := get_node_or_null("/root/SelectionManager")
+		if sm and sm.has_method("set_selection"):
+			sm.set_selection([model])
+
+		if GlobalEvents and GlobalEvents.has_signal("import_finished"):
+			GlobalEvents.emit_safe("import_finished")
+
+	return model
 
 func _import_vop(file_path: String, target_artboard: Node):
 	# Import Vectopen proprietary format

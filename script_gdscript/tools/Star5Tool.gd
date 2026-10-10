@@ -135,21 +135,19 @@ func _spawn_shape(local_center: Vector2, radius_out: float, rotation_angle: floa
 		print("estrella no existe - Error Crítico: 'artboard' es NULL. No se puede instanciar.")
 		return
 
-	print("[Star5Tool]: Instanciando VectorPolygon en el Artboard...")
-
-	var new_shape = VectorPolygon.new()
-	new_shape.name = NameUtils.unique_child_name(artboard, "Estrella")
+	var new_shape := VectorStar.new()
+	new_shape.name = NameUtils.unique_child_name(artboard, "Estrella 5P")
+	new_shape.points_count = 5
+	new_shape.inner_radius_ratio = 0.382
+	new_shape.size = Vector2(radius_out * 2.0, radius_out * 2.0)
 	new_shape.set_doc_position(DVec2.from_v2(local_center))
-	new_shape.set_doc_vertices(DVec2.array_from_v2(_generate_star_points(Vector2.ZERO, radius_out, rotation_angle)))
+	new_shape.rotation = rotation_angle
 	new_shape.fill_color = FILL_COLOR
 	new_shape.stroke_color = STROKE_COLOR
 	new_shape.stroke_width = STROKE_WIDTH
-	new_shape.closed = true
 
 	artboard.add_child(new_shape)
 	new_shape.owner = artboard
-
-	print("Crear Estrella 5P - VectorPolygon [Centro: ", local_center, " Radio: ", radius_out, "]")
 
 
 # ── Renderizado de Guías en Pantalla (Previsualización elástica) ──────────────

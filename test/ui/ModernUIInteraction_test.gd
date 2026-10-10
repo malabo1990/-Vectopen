@@ -32,7 +32,7 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 
 	# 1. En Modern Mode, los componentes principales de Modern UI deben ser visibles
 	assert_that(top_bar.visible).is_true()
-	assert_that(nav_rail.visible).is_true()
+	assert_that(nav_rail.visible).is_false() # side rail removed: settings live in the top bar
 	assert_that(bottom_bar.visible).is_true()
 	assert_that(inspector.visible).is_true()
 
@@ -47,15 +47,17 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 		assert_that(barra_visual.visible).is_false()
 
 	# 4. Reglas ajustadas: no se superponen con ModernTopBar ni con el inspector a la derecha
-	# y acompañan al sidebar abierto por defecto (42 + 260 = 302)
+	# y acompañan al panel de capas acoplado al borde (260)
 	var regla_v = windows_regla.get_node("regla vertical") as Control
 	assert_that(windows_regla.offset_top).is_equal(36.0)
 	assert_that(regla_h.offset_right).is_equal(-268.0)
-	assert_that(regla_v.offset_left).is_equal(302.0)
-	assert_that(regla_h.offset_left).is_equal(326.0)
+	assert_that(regla_v.offset_left).is_equal(260.0)
+	assert_that(regla_h.offset_left).is_equal(284.0)
+	# The ruler-corner settings button duplicated the top-bar one
+	assert_that((windows_regla.get_node("Button") as Control).visible).is_false()
 
 	# 5. Layout no debe tener offsets negativos que lo manden fuera de pantalla
-	assert_that(layout.offset_left).is_equal(42.0)
+	assert_that(layout.offset_left).is_equal(0.0)
 	var inner_panel = layout.get_node("PanelContainer") as Control
 	assert_that(inner_panel.offset_left).is_equal(0.0)
 	assert_that(inner_panel.anchor_left).is_equal(0.0)
@@ -82,17 +84,6 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 			assert_that(lsb.corner_radius_bottom_left).is_equal(0)
 			assert_that(lsb.corner_radius_bottom_right).is_equal(0)
 
-	# 7. Conmutacion del panel izquierdo a traves de ModernNavRail y seguimiento dinamico de regla
-	nav_rail.left_panel_toggled.emit(false)
-	assert_that(layout.visible).is_false()
-	assert_that(regla_v.offset_left).is_equal(42.0)
-	assert_that(regla_h.offset_left).is_equal(66.0)
-
-	nav_rail.left_panel_toggled.emit(true)
-	assert_that(layout.visible).is_true()
-	assert_that(regla_v.offset_left).is_equal(302.0)
-	assert_that(regla_h.offset_left).is_equal(326.0)
-
 	# 8. Controles de Zoom en ModernBottomToolbar (+, -, label 100%)
 	bottom_bar.btn_zoom_in.emit_signal("pressed")
 	await get_tree().process_frame
@@ -116,7 +107,7 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(settings_dialog).is_not_null()
 	assert_that(settings_dialog.visible).is_false()
 
-	# Abrir vía GlobalEvents (o botón ⚙ de ModernNavRail)
+	# Abrir vía GlobalEvents (botón ⚙ de ModernTopBar)
 	GlobalEvents.emit_safe("request_settings_dialog")
 	await get_tree().process_frame
 	assert_that(settings_dialog.visible).is_true()

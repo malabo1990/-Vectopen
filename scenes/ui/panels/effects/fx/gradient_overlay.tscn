@@ -1,6 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://script_gdscript/ui/panels/effects/fx/gradient_overlay.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="2_spinbox"]
 [ext_resource type="PackedScene" uid="uid://bfr7c44tm1acr" path="res://scenes/ui/gradient.tscn" id="2_gradient"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
@@ -54,7 +55,7 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Angle"
 
-[node name="Angle" type="SpinBox" parent="MarginContainer/VBoxContainer/AngleRow"]
+[node name="Angle" parent="MarginContainer/VBoxContainer/AngleRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.0

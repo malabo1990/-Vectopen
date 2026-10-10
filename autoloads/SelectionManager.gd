@@ -41,6 +41,18 @@ const _NON_LAYER := [
 const CoreScript := preload("res://autoloads/SelectionCore.gd")
 
 var _core: CoreScript
+var active_editing_object: Node2D = null
+
+func set_active_editing_object(obj: Node2D) -> void:
+	active_editing_object = obj
+
+func get_active_editing_object() -> Node2D:
+	if is_instance_valid(active_editing_object):
+		return active_editing_object
+	return null
+
+func has_active_text_edit() -> bool:
+	return is_instance_valid(active_editing_object)
 
 
 func _ready() -> void:

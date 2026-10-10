@@ -193,6 +193,120 @@ func test_navegador_de_fuentes_lista_y_aplica() -> void:
 		assert_str(c.text.to_lower()).contains("inter")
 
 
+## Navegador rediseñado: filtros (Incluidas / Recientes), contador y teclado.
+func test_navegador_de_fuentes_filtros_recientes_y_teclado() -> void:
+	var s: Node2D = auto_free(load("res://scenes/canvas/canvas.tscn").instantiate())
+	add_child(s)
+	await get_tree().process_frame
+	var panel: Control = auto_free(load(TOOL_IN_MOUSE).instantiate())
+	s.add_child(panel)
+	await get_tree().process_frame
+	var popup := panel.get_node(_FONT_BTN + "/Panel_font") as Control
+	popup.visible = true
+	await get_tree().process_frame
+	var list := panel.get_node(_FONT_LIST)
+	var tt: Node = panel.get_node(_FONT_BTN).get_parent().get_parent().get_parent()   # nodo con el script del panel
+	# Filtro "Incluidas" (Todas, Sistema, Google, Incluidas, Recientes): solo las empaquetadas
+	(popup.find_child("FontFilters", true, false).get_child(3) as Button).pressed.emit()
+	await get_tree().process_frame
+	var fams: Array = []
+	for c in list.get_children():
+		if c is Button:
+			fams.append(c.text)
+	assert_array(fams).contains(["Inter"])
+	for f in fams:
+		assert_bool(FontCore.is_bundled(f)).is_true()
+	# Elegir con el teclado (↓ + Intro) la primera fila → pasa a Recientes
+	var le := panel.get_node(_FONT_SEARCH) as LineEdit
+	var down := InputEventKey.new(); down.keycode = KEY_DOWN; down.pressed = true
+	le.gui_input.emit(down)
+	le.text_submitted.emit(le.text)
+	await get_tree().process_frame
+	assert_bool(popup.visible).is_false()
+	tt._push_font_recent("Inter")
+	popup.visible = true
+	await get_tree().process_frame
+	(popup.find_child("FontFilters", true, false).get_child(4) as Button).pressed.emit()
+	await get_tree().process_frame
+	var rec: Array = []
+	for c in list.get_children():
+		if c is Button:
+			rec.append(c.text)
+	assert_str(String(rec[0])).is_equal("Inter")
+	# Esc cierra
+	var esc := InputEventKey.new(); esc.keycode = KEY_ESCAPE; esc.pressed = true
+	le.gui_input.emit(esc)
+	assert_bool(popup.visible).is_false()
+
+
+## Vista previa en vivo (como Affinity): hover cambia la fuente del texto sin
+## historial; salir o cerrar la restaura; clic la aplica con UN deshacer.
+func test_navegador_de_fuentes_vista_previa_en_vivo() -> void:
+	var s: Node2D = auto_free(load("res://scenes/canvas/canvas.tscn").instantiate())
+	add_child(s)
+	await get_tree().process_frame
+	var panel: Control = auto_free(load(TOOL_IN_MOUSE).instantiate())
+	s.add_child(panel)
+	await get_tree().process_frame
+	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
+	var txt := Node2D.new()
+	txt.set_meta("shape_type", "text_title"); txt.set_meta("font_size", 24)
+	txt.set_meta("font_family", "Inter")
+	var dl := WorldTextLabel.new(); dl.name = "DisplayLabel"; dl.text = "Aa"
+	txt.add_child(dl)
+	ab.add_child(txt)
+	await get_tree().process_frame
+	s.current_tool.selected_shapes.assign([txt])
+	InspectorCore._sync_selection()
+	HistoryManager.clear()
+
+	var popup := panel.get_node(_FONT_BTN + "/Panel_font") as Control
+	popup.visible = true
+	await get_tree().process_frame
+	var list := panel.get_node(_FONT_LIST)
+	var otra: Button = null
+	for c in list.get_children():
+		if c is Button and c.text != "Inter" and String(c.get_meta("google_state", "")) in ["", "cached"]:
+			otra = c
+			break
+	assert_object(otra).is_not_null()
+	var fam: String = otra.text
+
+	# hover → cambia en vivo, sin paso de deshacer
+	otra.mouse_entered.emit()
+	await get_tree().process_frame
+	assert_str(str(txt.get_meta("font_family"))).is_equal(fam)
+	assert_bool(HistoryManager.can_undo()).is_false()
+	# salir de la lista → vuelve a la original
+	otra.mouse_exited.emit()
+	for i in 4: await get_tree().process_frame
+	assert_str(str(txt.get_meta("font_family"))).is_equal("Inter")
+
+	# hover + cerrar sin elegir → original
+	otra.mouse_entered.emit()
+	await get_tree().process_frame
+	popup.visible = false
+	await get_tree().process_frame
+	assert_str(str(txt.get_meta("font_family"))).is_equal("Inter")
+	assert_bool(HistoryManager.can_undo()).is_false()
+
+	# hover + clic → se aplica; UN deshacer devuelve "Inter"
+	popup.visible = true
+	await get_tree().process_frame
+	for c in list.get_children():
+		if c is Button and c.text == fam:
+			otra = c
+	otra.mouse_entered.emit()
+	await get_tree().process_frame
+	otra.pressed.emit()
+	await get_tree().process_frame
+	assert_str(str(txt.get_meta("font_family"))).is_equal(fam)
+	assert_bool(HistoryManager.can_undo()).is_true()
+	HistoryManager.undo()
+	await get_tree().process_frame
+	assert_str(str(txt.get_meta("font_family"))).is_equal("Inter")
+
+
 ## Botones de alineación y estilo del panel de texto → InspectorCore / FontCore.
 func test_panel_de_texto_alineacion_y_estilo() -> void:
 	var s: Node2D = auto_free(load("res://scenes/canvas/canvas.tscn").instantiate())
@@ -343,8 +457,8 @@ func test_tab_bar_iconos_y_cambio_de_pestana() -> void:
 
 	var tab_align := panel.get_node(_TAB_BAR_PATH + "/Button2") as Button
 	assert_object(tab_align).is_not_null()
-	assert_str(tab_align.icon.resource_path).contains("align_center_h_pro.svg")
-	assert_str(tab_align.icon.resource_path).not_contains("exclude.svg")
+	assert_str(_icon_src(tab_align.icon)).contains("align_center_h_pro.svg")
+	assert_str(_icon_src(tab_align.icon)).not_contains("exclude.svg")
 
 
 ## ── Pruebas de Proporción de Letras (Aaa, aAa, aaA, AaA y sliders) ───────────
@@ -503,7 +617,8 @@ func test_grid_color_muestras_y_panel_color() -> void:
 
 	var flow := colorpack.get_node_or_null("VBoxContainer/VBoxContainer/FlowContainer")
 	assert_object(flow).override_failure_message("Falta FlowContainer con ListaColor.gd en Colorpack").is_not_null()
-	assert_int(flow.get_child_count()).is_equal(32)
+	# Rounded swatch buttons replace the scene's flat ColorRects
+	assert_int(flow._swatches.size()).is_equal(32)
 
 	# Crear un rectángulo en el artboard para probar la aplicación directa de una muestra
 	var ab := (s.get_node("manager_script") as ArtboardManager).get_active_artboard()
@@ -518,15 +633,13 @@ func test_grid_color_muestras_y_panel_color() -> void:
 	HistoryManager.clear()
 
 	# Clic en una muestra de color de Colorpack
-	var muestra: ColorRect = flow.get_child(0) as ColorRect
+	var muestra: Button = flow._swatches[12]
 	assert_object(muestra).is_not_null()
-	var ev := InputEventMouseButton.new()
-	ev.button_index = MOUSE_BUTTON_LEFT
-	ev.pressed = true
-	muestra.gui_input.emit(ev)
+	var muestra_color: Color = muestra.get_meta("swatch_color")
+	muestra.pressed.emit()
 	await get_tree().process_frame
 
-	assert_that(rect.fill_color).is_equal(muestra.color)
+	assert_that(rect.fill_color).is_equal(muestra_color)
 	assert_bool(HistoryManager.can_undo()).is_true()
 
 	HistoryManager.undo()
@@ -702,3 +815,9 @@ func test_panel_tooltext_es_solo_caracter() -> void:
 	for i in 3:
 		assert_str(String(pp._valign_btns[i].get_meta("icon_path"))).contains(["text_valign_top", "text_valign_middle", "text_valign_bottom"][i])
 
+## Source file of a button icon: its path, or the source recorded by
+## ThemeManager.make_white_icon() on the theme-tinted stencil copy.
+func _icon_src(icon: Texture2D) -> String:
+	if icon == null:
+		return ""
+	return icon.resource_path if icon.resource_path != "" else icon.resource_name

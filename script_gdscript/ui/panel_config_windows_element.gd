@@ -199,7 +199,7 @@ func _update_tab_styles() -> void:
 		"icono": tab_icon,
 	}
 
-	var active_col := Color("0a84ff")
+	var active_col := Color(0.35, 0.50, 0.68, 1.0)
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm:
 		active_col = tm.get_color(tm.Slot.ACCENT)
@@ -307,9 +307,12 @@ func _create_preset_card(title: String, subtitle: String, w: float, h: float) ->
 	sb_n.set_corner_radius_all(6)
 	sb_n.set_content_margin_all(6)
 
+	var tm := get_node_or_null("/root/ThemeManager")
+	var accent_col: Color = tm.get_color(tm.Slot.ACCENT) if tm else Color(0.35, 0.50, 0.68, 1.0)
+
 	var sb_h := StyleBoxFlat.new()
 	sb_h.bg_color = Color(1.0, 1.0, 1.0, 0.12)
-	sb_h.border_color = Color("0a84ff")
+	sb_h.border_color = accent_col
 	sb_h.set_border_width_all(1)
 	sb_h.set_corner_radius_all(6)
 	sb_h.set_content_margin_all(6)
@@ -356,7 +359,7 @@ func _create_preset_card(title: String, subtitle: String, w: float, h: float) ->
 	var lbl_dim := Label.new()
 	lbl_dim.text = "%d × %d" % [int(w), int(h)]
 	lbl_dim.add_theme_font_size_override("font_size", 10)
-	lbl_dim.add_theme_color_override("font_color", Color("0a84ff"))
+	lbl_dim.add_theme_color_override("font_color", accent_col)
 	pill.add_child(lbl_dim)
 	hbox.add_child(pill)
 

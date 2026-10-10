@@ -77,10 +77,16 @@ func acquire(pool_name: String) -> Node:
 		return null
 	
 	var pool = _pools[pool_name]
-	
-	# Si hay objetos disponibles, reutilizarlos
-	if pool["available"].size() > 0:
+
+	# Si hay objetos disponibles, reutilizarlos. Defensa extra: descartar
+	# cualquier referencia "available" ya liberada (no debería pasar ahora
+	# que release() reparenta al contenedor propio del pool, ver ahí, pero
+	# así un freed() externo al contrato del pool no vuelve a tumbar todo el
+	# acquire() — solo se pierde esa instancia y se sigue con la siguiente).
+	while pool["available"].size() > 0:
 		var instance = pool["available"].pop_back()
+		if not is_instance_valid(instance):
+			continue
 		pool["in_use"].append(instance)
 		instance.visible = true
 		_reset_instance(instance)
@@ -115,6 +121,21 @@ func release(pool_name: String, instance: Node) -> void:
 		pool["available"].append(instance)
 		instance.visible = false
 		_reset_instance(instance)
+		# BUG REAL encontrado en vivo ("previously freed" al reusar del pool,
+		# reproducible con PanelConfigWindowsElement_test.gd): quien toma
+		# prestada una instancia (p.ej. MoveTool._acquire_bounding_box) la
+		# reparenta a SU escena (reparent(canvas)) mientras la usa. Si
+		# release() no la devuelve aquí al contenedor propio y persistente
+		# del pool (hijo de este autoload, sobrevive a cambios de escena),
+		# se queda colgando del canvas de esa escena — si esa escena se
+		# destruye (cerrar documento, o un test terminando) con la instancia
+		# todavía en su árbol, el pool queda con una referencia a un nodo YA
+		# LIBERADO en "available", y el siguiente acquire() revienta al
+		# tocarlo (instance.visible = true sobre un objeto freed).
+		if is_instance_valid(instance) and instance.get_parent() != pool["container"]:
+			if is_instance_valid(instance.get_parent()):
+				instance.get_parent().remove_child(instance)
+			pool["container"].add_child(instance)
 	else:
 		push_warning("ObjectPool: Intento de liberar objeto no en uso - ", pool_name, " - ", instance.name)
 

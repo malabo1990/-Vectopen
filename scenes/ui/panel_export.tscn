@@ -40,6 +40,20 @@ bg_color = Color(0.88, 0.88, 0.88, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_p"]
 bg_color = Color(0.78, 0.78, 0.78, 1)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_accent"]
+bg_color = Color(0.12, 0.5, 0.95, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_accent_h"]
+bg_color = Color(0.18, 0.6, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_le_n"]
 bg_color = Color(1, 1, 1, 1)
 border_width_left = 1
@@ -489,6 +503,60 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 text = "Browse"
 
+[node name="QuickFoldersHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=2200000021]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="BtnFolderDesktop" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox" unique_id=2200000022]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "Desktop"
+
+[node name="BtnFolderDownloads" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox" unique_id=2200000023]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "Downloads"
+
+[node name="BtnFolderDocs" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox" unique_id=2200000024]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "Docs"
+
+[node name="BtnFolderPics" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox" unique_id=2200000025]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "Pictures"
+
+[node name="BtnFolderVideos" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/QuickFoldersHBox" unique_id=2200000026]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_l4thb")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_h")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_w")
+text = "Videos"
+
 [node name="CantidadHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=1181542724]
 layout_mode = 2
 
@@ -548,6 +616,14 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_p")
 [node name="SaveHBox" type="HBoxContainer" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer" unique_id=2200000001]
 layout_mode = 2
 theme_override_constants/separation = 8
+
+[node name="BtnExport" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox" unique_id=2200000020]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_accent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_accent_h")
+text = "Export"
 
 [node name="BtnSave" type="Button" parent="HBoxContainer/FileFlowLayout/ExportPanel/MarginContainer/VBoxContainer/SaveHBox" unique_id=2200000002]
 layout_mode = 2

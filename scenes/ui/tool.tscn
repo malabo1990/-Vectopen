@@ -11,10 +11,13 @@
 [ext_resource type="Texture2D" uid="uid://ds52dynwo6brb" path="res://icon/UI/design_nodoblack.svg" id="20_nib"]
 [ext_resource type="Texture2D" uid="uid://bub0uyygkt2v0" path="res://icon/UI/draw.svg" id="21_pen"]
 [ext_resource type="Texture2D" uid="uid://ca4c28cmr3vl" path="res://icon/UI/frame-alt.svg" id="22_frame"]
+[ext_resource type="Texture2D" uid="uid://dh1tnoedi8lbj" path="res://icon/UI/cube-3d.svg" id="23_cube"]
 [ext_resource type="Script" uid="uid://bacv4ltosp2rt" path="res://scenes/ui/tool_button.gd" id="99_new"]
 [ext_resource type="PackedScene" uid="uid://cpju6qjnrmes1" path="res://scenes/ui/panels/panel_polygon.tscn" id="100_panel"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_text.tscn" id="101_panel"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_selector.tscn" id="102_panel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_bezier.tscn" id="103_bezier"]
+[ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_brush.tscn" id="104_brush"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_av7yx"]
 bg_color = Color(0.973, 0.973, 0.98, 1)
@@ -40,7 +43,7 @@ metadata/_edit_horizontal_guides_ = [22.0, 214.0, 246.0]
 layout_mode = 0
 offset_top = 22.0
 offset_right = 54.0
-offset_bottom = 430.0
+offset_bottom = 476.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_av7yx")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=370998743]
@@ -63,37 +66,50 @@ expand_icon = true
 script = ExtResource("99_new")
 tool_name = "select"
 
-[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1607829190]
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1607829190 node_paths=PackedStringArray("target_node")]
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 icon = ExtResource("2_v66jq")
 expand_icon = true
 script = ExtResource("99_new")
-tool_name = "move"
+tool_name = "nodeselection"
+target_node = NodePath("../../../../bezier")
 
-[node name="button_toolbezier" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=194994086]
+[node name="button_toolbezier" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=194994086 node_paths=PackedStringArray("target_node")]
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 icon = ExtResource("20_nib")
 expand_icon = true
 script = ExtResource("99_new")
 tool_name = "bezier"
+target_node = NodePath("../../../../bezier")
 
-[node name="button_toolbrush" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=950167420]
+[node name="button_toolbrush" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=950167420 node_paths=PackedStringArray("target_node")]
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 icon = ExtResource("21_pen")
 expand_icon = true
 script = ExtResource("99_new")
 tool_name = "brush"
+target_node = NodePath("../../../../brush")
 
 [node name="button_toolimage" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=523689234]
 custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
+tooltip_text = "Imagen"
 icon = ExtResource("6_v66jq")
 expand_icon = true
 script = ExtResource("99_new")
 tool_name = "image"
+
+[node name="button_tool3d" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=789123456]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+tooltip_text = "Modelo 3D (.glb / .gltf)"
+icon = ExtResource("23_cube")
+expand_icon = true
+script = ExtResource("99_new")
+tool_name = "3d"
 
 [node name="button_toolbshapes" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=1479071363 node_paths=PackedStringArray("trigger_node", "target_node")]
 custom_minimum_size = Vector2(34, 34)
@@ -141,3 +157,20 @@ offset_bottom = 291.0
 [node name="text" parent="." unique_id=829857794 instance=ExtResource("101_panel")]
 
 [node name="Selector" parent="." unique_id=1801291299 instance=ExtResource("102_panel")]
+visible = false
+
+[node name="bezier" parent="." unique_id=1849201948 instance=ExtResource("103_bezier")]
+visible = false
+layout_mode = 0
+offset_left = -325.0
+offset_top = 21.0
+offset_right = -15.0
+offset_bottom = 380.0
+
+[node name="brush" parent="." unique_id=1849201949 instance=ExtResource("104_brush")]
+visible = false
+layout_mode = 0
+offset_left = -325.0
+offset_top = 21.0
+offset_right = -15.0
+offset_bottom = 380.0

@@ -1,0 +1,14 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.1
+reloadable = true
+
+[libraries]
+windows.debug.x86_64 =   "res://rust/vectopen_vectorizer/target/debug/vectopen_vectorizer.dll"
+windows.release.x86_64 = "res://rust/vectopen_vectorizer/target/release/vectopen_vectorizer.dll"
+linux.debug.x86_64 =     "res://rust/vectopen_vectorizer/target/debug/libvectopen_vectorizer.so"
+linux.release.x86_64 =   "res://rust/vectopen_vectorizer/target/release/libvectopen_vectorizer.so"
+macos.debug =             "res://rust/vectopen_vectorizer/target/debug/libvectopen_vectorizer.dylib"
+macos.release =           "res://rust/vectopen_vectorizer/target/release/libvectopen_vectorizer.dylib"
+macos.debug.arm64 =       "res://rust/vectopen_vectorizer/target/debug/libvectopen_vectorizer.dylib"
+macos.release.arm64 =     "res://rust/vectopen_vectorizer/target/release/libvectopen_vectorizer.dylib"

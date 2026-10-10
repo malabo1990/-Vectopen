@@ -41,10 +41,10 @@ shadow_size = 10
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hfsfw"]
 bg_color = Color(1, 1, 1, 1)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_40n85"]
 bg_color = Color(0.6, 0.6, 0.6, 0)
@@ -59,7 +59,7 @@ bg_color = Color(0, 0, 0, 0)
 bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mxvw5"]
-bg_color = Color(1, 1, 1, 1)
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5vvyt"]
 bg_color = Color(0.832031, 0.832031, 0.832031, 1)
@@ -111,7 +111,7 @@ corner_radius_bottom_right = 20
 corner_radius_bottom_left = 20
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w3rk5"]
-bg_color = Color(1, 1, 1, 1)
+bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="Theme" id="Theme_panel_keyboard"]
 BindChip/colors/font_color = Color(0.95, 0.95, 0.98, 1)
@@ -220,11 +220,10 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_gb15f")
 metadata/_edit_lock_ = true
 
 [node name="Button" type="Button" parent="windows_ recla" unique_id=1946388509 node_paths=PackedStringArray("target_panel")]
-custom_minimum_size = Vector2(24, 20)
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 0
-offset_top = 1.0
 offset_right = 24.0
-offset_bottom = 21.0
+offset_bottom = 24.0
 icon = ExtResource("17_sc1dx")
 icon_alignment = 1
 expand_icon = true
@@ -258,8 +257,8 @@ layout_mode = 1
 layout_mode = 0
 offset_left = 1045.0
 offset_top = 128.0
-offset_right = 1245.0
-offset_bottom = 299.0
+offset_right = 1267.0
+offset_bottom = 488.0
 
 [node name="Cursor_moue" type="Control" parent="." unique_id=305341708]
 anchors_preset = 0
@@ -271,9 +270,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -218.0
-offset_top = 97.0
-offset_right = -21.0
-offset_bottom = 470.0
+offset_top = 66.0
+offset_right = -16.0
+offset_bottom = 440.0
 grow_horizontal = 0
 
 [node name="Panel_PREVIEW" type="Panel" parent="." unique_id=869513070 node_paths=PackedStringArray("zoom_slider", "label_porcentaje")]
@@ -283,9 +282,9 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -283.0
-offset_top = 97.0
-offset_right = -21.0
-offset_bottom = 404.0
+offset_top = 66.0
+offset_right = -16.0
+offset_bottom = 373.0
 grow_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_xrxkg")
 script = ExtResource("10_kjvhd")
@@ -352,26 +351,29 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -118.0
-offset_top = 40.0
-offset_right = -18.0
-offset_bottom = 84.0
+offset_left = -215.0
+offset_top = 34.0
+offset_right = -16.0
+offset_bottom = 60.0
 grow_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hfsfw")
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=973543992]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 2
 
 [node name="BARRA_VISUAL" type="BoxContainer" parent="PanelContainer/MarginContainer" unique_id=373262340]
 layout_mode = 2
+theme_override_constants/separation = 3
 
-[node name="Button" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=1151590828]
-custom_minimum_size = Vector2(24, 24)
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=1151590828 node_paths=PackedStringArray("target_panel")]
+custom_minimum_size = Vector2(22, 22)
 layout_mode = 2
+tooltip_text = "Color Picker"
+toggle_mode = true
 theme_override_styles/normal = SubResource("StyleBoxFlat_40n85")
 theme_override_styles/hover = SubResource("StyleBoxFlat_3ccbu")
 theme_override_styles/focus = SubResource("StyleBoxFlat_oye8v")
@@ -379,10 +381,13 @@ icon = ExtResource("10_fpfj3")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
+target_panel = NodePath("../../../pickr_color_windows")
 
 [node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455 node_paths=PackedStringArray("target_panel")]
-custom_minimum_size = Vector2(24, 24)
+custom_minimum_size = Vector2(22, 22)
 layout_mode = 2
+tooltip_text = "Effects"
+toggle_mode = true
 theme_override_styles/normal = SubResource("StyleBoxFlat_3dxm6")
 theme_override_styles/hover = SubResource("StyleBoxFlat_3ccbu")
 icon = ExtResource("11_sc1dx")
@@ -391,16 +396,19 @@ expand_icon = true
 script = ExtResource("5_wkp8b")
 target_panel = NodePath("../../../panel__effects")
 
-[node name="BUTTON_PEWVIEW" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=603546554]
-custom_minimum_size = Vector2(24, 24)
+[node name="BUTTON_PEWVIEW" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=603546554 node_paths=PackedStringArray("target_panel")]
+custom_minimum_size = Vector2(22, 22)
 layout_mode = 2
 size_flags_horizontal = 0
+tooltip_text = "Preview"
+toggle_mode = true
 theme_override_styles/normal = SubResource("StyleBoxFlat_mxvw5")
 theme_override_styles/hover = SubResource("StyleBoxFlat_3ccbu")
 icon = ExtResource("11_c6i3y")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
+target_panel = NodePath("../../../Panel_PREVIEW")
 
 [node name="panel__effects" parent="." unique_id=1308037831 instance=ExtResource("11_20pc6")]
 visible = false
@@ -714,13 +722,17 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="Button2" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=337932661]
+[node name="Button2" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=337932661 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
+tooltip_text = "Export"
+toggle_mode = true
 theme_override_styles/normal = SubResource("StyleBoxFlat_3dxm6")
 icon = ExtResource("4_j4qnp")
 icon_alignment = 1
 expand_icon = true
+script = ExtResource("5_wkp8b")
+target_panel = NodePath("../../../../../Panel_export")
 
 [node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=1973582187 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(24, 24)
@@ -831,6 +843,8 @@ color = Color(0.585938, 0.585938, 0.585938, 1)
 
 [node name="Panel_export" parent="." unique_id=454116989 instance=ExtResource("9_03owx")]
 visible = false
+z_index = 20
+z_as_relative = false
 layout_mode = 1
 offset_top = -370.0
 

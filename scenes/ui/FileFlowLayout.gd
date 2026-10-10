@@ -26,7 +26,7 @@ var _thumb_task_id := -1
 var _dir_cache: Dictionary = {}
 
 const DEFAULT_EXPORT_FORMATS := ["SVG", "PNG", "PDF", "JPEG"]
-const SUPPORTED_FILTERS := ["*.svg, *.png, *.jpg, *.jpeg, *.pdf ; Archivos soportados"]
+const SUPPORTED_FILTERS := ["*.svg, *.png, *.jpg, *.jpeg, *.pdf, *.glb, *.gltf ; Archivos soportados"]
 const EMPTY_MSG := "No documents exist"
 const FIRST_BATCH := 12
 const CHUNK_SIZE := 30

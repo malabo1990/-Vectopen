@@ -45,6 +45,7 @@ var hover_es_horizontal: bool = false
 # Colores dinámicos internos para la animación del flash
 var color_actual_flash_h: Color = Color(0, 0, 0, 0)
 var color_actual_flash_v: Color = Color(0, 0, 0, 0)
+var _btn_settings_original_icon: Texture2D = null
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -66,6 +67,98 @@ func _ready() -> void:
 		regla_vertical.gui_input.connect(_input_regla_vertical)
 	
 	set_focus_mode(Control.FOCUS_ALL)
+	z_index = 5
+	_aplicar_estilo_tema()
+	var tm = get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed"):
+		tm.theme_changed.connect(func(_mode): _aplicar_estilo_tema())
+	_actualizar_vistas()
+
+## Where the two rulers meet. When the settings button that used to sit there
+## is hidden (Modern / Pro), fill the square with the ruler color so the corner
+## reads as part of the rulers instead of an empty gap.
+func _update_ruler_corner(btn: Control, bg_col: Color, border_col: Color) -> void:
+	var corner := get_node_or_null("RulerCorner") as Panel
+	if corner == null:
+		corner = Panel.new()
+		corner.name = "RulerCorner"
+		corner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(corner)
+	if btn:
+		corner.anchor_left = btn.anchor_left
+		corner.anchor_right = btn.anchor_right
+		corner.anchor_top = btn.anchor_top
+		corner.anchor_bottom = btn.anchor_bottom
+		corner.offset_left = btn.offset_left
+		corner.offset_right = btn.offset_right
+		corner.offset_top = btn.offset_top
+		corner.offset_bottom = btn.offset_bottom
+		move_child(corner, btn.get_index())
+	corner.visible = btn == null or not btn.visible
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg_col
+	sb.border_color = border_col
+	sb.border_width_right = 1
+	sb.border_width_bottom = 1
+	corner.add_theme_stylebox_override("panel", sb)
+
+func _aplicar_estilo_tema() -> void:
+	var tm = get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	var bg_col: Color = tm.get_color(S.RULER_BG) if (tm and S) else Color(0.19, 0.19, 0.19, 1.0)
+	var border_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color(0.28, 0.28, 0.32, 1.0)
+	
+	var sb_h := StyleBoxFlat.new()
+	sb_h.bg_color = bg_col
+	sb_h.border_width_bottom = 1
+	sb_h.border_color = border_col
+	if regla_horizontal:
+		regla_horizontal.add_theme_stylebox_override("panel", sb_h)
+		
+	var sb_v := StyleBoxFlat.new()
+	sb_v.bg_color = bg_col
+	sb_v.border_width_right = 1
+	sb_v.border_color = border_col
+	if regla_vertical:
+		regla_vertical.add_theme_stylebox_override("panel", sb_v)
+		
+	var btn_settings = get_node_or_null("Button") as Button
+	_update_ruler_corner(btn_settings, bg_col, border_col)
+	if btn_settings:
+		var btn_hov: Color = tm.get_color(S.BUTTON_HOVER) if (tm and S) else bg_col.lightened(0.1)
+		var btn_prs: Color = tm.get_color(S.BUTTON_PRESSED) if (tm and S) else bg_col.darkened(0.1)
+		var icon_col: Color = tm.get_color(S.ICON_PRIMARY) if (tm and S) else Color.WHITE
+		var text_col: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color.WHITE
+		var accent: Color = tm.get_color(S.ACCENT) if (tm and S) else Color.CYAN
+
+		var sb_btn := StyleBoxFlat.new()
+		sb_btn.bg_color = bg_col
+		sb_btn.border_width_right = 1
+		sb_btn.border_width_bottom = 1
+		sb_btn.border_color = border_col
+
+		var sb_btn_h := sb_btn.duplicate()
+		sb_btn_h.bg_color = btn_hov
+
+		var sb_btn_p := sb_btn.duplicate()
+		sb_btn_p.bg_color = btn_prs
+
+		btn_settings.add_theme_stylebox_override("normal", sb_btn)
+		btn_settings.add_theme_stylebox_override("hover", sb_btn_h)
+		btn_settings.add_theme_stylebox_override("pressed", sb_btn_p)
+		btn_settings.add_theme_stylebox_override("focus", sb_btn)
+
+		btn_settings.modulate = Color.WHITE
+		if _btn_settings_original_icon == null and btn_settings.icon != null:
+			_btn_settings_original_icon = btn_settings.icon
+		var raw_btn_icon: Texture2D = _btn_settings_original_icon if _btn_settings_original_icon != null else btn_settings.icon
+		if raw_btn_icon and tm and tm.has_method("make_white_icon"):
+			btn_settings.icon = tm.make_white_icon(raw_btn_icon, 14)
+		btn_settings.add_theme_color_override("icon_normal_color", icon_col)
+		btn_settings.add_theme_color_override("icon_hover_color", text_col)
+		btn_settings.add_theme_color_override("icon_pressed_color", accent)
+		btn_settings.add_theme_color_override("icon_focus_color", icon_col)
+		
 	_actualizar_vistas()
 
 func _input(event: InputEvent) -> void:
@@ -205,6 +298,12 @@ func _dibujar_regla_horizontal() -> void:
 	if color_actual_flash_h.a > 0.0:
 		regla_horizontal.draw_rect(Rect2(Vector2.ZERO, size_h), color_actual_flash_h)
 		
+	var tm = get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	var text_col: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color.WHITE
+	var tick_sub_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color.DARK_GRAY
+	var tick_main_col: Color = text_col
+
 	var zoom = camera.zoom.x
 	var lienzo_start_x = camera.get_screen_center_position().x - (get_viewport_rect().size.x / 2) / zoom
 	var paso_pixeles = _calcular_paso(zoom)
@@ -219,10 +318,10 @@ func _dibujar_regla_horizontal() -> void:
 			var sub_x = pos_x + (i * sub_paso * zoom)
 			if sub_x > size_h.x: break
 			if sub_x >= 0:
-				regla_horizontal.draw_line(Vector2(sub_x, size_h.y - (4.0 if i != 5 else 8.0)), Vector2(sub_x, size_h.y), Color.DARK_GRAY, 1.0)
+				regla_horizontal.draw_line(Vector2(sub_x, size_h.y - (4.0 if i != 5 else 8.0)), Vector2(sub_x, size_h.y), tick_sub_col, 1.0)
 		if pos_x >= 0:
-			regla_horizontal.draw_line(Vector2(pos_x, size_h.y - 14), Vector2(pos_x, size_h.y), Color.WHITE, 1.2)
-			regla_horizontal.draw_string(ThemeDB.fallback_font, Vector2(pos_x + 3, 12), str(int(x_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
+			regla_horizontal.draw_line(Vector2(pos_x, size_h.y - 14), Vector2(pos_x, size_h.y), tick_main_col, 1.2)
+			regla_horizontal.draw_string(ThemeDB.fallback_font, Vector2(pos_x + 3, 12), str(int(x_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, text_col)
 		x_actual += paso_pixeles
 
 	var mouse_x_local = regla_horizontal.get_local_mouse_position().x
@@ -236,6 +335,12 @@ func _dibujar_regla_vertical() -> void:
 	if color_actual_flash_v.a > 0.0:
 		regla_vertical.draw_rect(Rect2(Vector2.ZERO, size_v), color_actual_flash_v)
 		
+	var tm = get_node_or_null("/root/ThemeManager")
+	var S = tm.Slot if tm else null
+	var text_col: Color = tm.get_color(S.PANEL_TEXT) if (tm and S) else Color.WHITE
+	var tick_sub_col: Color = tm.get_color(S.BORDER) if (tm and S) else Color.DARK_GRAY
+	var tick_main_col: Color = text_col
+
 	var zoom = camera.zoom.y
 	var lienzo_start_y = camera.get_screen_center_position().y - (get_viewport_rect().size.y / 2) / zoom
 	var paso_pixeles = _calcular_paso(zoom)
@@ -250,10 +355,10 @@ func _dibujar_regla_vertical() -> void:
 			var sub_y = pos_y + (i * sub_paso * zoom)
 			if sub_y > size_v.y: break
 			if sub_y >= 0:
-				regla_vertical.draw_line(Vector2(size_v.x - (4.0 if i != 5 else 8.0), sub_y), Vector2(size_v.x, sub_y), Color.DARK_GRAY, 1.0)
+				regla_vertical.draw_line(Vector2(size_v.x - (4.0 if i != 5 else 8.0), sub_y), Vector2(size_v.x, sub_y), tick_sub_col, 1.0)
 		if pos_y >= 0:
-			regla_vertical.draw_line(Vector2(size_v.x - 14, pos_y), Vector2(size_v.x, pos_y), Color.WHITE, 1.2)
-			regla_vertical.draw_string(ThemeDB.fallback_font, Vector2(3, pos_y + 10), str(int(y_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9)
+			regla_vertical.draw_line(Vector2(size_v.x - 14, pos_y), Vector2(size_v.x, pos_y), tick_main_col, 1.2)
+			regla_vertical.draw_string(ThemeDB.fallback_font, Vector2(3, pos_y + 10), str(int(y_actual)), HORIZONTAL_ALIGNMENT_LEFT, -1, 9, text_col)
 		y_actual += paso_pixeles
 
 	var mouse_y_local = regla_vertical.get_local_mouse_position().y
@@ -267,27 +372,55 @@ func _draw() -> void:
 	var lienzo_start = camera.get_screen_center_position() - (view_size / 2) / zoom
 	var gpos = global_position
 
+	# Delimitar estrictamente el área visible del lienzo (sin dibujar sobre inspectores ni barras)
+	var min_x: float = 0.0
+	var max_x: float = view_size.x
+	var min_y: float = 0.0
+	var max_y: float = view_size.y
+
+	var p = get_parent()
+	if p:
+		var di = p.find_child("DockedInspector", true, false) as Control
+		if di and di.visible:
+			max_x = minf(max_x, di.global_position.x)
+		var ps = p.find_child("ProStudio", true, false) as Control
+		if ps and ps.visible:
+			max_x = minf(max_x, ps.global_position.x)
+		var lay = p.find_child("Layout", true, false) as Control
+		if lay and lay.visible:
+			min_x = maxf(min_x, lay.global_position.x + lay.size.x)
+		var topb = p.find_child("ModernTopBar", true, false) as Control
+		if topb and topb.visible:
+			min_y = maxf(min_y, topb.global_position.y + topb.size.y)
+		var ptop = p.find_child("ProTopBar", true, false) as Control
+		if ptop and ptop.visible:
+			min_y = maxf(min_y, ptop.global_position.y + ptop.size.y)
+
 	# Dibujar guías horizontales fijadas
 	for i in range(guias_horizontales.size()):
 		var local_y = (guias_horizontales[i] - lienzo_start.y) * zoom.y - gpos.y
-		var col = color_guia_seleccionada if (indice_guia_activa == i and hover_es_horizontal) else color_guia_normal
-		draw_line(Vector2(0, local_y), Vector2(view_size.x, local_y), col, 1.2 if idx_activo(i, true) else 1.0)
+		if local_y >= min_y and local_y <= max_y:
+			var col = color_guia_seleccionada if (indice_guia_activa == i and hover_es_horizontal) else color_guia_normal
+			draw_line(Vector2(min_x, local_y), Vector2(max_x, local_y), col, 1.2 if idx_activo(i, true) else 1.0)
 
 	# Dibujar guías verticales fijadas
 	for i in range(guias_verticales.size()):
 		var local_x = (guias_verticales[i] - lienzo_start.x) * zoom.x - gpos.x
-		var col = color_guia_seleccionada if (indice_guia_activa == i and not hover_es_horizontal) else color_guia_normal
-		draw_line(Vector2(local_x, 0), Vector2(local_x, view_size.y), col, 1.2 if idx_activo(i, false) else 1.0)
+		if local_x >= min_x and local_x <= max_x:
+			var col = color_guia_seleccionada if (indice_guia_activa == i and not hover_es_horizontal) else color_guia_normal
+			draw_line(Vector2(local_x, min_y), Vector2(local_x, max_y), col, 1.2 if idx_activo(i, false) else 1.0)
 
 	# Previsualización dinámica al crear
 	if arrastrando_nueva_h:
 		var local_my = mouse_pantalla.y - gpos.y
-		draw_line(Vector2(0, local_my), Vector2(view_size.x, local_my), color_guia_previsualizacion, 1.0)
-		_etiqueta_coord(true, local_my, _pantalla_a_lienzo_y(mouse_pantalla.y))
+		if local_my >= min_y and local_my <= max_y:
+			draw_line(Vector2(min_x, local_my), Vector2(max_x, local_my), color_guia_previsualizacion, 1.0)
+			_etiqueta_coord(true, local_my, _pantalla_a_lienzo_y(mouse_pantalla.y))
 	if arrastrando_nueva_v:
 		var local_mx = mouse_pantalla.x - gpos.x
-		draw_line(Vector2(local_mx, 0), Vector2(local_mx, view_size.y), color_guia_previsualizacion, 1.0)
-		_etiqueta_coord(false, local_mx, _pantalla_a_lienzo_x(mouse_pantalla.x))
+		if local_mx >= min_x and local_mx <= max_x:
+			draw_line(Vector2(local_mx, min_y), Vector2(local_mx, max_y), color_guia_previsualizacion, 1.0)
+			_etiqueta_coord(false, local_mx, _pantalla_a_lienzo_x(mouse_pantalla.x))
 
 	# Etiqueta de coordenada al mover una guía existente (estilo Figma/Illustrator)
 	if moviendo_guia_h and indice_guia_activa >= 0 and indice_guia_activa < guias_horizontales.size():
@@ -302,18 +435,68 @@ func _etiqueta_coord(es_horizontal: bool, screen_pos: float, world_coord: float)
 	var font := ThemeDB.fallback_font
 	if not font:
 		return
+
+	var vp_size := get_viewport_rect().size
+	var min_x := (regla_vertical.position.x + regla_vertical.size.x) if regla_vertical else 0.0
+	var max_x := (regla_horizontal.position.x + regla_horizontal.size.x) if regla_horizontal else vp_size.x
+	var min_y := (regla_horizontal.position.y + regla_horizontal.size.y) if regla_horizontal else 0.0
+	var max_y := vp_size.y
+
+	var p = get_parent()
+	if is_instance_valid(p):
+		var di = p.find_child("DockedInspector", true, false) as Control
+		if di and di.visible:
+			max_x = minf(max_x, di.position.x)
+		var ps = p.find_child("ProStudio", true, false) as Control
+		if ps and ps.visible:
+			max_x = minf(max_x, ps.position.x)
+		var lay = p.find_child("Layout", true, false) as Control
+		if lay and lay.visible:
+			min_x = maxf(min_x, lay.position.x + lay.size.x)
+		var topb = p.find_child("ModernTopBar", true, false) as Control
+		if topb and topb.visible:
+			min_y = maxf(min_y, topb.position.y + topb.size.y)
+		var ptop = p.find_child("ProTopBar", true, false) as Control
+		if ptop and ptop.visible:
+			min_y = maxf(min_y, ptop.position.y + ptop.size.y)
+
+	# Si la posición en pantalla cae fuera del área del lienzo visible, no dibujar
+	if es_horizontal:
+		if screen_pos < min_y or screen_pos > max_y:
+			return
+	else:
+		if screen_pos < min_x or screen_pos > max_x:
+			return
+
 	var txt := str(roundi(world_coord))
 	var fs := 10
 	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var pad := Vector2(6, 3)
+	var box_w := tw + pad.x * 2
+	var box_h := fs + pad.y * 2
+
 	var origen: Vector2
-	var left_label_x = (regla_vertical.position.x + regla_vertical.size.x + 4.0) if regla_vertical else 28.0
-	var top_label_y = (regla_horizontal.position.y + regla_horizontal.size.y + 4.0) if regla_horizontal else 28.0
+	var left_label_x = min_x + 4.0
+	var top_label_y = min_y + 4.0
+
 	if es_horizontal:
-		origen = Vector2(left_label_x, screen_pos - 8 - pad.y * 2)
+		var orig_y := screen_pos - 8.0 - pad.y * 2.0
+		if orig_y < min_y + 4.0:
+			orig_y = screen_pos + 8.0
+		origen = Vector2(left_label_x, orig_y)
 	else:
-		origen = Vector2(screen_pos + 8, top_label_y)
-	var caja := Rect2(origen, Vector2(tw + pad.x * 2, fs + pad.y * 2))
+		var orig_x := screen_pos + 8.0
+		if orig_x + box_w > max_x - 4.0:
+			orig_x = screen_pos - box_w - 8.0
+		origen = Vector2(orig_x, top_label_y)
+
+	# Asegurar que la caja quede completamente dentro del lienzo visible
+	if origen.x < min_x or (origen.x + box_w) > max_x:
+		return
+	if origen.y < min_y or (origen.y + box_h) > max_y:
+		return
+
+	var caja := Rect2(origen, Vector2(box_w, box_h))
 	draw_rect(caja, Color(0.12, 0.12, 0.14, 0.92), true)
 	draw_string(font, origen + Vector2(pad.x, fs + pad.y - 1), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 

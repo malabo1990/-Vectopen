@@ -12,8 +12,8 @@ class_name ColorPaletteTool
 @export var nodo_color_rect: ColorRect         # Tu color plano activo de referencia
 
 # --- CONFIGURACIÓN DE DISEÑO MINIMALISTA (Estilo estándar/un editor profesional) ---
-@export var sample_min_size: Vector2 = Vector2(75, 95)
-@export var font_size_hex: int = 11
+@export var sample_min_size: Vector2 = Vector2(38, 52)
+@export var font_size_hex: int = 9
 
 # Variable interna para vigilar el color real en cada frame de forma ultra-precisa
 var _color_anterior_referencia: Color = Color.TRANSPARENT
@@ -25,8 +25,39 @@ func _ready() -> void:
 	# Conectar señales de cambio de color
 	_connect_color_signals()
 	
+	_aplicar_tema()
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
+		tm.theme_changed.connect(_on_theme_changed)
+
 	# Forzar la primera construcción limpia de la interfaz
 	_actualizar_paleta_interfaz(int(slider_palette_size.value))
+
+func _on_theme_changed(_mode: String) -> void:
+	_aplicar_tema()
+	_actualizar_paleta_interfaz(int(slider_palette_size.value))
+
+## The panel, labels and slider were hardcoded for a white theme.
+func _aplicar_tema() -> void:
+	var panel_sb := ProUIStyle.flat(ProUIStyle.col("PANEL_SURFACE"), 10, ProUIStyle.col("BORDER"))
+	panel_sb.shadow_color = Color(0, 0, 0, 0.35 if ProUIStyle.is_dark() else 0.10)
+	panel_sb.shadow_size = 12
+	panel_sb.shadow_offset = Vector2(0, 4)
+	add_theme_stylebox_override("panel", panel_sb)
+	if is_instance_valid(container_samples):
+		container_samples.add_theme_constant_override("h_separation", 4)
+		container_samples.add_theme_constant_override("v_separation", 4)
+		var holder := container_samples.get_parent()
+		if holder is PanelContainer:
+			holder.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	for l in find_children("", "Label", true, false):
+		if container_samples and container_samples.is_ancestor_of(l):
+			continue
+		var is_title := String(l.name).begins_with("Titulo")
+		(l as Label).add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT") if is_title else ProUIStyle.col("TEXT_SECONDARY"))
+		(l as Label).add_theme_font_size_override("font_size", 12 if is_title else 11)
+	if is_instance_valid(slider_palette_size):
+		ProUIStyle.style_slider(slider_palette_size)
 
 func _process(_delta: float) -> void:
 	# Poliar cambio de color como fallback para paleta dinámica en tiempo real
@@ -114,12 +145,19 @@ func _actualizar_paleta_interfaz(cantidad: int) -> void:
 		var cell := PanelContainer.new()
 		cell.custom_minimum_size = sample_min_size
 		cell.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		
-		# Fondo de la celda (Muestra visual del color)
-		var color_box := ColorRect.new()
+		cell.tooltip_text = "#" + color_calculado.to_html(false).to_upper()
+
+		# Rounded swatch; the reference color gets an interactive ring
+		var is_base := color_calculado.is_equal_approx(color_base)
+		var tm := get_node_or_null("/root/ThemeManager")
+		var ring: Color = tm.get_interactive_color() if (tm and tm.has_method("get_interactive_color")) else ProUIStyle.col("ACCENT")
+		var sw := ProUIStyle.flat(color_calculado, 6, ring if is_base else ProUIStyle.col("BORDER"))
+		if is_base:
+			sw.set_border_width_all(2)
+		cell.add_theme_stylebox_override("panel", sw)
+		var color_box := ColorRect.new()   # keeps the color for the click handler
 		color_box.color = color_calculado
-		color_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		color_box.mouse_filter = Control.MOUSE_FILTER_PASS
+		color_box.visible = false
 		cell.add_child(color_box)
 		
 		# Texto en formato HEX con contraste inteligente y sombra garantizada

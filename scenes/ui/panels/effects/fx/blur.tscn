@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://script_gdscript/ui/panels/effects/fx/blur.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cp3oraptv54v8" path="res://scenes/ui/spin_box.tscn" id="2_spinbox"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.96, 0.96, 0.98, 1)
@@ -62,7 +63,7 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Radius"
 
-[node name="Radius" type="SpinBox" parent="MarginContainer/VBoxContainer/RadiusRow"]
+[node name="Radius" parent="MarginContainer/VBoxContainer/RadiusRow" instance=ExtResource("2_spinbox")]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.0

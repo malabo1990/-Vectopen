@@ -18,7 +18,7 @@ corner_radius_bottom_left = 10
 bg_color = Color(0.6, 0.6, 0.6, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_h07l5"]
-bg_color = Color(1, 1, 1, 1)
+bg_color = Color(1, 1, 1, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2wqk4"]
 bg_color = Color(1, 1, 1, 1)

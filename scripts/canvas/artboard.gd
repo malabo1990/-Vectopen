@@ -29,6 +29,15 @@ var is_selected := false:
 		is_selected = v
 		queue_redraw()
 
+@export var fill_color: Color = Color(1, 1, 1, 1):
+	set(v):
+		fill_color = v
+		queue_redraw()
+
+var background_color: Color:
+	get: return fill_color
+	set(v): fill_color = v
+
 const BORDER_MARGIN := 12.0
 const HANDLE_SIZE   := 8.0
 
@@ -268,13 +277,19 @@ func _unhandled_input(event: InputEvent) -> void:
 # Activación por Doble Clic en el Título
 # ─────────────────────────────────────────────────────────────────────────────
 func _on_title_gui_input(event: InputEvent) -> void:
-	# Captura el doble click específico en el Label del título
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+	# Captura el click o doble click específico en el Label del título
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var manager = ArtboardManager.find(get_tree()) if get_tree() else null
 		if manager and manager.has_method("set_active_artboard"):
 			manager.set_active_artboard(self)
 		else:
 			is_selected = true
+		var sm = get_node_or_null("/root/SelectionManager")
+		if sm and sm.has_method("set_selection"):
+			sm.set_selection([self])
+		var ge = get_node_or_null("/root/GlobalEvents")
+		if is_instance_valid(ge) and ge.has_signal("selection_changed"):
+			ge.selection_changed.emit([self])
 		get_viewport().set_input_as_handled()
 
 func _handle_release() -> void:
@@ -338,49 +353,63 @@ func is_on_handle(local_pos: Vector2) -> bool:
 			return true
 	return false
 
+func _get_zoom_scale() -> float:
+	var vp := get_viewport()
+	var cam_s: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	var self_s: float = get_global_transform().get_scale().x
+	return maxf(cam_s * self_s, 0.0001)
+
+static func _zoom_comp(zoom: float) -> float:
+	return 1.0 / clampf(zoom, 0.0002, 100000.0)
+
 func _draw() -> void:
 	var w := artboard_size.x
 	var h := artboard_size.y
+	var inv: float = _zoom_comp(_get_zoom_scale())
 
 	# Sombra
 	for i in range(4, 0, -1):
-		draw_rect(Rect2(Vector2(0, i * 0.5), artboard_size).grow(i * 0.3), Color(0, 0, 0, 0.01 * (5 - i)), true)
+		draw_rect(Rect2(Vector2(0, i * 0.5), artboard_size).grow(i * 0.3 * inv), Color(0, 0, 0, 0.01 * (5 - i)), true)
 
 	# Papel Base
-	draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BG_SHEET, true)
+	draw_rect(Rect2(Vector2.ZERO, artboard_size), fill_color, true)
+
+	var lw: float = maxf(1.0 * inv, 0.5)
+	var hs: float = HANDLE_SIZE * inv
 
 	if is_selected and _is_selection_tool():
-		draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BORDER_ACTIVE, false, 1.0)
-		_draw_corner_guides(w, h)
+		draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BORDER_ACTIVE, false, lw)
+		_draw_corner_guides(w, h, inv)
 		for hp in get_handle_positions():
-			var hr := Rect2(hp - Vector2(HANDLE_SIZE, HANDLE_SIZE) * 0.5, Vector2(HANDLE_SIZE, HANDLE_SIZE))
+			var hr := Rect2(hp - Vector2(hs, hs) * 0.5, Vector2(hs, hs))
 			draw_rect(hr, COLOR_HANDLE_FILL, true)
-			draw_rect(hr, COLOR_BORDER_ACTIVE, false, 1.0)
+			draw_rect(hr, COLOR_BORDER_ACTIVE, false, lw)
 	else:
-		draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BORDER_NORMAL, false, 1.0)
+		draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BORDER_NORMAL, false, lw)
 
-	_draw_dimension_pill(w, h)
+	_draw_dimension_pill(w, h, inv)
 
-func _draw_corner_guides(w: float, h: float) -> void:
-	var gl := 14.0
-	var go := 6.0
-	draw_line(Vector2(-go - gl, 0),  Vector2(-go, 0),         COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(0, -go - gl),  Vector2(0, -go),         COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(w + go, 0),    Vector2(w + go + gl, 0),  COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(w, -go - gl),  Vector2(w, -go),         COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(-go - gl, h),  Vector2(-go, h),         COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(0, h + go),    Vector2(0, h + go + gl),  COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(w + go, h),    Vector2(w + go + gl, h),  COLOR_GUIDE_LINES, 1.0)
-	draw_line(Vector2(w, h + go),    Vector2(w, h + go + gl),  COLOR_GUIDE_LINES, 1.0)
+func _draw_corner_guides(w: float, h: float, inv: float) -> void:
+	var gl := 14.0 * inv
+	var go := 6.0 * inv
+	var lw := maxf(1.0 * inv, 0.5)
+	draw_line(Vector2(-go - gl, 0),  Vector2(-go, 0),         COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(0, -go - gl),  Vector2(0, -go),         COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(w + go, 0),    Vector2(w + go + gl, 0),  COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(w, -go - gl),  Vector2(w, -go),         COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(-go - gl, h),  Vector2(-go, h),         COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(0, h + go),    Vector2(0, h + go + gl),  COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(w + go, h),    Vector2(w + go + gl, h),  COLOR_GUIDE_LINES, lw)
+	draw_line(Vector2(w, h + go),    Vector2(w, h + go + gl),  COLOR_GUIDE_LINES, lw)
 
-func _draw_dimension_pill(w: float, h: float) -> void:
+func _draw_dimension_pill(w: float, h: float, inv: float) -> void:
 	var font      := ThemeDB.fallback_font
-	var font_size := 11
+	var font_size := int(round(11.0 * inv))
 	var label     := "%d × %d" % [w, h]
 	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var padding   := Vector2(10, 4)
+	var padding   := Vector2(10, 4) * inv
 	var pill_size := text_size + padding * 2
-	var pill_pos  := Vector2((w - pill_size.x) / 2.0, h + 14)
+	var pill_pos  := Vector2((w - pill_size.x) / 2.0, h + 14.0 * inv)
 	draw_rect(Rect2(pill_pos, pill_size), COLOR_PILL_BG, true)
 	draw_string(font, pill_pos + padding + Vector2(0, font.get_ascent(font_size) - 1),
 		label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.88, 0.89, 0.91))
@@ -398,19 +427,26 @@ func _draw_dimension_pill(w: float, h: float) -> void:
 ## se llegan a usar más adelante).
 func export_to_svg(path: String) -> String:
 	var body := ""
+	if fill_color != Color.WHITE and fill_color.a > 0.0:
+		body += '  <rect width="%f" height="%f" fill="%s" />\n' % [
+			artboard_size.x, artboard_size.y, fill_color.to_html()
+		]
 	for child in get_children():
+		if child.name == "ArtboardTitle" or child.name == "TitleEdit" or child.name == "Contorno_Stroke":
+			continue
 		body += _node_to_svg(child)
 
 	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%f" height="%f" viewBox="0 0 %f %f">\n%s</svg>\n' % [
 		artboard_size.x, artboard_size.y, artboard_size.x, artboard_size.y, body
 	]
 
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file:
-		file.store_string(svg)
-		file.close()
-	else:
-		push_error("Artboard.export_to_svg: no se pudo abrir %s para escritura" % path)
+	if not path.is_empty():
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		if file:
+			file.store_string(svg)
+			file.close()
+		else:
+			push_error("Artboard.export_to_svg: no se pudo abrir %s para escritura" % path)
 
 	return svg
 
@@ -447,41 +483,91 @@ func _node_to_svg(node: Node) -> String:
 			return '  <path d="%s" fill="none" stroke="black" stroke-width="2" />\n' % d
 		return ""
 
+	if node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text_"):
+		var txt: String = String(node.get_meta("text", ""))
+		var dl = node.get_node_or_null("DisplayLabel") as Label
+		if txt.is_empty() and is_instance_valid(dl):
+			txt = dl.text
+		var esc := txt.xml_escape()
+		var font_size: int = int(node.get_meta("font_size", 24))
+		var col: Color = node.get_meta("text_color") if node.has_meta("text_color") else (dl.get_theme_color("font_color") if is_instance_valid(dl) else Color.BLACK)
+		if col.a <= 0.0:
+			col = Color.BLACK
+		var family: String = String(node.get_meta("font_family", "sans-serif"))
+		return '  <text x="%f" y="%f" font-family="%s" font-size="%d" fill="#%s" dominant-baseline="hanging">%s</text>\n' % [
+			node.position.x, node.position.y, family, font_size, col.to_html(false), esc
+		]
+
+	if node is Label:
+		var txt: String = node.text
+		var esc := txt.xml_escape()
+		var font_size: int = node.get("base_font_size") if ("base_font_size" in node) else node.get_theme_font_size("font_size")
+		if font_size <= 0:
+			font_size = 24
+		var col: Color = node.get_theme_color("font_color")
+		if col.a <= 0.0:
+			col = Color.BLACK
+		var family: String = String(node.get_meta("font_family", "sans-serif"))
+		return '  <text x="%f" y="%f" font-family="%s" font-size="%d" fill="#%s" dominant-baseline="hanging">%s</text>\n' % [
+			node.position.x, node.position.y, family, font_size, col.to_html(false), esc
+		]
+
 	return ""
 
-## Renderiza el artboard a un PNG usando un SubViewport temporal — necesita
-## esperar al menos un frame para que el viewport realmente dibuje antes de
-## capturar la textura, por eso es una función async (await).
-func export_to_png(path: String, png_scale: float = 1.0) -> void:
+## Renderiza el artboard a un Image de Godot usando un SubViewport temporal.
+func render_to_image(img_scale: float = 1.0) -> Image:
 	var sub_viewport := SubViewport.new()
-	sub_viewport.size = Vector2i(artboard_size * png_scale)
+	sub_viewport.size = Vector2i(artboard_size * img_scale)
 	sub_viewport.transparent_bg = false
 	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
-	# El artboard "de verdad" se queda intacto en el canvas — duplicamos
-	# para renderizar en el viewport offscreen sin tocar lo que el usuario
-	# está editando.
 	var artboard_copy := duplicate() as Node2D
 	artboard_copy.position = Vector2.ZERO
 	if artboard_copy is ArtboardEditor:
-		(artboard_copy as ArtboardEditor).is_selected = false  # no queremos handles/guías en el export
-	artboard_copy.scale = Vector2(png_scale, png_scale)
+		(artboard_copy as ArtboardEditor).is_selected = false
+	artboard_copy.scale = Vector2(img_scale, img_scale)
 
 	sub_viewport.add_child(artboard_copy)
 	add_child(sub_viewport)
 
-	# Dos frames de margen: uno para que el SubViewport entre al árbol y
-	# procese _ready()/_draw() de sus hijos, otro para que el frame ya
-	# renderizado quede reflejado en la textura antes de leerla.
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if is_inside_tree():
+		await get_tree().process_frame
+		await get_tree().process_frame
 
 	var image: Image = sub_viewport.get_texture().get_image()
-	var err := image.save_png(path)
-	if err != OK:
-		push_error("Artboard.export_to_png: save_png falló (%d) para %s" % [err, path])
-
 	sub_viewport.queue_free()
+	return image
+
+func export_to_png(path: String, png_scale: float = 1.0) -> void:
+	var image: Image = await render_to_image(png_scale)
+	if image:
+		var err := image.save_png(path)
+		if err != OK:
+			push_error("Artboard.export_to_png: save_png falló (%d) para %s" % [err, path])
+
+func export_to_jpeg(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
+	var image: Image = await render_to_image(scale_val)
+	if image:
+		var err := image.save_jpg(path, clampf(quality / 100.0, 0.1, 1.0))
+		if err != OK:
+			push_error("Artboard.export_to_jpeg: save_jpg falló (%d) para %s" % [err, path])
+
+func export_to_webp(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
+	var image: Image = await render_to_image(scale_val)
+	if image:
+		var err := image.save_webp(path, false, clampf(quality / 100.0, 0.1, 1.0))
+		if err != OK:
+			push_error("Artboard.export_to_webp: save_webp falló (%d) para %s" % [err, path])
+
+func export_to_jpegxl(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
+	var image: Image = await render_to_image(scale_val)
+	if image:
+		var err := image.save_webp(path, false, clampf(quality / 100.0, 0.1, 1.0))
+		if err != OK:
+			image.save_png(path)
+
+func export_to_svg_string() -> String:
+	return export_to_svg("")
 
 ## Crea y agrega una nueva Layer vacía a este artboard. Usado por
 ## Layer.copy_to() (scripts/ui/layer.gd) — antes no existía, esa llamada
@@ -542,6 +628,8 @@ func import_svg(file_path: String) -> void:
 				_import_svg_polygon(attrs, true)
 			"polyline":
 				_import_svg_polygon(attrs, false)
+			"text":
+				_import_svg_text(attrs, parser)
 	queue_redraw()
 
 func _read_svg_attributes(parser: XMLParser) -> Dictionary:
@@ -645,6 +733,49 @@ func _import_svg_path(attrs: Dictionary) -> void:
 	line.width = float(stroke_width_str) if not stroke_width_str.is_empty() else 2.0
 	add_child(line)
 
+func _import_svg_text(attrs: Dictionary, parser: XMLParser) -> void:
+	var x: float = float(attrs.get("x", "0"))
+	var y: float = float(attrs.get("y", "0"))
+	var font_size: int = int(float(attrs.get("font-size", "24")))
+	if font_size <= 0:
+		font_size = 24
+	var fill: Color = _svg_color(attrs, "fill", Color.BLACK)
+	var family: String = String(attrs.get("font-family", "Inter"))
+
+	var text_content := ""
+	while parser.read() == OK:
+		var ntype := parser.get_node_type()
+		if ntype == XMLParser.NODE_TEXT:
+			text_content += parser.get_node_data()
+		elif ntype == XMLParser.NODE_ELEMENT_END:
+			if parser.get_node_name() == "text":
+				break
+		elif ntype == XMLParser.NODE_ELEMENT and parser.get_node_name() == "tspan":
+			continue
+
+	text_content = text_content.strip_edges()
+	if text_content.is_empty():
+		return
+
+	var cont := Node2D.new()
+	cont.name = "Texto_Importado_%d" % get_child_count()
+	cont.position = Vector2(x, y)
+	cont.set_meta("shape_type", "text_title")
+	cont.set_meta("text", text_content)
+	cont.set_meta("font_size", font_size)
+	cont.set_meta("font_family", family)
+	cont.set_meta("text_color", fill)
+
+	var label := WorldTextLabel.new()
+	label.name = "DisplayLabel"
+	label.base_font_size = font_size
+	label.text = text_content
+	label.add_theme_color_override("font_color", fill)
+	label.add_theme_font_size_override("font_size", font_size)
+	cont.add_child(label)
+
+	add_child(cont)
+
 ## Soporta M/L/Z — exactamente lo que produce nuestro propio export_to_svg
 ## (ver _node_to_svg). NO soporta curvas C/Q/A: un <path> con curvas bezier
 ## reales de un SVG externo (vectorial, estándar, etc.) se importaría
@@ -679,28 +810,104 @@ func vectorize_image(file_path: String) -> void:
 
 	var texture := ImageTexture.create_from_image(image)
 	var sprite := Sprite2D.new()
-	sprite.name = "Imagen_Importada_SinVectorizar_%d" % get_child_count()
+	var base_name := file_path.get_file().get_basename()
+	if base_name.begins_with("_clipboard_paste"):
+		sprite.name = "Captura_Portapapeles_%d" % get_child_count()
+	elif not base_name.is_empty():
+		sprite.name = "Foto_" + base_name
+	else:
+		sprite.name = "Foto_Importada_%d" % get_child_count()
 	sprite.texture = texture
 	sprite.centered = false
 	add_child(sprite)
 
-	push_warning("Artboard.vectorize_image: la imagen se importó como raster — el trazado a vector real (edge detection) no está implementado todavía.")
-	GlobalEvents.emit_safe("import_error", "Imagen importada sin vectorizar (trazado no implementado)")
+	var hm = get_node_or_null("/root/HistoryManager") if is_inside_tree() else null
+	if is_instance_valid(hm) and hm.has_method("register_action"):
+		hm.register_action("Importar Foto/Imagen")
+		hm.add_do(self.add_child.bind(sprite))
+		hm.add_undo(self.remove_child.bind(sprite))
+		hm.commit()
+
+	var sm = get_node_or_null("/root/SelectionManager") if is_inside_tree() else null
+	if is_instance_valid(sm) and sm.has_method("set_selection"):
+		sm.set_selection([sprite])
+	var ge = get_node_or_null("/root/GlobalEvents") if is_inside_tree() else null
+	if is_instance_valid(ge) and ge.has_signal("selection_changed"):
+		ge.selection_changed.emit([sprite])
+
+func import_image_from_buffer(buffer: PackedByteArray, name_hint: String = "Foto_Web") -> Sprite2D:
+	if buffer.is_empty():
+		return null
+	var image := Image.new()
+	var err := image.load_png_from_buffer(buffer)
+	if err != OK: err = image.load_jpg_from_buffer(buffer)
+	if err != OK: err = image.load_webp_from_buffer(buffer)
+	if err != OK: err = image.load_bmp_from_buffer(buffer)
+	if err != OK:
+		push_error("Artboard: no se pudo decodificar el buffer de imagen")
+		return null
+
+	var texture := ImageTexture.create_from_image(image)
+	var sprite := Sprite2D.new()
+	sprite.name = name_hint
+	sprite.texture = texture
+	sprite.centered = false
+	add_child(sprite)
+
+	var hm = get_node_or_null("/root/HistoryManager") if is_inside_tree() else null
+	if is_instance_valid(hm) and hm.has_method("register_action"):
+		hm.register_action("Importar Imagen Web")
+		hm.add_do(self.add_child.bind(sprite))
+		hm.add_undo(self.remove_child.bind(sprite))
+		hm.commit()
+
+	var sm = get_node_or_null("/root/SelectionManager") if is_inside_tree() else null
+	if is_instance_valid(sm) and sm.has_method("set_selection"):
+		sm.set_selection([sprite])
+	var ge = get_node_or_null("/root/GlobalEvents") if is_inside_tree() else null
+	if is_instance_valid(ge) and ge.has_signal("selection_changed"):
+		ge.selection_changed.emit([sprite])
+
+	return sprite
+
+static var _title_script: GDScript = null
+static func _get_title_script() -> GDScript:
+	if _title_script == null:
+		var scr := GDScript.new()
+		scr.source_code = """extends WorldTextLabel
+var _title_last_zoom: float = -1.0
+
+func _process(_delta: float) -> void:
+	var vp := get_viewport()
+	if not vp: return
+	var zoom: float = vp.get_canvas_transform().get_scale().x
+	if zoom <= 0.0001: return
+	if is_equal_approx(zoom, _title_last_zoom): return
+	_title_last_zoom = zoom
+	var inv: float = 1.0 / clampf(zoom, 0.0002, 100000.0)
+	scale = Vector2(inv, inv)
+	position = Vector2(0.0, -22.0 * inv)
+"""
+		scr.reload()
+		_title_script = scr
+	return _title_script
 
 func _verificar_y_crear_titulo() -> void:
-	var label := get_node_or_null("ArtboardTitle") as WorldTextLabel
+	var label := get_node_or_null("ArtboardTitle") as Label
 	if not label:
 		label = WorldTextLabel.new()
 		label.name = "ArtboardTitle"
+		label.set_script(_get_title_script())
 		add_child(label)
-	
+	elif label.get_script() == null:
+		label.set_script(_get_title_script())
+
 	label.text = "Artboard"
-	label.base_font_size = 12
 	label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	label.add_theme_font_size_override("font_size", 12)
-	label.position = Vector2(0, -20)
-	
-	# Habilitamos la interactividad en el Label para capturar el doble click
+	label.position = Vector2(0, -22)
+
+	# Habilitamos la interactividad en el Label para capturar el click
 	label.mouse_filter = Control.MOUSE_FILTER_STOP
 	if not label.gui_input.is_connected(_on_title_gui_input):
 		label.gui_input.connect(_on_title_gui_input)

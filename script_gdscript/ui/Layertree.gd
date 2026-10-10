@@ -49,6 +49,9 @@ const COL_MASK : int = 2  # Botones de acción: ojo · candado · máscara
 
 @export_group("Líneas Guía")
 @export var color_guide            : Color = Color(0.24, 0.24, 0.26)
+## Hierarchy lines and interactive highlight (selection / drop), theme driven
+var color_line: Color = Color(0.87, 0.87, 0.90)
+var color_interactive: Color = Color(0.05, 0.44, 1.0)
 
 @export_group("Hover")
 ## Fila bajo el cursor = VERDE (no confundir con el azul de selección).
@@ -144,9 +147,14 @@ func _pull_theme_colors() -> void:
 	color_bg            = tm.get_color(S.PANEL_SURFACE)
 	color_text          = tm.get_color(S.PANEL_TEXT)
 	color_text_dim      = tm.get_color(S.TEXT_DISABLED)
-	color_select_bg     = Color(tm.get_color(S.ACCENT), 0.20)   # azul claro
+	# Interactive highlight: white on dark themes, accent blue on light
+	color_interactive   = tm.get_interactive_color() if tm.has_method("get_interactive_color") else tm.get_color(S.ACCENT)
+	var dark: bool = tm.is_dark() if tm.has_method("is_dark") else false
+	color_select_bg     = Color(color_interactive, 0.10 if dark else 0.20)
 	color_select_text   = tm.get_color(S.PANEL_TEXT)
-	color_focus_bg      = Color(tm.get_color(S.ACCENT), 0.14)
+	color_focus_bg      = Color(color_interactive, 0.07 if dark else 0.14)
+	# Soft hierarchy lines: bright lines were glaring on dark themes
+	color_line          = tm.get_color(S.BORDER_STRONG) if dark else Color(0.80, 0.80, 0.83)
 	color_artboard_bg   = tm.get_color(S.PANEL_BG)
 	color_artboard_text = tm.get_color(S.PANEL_TEXT)
 	color_artboard_dim  = tm.get_color(S.TEXT_DISABLED)
@@ -165,7 +173,7 @@ func _apply_theme() -> void:
 	# — confundía con las líneas de jerarquía.
 	var sel_sb := _flat_solid(color_select_bg, 4)
 	sel_sb.set_border_width_all(1)
-	sel_sb.border_color = Color(color_group_text, 0.9)   # color_group_text = ACCENT (azul)
+	sel_sb.border_color = Color(color_interactive, 0.55)
 	add_theme_stylebox_override("selected",       sel_sb)
 	add_theme_stylebox_override("selected_focus", sel_sb)
 	add_theme_stylebox_override("cursor",         _flat_solid(Color(0, 0, 0, 0), 4))
@@ -180,8 +188,8 @@ func _apply_theme() -> void:
 	add_theme_stylebox_override("hovered_selected_focus", sel_sb)
 
 	var drop_style := StyleBoxFlat.new()
-	drop_style.bg_color     = Color(0.05, 0.44, 1.0, 0.08)
-	drop_style.border_color = Color(0.05, 0.44, 1.0, 0.85)
+	drop_style.bg_color     = Color(color_interactive, 0.08)
+	drop_style.border_color = Color(color_interactive, 0.85)
 	drop_style.set_border_width_all(1)
 	drop_style.set_corner_radius_all(3)
 	add_theme_stylebox_override("drop_zone", drop_style)
@@ -192,11 +200,11 @@ func _apply_theme() -> void:
 	# Líneas de jerarquía: GRIS CASI BLANCO, muy finas. No hay línea azul de
 	# "rama seleccionada" (parent_hl/children_hl) — confundía con la selección:
 	# se ponen del MISMO gris que las normales.
-	var linea_jer := Color(0.87, 0.87, 0.90, 1.0)
+	var linea_jer := color_line
 	add_theme_color_override("relationship_line_color", linea_jer)
 	add_theme_color_override("parent_hl_line_color",    linea_jer)
 	add_theme_color_override("children_hl_line_color",  linea_jer)
-	add_theme_color_override("drop_position_color",     Color(0.0, 0.478, 1.0, 1.0))
+	add_theme_color_override("drop_position_color",     color_interactive)
 
 	# Espaciado ajustado y elegante (estilo Figma/Sketch): filas juntas, sangría
 	# corta.
@@ -684,18 +692,24 @@ func _on_item_mouse_selected(pos_mouse: Vector2, boton: int) -> void:
 # TECLADO Y NAVEGACIÓN AVANZADA (PANNING CON CLIC CENTRAL)
 # =============================================================================
 func _input(event: InputEvent) -> void:
-	# SOLO si el árbol de capas tiene el foco de teclado. Antes interceptaba
-	# CUALQUIER pulsación de Suprimir en toda la app y hacía nodo.queue_free()
-	# sin undo ni sincronizar la selección → pérdida de datos irreversible, y
-	# además impedía que Suprimir llegara al canvas (que sí borra con undo).
-	if event.is_action_pressed("ui_text_delete") and has_focus():
-		var sel : TreeItem = get_selected()
-		if sel:
-			var nodo = sel.get_metadata(COL_NAME)
-			if is_instance_valid(nodo) and nodo is Node:
-				_borrar_nodo_con_undo(nodo)
+	if has_focus() and event is InputEventKey and event.pressed and not event.echo:
+		var kc_del: int = event.keycode if event.keycode != 0 else event.physical_keycode
+		var is_del_pressed: bool = ((kc_del in [KEY_DELETE, KEY_BACKSPACE, KEY_X]) and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed) or event.is_action_pressed("ui_text_delete")
+		if is_del_pressed and get_edited() == null:
+			var to_delete: Array = []
+			var sm := get_node_or_null("/root/SelectionManager")
+			if sm and sm.has_method("get_selected"):
+				to_delete = sm.get_selected()
+			if to_delete.is_empty():
+				var sel : TreeItem = get_selected()
+				if sel:
+					var nodo = sel.get_metadata(COL_NAME)
+					if is_instance_valid(nodo) and nodo is Node:
+						to_delete.append(nodo)
+			if not to_delete.is_empty():
+				_borrar_nodos_con_undo(to_delete)
 				get_viewport().set_input_as_handled()
-		return
+				return
 
 	# Navegación por teclado (solo con el árbol enfocado). ↑↓ y ←→ los gestiona
 	# el propio Tree de forma nativa; aquí sumamos Enter / Espacio / Ctrl+G.
@@ -746,20 +760,45 @@ func _input(event: InputEvent) -> void:
 		_ultima_pos_y = event.global_position.y
 		get_viewport().set_input_as_handled()
 
-## Borra el nodo seleccionado en el árbol registrando una acción de undo
+## Borra los nodos seleccionados en el árbol registrando una acción de undo
 ## (detach + guardar padre/índice; no queue_free para poder restaurarlo).
-func _borrar_nodo_con_undo(nodo: Node) -> void:
-	var padre := nodo.get_parent()
-	if not is_instance_valid(padre):
+func _borrar_nodos_con_undo(nodos: Array) -> void:
+	var valid_nodes: Array = []
+	var parents: Array = []
+	var indices: Array = []
+	for n in nodos:
+		if is_instance_valid(n) and is_instance_valid(n.get_parent()):
+			valid_nodes.append(n)
+			parents.append(n.get_parent())
+			indices.append(n.get_index())
+	if valid_nodes.is_empty():
 		return
-	var idx := nodo.get_index()
+
 	var do_fn := func() -> void:
-		if is_instance_valid(nodo) and is_instance_valid(nodo.get_parent()):
-			nodo.get_parent().remove_child(nodo)
+		for n in valid_nodes:
+			if is_instance_valid(n) and is_instance_valid(n.get_parent()):
+				n.get_parent().remove_child(n)
+		var sm := get_node_or_null("/root/SelectionManager")
+		if sm and sm.has_method("clear"):
+			sm.clear()
+		var canvas = get_tree().root.find_child("canvas", true, false)
+		if is_instance_valid(canvas) and canvas.has_method("queue_redraw"):
+			canvas.queue_redraw()
+
 	var undo_fn := func() -> void:
-		if is_instance_valid(nodo) and is_instance_valid(padre) and nodo.get_parent() == null:
-			padre.add_child(nodo)
-			padre.move_child(nodo, mini(idx, padre.get_child_count() - 1))
+		for i in range(valid_nodes.size()):
+			var n = valid_nodes[i]
+			var p = parents[i]
+			if is_instance_valid(n) and is_instance_valid(p) and n.get_parent() == null:
+				p.add_child(n)
+				p.move_child(n, mini(indices[i], p.get_child_count() - 1))
+		var sm := get_node_or_null("/root/SelectionManager")
+		if sm and sm.has_method("set_selection"):
+			sm.set_selection(valid_nodes)
+		var canvas = get_tree().root.find_child("canvas", true, false)
+		if is_instance_valid(canvas) and canvas.has_method("queue_redraw"):
+			canvas.queue_redraw()
+
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
 		hm.register_action("Eliminar del panel de capas")
@@ -768,6 +807,9 @@ func _borrar_nodo_con_undo(nodo: Node) -> void:
 		hm.commit()
 	do_fn.call()
 	hierarchy_changed_by_user.emit()
+
+func _borrar_nodo_con_undo(nodo: Node) -> void:
+	_borrar_nodos_con_undo([nodo])
 
 
 func _buscar_vscroll_nativo() -> void:

@@ -618,7 +618,7 @@ func _barrer_bbox() -> void:
 
 	if is_instance_valid(_bbox):
 		var padre := _bbox.get_parent()
-		if is_instance_valid(padre) and not (padre is CanvasItem):
+		if is_instance_valid(padre) and not (padre is CanvasItem) and not String(padre.name).begins_with("Pool_"):
 			_anom("bbox_padre_no_canvasitem",
 				"[DBG:BBOX] BoundingBox colgado de un nodo que NO es CanvasItem (%s) → to_local/global_rotation revientan" % padre.get_class())
 		if _bbox.get("visible"):

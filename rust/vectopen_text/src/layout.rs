@@ -3,6 +3,7 @@ use godot::global::HorizontalAlignment;
 use godot::classes::{Font, FontVariation, TextParagraph, TextServerManager};
 use godot::prelude::*;
 
+use crate::vector_glyph::draw_glyph;
 use crate::model::{
     ContentBounds, FrameBounds, HAlign, TextDocument, TextFrame, TextStyle, VerticalAlignment,
 };
@@ -515,9 +516,23 @@ impl LayoutEngine {
     }
 
     /// Dibuja el texto en el CanvasItem de Godot (soporta colores, opacidad, desplazamiento de baseline y trazos por letra/run)
-    pub fn draw(&self, doc: &TextDocument, canvas_rid: Rid, pos: Vector2) {
+    ///
+    /// `oversampling` ≈ px de pantalla por unidad local. Una letra que en
+    /// pantalla mediría más de `raster_cap` px ya no se rasteriza: se dibuja
+    /// con su contorno (ver vector_glyph), recortada a `cull` (rect local
+    /// visible). Devuelve true si algún glifo se dibujó en vectorial.
+    pub fn draw(
+        &self,
+        doc: &TextDocument,
+        canvas_rid: Rid,
+        pos: Vector2,
+        oversampling: f32,
+        raster_cap: f32,
+        cull: Option<Rect2>,
+    ) -> bool {
+        let mut used_vector = false;
         if doc.runs.is_empty() {
-            return;
+            return used_vector;
         }
 
         let base_x = if self.is_paragraph { self.frame.padding_left } else { 0.0 };
@@ -528,7 +543,7 @@ impl LayoutEngine {
         let tsm = TextServerManager::singleton();
         let ts = match tsm.get_primary_interface() {
             Some(ts) => ts,
-            None => return,
+            None => return used_vector,
         };
 
         // Estilo por carácter: índice → run (búsqueda en los límites de runs).
@@ -580,18 +595,44 @@ impl LayoutEngine {
                             if let Some(fr) = font_rid {
                                 if index != 0 && fr.is_valid() {
                                     let gp = baseline + Vector2::new(x, -st.baseline_shift) + offset;
-                                    if pass == 0 {
+                                    let screen_px = font_size as f32 * oversampling;
+                                    let vector = raster_cap > 0.0 && screen_px > raster_cap;
+                                    // Raster: nunca más de raster_cap px por letra.
+                                    let os = if raster_cap > 0.0 && oversampling > 0.0 {
+                                        oversampling.min(raster_cap / font_size.max(1) as f32)
+                                    } else {
+                                        oversampling
+                                    };
+                                    if vector {
+                                        used_vector = true;
+                                        if pass == 0 {
+                                            if st.stroke_width > 0.001 && st.stroke_color.a > 0.001 {
+                                                let mut sc = st.stroke_color;
+                                                sc.a *= st.opacity;
+                                                draw_glyph(&ts, fr, index, font_size, st.stroke_width.round(),
+                                                    screen_px, gp, sc, canvas_rid, cull);
+                                            }
+                                        } else {
+                                            let mut fc = st.fill_color;
+                                            fc.a *= st.opacity;
+                                            draw_glyph(&ts, fr, index, font_size, 0.0, screen_px, gp, fc, canvas_rid, cull);
+                                        }
+                                    } else if pass == 0 {
                                         if st.stroke_width > 0.001 && st.stroke_color.a > 0.001 {
                                             let mut sc = st.stroke_color;
                                             sc.a *= st.opacity;
                                             ts.font_draw_glyph_outline_ex(fr, canvas_rid, font_size, st.stroke_width.round() as i64, gp, index)
                                                 .color(sc)
+                                                .oversampling(os)
                                                 .done();
                                         }
                                     } else {
                                         let mut fc = st.fill_color;
                                         fc.a *= st.opacity;
-                                        ts.font_draw_glyph_ex(fr, canvas_rid, font_size, gp, index).color(fc).done();
+                                        ts.font_draw_glyph_ex(fr, canvas_rid, font_size, gp, index)
+                                            .color(fc)
+                                            .oversampling(os)
+                                            .done();
                                     }
                                 }
                             }
@@ -601,6 +642,6 @@ impl LayoutEngine {
                 }
             }
         }
+        used_vector
     }
 }
-

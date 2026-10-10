@@ -17,6 +17,13 @@ var _accessibility_mode: bool = false
 # ==========================================
 
 func _ready() -> void:
+	var cursor_path := "res://assets/cursor/cursor_default.png"
+	if FileAccess.file_exists(cursor_path):
+		var img := Image.load_from_file(ProjectSettings.globalize_path(cursor_path))
+		if img and not img.is_empty():
+			var cur_tex := ImageTexture.create_from_image(img)
+			Input.set_custom_mouse_cursor(cur_tex, Input.CURSOR_ARROW, Vector2(1, 1))
+
 	_fsm = CursorStateMachine.new()
 	_update_cursor()
 

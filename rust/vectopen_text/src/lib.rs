@@ -1,6 +1,7 @@
 pub mod editor;
 pub mod layout;
 pub mod model;
+pub mod vector_glyph;
 
 use godot::builtin::{Array, Color, GString, Rect2, Vector2, Vector2i};
 use godot::classes::{
@@ -41,6 +42,16 @@ pub struct VectorRichText {
     last_click_msec: u64,
     last_click_pos: Vector2,
     click_count: u32,
+    /// Sobremuestreo del raster de los glifos (≈ zoom de pantalla). Sin
+    /// MSDF, cada letra se rasteriza a tamaño × oversampling: nítida con
+    /// zoom. 0 = el del viewport. Lo fija WorldTextLabel al cambiar el zoom.
+    oversampling: f32,
+    /// Px de pantalla por letra a partir de los que se dibuja con contornos
+    /// en vez de raster (0 = siempre raster). Lo fija WorldTextLabel.
+    raster_cap: f32,
+    /// Rect local con el que se recortaron los glifos vectoriales en el
+    /// último draw; si la vista sale de él (paneo) hay que redibujar.
+    vector_cull: Option<Rect2>,
 }
 
 #[godot_api]
@@ -59,6 +70,9 @@ impl IControl for VectorRichText {
             last_click_msec: 0,
             last_click_pos: Vector2::ZERO,
             click_count: 0,
+            oversampling: 0.0,
+            raster_cap: 0.0,
+            vector_cull: None,
         }
     }
 
@@ -73,6 +87,11 @@ impl IControl for VectorRichText {
     }
 
     fn process(&mut self, delta: f64) {
+        if let Some(c) = self.vector_cull {
+            if !c.encloses(self.visible_local_rect()) {
+                self.base_mut().queue_redraw();
+            }
+        }
         if self.editor.is_editing {
             if self.editor.tick_blink(delta as f32) {
                 self.base_mut().queue_redraw();
@@ -95,7 +114,11 @@ impl IControl for VectorRichText {
         }
 
         // 2. Dibujar el texto completo a través del TextParagraph (soporta estilos y colores por letra)
-        self.layout.draw(&self.doc, canvas_rid, Vector2::ZERO);
+        let vis = self.visible_local_rect();
+        let cull = vis.grow(vis.size.x.max(vis.size.y) * 0.5);
+        let used_vector =
+            self.layout.draw(&self.doc, canvas_rid, Vector2::ZERO, self.oversampling, self.raster_cap, Some(cull));
+        self.vector_cull = used_vector.then_some(cull);
 
         // 2b. Subrayado / tachado por run (el layout no los dibujaba: el
         // estilo se guardaba pero nunca se veía). Se usan los rectángulos de
@@ -532,6 +555,56 @@ impl VectorRichText {
     #[func]
     pub fn ping(&self) -> GString {
         "VectopenText GDExtension v0.1.0".into()
+    }
+
+    /// Sobremuestreo del raster de glifos (ver campo `oversampling`).
+    #[func]
+    pub fn set_oversampling(&mut self, value: f32) {
+        let v = value.max(0.0);
+        if (v - self.oversampling).abs() > 0.0001 {
+            self.oversampling = v;
+            self.base_mut().queue_redraw();
+        }
+    }
+
+    #[func]
+    pub fn get_oversampling(&self) -> f32 {
+        self.oversampling
+    }
+
+    /// Tope de raster por letra (px de pantalla); por encima, contornos.
+    #[func]
+    pub fn set_raster_cap(&mut self, value: f32) {
+        let v = value.max(0.0);
+        if (v - self.raster_cap).abs() > 0.0001 {
+            self.raster_cap = v;
+            self.base_mut().queue_redraw();
+        }
+    }
+
+    #[func]
+    pub fn get_raster_cap(&self) -> f32 {
+        self.raster_cap
+    }
+
+    /// Parte visible del viewport en coordenadas locales de este control.
+    fn visible_local_rect(&self) -> Rect2 {
+        let inv = self.base().get_global_transform_with_canvas().affine_inverse();
+        let vr = self.base().get_viewport_rect();
+        let corners = [
+            vr.position,
+            vr.position + Vector2::new(vr.size.x, 0.0),
+            vr.position + Vector2::new(0.0, vr.size.y),
+            vr.end(),
+        ];
+        let mut min = inv * corners[0];
+        let mut max = min;
+        for c in &corners[1..] {
+            let p = inv * *c;
+            min = Vector2::new(min.x.min(p.x), min.y.min(p.y));
+            max = Vector2::new(max.x.max(p.x), max.y.max(p.y));
+        }
+        Rect2::new(min, max - min)
     }
 
     #[func]

@@ -45,8 +45,15 @@ func _on_data_tool_changed(tool_name: String) -> void:
 func actualizar_botones_visuales(current_tool) -> void:
 	if current_tool is String and String(current_tool) != "":
 		_tool_activa = String(current_tool)
-	elif current_tool != null and current_tool.has_method("get_class_name"):
-		if String(current_tool.get_class_name()) == "MoveTool" and _tool_activa != "move":
+	elif current_tool != null:
+		var cname := ""
+		if current_tool.has_method("get_class_name"):
+			cname = String(current_tool.get_class_name())
+		elif current_tool is NodeSelectionTool:
+			cname = "NodeSelectionTool"
+		if cname == "NodeSelectionTool":
+			_tool_activa = "nodeselection"
+		elif cname == "MoveTool" and _tool_activa != "move":
 			_tool_activa = "select"
 	_refrescar_estado()
 
@@ -118,7 +125,54 @@ func _aplicar_tema() -> void:
 		sb.shadow_size = 0
 		pc.add_theme_stylebox_override("panel", sb)
 	add_theme_constant_override("separation", 6)
+	_theme_subpanels()
 	_refrescar_estado()
+
+func _theme_subpanels() -> void:
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm == null: return
+	var S = tm.Slot
+	var surface_c: Color = tm.get_color(S.PANEL_SURFACE)
+	var border_c: Color = tm.get_color(S.BORDER)
+	var text_c: Color = tm.get_color(S.PANEL_TEXT)
+
+	var parent_tools = get_parent()
+	while parent_tools and parent_tools.name != "Herramientas":
+		parent_tools = parent_tools.get_parent()
+	if not parent_tools: return
+
+	var sub_hov := StyleBoxFlat.new()
+	sub_hov.bg_color = tm.get_color(S.BUTTON_HOVER)
+	sub_hov.set_corner_radius_all(6)
+	var sub_prs := StyleBoxFlat.new()
+	sub_prs.bg_color = tm.get_color(S.BUTTON_PRESSED)
+	sub_prs.set_corner_radius_all(6)
+
+	for sub_name in ["polygon", "text", "Selector"]:
+		var p = parent_tools.get_node_or_null(sub_name) as PanelContainer
+		if is_instance_valid(p):
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = surface_c
+			sb.border_color = border_c
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(10)
+			sb.shadow_color = Color(0, 0, 0, 0.3) if surface_c.get_luminance() < 0.5 else Color(0, 0, 0, 0.1)
+			sb.shadow_size = 10
+			p.add_theme_stylebox_override("panel", sb)
+			for lbl in p.find_children("", "Label", true, false):
+				(lbl as Label).add_theme_color_override("font_color", text_c)
+			for btn in p.find_children("", "Button", true, false):
+				var b := btn as Button
+				if b.icon and tm.has_method("make_white_icon"):
+					b.icon = tm.make_white_icon(b.icon, 20)
+				b.modulate = Color.WHITE
+				b.add_theme_color_override("icon_normal_color", tm.get_color(S.ICON_PRIMARY))
+				b.add_theme_color_override("icon_hover_color", tm.get_color(S.PANEL_TEXT))
+				b.add_theme_color_override("icon_pressed_color", tm.get_color(S.ACCENT))
+				b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+				b.add_theme_stylebox_override("hover", sub_hov)
+				b.add_theme_stylebox_override("pressed", sub_prs)
+				b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 func _chip(c: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -141,16 +195,19 @@ func _refrescar_estado() -> void:
 	var hov: Color = tm.get_color(S.BUTTON_HOVER)
 	var prs: Color = tm.get_color(S.BUTTON_PRESSED)
 	var activa_bg: Color = tm.get_color(S.SURFACE_RAISED)
+	var icon_on: Color = tm.get_color(S.ICON_PRIMARY)
+	var icon_off: Color = tm.get_color(S.ICON_MUTED)
+	var icon_hover: Color = tm.get_color(S.ICON_PRIMARY)
 	for b in _botones():
 		var activo := _es_activo(b)
 		b.add_theme_stylebox_override("normal", _chip(activa_bg) if activo else _transparente())
 		b.add_theme_stylebox_override("hover", _chip(activa_bg) if activo else _chip(hov))
 		b.add_theme_stylebox_override("pressed", _chip(prs))
 		b.add_theme_stylebox_override("focus", _transparente())
-		var col: Color = _ICONO_ON if activo else _ICONO_OFF
+		var col: Color = icon_on if activo else icon_off
 		b.add_theme_color_override("icon_normal_color", col)
-		b.add_theme_color_override("icon_pressed_color", _ICONO_ON)
-		b.add_theme_color_override("icon_hover_color", _ICONO_ON if activo else _ICONO_HOVER)
+		b.add_theme_color_override("icon_pressed_color", icon_on)
+		b.add_theme_color_override("icon_hover_color", icon_hover)
 		b.add_theme_color_override("icon_focus_color", col)
 
 ## Copia del icono con todos los píxeles a blanco (mismo alfa), a `_ICON_PX`.

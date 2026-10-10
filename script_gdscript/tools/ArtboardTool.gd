@@ -10,9 +10,9 @@ class_name ArtboardTool
 var start_pos: Vector2 = Vector2.ZERO
 var current_pos: Vector2 = Vector2.ZERO
 
-# Paleta de color corporativa y minimalista para la previsualización (Estilo minimalista)
-const PREVIEW_FILL_COLOR := Color(0.05, 0.55, 0.91, 0.04)   # Azul sutil semitransparente
-const PREVIEW_LINE_COLOR := Color(0.05, 0.55, 0.91, 0.70)   # Línea de precisión definida
+# Paleta de color minimalista para la previsualización (Estilo profesional y neutro)
+const PREVIEW_FILL_COLOR := Color(0.35, 0.50, 0.68, 0.05)   # Acento sutil semitransparente
+const PREVIEW_LINE_COLOR := Color(0.35, 0.50, 0.68, 0.70)   # Línea de precisión definida
 const MIN_CREATION_SIZE  := 30.0                             # Umbral para ignorar clicks accidentales
 
 # ── Ciclo de Vida de la Herramienta ──────────────────────────────────────────

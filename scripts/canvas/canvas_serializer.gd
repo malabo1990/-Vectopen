@@ -17,6 +17,7 @@
 # ProjectManager y los tests, para no depender del cache de clases global.
 # ==========================================
 extends RefCounted
+const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
 
 
@@ -100,6 +101,13 @@ static func read_vtc_chunk_compressed(path: String, off: int, clen: int) -> Pack
 	return comp if comp.size() == clen else PackedByteArray()
 
 # ─────────────────────────────────────────────────────────── serializar
+const _PATH_STROKE_KEYS := ["stroke_style", "stroke_cap_start", "stroke_cap_end",
+	"stroke_pointer_start", "stroke_pointer_end", "stroke_pointer_scale",
+	"stroke_dash_len", "stroke_dash_gap", "stroke_profile"]
+const _PATH_STROKE_DEFAULTS := {"stroke_style": 0, "stroke_cap_start": 0, "stroke_cap_end": 0,
+	"stroke_pointer_start": 0, "stroke_pointer_end": 0, "stroke_pointer_scale": 1.0,
+	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0}
+
 static func serialize_container(container: Node) -> Dictionary:
 	var out := {"v": V, "artboards": [], "loose": []}
 	if not is_instance_valid(container):
@@ -286,6 +294,16 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			base["stroke"] = _col(node.get("stroke_color"))
 		if "stroke_width" in node:
 			base["stroke_w"] = node.get("stroke_width")
+		# Estilo, extremos, puntas y perfil: antes no se guardaban y se perdían
+		# al recargar.
+		for k in _PATH_STROKE_KEYS:
+			if k in node:
+				var v = node.get(k)
+				if k == "stroke_profile":
+					if not StrokeProfile.is_uniform(v):
+						base[k] = _pv2_to_arr(v)
+				elif v != _PATH_STROKE_DEFAULTS[k]:
+					base[k] = v
 		return base
 	if node is Line2D:
 		base["kind"] = "line"
@@ -294,6 +312,18 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["color"] = _col(node.default_color)
 		if node.gradient is Gradient and node.gradient.get_point_count() >= 2:
 			base["fill_grad"] = _grad_to_dict(node.gradient, 0, 0.0)
+		var _lfx = node.get_meta("effects", [])
+		if _lfx is Array and not (_lfx as Array).is_empty():
+			base["fx"] = _enc_deep(_lfx)
+		# Degradado 2D del trazo de pincel (tecla G): stops + sus dos puntos.
+		if node.get_meta("brush_grad", null) is Gradient:
+			base["brush_grad"] = _grad_to_dict(node.get_meta("brush_grad"), int(node.get_meta("brush_grad_type", 0)), 0.0)
+			base["brush_grad_a"] = [float(node.get_meta("brush_grad_a", Vector2.ZERO).x), float(node.get_meta("brush_grad_a", Vector2.ZERO).y)]
+			base["brush_grad_b"] = [float(node.get_meta("brush_grad_b", Vector2.ZERO).x), float(node.get_meta("brush_grad_b", Vector2.ZERO).y)]
+		if node.has_node("StrokeRender"):
+			base["hq"] = true
+		if node.has_meta("stroke_profile") and not StrokeProfile.is_uniform(node.get_meta("stroke_profile")):
+			base["stroke_profile"] = _pv2_to_arr(StrokeProfile.normalize(node.get_meta("stroke_profile")))
 		return base
 	if node is Polygon2D:
 		base["kind"] = "polygon2d"
@@ -621,6 +651,10 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 				fx_meta[mk] = enc
 	if not fx_meta.is_empty():
 		d["fx_meta"] = fx_meta
+	# FILTROS (pestaña Filtros): cualquier objeto, meta "filters".
+	var _flt = node.get_meta("filters", []) if node.has_meta("filters") else []
+	if _flt is Array and not (_flt as Array).is_empty():
+		d["filters"] = _enc_deep(_flt)
 
 
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
@@ -643,6 +677,9 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	if d.has("fx_meta") and d["fx_meta"] is Dictionary:
 		for mk in d["fx_meta"]:
 			node.set_meta(mk, _dec_param(d["fx_meta"][mk]))
+	if d.get("filters") is Array and not (d["filters"] as Array).is_empty():
+		node.set_meta("filters", _dec_deep(d["filters"]))
+		load("res://script_gdscript/shapes/filter_fx.gd").sync(node)
 
 
 static func _apply_material(node: CanvasItem, md: Dictionary) -> void:
@@ -798,6 +835,11 @@ static func _element_from(d: Dictionary) -> Node2D:
 			if d.has("stroke"): vp.set("stroke_color", _to_col(d["stroke"]))
 			if d.has("stroke_w"): vp.set("stroke_width", float(d["stroke_w"]))
 			vp.set("closed", bool(d.get("path_closed", false)))
+			for k in _PATH_STROKE_KEYS:
+				if d.has(k):
+					var v = _arr_to_pv2(d[k]) if k == "stroke_profile" else d[k]
+					vp.set(k, v)
+					vp.set_meta(k, v)
 			vp.name = d.get("name", "Trazo")
 			return vp
 		"line":
@@ -812,6 +854,22 @@ static func _element_from(d: Dictionary) -> Node2D:
 			if d.has("fill_grad") and d["fill_grad"] is Dictionary:
 				l.gradient = _grad_from_dict(d["fill_grad"])
 			l.name = d.get("name", "Trazo")
+			if d.get("brush_grad") is Dictionary:
+				l.set_meta("brush_grad", _grad_from_dict(d["brush_grad"]))
+				l.set_meta("brush_grad_type", int((d["brush_grad"] as Dictionary).get("type", 0)))
+				var ga: Array = d.get("brush_grad_a", [0, 0])
+				var gb: Array = d.get("brush_grad_b", [0, 0])
+				l.set_meta("brush_grad_a", Vector2(float(ga[0]), float(ga[1])))
+				l.set_meta("brush_grad_b", Vector2(float(gb[0]), float(gb[1])))
+			if bool(d.get("hq", false)) or l.has_meta("brush_grad"):
+				load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(l)
+			if d.has("stroke_profile"):
+				var lp := StrokeProfile.normalize(_arr_to_pv2(d["stroke_profile"]))
+				l.set_meta("stroke_profile", lp)
+				l.width_curve = StrokeProfile.to_curve(lp)
+			if d.get("fx") is Array:
+				l.set_meta("effects", _dec_deep(d["fx"]))
+				load("res://script_gdscript/text/text_fx.gd").sync(l)
 			return l
 		"polygon2d":
 			var pg := Polygon2D.new()

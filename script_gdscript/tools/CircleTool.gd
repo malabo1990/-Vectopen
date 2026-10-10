@@ -4,6 +4,11 @@ extends ToolBase
 # Definimos 128 lados para que la curva sea lo más suave posible en el Polygon2D
 const CIRCLE_QUALITY: int = 128
 
+@export var shape_mode: String = "whole" # whole, arc, pie, chord, donut
+@export var start_angle_deg: float = 0.0
+@export var end_angle_deg: float = 360.0
+@export var inner_radius_ratio: float = 0.5
+
 func activate() -> void:
 	super()
 	print("\n[CircleTool]: Herramienta ACTIVADA (Arquitectura Estándar Vectopen).")
@@ -118,6 +123,10 @@ func _spawn_shape(local_pos: Vector2, size: Vector2) -> void:
 
 	var new_shape = VectorCircle.new()
 	new_shape.name = NameUtils.unique_child_name(artboard, "Círculo")
+	new_shape.shape_mode = shape_mode
+	new_shape.start_angle_deg = start_angle_deg
+	new_shape.end_angle_deg = end_angle_deg
+	new_shape.inner_radius_ratio = inner_radius_ratio
 	new_shape.set_doc_position(DVec2.from_v2(local_pos + size / 2.0))
 	new_shape.set_doc_extent(DVec2.from_v2(size))
 	new_shape.fill_color = FILL_COLOR
@@ -139,22 +148,72 @@ func draw_preview(c: Node2D) -> void:
 	var geom: Dictionary = _calculate_geometry()
 	var size: Vector2 = geom["size"]
 	var tl: Vector2 = c.to_local(geom["top_left"])
-	
-	var center_local = tl + (size / 2.0)
-	var radius = size / 2.0
-	
-	var vertices_preview = PackedVector2Array()
-	for i in range(CIRCLE_QUALITY):
-		var angle = (i * 2.0 * PI) / CIRCLE_QUALITY
-		var vertex = center_local + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
-		vertices_preview.append(vertex)
+
+	var center_local: Vector2 = tl + (size / 2.0)
+	var radius: Vector2 = size / 2.0
+
+	var vertices_preview: PackedVector2Array = PackedVector2Array()
+
+	if shape_mode == "whole":
+		for i in range(CIRCLE_QUALITY):
+			var angle: float = (i * 2.0 * PI) / CIRCLE_QUALITY
+			var vertex: Vector2 = center_local + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
+			vertices_preview.append(vertex)
+	else:
+		var s_rad: float = deg_to_rad(start_angle_deg)
+		var e_rad: float = deg_to_rad(end_angle_deg)
+		var span: float = fposmod(e_rad - s_rad, TAU)
+		if is_zero_approx(span):
+			span = TAU
+		var steps: int = maxi(8, int(round((span / TAU) * CIRCLE_QUALITY)))
+
+		match shape_mode:
+			"arc":
+				for i in range(steps + 1):
+					var a: float = s_rad + span * (float(i) / float(steps))
+					vertices_preview.append(center_local + Vector2(cos(a) * radius.x, sin(a) * radius.y))
+			"pie":
+				vertices_preview.append(center_local)
+				for i in range(steps + 1):
+					var a: float = s_rad + span * (float(i) / float(steps))
+					vertices_preview.append(center_local + Vector2(cos(a) * radius.x, sin(a) * radius.y))
+			"chord":
+				for i in range(steps + 1):
+					var a: float = s_rad + span * (float(i) / float(steps))
+					vertices_preview.append(center_local + Vector2(cos(a) * radius.x, sin(a) * radius.y))
+			"donut":
+				var inner: Vector2 = radius * clampf(inner_radius_ratio, 0.01, 0.95)
+				if is_equal_approx(span, TAU):
+					for i in range(CIRCLE_QUALITY):
+						var a: float = (i * 2.0 * PI) / CIRCLE_QUALITY
+						vertices_preview.append(center_local + Vector2(cos(a) * radius.x, sin(a) * radius.y))
+					vertices_preview.append(center_local + Vector2(cos(0.0) * radius.x, sin(0.0) * radius.y))
+					vertices_preview.append(center_local + Vector2(cos(0.0) * inner.x, sin(0.0) * inner.y))
+					for i in range(CIRCLE_QUALITY, -1, -1):
+						var a: float = (i * 2.0 * PI) / CIRCLE_QUALITY
+						vertices_preview.append(center_local + Vector2(cos(a) * inner.x, sin(a) * inner.y))
+				else:
+					for i in range(steps + 1):
+						var a: float = s_rad + span * (float(i) / float(steps))
+						vertices_preview.append(center_local + Vector2(cos(a) * radius.x, sin(a) * radius.y))
+					for i in range(steps, -1, -1):
+						var a: float = s_rad + span * (float(i) / float(steps))
+						vertices_preview.append(center_local + Vector2(cos(a) * inner.x, sin(a) * inner.y))
+			_:
+				for i in range(CIRCLE_QUALITY):
+					var angle: float = (i * 2.0 * PI) / CIRCLE_QUALITY
+					vertices_preview.append(center_local + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
 
 	var current_scale: float = c.global_transform.get_scale().x
 	if current_scale <= 0.001: current_scale = 1.0
 	var line_width: float = clampf(1.2 / current_scale, 0.6, 3.0)
 
-	c.draw_colored_polygon(vertices_preview, COLOR_PREVIEW_F)
-	
-	var points_outline = Array(vertices_preview)
-	points_outline.append(vertices_preview[0])
-	c.draw_polyline(PackedVector2Array(points_outline), COLOR_PREVIEW_S, line_width, true)
+	if shape_mode != "arc" and vertices_preview.size() >= 3:
+		c.draw_colored_polygon(vertices_preview, COLOR_PREVIEW_F)
+
+	if shape_mode == "arc" and vertices_preview.size() >= 2:
+		c.draw_polyline(vertices_preview, COLOR_PREVIEW_S, line_width, true)
+	elif vertices_preview.size() >= 3:
+		var points_outline: Array = Array(vertices_preview)
+		points_outline.append(vertices_preview[0])
+		c.draw_polyline(PackedVector2Array(points_outline), COLOR_PREVIEW_S, line_width, true)

@@ -343,6 +343,10 @@ func _on_element_dropped_internally(element: Variant, position: Vector2) -> void
 			# Importar el archivo al canvas
 			if data_repository and data_repository.has_method("import_file"):
 				data_repository.import_file(element, _current_artboard)
+		elif element.get_extension().to_lower() in ["glb", "gltf"]:
+			var im = get_node_or_null("/root/ImportExportManager") if is_inside_tree() else (Engine.get_main_loop().root.get_node_or_null("ImportExportManager") if Engine.get_main_loop() and "root" in Engine.get_main_loop() else null)
+			if is_instance_valid(im) and im.has_method("import_3d_model"):
+				im.import_3d_model(element, position)
 	elif typeof(element) == TYPE_OBJECT and element is Node:
 		# Es un nodo del canvas (arrastrado a la biblioteca)
 		if file_flow_layout:

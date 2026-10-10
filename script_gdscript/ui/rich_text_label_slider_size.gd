@@ -281,15 +281,16 @@ func _aplicar_tema() -> void:
 
 
 	# 6. Popup del navegador de fuentes
-	var popup := get_node_or_null(_FONT_POPUP) as Panel
+	var popup := get_node_or_null(_FONT_POPUP) as Control
 	if popup:
+		# Igual que el panel de Capas: PANEL_SURFACE, radio 14 (0 en Modern),
+		# sin marco ni sombra.
+		var gui := get_node_or_null("/root/GlobalUI")
+		var modern: bool = gui != null and gui.has_method("is_modern_mode") and gui.is_modern_mode()
 		var pop_sb := StyleBoxFlat.new()
-		pop_sb.bg_color = tc["surface"]
-		pop_sb.border_color = tc["border"]
-		pop_sb.set_border_width_all(1)
-		pop_sb.set_corner_radius_all(10)
-		pop_sb.shadow_size = 8
-		pop_sb.shadow_color = Color(0, 0, 0, 0.25 if tc["is_dark"] else 0.08)
+		pop_sb.bg_color = ProUIStyle.col("PANEL_SURFACE")
+		pop_sb.set_corner_radius_all(0 if modern else 14)
+		pop_sb.set_border_width_all(0)
 		popup.add_theme_stylebox_override("panel", pop_sb)
 
 	var search := get_node_or_null(_FONT_SEARCH) as LineEdit
@@ -299,11 +300,15 @@ func _aplicar_tema() -> void:
 		ssb.border_color = tc["input_border"]
 		ssb.set_border_width_all(1)
 		ssb.set_corner_radius_all(6)
-		ssb.content_margin_left = 6
-		ssb.content_margin_right = 6
+		ssb.set_content_margin_all(6)
 		search.add_theme_stylebox_override("normal", ssb)
-		search.add_theme_stylebox_override("focus", ssb)
+		var sfocus := ssb.duplicate() as StyleBoxFlat
+		var tmi = get_node_or_null("/root/ThemeManager")
+		sfocus.border_color = tmi.get_interactive_color() if tmi and tmi.has_method("get_interactive_color") else tc["accent"]
+		search.add_theme_stylebox_override("focus", sfocus)
 		search.add_theme_color_override("font_color", tc["text"])
+		search.add_theme_color_override("caret_color", tc["text"])
+	_theme_font_browser(tc)
 
 	# 7. Theme-colored sliders (the engine default is a dark bar on light themes)
 	for s in _sliders.values():
@@ -607,6 +612,29 @@ func _aplicar(prop: String) -> void:
 		ic.apply(prop, s.value)
 
 # ── navegador de fuentes ─────────────────────────────────────────────────────
+## Popup rediseñado (se construye en código sobre los nodos del .tscn, cuyas
+## rutas siguen siendo las mismas): cabecera con contador y cerrar, buscador,
+## filtros (Todas / Sistema / Incluidas / Recientes), filas a dos líneas
+## (nombre legible en la fuente de la UI + muestra en SU fuente: las de
+## símbolos ya no salen ilegibles), tarjeta de vista previa con el tema,
+## teclado (↑ ↓ Intro Esc), se coloca dentro de la pantalla junto al menú y
+## se cierra al hacer clic fuera.
+const _FONT_W := 380
+const _FONT_H := 500
+const _RECENTS_PATH := "user://font_recents.cfg"
+const _MAX_RECENTS := 8
+const _FILTERS := ["all", "system", "google", "bundled", "recent"]
+const _FILTER_LABELS := {"all": "Todas", "system": "Sistema", "google": "Google", "bundled": "Incluidas", "recent": "Recientes"}
+
+var _font_filter := "all"
+var _font_rows: Array[Button] = []
+var _font_hl := -1                     # fila resaltada con el teclado
+var _font_count_lbl: Label = null
+var _font_preview_caption: Label = null
+var _font_filter_btns: Dictionary = {}  # filtro -> Button
+var _font_close_btn: Button = null
+var _font_ui_built := false
+
 func _setup_font_browser() -> void:
 	var list := get_node_or_null(_FONT_LIST)
 	if list == null:
@@ -615,10 +643,16 @@ func _setup_font_browser() -> void:
 	var col2 := get_node_or_null(_FONT_LIST_2)
 	if col2 is CanvasItem:
 		col2.visible = false
+	_build_font_browser_ui()
 
 	var search := get_node_or_null(_FONT_SEARCH) as LineEdit
-	if search and not search.text_changed.is_connected(_on_font_search):
-		search.text_changed.connect(_on_font_search)
+	if search:
+		if not search.text_changed.is_connected(_on_font_search):
+			search.text_changed.connect(_on_font_search)
+		if not search.gui_input.is_connected(_on_font_search_key):
+			search.gui_input.connect(_on_font_search_key)
+		if not search.text_submitted.is_connected(_on_font_search_submit):
+			search.text_submitted.connect(_on_font_search_submit)
 	var sbtn := get_node_or_null(_FONT_SEARCH_BTN) as Button
 	if sbtn and not sbtn.pressed.is_connected(_on_font_search_btn):
 		sbtn.pressed.connect(_on_font_search_btn)
@@ -626,11 +660,188 @@ func _setup_font_browser() -> void:
 	var popup := get_node_or_null(_FONT_POPUP) as CanvasItem
 	if popup and not popup.visibility_changed.is_connected(_on_font_popup_visibility_changed):
 		popup.visibility_changed.connect(_on_font_popup_visibility_changed)
+	var fc := get_node_or_null("/root/FontCore")
+	if fc and fc.has_signal("font_installed") and not fc.font_installed.is_connected(_on_font_installed):
+		fc.font_installed.connect(_on_font_installed)
+
+## Reorganiza el contenido del popup (una sola vez).
+func _build_font_browser_ui() -> void:
+	if _font_ui_built:
+		return
+	var popup := get_node_or_null(_FONT_POPUP) as Control
+	var search := get_node_or_null(_FONT_SEARCH) as LineEdit
+	var list := get_node_or_null(_FONT_LIST) as Control
+	if popup == null or search == null or list == null:
+		return
+	_font_ui_built = true
+	popup.custom_minimum_size = Vector2(_FONT_W, _FONT_H)
+	popup.size = Vector2(_FONT_W, _FONT_H)
+	popup.z_index = 50
+	popup.mouse_filter = Control.MOUSE_FILTER_STOP
+	var margin := popup.get_node_or_null("MarginContainer") as MarginContainer
+	if margin:
+		# Mismos márgenes que el panel de Capas (16 / 14).
+		for side in ["left", "right"]:
+			margin.add_theme_constant_override("margin_" + side, 16)
+		for side in ["top", "bottom"]:
+			margin.add_theme_constant_override("margin_" + side, 14)
+	var root_box := search.get_parent().get_parent() as BoxContainer   # MarginContainer/BoxContainer
+	if root_box:
+		root_box.vertical = true
+		root_box.add_theme_constant_override("separation", 10)
+
+	# Cabecera: título + nº de familias + cerrar
+	var header := HBoxContainer.new()
+	header.name = "FontHeader"
+	header.add_theme_constant_override("separation", 6)
+	var title := Label.new()
+	title.name = "Title"
+	# Título como el de Capas: mayúsculas, 12 px, color secundario.
+	title.text = tr("TIPOGRAFÍAS")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 12)
+	header.add_child(title)
+	_font_count_lbl = Label.new()
+	_font_count_lbl.name = "Count"
+	_font_count_lbl.add_theme_font_size_override("font_size", 11)
+	_font_close_btn = Button.new()
+	_font_close_btn.name = "Close"
+	_font_close_btn.tooltip_text = tr("Cerrar (Esc)")
+	_font_close_btn.focus_mode = Control.FOCUS_NONE
+	_font_close_btn.custom_minimum_size = Vector2(28, 28)
+	_font_close_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_font_close_btn.pressed.connect(_close_font_popup)
+	header.add_child(_font_close_btn)
+	if root_box:
+		root_box.add_child(header)
+		root_box.move_child(header, 0)
+
+	# Buscador: sin la etiqueta "FONT" ni el botón "SEARCH" (filtra al escribir)
+	var search_row := search.get_parent() as Control
+	for c in search_row.get_children():
+		if c != search and c is CanvasItem:
+			(c as CanvasItem).visible = false
+	search.placeholder_text = tr("Buscar fuente…")
+	search.clear_button_enabled = true
+	search.custom_minimum_size.y = 28
+
+	# Filtros
+	var chips := HBoxContainer.new()
+	chips.name = "FontFilters"
+	chips.add_theme_constant_override("separation", 4)
+	for f in _FILTERS:
+		var b := Button.new()
+		b.text = tr(_FILTER_LABELS[f])
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # pestañas iguales, como Capas / Páginas
+		b.custom_minimum_size = Vector2(0, 26)
+		b.add_theme_font_size_override("font_size", 11)
+		b.pressed.connect(_on_font_filter.bind(f))
+		chips.add_child(b)
+		_font_filter_btns[f] = b
+	if root_box:
+		root_box.add_child(chips)
+		root_box.move_child(chips, search_row.get_index() + 1)
+
+	# Lista arriba (ocupa el alto libre), vista previa abajo
+	var grid := list.get_parent().get_parent() as GridContainer
+	if grid:
+		grid.columns = 1
+		grid.add_theme_constant_override("v_separation", 10)
+		grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var scroll := list.get_parent() as ScrollContainer
+	if scroll:
+		scroll.custom_minimum_size = Vector2(0, 0)
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	list.custom_minimum_size = Vector2(0, 0)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if list is BoxContainer:
+		(list as BoxContainer).vertical = true
+	var prev := get_node_or_null(_FONT_PREVIEW) as RichTextLabel
+	if prev:
+		# La tarjeta es un PanelContainer del .tscn: el pie "Familia · Estilo"
+		# va justo encima, como otra fila de la rejilla.
+		var card := prev.get_parent() as Control
+		card.custom_minimum_size = Vector2(0, 0)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.size_flags_vertical = Control.SIZE_SHRINK_END
+		_font_preview_caption = Label.new()
+		_font_preview_caption.name = "Caption"
+		_font_preview_caption.add_theme_font_size_override("font_size", 10)
+		if grid:
+			grid.add_child(_font_preview_caption)
+			grid.move_child(_font_preview_caption, card.get_index())
+		prev.custom_minimum_size = Vector2(0, 46)
+		prev.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		prev.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		prev.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		prev.fit_content = false
+		prev.scroll_active = false
+		prev.autowrap_mode = TextServer.AUTOWRAP_OFF
+		prev.clip_contents = true
+		prev.text = ""
+	# Contador abajo a la izquierda, como "0 capas".
+	if root_box and is_instance_valid(_font_count_lbl):
+		root_box.add_child(_font_count_lbl)
 
 func _on_font_popup_visibility_changed() -> void:
+	var popup := get_node_or_null(_FONT_POPUP) as Control
+	if popup == null:
+		return
+	if popup.visible:
+		if not _font_list_populated:
+			_poblar_lista_fuentes(_font_query)
+		_place_font_popup.call_deferred()
+		var search := get_node_or_null(_FONT_SEARCH) as LineEdit
+		if search and search.is_inside_tree():
+			search.grab_focus.call_deferred()
+		_scroll_to_current.call_deferred()
+	else:
+		_font_hl = -1
+		_font_hover_fam = ""
+		_font_live_revert()   # cerrado sin elegir: el texto vuelve a su fuente
+		_set_preview_font(_current_family)
+
+## Junto al menú (a la izquierda o a la derecha, donde quepa) y siempre
+## dentro de la pantalla. Antes se abría a 650 px a la izquierda del botón:
+## con el menú pegado al borde izquierdo quedaba fuera de la vista.
+func _place_font_popup() -> void:
+	var popup := get_node_or_null(_FONT_POPUP) as Control
+	if popup == null or not popup.visible:
+		return
+	popup.size = Vector2(_FONT_W, _FONT_H)
+	var vp := popup.get_viewport_rect().size
+	var anchor := _menu_anchor().get_global_rect()
+	var btn := get_node_or_null(_FONT_BTN) as Control
+	var x := anchor.position.x - _FONT_W - 8.0
+	if x < 8.0:
+		x = anchor.end.x + 8.0
+	if x + _FONT_W > vp.x - 8.0:
+		x = maxf(8.0, vp.x - _FONT_W - 8.0)
+	var y := (btn.get_global_rect().position.y if btn else anchor.position.y) - 40.0
+	y = clampf(y, 8.0, maxf(8.0, vp.y - _FONT_H - 8.0))
+	popup.global_position = Vector2(x, y)
+
+func _close_font_popup() -> void:
 	var popup := get_node_or_null(_FONT_POPUP) as CanvasItem
-	if popup and popup.visible and not _font_list_populated:
-		_poblar_lista_fuentes(_font_query)
+	if popup:
+		popup.visible = false
+
+## Clic fuera del popup (y fuera del botón que lo abre) → se cierra.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	var popup := get_node_or_null(_FONT_POPUP) as Control
+	if popup == null or not popup.is_visible_in_tree():
+		return
+	var mp: Vector2 = popup.get_global_mouse_position()
+	var btn := get_node_or_null(_FONT_BTN) as Control
+	if popup.get_global_rect().has_point(mp) or (btn and btn.get_global_rect().has_point(mp)):
+		return
+	popup.visible = false
 
 func _on_font_search(query: String) -> void:
 	_poblar_lista_fuentes(query)
@@ -638,6 +849,87 @@ func _on_font_search(query: String) -> void:
 func _on_font_search_btn() -> void:
 	var search := get_node_or_null(_FONT_SEARCH) as LineEdit
 	_poblar_lista_fuentes(search.text if search else "")
+
+func _on_font_search_submit(_t: String) -> void:
+	var i := _font_hl if _font_hl >= 0 else (0 if _font_rows.size() == 1 else -1)
+	if i >= 0 and i < _font_rows.size():
+		_font_rows[i].pressed.emit()
+
+func _on_font_search_key(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed):
+		return
+	match (event as InputEventKey).keycode:
+		KEY_DOWN:
+			_move_font_hl(1)
+		KEY_UP:
+			_move_font_hl(-1)
+		KEY_ESCAPE:
+			_close_font_popup()
+		_:
+			return
+	get_viewport().set_input_as_handled()
+
+func _move_font_hl(d: int) -> void:
+	if _font_rows.is_empty():
+		return
+	_font_hl = clampi(_font_hl + d, 0, _font_rows.size() - 1)
+	for i in _font_rows.size():
+		_style_font_row(_font_rows[i], _font_rows[i].get_meta("family") == _current_family, i == _font_hl)
+	var row := _font_rows[_font_hl]
+	_set_preview_font(String(row.get_meta("family")))
+	_font_live_preview(String(row.get_meta("family")))
+	var scroll := get_node_or_null(_FONT_LIST).get_parent() as ScrollContainer
+	if scroll:
+		scroll.ensure_control_visible(row)
+
+func _scroll_to_current() -> void:
+	# Esperar a que las filas tengan posición (si no, el scroll se queda corto).
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var list := get_node_or_null(_FONT_LIST) as Control
+	if list == null:
+		return
+	var scroll := list.get_parent() as ScrollContainer
+	for r in _font_rows:
+		if is_instance_valid(r) and r.get_meta("family") == _current_family and scroll:
+			# La actual queda arriba del todo (no pegada al borde inferior).
+			scroll.scroll_vertical = int(r.position.y)
+			return
+
+func _on_font_filter(f: String) -> void:
+	_font_filter = f
+	_poblar_lista_fuentes(_font_query)
+
+# ── recientes (por usuario, comodidad local) ──────────────────────────────────
+func _font_recents() -> PackedStringArray:
+	var cfg := ConfigFile.new()
+	if cfg.load(_RECENTS_PATH) != OK:
+		return PackedStringArray()
+	return PackedStringArray(cfg.get_value("fonts", "recent", PackedStringArray()))
+
+func _push_font_recent(family: String) -> void:
+	var rec := _font_recents()
+	var idx := rec.find(family)
+	if idx >= 0:
+		rec.remove_at(idx)
+	rec.insert(0, family)
+	if rec.size() > _MAX_RECENTS:
+		rec.resize(_MAX_RECENTS)
+	var cfg := ConfigFile.new()
+	cfg.set_value("fonts", "recent", rec)
+	cfg.save(_RECENTS_PATH)
+
+# ── lista ─────────────────────────────────────────────────────────────────────
+## Texto de muestra de cada fila: el de la selección (si es corto) o uno fijo.
+func _font_row_sample() -> String:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("current_props"):
+		var props: Dictionary = ic.current_props()
+		if props.has("text") and not bool(props["text"].get("mixed", false)):
+			var t := String(props["text"].get("value", "")).strip_edges().replace("\n", " ")
+			if t.length() >= 2:
+				return t.substr(0, 28)
+	return "Aa Bb Cc 0123"
 
 func _poblar_lista_fuentes(query: String) -> void:
 	_font_list_populated = true
@@ -649,68 +941,318 @@ func _poblar_lista_fuentes(query: String) -> void:
 	for c in list.get_children():
 		list.remove_child(c)
 		c.queue_free()
+	_font_rows.clear()
+	_font_hl = -1
 	if list is BoxContainer:
-		list.add_theme_constant_override("separation", 1)
+		list.add_theme_constant_override("separation", 2)
 	var tc := _get_theme_colors()
 	_rows_theme_key = "%s|%s" % [tc["surface"].to_html(), tc["accent"].to_html()]
+
 	var familias: PackedStringArray = fc.search(query)
+	var total := familias.size()
+	var recents := _font_recents()
+	var q := query.strip_edges().to_lower()
+	match _font_filter:
+		"system":
+			familias = PackedStringArray(Array(familias).filter(func(f): return not fc.is_bundled(f) and not _is_google(fc, f)))
+		"google":
+			familias = PackedStringArray(Array(familias).filter(func(f): return _is_google(fc, f)))
+		"bundled":
+			familias = PackedStringArray(Array(familias).filter(func(f): return fc.is_bundled(f)))
+		"recent":
+			familias = PackedStringArray(Array(recents).filter(func(f): return q.is_empty() or String(f).to_lower().contains(q)))
+	_style_font_filters()
+	if is_instance_valid(_font_count_lbl):
+		_font_count_lbl.text = (tr("%d fuentes") % familias.size()) if familias.size() == total \
+			else (tr("%d de %d fuentes") % [familias.size(), total])
+
+	if familias.is_empty():
+		var empty := Label.new()
+		empty.name = "Empty"
+		empty.text = tr("Sin recientes todavía") if _font_filter == "recent" and q.is_empty() else tr("Ninguna fuente coincide")
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.custom_minimum_size = Vector2(0, 60)
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty.add_theme_color_override("font_color", tc["text_secondary"])
+		empty.add_theme_font_size_override("font_size", 12)
+		list.add_child(empty)
+		return
+
+	var sample := _font_row_sample()
 	var n := mini(familias.size(), _MAX_ROWS)
 	for i in n:
 		var fam := familias[i]
-		var current := fam == _current_family
 		var b := Button.new()
-		b.text = fam
+		b.text = fam                      # (los tests y la búsqueda leen .text)
 		b.tooltip_text = fam
+		b.set_meta("family", fam)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(0, 28)
+		b.custom_minimum_size = Vector2(0, 50)
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.clip_text = true
-		# Rounded rows: soft hover, current family marked with a raised chip
-		var row := StyleBoxFlat.new()
-		row.set_corner_radius_all(5)
-		row.content_margin_left = 8
-		row.content_margin_right = 8
-		row.bg_color = tc["surface_raised"] if current else Color(0, 0, 0, 0)
-		if current:
-			row.border_color = tc["accent"]
-			row.border_width_left = 2
-		var hov := row.duplicate() as StyleBoxFlat
-		hov.bg_color = tc["btn_hover"]
-		b.add_theme_stylebox_override("normal", row)
-		b.add_theme_stylebox_override("hover", hov)
-		b.add_theme_stylebox_override("pressed", hov)
-		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-		b.add_theme_color_override("font_color", tc["text"])
-		b.add_theme_color_override("font_hover_color", tc["text"])
-		b.add_theme_color_override("font_pressed_color", tc["text"])
-		b.add_theme_font_size_override("font_size", 13)
-		# Cada fila se ve en SU propia fuente (todos los detalles).
-		var f: Font = fc.get_font(fc.make_spec(fam))
-		if f:
-			b.add_theme_font_override("font", f)
+		b.add_theme_font_size_override("font_size", 11)
+		# Muestra en la propia fuente, debajo del nombre.
+		var lbl := Label.new()
+		lbl.name = "Sample"
+		lbl.text = sample
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lbl.clip_text = true
+		lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		lbl.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		lbl.offset_left = 10
+		lbl.offset_right = -28
+		lbl.offset_top = -30
+		lbl.offset_bottom = -4
+		lbl.add_theme_font_size_override("font_size", 16)
+		# Google sin descargar: NO se pide la fuente (get_font la descargaría;
+		# abrir la lista bajaría las 30). Se ofrece descargarla al elegirla.
+		var gstate: String = fc.google_state(fam) if fc.has_method("google_state") else ""
+		b.set_meta("google_state", gstate)
+		if gstate == "remote" or gstate == "downloading":
+			lbl.text = tr("Descargando…") if gstate == "downloading" else tr("Google Fonts · clic para descargar")
+			lbl.add_theme_font_size_override("font_size", 12)
+		else:
+			var f: Font = fc.get_font(fc.make_spec(fam))
+			if f:
+				lbl.add_theme_font_override("font", f)
+		b.add_child(lbl)
+		_style_font_row(b, fam == _current_family, false)
 		b.pressed.connect(_elegir_fuente.bind(fam))
 		b.mouse_entered.connect(_on_font_row_hover.bind(fam))
 		b.mouse_exited.connect(_on_font_row_unhover)
 		list.add_child(b)
+		_font_rows.append(b)
+	if familias.size() > n:
+		var more := Label.new()
+		more.name = "More"
+		more.text = tr("…y %d más: escribe para filtrar") % (familias.size() - n)
+		more.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		more.add_theme_color_override("font_color", tc["text_secondary"])
+		more.add_theme_font_size_override("font_size", 10)
+		list.add_child(more)
+
+## Fila: nombre arriba (fuente de la UI, legible) y muestra abajo. Mismo
+## lenguaje que las filas de Capas: hover gris de radio 5 y la actual con el
+## relleno de selección (ACCENT_SOFT), sin barras ni insignias.
+func _style_font_row(b: Button, current: bool, highlighted: bool) -> void:
+	var tc := _get_theme_colors()
+	var sel := ProUIStyle.col("ACCENT_SOFT")
+	var row := StyleBoxFlat.new()
+	row.set_corner_radius_all(5)
+	row.content_margin_left = 8
+	row.content_margin_right = 8
+	row.content_margin_top = 4
+	row.content_margin_bottom = 26     # el nombre queda arriba; la muestra, abajo
+	row.bg_color = sel if current else (tc["btn_hover"] if highlighted else Color(0, 0, 0, 0))
+	var hov := row.duplicate() as StyleBoxFlat
+	hov.bg_color = sel if current else tc["btn_hover"]
+	b.add_theme_stylebox_override("normal", row)
+	b.add_theme_stylebox_override("hover", hov)
+	b.add_theme_stylebox_override("pressed", hov)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var name_col: Color = tc["text"] if current else tc["text_secondary"]
+	for key in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(key, name_col)
+	var gstate := String(b.get_meta("google_state", ""))
+	var remote := gstate == "remote" or gstate == "downloading"
+	b.icon = ProUIStyle.icon("res://icon/UI/cloud-download.svg", tc["icon_muted"], 14) if remote else null
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var lbl := b.get_node_or_null("Sample") as Label
+	if lbl:
+		lbl.offset_left = 8
+		lbl.offset_top = -26
+		lbl.add_theme_color_override("font_color", tc["text_secondary"] if remote else tc["text"])
+
+## Pestañas como Capas / Páginas (layers_system._style_tabs_fusion).
+func _style_font_filters() -> void:
+	var tc := _get_theme_colors()
+	var tm = get_node_or_null("/root/ThemeManager")
+	var act_border: Color = tm.get_interactive_color() if tm and tm.has_method("get_interactive_color") else tc["accent"]
+	for f in _font_filter_btns:
+		var b: Button = _font_filter_btns[f]
+		if not is_instance_valid(b):
+			continue
+		var on: bool = f == _font_filter
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = tc["surface_raised"] if on else tc["btn_bg"]
+		sb.set_corner_radius_all(5)
+		sb.set_border_width_all(1)
+		sb.border_color = act_border if on else tc["border"]
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		var fcol: Color = tc["text"] if on else tc["text_secondary"]
+		for key in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(key, fcol)
+
+## Colores de cabecera / vista previa / cerrar según el tema (mismos tokens
+## y medidas que el panel de Capas).
+func _theme_font_browser(tc: Dictionary) -> void:
+	var popup := get_node_or_null(_FONT_POPUP) as Control
+	if popup == null:
+		return
+	var title := popup.find_child("Title", true, false) as Label
+	if title:
+		title.add_theme_color_override("font_color", tc["text_secondary"])
+	if is_instance_valid(_font_count_lbl):
+		_font_count_lbl.add_theme_color_override("font_color", tc["text_secondary"])
+	if is_instance_valid(_font_close_btn):
+		# Chip de icono como los de la barra de Capas (28 px, radio 7, sin borde).
+		_font_close_btn.icon = ProUIStyle.icon("res://icon/UI/x.svg", tc["icon_primary"], 14)
+		for st in ["normal", "hover", "pressed"]:
+			var cb := StyleBoxFlat.new()
+			cb.bg_color = {"normal": tc["input_bg"], "hover": tc["btn_hover"], "pressed": tc["btn_pressed"]}[st]
+			cb.set_corner_radius_all(7)
+			cb.content_margin_left = 5
+			cb.content_margin_right = 5
+			cb.content_margin_top = 4
+			cb.content_margin_bottom = 4
+			_font_close_btn.add_theme_stylebox_override(st, cb)
+		_font_close_btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var search := get_node_or_null(_FONT_SEARCH) as LineEdit
+	if search:
+		search.right_icon = null
+		search.add_theme_color_override("font_placeholder_color", ProUIStyle.col("TEXT_DISABLED"))
+		search.add_theme_font_size_override("font_size", 12)
+	var prev := get_node_or_null(_FONT_PREVIEW) as RichTextLabel
+	if prev:
+		# Tarjeta = un campo de entrada (INPUT_BG, radio 6, borde suave).
+		var psb := StyleBoxFlat.new()
+		psb.bg_color = tc["input_bg"]
+		psb.border_color = tc["input_border"]
+		psb.set_border_width_all(1)
+		psb.set_corner_radius_all(6)
+		psb.content_margin_left = 10
+		psb.content_margin_right = 10
+		psb.content_margin_top = 6
+		psb.content_margin_bottom = 6
+		var card := prev.get_parent() as Control
+		if card is PanelContainer:
+			card.add_theme_stylebox_override("panel", psb)
+		prev.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		prev.add_theme_color_override("default_color", tc["text"])
+	var scroll := get_node_or_null(_FONT_LIST).get_parent() as ScrollContainer if get_node_or_null(_FONT_LIST) else null
+	if scroll:
+		var bar := scroll.get_v_scroll_bar()
+		var grab := StyleBoxFlat.new()
+		grab.bg_color = Color(tc["text_secondary"], 0.45)
+		grab.set_corner_radius_all(3)
+		grab.content_margin_left = 3
+		grab.content_margin_right = 3
+		grab.content_margin_top = 14     # largo mínimo: con 150+ fuentes era un punto
+		grab.content_margin_bottom = 14
+		var grab_h := grab.duplicate() as StyleBoxFlat
+		grab_h.bg_color = Color(tc["text_secondary"], 0.7)
+		bar.add_theme_stylebox_override("grabber", grab)
+		bar.add_theme_stylebox_override("grabber_highlight", grab_h)
+		bar.add_theme_stylebox_override("grabber_pressed", grab_h)
+		bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+		bar.custom_minimum_size.x = 6
+	if is_instance_valid(_font_preview_caption):
+		_font_preview_caption.add_theme_color_override("font_color", tc["text_secondary"])
+		_font_preview_caption.add_theme_font_size_override("font_size", 11)
+	_style_font_filters()
+
+func _is_google(fc: Node, family: String) -> bool:
+	return fc.has_method("is_google") and fc.is_google(family)
+
+## Terminó una descarga de Google: la lista y la muestra pasan a la fuente real.
+func _on_font_installed(family: String) -> void:
+	var popup := get_node_or_null(_FONT_POPUP) as CanvasItem
+	if popup and popup.visible:
+		_poblar_lista_fuentes(_font_query)
+	else:
+		_font_list_populated = false
+	if family == _current_family:
+		_set_preview_font(family)
 
 func _elegir_fuente(family: String) -> void:
+	var fc := get_node_or_null("/root/FontCore")
+	if fc and _is_google(fc, family):
+		fc.download_google(family)   # si ya está en caché no hace nada
+	# Primero se deshace la vista previa: así el paso de deshacer guarda la
+	# fuente ORIGINAL (no la última que se previsualizó).
+	_font_live_revert()
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic:
 		ic.apply("font_family", family)
+	_push_font_recent(family)
 	_reflejar_familia(family)
 	var popup := get_node_or_null(_FONT_POPUP)
 	if popup is CanvasItem:
 		popup.visible = false
 
 ## Editor profesional: pasar el ratón por encima de una fila de la lista
-## previsualiza esa fuente en la muestra "abcdef" al lado, SIN aplicarla todavía
+## previsualiza esa fuente en la tarjeta de abajo, SIN aplicarla todavía
 ## (solo al hacer clic). Al salir, la muestra vuelve a la familia confirmada.
 func _on_font_row_hover(family: String) -> void:
+	_font_hover_fam = family
 	_set_preview_font(family)
+	_font_live_preview(family)
 
 func _on_font_row_unhover() -> void:
+	_font_hover_fam = ""
 	_set_preview_font(_current_family if not _current_family.is_empty() else "")
+	_font_revert_if_idle()
+
+# ── vista previa EN VIVO sobre el lienzo (como Affinity) ──────────────────────
+## Pasar el ratón por una fila (o moverse con ↑ ↓) cambia la fuente de los
+## textos / párrafos seleccionados SIN tocar el historial. Clic = se aplica
+## de verdad (un solo paso de deshacer, desde la fuente original). Salir de
+## la lista, cerrar o hacer clic fuera = vuelven a su fuente original.
+var _font_live_before: Dictionary = {}   # figura -> familia original
+var _font_hover_fam := ""
+
+func _font_live_preview(family: String) -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	var fc := get_node_or_null("/root/FontCore")
+	if ic == null or not ic.has_method("_write"):
+		return
+	# Una de Google sin descargar no se previsualiza (pasar el ratón no
+	# debe descargar nada): se deja la original a la vista.
+	var gstate: String = fc.google_state(family) if fc and fc.has_method("google_state") else ""
+	if gstate == "remote" or gstate == "downloading":
+		_font_live_revert()
+		return
+	if _font_live_before.is_empty():
+		for sh in ic.selection():
+			var b = ic._read(sh, "font_family")
+			if b != null:
+				_font_live_before[sh] = b
+	if _font_live_before.is_empty():
+		return
+	for sh in _font_live_before:
+		if is_instance_valid(sh):
+			ic._write(sh, "font_family", family)
+	ic.post_write_live()
+
+func _font_live_revert() -> void:
+	if _font_live_before.is_empty():
+		return
+	var ic := get_node_or_null("/root/InspectorCore")
+	var before := _font_live_before
+	_font_live_before = {}
+	if ic == null:
+		return
+	for sh in before:
+		if is_instance_valid(sh):
+			ic._write(sh, "font_family", before[sh])
+	ic.post_write_live()
+
+## Entre dos filas hay un instante sin fila bajo el ratón: se espera un par
+## de frames antes de restaurar (si no, el texto parpadearía al recorrer).
+func _font_revert_if_idle() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _font_hover_fam.is_empty() and _font_hl < 0:
+		_font_live_revert()
 
 ## Actualiza el botón de familia y la previsualización (selección confirmada).
 func _reflejar_familia(family: String) -> void:
@@ -744,6 +1286,12 @@ func _set_preview_font(family: String) -> void:
 	var spec: Dictionary = fc.make_spec(family)
 	spec["weight"] = weight
 	spec["italic"] = italic
+	var gstate: String = fc.google_state(family) if fc.has_method("google_state") else ""
+	if gstate == "remote" or gstate == "downloading":
+		# Pasar el ratón no descarga nada: se avisa en el pie de la tarjeta.
+		if is_instance_valid(_font_preview_caption):
+			_font_preview_caption.text = "%s · %s" % [family, tr("Descargando…") if gstate == "downloading" else tr("se descarga al elegirla")]
+		return
 	var f: Font = fc.get_font(spec)
 	if f:
 		for slot in ["normal_font", "bold_font", "italic_font", "bold_italics_font"]:
@@ -754,10 +1302,15 @@ func _set_preview_font(family: String) -> void:
 		var props: Dictionary = ic.current_props()
 		if props.has("font_size") and not bool(props["font_size"].get("mixed", false)):
 			fs = clampi(int(props["font_size"].get("value", 20)), 12, 48)
+	if _font_ui_built:
+		fs = clampi(fs, 18, 34)   # cabe en la tarjeta de una línea
 	prev.add_theme_font_size_override("normal_font_size", fs)
 	prev.add_theme_font_size_override("bold_font_size", fs)
-	if String(prev.get("text")).strip_edges() == "":
-		prev.set("text", fc.sample_text())
+	# Tarjeta de vista previa: una línea con el texto de la selección (o una
+	# muestra) y, encima, "Familia · Estilo".
+	prev.set("text", _font_row_sample() if _font_ui_built else fc.sample_text())
+	if is_instance_valid(_font_preview_caption):
+		_font_preview_caption.text = fc.describe(spec) if fc.has_method("describe") else family
 
 # ── proporciones de tamaño de letras ─────────────────────────────────────────
 func _setup_letter_proportions() -> void:
@@ -1380,7 +1933,10 @@ func _sincronizar(props: Dictionary) -> void:
 		# proporción de abajo sin guarda → acciones de undo fantasma)
 		_font_color_btn.color = props["fill_color"]["value"]
 	if props.has("font_family") and not props["font_family"]["mixed"]:
-		_reflejar_familia(String(props["font_family"]["value"]))
+		# Durante la vista previa en vivo la selección "tiene" la fuente bajo el
+		# ratón: no es la elegida (si no, la lista se rehacía bajo el cursor).
+		if _font_live_before.is_empty():
+			_reflejar_familia(String(props["font_family"]["value"]))
 	if not _fmt_btns.is_empty():
 		var states := {
 			"bold": props.has("font_weight") and not props["font_weight"]["mixed"] and int(props["font_weight"]["value"]) >= 700,

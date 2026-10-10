@@ -64,6 +64,20 @@ func _ready() -> void:
 	else:
 		_emit()
 
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed") and not tm.theme_changed.is_connected(_on_theme_changed):
+		tm.theme_changed.connect(_on_theme_changed)
+
+func _on_theme_changed(_mode: String) -> void:
+	queue_redraw()
+
+func _get_bg_color() -> Color:
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm:
+		var S = tm.Slot
+		return tm.get_color(S.PANEL_SURFACE)
+	return Color(0.14, 0.14, 0.16, 1.0)
+
 # ── geometría ────────────────────────────────────────────────────────────────
 func _recalc_geometry() -> void:
 	var bar_h := 12.0
@@ -108,21 +122,20 @@ func _recalc_geometry() -> void:
 func _draw() -> void:
 	if size.x < 10.0 or size.y < 10.0:
 		return
-	# Fondo blanco puro absoluto para todo el lienzo del selector
-	draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE)
+	var bg_c := _get_bg_color()
+	draw_rect(Rect2(Vector2.ZERO, size), bg_c)
 	match current_mode:
 		PickerMode.CIRCLE:
-			_draw_mode_circle()
+			_draw_mode_circle(bg_c)
 		PickerMode.TRIANGLE:
-			_draw_mode_triangle()
+			_draw_mode_triangle(bg_c)
 		PickerMode.SQUARE:
 			_draw_mode_square_figma()
 
-func _draw_mode_circle() -> void:
-	# Fondo blanco puro dentro y fuera del anillo
+func _draw_mode_circle(bg_c: Color = Color.WHITE) -> void:
 	var inner_r := _outer_r - _ring_w
-	draw_circle(center, _outer_r + 2.0, Color.WHITE)
-	draw_circle(center, inner_r, Color.WHITE)
+	draw_circle(center, _outer_r + 2.0, bg_c)
+	draw_circle(center, inner_r, bg_c)
 
 	_draw_hue_ring()
 
@@ -145,11 +158,10 @@ func _draw_mode_circle() -> void:
 	# Barra de opacidad con ajedrezado
 	_draw_alpha_bar(_alpha_rect)
 
-func _draw_mode_triangle() -> void:
-	# 1. Fondo blanco puro absoluto para todo el disco y el interior
+func _draw_mode_triangle(bg_c: Color = Color.WHITE) -> void:
 	var inner_r := _outer_r - _ring_w
-	draw_circle(center, _outer_r + 2.0, Color.WHITE)
-	draw_circle(center, inner_r, Color.WHITE)
+	draw_circle(center, _outer_r + 2.0, bg_c)
+	draw_circle(center, inner_r, bg_c)
 
 	# 2. Anillo exterior de matiz (Hue) y marcador
 	_draw_hue_ring()
@@ -466,4 +478,75 @@ func set_picker_mode(mode: int) -> void:
 
 func get_picker_mode() -> int:
 	return current_mode
+
+# ── 9.1 Modos de Color Unificados (HEX, RGB, HSL, CMYK) ─────────────────────
+enum ColorDisplayMode { HEX, RGB, HSL, CMYK }
+var current_display_mode: int = ColorDisplayMode.HEX
+
+func set_display_mode(mode: int) -> void:
+	current_display_mode = clampi(mode, 0, 3)
+
+func to_rgb_dict() -> Dictionary:
+	var c := _final_color()
+	return {
+		"r": int(round(c.r * 255.0)),
+		"g": int(round(c.g * 255.0)),
+		"b": int(round(c.b * 255.0)),
+		"a": int(round(c.a * 100.0))
+	}
+
+func set_from_rgb(r: float, g: float, b: float, a: float = 1.0) -> void:
+	var c := Color(clampf(r / 255.0, 0.0, 1.0), clampf(g / 255.0, 0.0, 1.0), clampf(b / 255.0, 0.0, 1.0), clampf(a, 0.0, 1.0))
+	set_color(c)
+	_emit()
+
+func to_hsl_dict() -> Dictionary:
+	var c := _final_color()
+	var h_deg := int(round(c.h * 360.0))
+	var s_pct := int(round(c.s * 100.0))
+	var l_pct := int(round(c.v * (1.0 - c.s * 0.5) * 100.0))
+	return {
+		"h": h_deg,
+		"s": s_pct,
+		"l": l_pct,
+		"a": int(round(c.a * 100.0))
+	}
+
+func set_from_hsl(h: float, s: float, l: float, a: float = 1.0) -> void:
+	var h_norm := clampf(h / 360.0, 0.0, 1.0)
+	var s_norm := clampf(s / 100.0, 0.0, 1.0)
+	var l_norm := clampf(l / 100.0, 0.0, 1.0)
+	var v := l_norm + s_norm * minf(l_norm, 1.0 - l_norm)
+	var sv := 0.0 if is_zero_approx(v) else 2.0 * (1.0 - l_norm / v)
+	var c := Color.from_hsv(h_norm, clampf(sv, 0.0, 1.0), clampf(v, 0.0, 1.0), clampf(a, 0.0, 1.0))
+	set_color(c)
+	_emit()
+
+func to_cmyk_dict() -> Dictionary:
+	var c := _final_color()
+	var r := c.r
+	var g := c.g
+	var b := c.b
+	var k := 1.0 - maxf(r, maxf(g, b))
+	var div := maxf(1.0 - k, 0.0001)
+	var cyan := (1.0 - r - k) / div
+	var magenta := (1.0 - g - k) / div
+	var yellow := (1.0 - b - k) / div
+	return {
+		"c": int(round(clampf(cyan, 0.0, 1.0) * 100.0)),
+		"m": int(round(clampf(magenta, 0.0, 1.0) * 100.0)),
+		"y": int(round(clampf(yellow, 0.0, 1.0) * 100.0)),
+		"k": int(round(clampf(k, 0.0, 1.0) * 100.0))
+	}
+
+func set_from_cmyk(cyan: float, magenta: float, yellow: float, black: float, a: float = 1.0) -> void:
+	var c_norm := clampf(cyan / 100.0, 0.0, 1.0)
+	var m_norm := clampf(magenta / 100.0, 0.0, 1.0)
+	var y_norm := clampf(yellow / 100.0, 0.0, 1.0)
+	var k_norm := clampf(black / 100.0, 0.0, 1.0)
+	var r := (1.0 - c_norm) * (1.0 - k_norm)
+	var g := (1.0 - m_norm) * (1.0 - k_norm)
+	var b := (1.0 - y_norm) * (1.0 - k_norm)
+	set_color(Color(clampf(r, 0.0, 1.0), clampf(g, 0.0, 1.0), clampf(b, 0.0, 1.0), clampf(a, 0.0, 1.0)))
+	_emit()
 

@@ -61,7 +61,7 @@ func _refresh_dependencies() -> void:
 
 ## ArtboardManager vivo (autoridad multi-artboard). null si no está en escena.
 func _artboard_manager() -> ArtboardManager:
-	if not get_tree():
+	if not is_inside_tree() or not get_tree():
 		return null
 	return ArtboardManager.find(get_tree())
 
@@ -75,6 +75,22 @@ func _retarget_artboard_at(world_point: Vector2) -> void:
 ## Artboard destino para una figura creada EN un punto del mundo:
 ## el que contiene el punto; si el punto cae fuera de todos, el activo (así
 ## la herramienta sigue siendo usable dibujando "al lado").
+## Reference frame for editing an existing shape: the artboard that owns it,
+## else its own parent (loose shapes), else the artboard under the point.
+## Never null while the shape is in the tree. `target_artboard` is still null
+## right after a session starts, which crashed double-click text editing with
+## "Cannot call method 'to_local' on a null value".
+func _edit_frame_for(hit: Node, world_point: Vector2) -> Node2D:
+	var mgr := _artboard_manager()
+	if mgr and is_instance_valid(hit):
+		var owner_ab = mgr.owning_artboard(hit)
+		if is_instance_valid(owner_ab):
+			return owner_ab
+	if is_instance_valid(hit) and hit.get_parent() is Node2D:
+		return hit.get_parent()
+	var ab = _artboard_for_point(world_point)
+	return ab if ab is Node2D else null
+
 func _artboard_for_point(world_point: Vector2) -> Node:
 	var mgr := _artboard_manager()
 	if mgr:

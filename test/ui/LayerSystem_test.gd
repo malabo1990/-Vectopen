@@ -587,3 +587,57 @@ func test_dos_anidados_seguidos_por_drag_no_bloquean_el_panel() -> void:
 	assert_object(system._node_to_item_map.get(c)).is_not_null()
 	HistoryManager.clear()
 	_sm().clear()
+
+
+## _type_icon() usaba _icon() (SVG con stroke negro fijo) → el icono de tipo
+## en la columna del nombre no se podía teñir con el color del tema (negro ×
+## cualquier tono = negro), quedando invisible en paneles oscuros — visto en
+## una captura real del usuario, icono de "Artboard" indistinguible del fondo.
+## Ahora usa _icon_blanco() + _aplicar_estilo_visibilidad() lo tiñe con
+## PANEL_TEXT del tema activo.
+func test_icono_de_tipo_se_tine_con_el_color_del_tema_no_queda_negro_fijo() -> void:
+	var tree: Tree = auto_free(Tree.new())
+	tree.columns = 3
+	var artboard: _FakeArtboard = auto_free(_FakeArtboard.new())
+	artboard.global_position = Vector2(0, 0)
+	artboard.artboard_size = Vector2(800, 600)
+	var cont: Node2D = auto_free(Node2D.new())
+	add_child(cont)
+	cont.add_child(artboard)
+
+	var rect := VectorRectangle.new()
+	rect.name = "R_icon_tint"
+	rect.size = Vector2(40, 40)
+	artboard.add_child(rect)
+	rect.global_position = Vector2(100, 100)
+	await get_tree().process_frame
+
+	var tm := get_node_or_null("/root/ThemeManager")
+	var prev_mode: String = tm.current_mode if tm else ""
+	if tm:
+		tm.set_mode("light")
+
+	var system: LayerSystem = _make_system(tree, cont)
+	system.sincronizar_arbol_completo()
+
+	var item: TreeItem = system._node_to_item_map.get(rect)
+	assert_object(item).is_not_null()
+
+	var expected: Color = tm.get_color(tm.Slot.PANEL_TEXT) if tm else Color(0.11, 0.11, 0.12)
+	assert_that(item.get_icon_modulate(0)).is_equal(expected)
+	# blanco puro (sin teñir) sería exactamente el bug al revés: invisible en tema claro
+	assert_bool(item.get_icon_modulate(0).is_equal_approx(Color.WHITE)).is_false()
+	if tm and not prev_mode.is_empty():
+		tm.set_mode(prev_mode)
+
+
+## The fusion row slider is 0..100 while InspectorCore's "opacity" is 0..1.
+func test_layers_opacity_slider_uses_percent_scale() -> void:
+	var ls = auto_free(load("res://scenes/ui/layers_system.tscn").instantiate())
+	add_child(ls)
+	await get_tree().process_frame
+	if not is_instance_valid(ls._slider_opacity):
+		return
+	ls._on_inspector_props_for_fusion({"opacity": {"value": 0.5, "mixed": false}})
+	assert_float(ls._slider_opacity.value).is_equal_approx(50.0, 0.01)
+	assert_str(ls._lbl_opacity.text).is_equal("50%")

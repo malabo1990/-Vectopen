@@ -155,7 +155,7 @@ func test_adaptive_ui_manager_orchestration() -> void:
 	assert_that(inspector.visible).is_false()
 	assert_object(manager.pro_studio).is_not_null()
 	assert_that(manager.pro_studio.visible).is_true()
-	assert_that(manager.pro_studio.custom_minimum_size.x).is_equal(320.0)
+	assert_that(manager.pro_studio.custom_minimum_size.x).is_equal(AdaptiveUIManager.PRO_RIGHT_W)
 	assert_that(layout.anchor_left).is_equal(0.0)
 
 	# 4. Regresar a Smart: Restaurar Canvas First (ProStudio y docked_inspector ocultos)

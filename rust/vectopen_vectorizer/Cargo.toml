@@ -1,0 +1,18 @@
+[package]
+name = "vectopen_vectorizer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+godot = { version = "0.5", features = ["api-4-7"] }
+vtracer = "0.6.5"
+ort = "2.0.0-rc.13"
+ndarray = "0.17"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+arboard = "3.6.1"
+
+[profile.release]
+lto = true

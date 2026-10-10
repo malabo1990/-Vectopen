@@ -29,6 +29,9 @@ var toolbar_ui: Control
 # --- CONFIGURACIÓN DE ZOOM CON TECLA Z ---
 @export_group("Z-Zoom Settings")
 @export var z_drag_sensitivity: float = 0.01
+## Zoom con arrastre estilo Krita: factor = e^(-px · velocidad) por movimiento
+## (suave y simétrico: subir y bajar lo mismo vuelve al zoom inicial).
+@export var zoom_drag_speed: float = 0.008
 @export var z_drag_max_factor: float = 0.15
 
 # --- EXPORTACIÓN DE PORCENTAJE DE ZOOM ---
@@ -71,14 +74,38 @@ var is_cmd_pressed: bool   = false
 var is_z_pressed: bool     = false
 
 var _zoom_anchor: Vector2  = Vector2.ZERO
+## Gesto de zoom con arrastre (Ctrl + botón central / Ctrl + Espacio) activo.
+var _zoom_drag: bool       = false
 var _eraser_active: bool   = false
 var _tool_before_eraser    = null
 var _dirty_regions: Array[Rect2] = []  # Regiones que necesitan redibujarse
 
+## Single-letter, no-modifier tool switching, clustered on Q-W-E-R-T / A-S-D-F
+## so the hand never has to leave typing position — explicit user request
+## after noticing I/P/M were too far away. `G` is left OUT of this cluster
+## because bare G is already a real, active shortcut (toggle gradient, see
+## MoveTool._handle_key_shortcuts) — putting a tool there would have broken
+## it. For the same reason, Shift+letter is reserved for the transform verbs
+## (Shift+G move, Shift+R rotate, Shift+S scale, see MoveTool.gd), so this
+## dictionary only fires without Shift/Ctrl/Alt/Meta. Before this, NO letter
+## switched tools from the keyboard at all — not even V or B — only clicking
+## the icon or the command palette worked.
+const TOOL_SWITCH_KEYS: Dictionary = {
+	KEY_V: "select",
+	KEY_B: "brush",
+	KEY_W: "hand",
+	KEY_E: "ellipse",
+	KEY_R: "rectangle",
+	KEY_T: "text",
+	KEY_P: "paragraph",
+	KEY_A: "artboard",
+	KEY_S: "star",
+	KEY_D: "bezier",
+}
+
 # --- Smart Cursor ---
 @onready var smart_cursor = get_node("/root/SmartCursor")
 var _cursor_material: ShaderMaterial = null
-var _cursor_visible: bool = true
 var _cursor_position: Vector2 = Vector2.ZERO
 
 # Diccionario global para el registro dinámico de herramientas
@@ -87,11 +114,19 @@ var _herramientas_registradas: Dictionary = {}
 # ── Ciclo de Vida del Canvas ─────────────────────────────────────────────────
 
 func _ready() -> void:
+	if not get_node_or_null("/root/MCPRuntime"):
+		var mcp_scr = load("res://addons/godot_mcp/runtime/mcp_runtime.gd")
+		if mcp_scr:
+			var mcp_inst = mcp_scr.new()
+			mcp_inst.name = "MCPRuntime"
+			get_tree().root.add_child.call_deferred(mcp_inst)
+
 	if not is_instance_valid(camera):
 		print("[Vectopen Error]: Camera2D no asignada en el nodo Canvas.")
 		return
 	
 	_inicializar_escena()
+	_get_tool_overlay()
 	_registrar_herramientas_iniciales()
 	_initialize_smart_cursor()
 
@@ -205,6 +240,9 @@ func switch_tool(tool_type: String) -> void:
 	match tool_type.to_lower():
 		"move":
 			if MoveTool_Script: change_tool(_new_tool(MoveTool_Script))
+		"nodeselection", "node", "direct_select":
+			var node_tool_script = preload("res://script_gdscript/tools/NodeSelectionTool.gd")
+			if node_tool_script: change_tool(_new_tool(node_tool_script))
 		"brush":
 			if BrushTool_Script: change_tool(_new_tool(BrushTool_Script))
 		"pen":
@@ -217,6 +255,9 @@ func switch_tool(tool_type: String) -> void:
 			if TriangleTool_Script: change_tool(_new_tool(TriangleTool_Script))
 		"pentagon":
 			if PentagonTool_Script: change_tool(_new_tool(PentagonTool_Script))
+		"star":
+			var star_script = preload("res://script_gdscript/tools/StarTool.gd")
+			if star_script: change_tool(_new_tool(star_script))
 		"star4":
 			if Star4Tool_Script: change_tool(_new_tool(Star4Tool_Script))
 		"star5":
@@ -235,6 +276,14 @@ func switch_tool(tool_type: String) -> void:
 			pass
 		"artboard":
 			if ArtboardTool_Script: change_tool(_new_tool(ArtboardTool_Script))
+		"shape_builder", "shapebuilder":
+			var sb_script = preload("res://script_gdscript/tools/ShapeBuilderTool.gd")
+			if sb_script: change_tool(_new_tool(sb_script))
+		"3d", "model3d":
+			var im = get_node_or_null("/root/ImportExportManager")
+			if is_instance_valid(im) and im.has_method("import_3d_model"):
+				im.import_3d_model()
+
 	# ToolManager (Sistema A) no tiene registradas todas las herramientas que
 	# sí maneja el match de arriba (Sistema B) — p.ej. "paragraph"/"artboard"
 	# no tienen escena en tools/. Sin este guard, tool_manager.switch_tool()
@@ -246,24 +295,61 @@ func switch_tool(tool_type: String) -> void:
 
 # ── Procesamiento de Entrada Centralizado ────────────────────────────────────
 
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		_handle_keyboard(event)
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		print("[CanvasEditor] _unhandled_input MB pos=%s current_tool=%s" % [event.position, current_tool.get_script().resource_path if current_tool else "null"])
 	if event is InputEventKey:
 		_handle_keyboard(event)
 		return
 
-	var en_modo_navegacion: bool = is_space_pressed or is_z_pressed or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE)
+	# Procesamiento preliminar de tableta digitalizadora (Wacom, Huion, XP-Pen)
+	if event is InputEventMouseMotion:
+		if event.pressure > 0.0 and current_tool:
+			current_tool.set_meta("pen_pressure", event.pressure)
+		if event.tilt != Vector2.ZERO and current_tool:
+			current_tool.set_meta("pen_tilt", event.tilt)
+
+		if event.pen_inverted:
+			if not _eraser_active:
+				_eraser_active = true
+				_tool_before_eraser = current_tool
+				if current_tool and current_tool.has_method("set_eraser_mode"):
+					current_tool.set_eraser_mode(true)
+		else:
+			if _eraser_active:
+				_eraser_active = false
+				if current_tool and current_tool.has_method("set_eraser_mode"):
+					current_tool.set_eraser_mode(false)
+				elif is_instance_valid(_tool_before_eraser):
+					change_tool(_tool_before_eraser)
+				_tool_before_eraser = null
+
+	# Si la barra espaciadora o la tecla Z están presionadas, la navegación de lienzo tiene prioridad
+	var en_modo_navegacion_forzada: bool = is_space_pressed or is_z_pressed
+	# El botón central (rueda / botón 2 del lápiz) SIEMPRE navega, con
+	# cualquier herramienta (pincel, pluma…): ninguna puede quedárselo.
+	if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE) \
+			or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_MIDDLE)) \
+			or _zoom_drag:
+		en_modo_navegacion_forzada = true
 	
-	if current_tool and not en_modo_navegacion:
+	if current_tool and not en_modo_navegacion_forzada:
 		if current_tool.has_method("handle_input"):
 			if current_tool.handle_input(event):
 				get_viewport().set_input_as_handled()
 				return
 
 	if event is InputEventMagnifyGesture:
-		zoom_at_point(event.factor, get_global_mouse_position())
+		if not is_canvas_zoom_paused():
+			zoom_at_point(event.factor, get_global_mouse_position())
 		get_viewport().set_input_as_handled()
 	elif event is InputEventPanGesture:
-		_handle_trackpad_pan(event)
+		if not is_canvas_zoom_paused():
+			_handle_trackpad_pan(event)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton:
 		_handle_mouse_button(event)
@@ -271,6 +357,60 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_mouse_motion(event)
 
 # ── Gestión de Teclado y Atajos de Teclas Cortas ────────────────────────────
+
+## Digit keys set the opacity of the selection: 1 = 10% ... 9 = 90%, 0 = 100%.
+## Two digits typed quickly give an exact value (4 then 5 = 45%). Only with a
+## selection, so bare 5 keeps resetting the zoom otherwise.
+const OPACITY_DIGIT_WINDOW_MS := 600
+var _opacity_digit_first: int = -1
+var _opacity_digit_time: int = 0
+
+func _handle_opacity_digit(event: InputEventKey) -> bool:
+	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed or event.shift_pressed or event.echo:
+		return false
+	var digit := -1
+	if event.keycode >= KEY_0 and event.keycode <= KEY_9:
+		digit = event.keycode - KEY_0
+	elif event.keycode >= KEY_KP_0 and event.keycode <= KEY_KP_9:
+		digit = event.keycode - KEY_KP_0
+	if digit < 0:
+		return false
+	# La opacidad se aplica vía InspectorCore (que opera sobre el Manager):
+	# comprobar el espejo aquí perdía el atajo cuando diferían.
+	var sm := get_node_or_null("/root/SelectionManager")
+	if sm == null or not sm.has_method("is_empty") or sm.is_empty():
+		return false
+	var now := Time.get_ticks_msec()
+	var percent: int
+	if _opacity_digit_first >= 0 and now - _opacity_digit_time <= OPACITY_DIGIT_WINDOW_MS:
+		percent = _opacity_digit_first * 10 + digit
+		if percent == 0:
+			percent = 100
+		_opacity_digit_first = -1
+	else:
+		percent = 100 if digit == 0 else digit * 10
+		_opacity_digit_first = digit
+		_opacity_digit_time = now
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("apply"):
+		ic.apply("opacity", clampf(percent / 100.0, 0.0, 1.0))
+	return true
+
+## Al perder el foco la ventana no recibe los "soltar" de las teclas que
+## estuvieran pulsadas: Espacio / Z (que no viajan en los eventos del ratón)
+## y Ctrl / Super se dan por soltadas. Si no, se quedaban pegadas (Espacio =
+## arrastrar desplaza en vez de dibujar, Z = arrastrar hace zoom…).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		var was_nav := is_space_pressed or is_z_pressed or dragging
+		is_space_pressed = false
+		is_z_pressed = false
+		is_ctrl_pressed = false
+		is_cmd_pressed = false
+		dragging = false
+		_zoom_drag = false
+		if was_nav and is_inside_tree():
+			_actualizar_cursor_navegacion()
 
 func _handle_keyboard(event: InputEventKey) -> void:
 	match event.keycode:
@@ -303,18 +443,24 @@ func _handle_keyboard(event: InputEventKey) -> void:
 	if sm_edit and sm_edit.has_method("has_active_text_edit") and sm_edit.has_active_text_edit():
 		return
 
+	if _handle_opacity_digit(event):
+		get_viewport().set_input_as_handled()
+		return
+
 	if VectopenInput.is_action_triggered(event, "canvas_reset_zoom"):
 		_reset_camera()
 		get_viewport().set_input_as_handled()
 		return
 
 	if VectopenInput.is_action_triggered(event, "canvas_zoom_in"):
-		zoom_at_point(1.2, get_global_mouse_position())
+		if not is_canvas_zoom_paused():
+			zoom_at_point(1.2, get_global_mouse_position())
 		get_viewport().set_input_as_handled()
 		return
 
 	if VectopenInput.is_action_triggered(event, "canvas_zoom_out"):
-		zoom_at_point(0.8, get_global_mouse_position())
+		if not is_canvas_zoom_paused():
+			zoom_at_point(0.8, get_global_mouse_position())
 		get_viewport().set_input_as_handled()
 		return
 
@@ -330,6 +476,31 @@ func _handle_keyboard(event: InputEventKey) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Grosor del texto seleccionado con teclado (como Figma): Ctrl+Alt+. más
+	# grueso, Ctrl+Alt+, más fino (100..900). Editando, lo gestiona el editor.
+	if event.ctrl_pressed and event.alt_pressed and event.keycode in [KEY_PERIOD, KEY_COMMA]:
+		var ic_w := get_node_or_null("/root/InspectorCore")
+		if ic_w and ic_w.has_method("current_props"):
+			var props_w: Dictionary = ic_w.current_props()
+			if props_w.has("font_weight") and not bool(props_w["font_weight"].get("mixed", false)):
+				var cur_w := int(props_w["font_weight"].get("value", 400))
+				ic_w.apply("font_weight", clampi(cur_w + (100 if event.keycode == KEY_PERIOD else -100), 100, 900))
+				get_viewport().set_input_as_handled()
+				return
+
+	# Single-letter tool switching (see TOOL_SWITCH_KEYS). Suppressed while a
+	# modal keyboard transform is active (Shift+G/R/S in MoveTool) — otherwise
+	# typing "D" or "F" mid Shift+G-move would switch tools instead of letting
+	# MoveTool process that frame of the gesture. "current_key_mode" is duck-
+	# typed (0 == NONE) instead of checking `is MoveTool`, to avoid coupling
+	# canvas.gd to one specific tool.
+	if not event.shift_pressed and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
+		var in_modal_transform: bool = current_tool and "current_key_mode" in current_tool and current_tool.current_key_mode != 0
+		if not in_modal_transform and TOOL_SWITCH_KEYS.has(event.keycode):
+			switch_tool(TOOL_SWITCH_KEYS[event.keycode])
+			get_viewport().set_input_as_handled()
+			return
+
 	# Permitir que la herramienta activa procese atajos específicos (ej. G para degradado en MoveTool, o Delete en stops)
 	if current_tool and current_tool.has_method("handle_input"):
 		if current_tool.handle_input(event):
@@ -338,16 +509,26 @@ func _handle_keyboard(event: InputEventKey) -> void:
 
 	# ── Fase 1 del informe de interacción avanzada (19/08/2026) ────────────
 	# Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/mover con flechas.
-	# VectopenInput.gd ya declaraba estos atajos pero nada los escuchaba —
-	# ver MoveTool.gd para la lógica real. De momento solo actúan con
-	# MoveTool activa: es la única herramienta que posee una selección real
-	# (selected_shapes); ampliar a otras herramientas es alcance de fase
-	# posterior, no de esta pasada.
-	if current_tool and current_tool.has_method("get_class_name") and current_tool.get_class_name() == "MoveTool":
-		if VectopenInput.is_action_triggered(event, "delete"):
+	var kc_del: int = event.keycode if event.keycode != 0 else event.physical_keycode
+	var is_del: bool = (kc_del in [KEY_DELETE, KEY_BACKSPACE, KEY_X]) and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed
+	if VectopenInput.is_action_triggered(event, "delete") or is_del:
+		var deleted_any := false
+		if current_tool and current_tool.has_method("delete_selected"):
 			current_tool.delete_selected()
+			deleted_any = true
+		elif current_tool and current_tool.has_method("delete_selected_nodes"):
+			current_tool.delete_selected_nodes()
+			deleted_any = true
+		if SelectionManager and SelectionManager.has_method("get_selected"):
+			var sel: Array = SelectionManager.get_selected()
+			if not sel.is_empty():
+				_delete_selected_shapes(sel)
+				deleted_any = true
+		if deleted_any:
 			get_viewport().set_input_as_handled()
 			return
+
+	if current_tool and current_tool.has_method("get_class_name") and current_tool.get_class_name() == "MoveTool":
 		if VectopenInput.is_action_triggered(event, "copy"):
 			current_tool.copy_selected()
 			get_viewport().set_input_as_handled()
@@ -357,7 +538,11 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if VectopenInput.is_action_triggered(event, "paste"):
-			current_tool.paste_clipboard()
+			# Si el portapapeles del SISTEMA (no el interno de formas) tiene una
+			# imagen — copiada de un navegador, un visor de imágenes, etc. — se
+			# importa directamente; si no, cae al pegado normal de formas.
+			if not ClipboardImageService.try_paste_into(self):
+				current_tool.paste_clipboard()
 			get_viewport().set_input_as_handled()
 			return
 		if VectopenInput.is_action_triggered(event, "duplicate"):
@@ -379,18 +564,6 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# Grosor del texto seleccionado con teclado (como Figma): Ctrl+Alt+. más
-	# grueso, Ctrl+Alt+, más fino (100..900). Editando, lo gestiona el editor.
-	if event.ctrl_pressed and event.alt_pressed and event.keycode in [KEY_PERIOD, KEY_COMMA]:
-		var ic_w := get_node_or_null("/root/InspectorCore")
-		if ic_w and ic_w.has_method("current_props"):
-			var props_w: Dictionary = ic_w.current_props()
-			if props_w.has("font_weight") and not bool(props_w["font_weight"].get("mixed", false)):
-				var cur_w := int(props_w["font_weight"].get("value", 400))
-				ic_w.apply("font_weight", clampi(cur_w + (100 if event.keycode == KEY_PERIOD else -100), 100, 900))
-				get_viewport().set_input_as_handled()
-				return
-
 	# Atajo de letra SOLO sin modificadores (misma regla que TOOL_SWITCH_KEYS):
 	# antes Ctrl+B se leía como "b" y cambiaba a la herramienta Pincel.
 	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
@@ -406,7 +579,14 @@ func _handle_keyboard(event: InputEventKey) -> void:
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if (event.button_index == MOUSE_BUTTON_LEFT and is_space_pressed) or event.button_index == MOUSE_BUTTON_MIDDLE:
+		if is_canvas_zoom_paused():
+			get_viewport().set_input_as_handled()
+			return
 		dragging = event.pressed
+		# Zoom con arrastre estilo Krita: anclado en el punto donde empieza.
+		_zoom_drag = false
+		if event.pressed:
+			_zoom_anchor = get_global_mouse_position()
 		if not dragging: 
 			_actualizar_cursor_navegacion()
 		get_viewport().set_input_as_handled()
@@ -421,17 +601,27 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+	if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		if GlobalUI and GlobalUI.is_mouse_over_ui:
 			return
-		var f: float = 1.0 + (zoom_speed * (2.0 if (is_ctrl_pressed or is_cmd_pressed) else 1.0))
-		zoom_at_point(f, get_global_mouse_position())
-		get_viewport().set_input_as_handled()
-	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		if GlobalUI and GlobalUI.is_mouse_over_ui:
+		var gm := get_global_mouse_position()
+		# Si la rueda no está presionada (evento de liberación), ignorar para evitar doble cómputo
+		if not event.pressed:
+			if is_canvas_zoom_paused(gm):
+				get_viewport().set_input_as_handled()
 			return
-		var f: float = 1.0 - (zoom_speed * (2.0 if (is_ctrl_pressed or is_cmd_pressed) else 1.0))
-		zoom_at_point(f, get_global_mouse_position())
+		# Si el zoom de canvas está en pausa (modo 3D activo o cursor sobre modelo 3D), delegar y pausar zoom del editor
+		if is_canvas_zoom_paused(gm) or (current_tool and current_tool.has_method("handle_wheel_3d") and current_tool.handle_wheel_3d(event, gm)):
+			if current_tool and current_tool.has_method("handle_wheel_3d"):
+				current_tool.handle_wheel_3d(event, gm)
+			get_viewport().set_input_as_handled()
+			return
+		# Modificadores DEL EVENTO (ver _handle_mouse_motion).
+		var fast := event.ctrl_pressed or event.meta_pressed
+		var f: float = 1.0 + (zoom_speed * (2.0 if fast else 1.0))
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			f = 1.0 - (zoom_speed * (2.0 if fast else 1.0))
+		zoom_at_point(f, gm)
 		get_viewport().set_input_as_handled()
 
 # ── Procesamiento del Desplazamiento y Presión del Lápiz ──────────────────────
@@ -453,27 +643,49 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	if current_tool and event.pressure > 0.0:
 		current_tool.set_meta("pen_pressure", event.pressure)
 
-	if is_z_pressed and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	# Botones y modificadores se leen DEL EVENTO (button_mask, meta_pressed),
+	# no del estado global: si la ventana pierde el foco con una tecla pulsada
+	# (Super abre las actividades de GNOME) nunca llega el "soltar", el estado
+	# global se queda pegado y el botón central del lápiz (botón 2) hacía
+	# ZOOM en vez de desplazar la vista.
+	var mask: int = event.button_mask
+	if is_z_pressed and (mask & MOUSE_BUTTON_MASK_LEFT):
 		var f: float = 1.0 - event.relative.y * z_drag_sensitivity
 		f = clamp(f, 1.0 - z_drag_max_factor, 1.0 + z_drag_max_factor)
 		zoom_at_point(f, _zoom_anchor)
 		get_viewport().set_input_as_handled()
 		return
 
-	if is_cmd_pressed and Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
-		var f: float = clamp(1.0 - event.relative.y * z_drag_sensitivity, 1.0 - z_drag_max_factor, 1.0 + z_drag_max_factor)
-		zoom_at_point(f, get_global_mouse_position())
+	# Zoom con ARRASTRE (como Krita): Ctrl + botón central (botón 2 del lápiz)
+	# o Ctrl + Espacio + clic. Arriba acerca, abajo aleja; el punto donde
+	# empezó el gesto se queda quieto bajo el cursor. Super (Cmd en macOS)
+	# también vale.
+	var mid := (mask & MOUSE_BUTTON_MASK_MIDDLE) != 0
+	var space_left := is_space_pressed and (mask & MOUSE_BUTTON_MASK_LEFT) != 0
+	if (event.ctrl_pressed or event.meta_pressed) and (mid or space_left):
+		if is_canvas_zoom_paused():
+			return
+		if not _zoom_drag:
+			_zoom_drag = true
+			_zoom_anchor = get_global_mouse_position()
+		var f: float = clampf(exp(-event.relative.y * zoom_drag_speed), 0.7, 1.4)
+		zoom_at_point(f, _zoom_anchor)
 		get_viewport().set_input_as_handled()
 		return
+	if _zoom_drag and not (mid or space_left):
+		_zoom_drag = false
 
-	if dragging and (is_space_pressed or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE)):
+	if dragging and (is_space_pressed or (mask & MOUSE_BUTTON_MASK_MIDDLE)):
+		if is_canvas_zoom_paused():
+			dragging = false
+			return
 		if is_instance_valid(camera) and camera.zoom.x > 0.0:
 			camera.position -= event.relative * pan_speed / camera.zoom.x
 			get_viewport().set_input_as_handled()
 		return
 
 func _handle_trackpad_pan(event: InputEventPanGesture) -> void:
-	if is_cmd_pressed or is_ctrl_pressed:
+	if event.meta_pressed or event.ctrl_pressed:
 		zoom_at_point(1.0 - event.delta.y * zoom_speed * 0.5, get_global_mouse_position())
 	else:
 		if is_instance_valid(camera) and camera.zoom.x > 0.0:
@@ -494,68 +706,29 @@ func _actualizar_cursor_navegacion() -> void:
 
 # ── Motor Gráfico (Vista previa de herramientas) ──────────────────────────────
 
+var _tool_overlay: Node2D = null
+
+func _get_tool_overlay() -> Node2D:
+	if not is_instance_valid(_tool_overlay):
+		_tool_overlay = Node2D.new()
+		_tool_overlay.name = "ToolOverlay"
+		_tool_overlay.z_index = 4096
+		_tool_overlay.z_as_relative = false
+		_tool_overlay.draw.connect(_on_tool_overlay_draw)
+		add_child(_tool_overlay)
+	return _tool_overlay
+
+func _on_tool_overlay_draw() -> void:
+	if is_instance_valid(current_tool) and current_tool.has_method("draw_preview"):
+		current_tool.draw_preview(_tool_overlay)
+
 func _draw() -> void:
-	# Si hay regiones sucias, redibujar solo esas regiones
-	if _dirty_regions.size() > 0:
-		for region in _dirty_regions:
-			draw_rect(region, Color.TRANSPARENT)  # Limpiar la región
-
-			# Aplicar clipping a la región sucia
-			var viewport_rect = Rect2(Vector2.ZERO, get_viewport_rect().size)
-			var clip_rect = region.intersection(viewport_rect)
-			RenderingServer.canvas_item_set_custom_rect(get_canvas_item(), true, clip_rect)
-
-			# Dibujar solo en la región sucia
-			if current_tool and current_tool.has_method("draw_preview"):
-				current_tool.draw_preview(self)
-
-		# Las regiones ya se consumieron: si no se limpian aquí, _dirty_regions
-		# queda "sucio" para siempre desde la primera llamada a mark_region_dirty()
-		# de toda la sesión (cambio de herramienta, zoom, toolbar...), y CADA
-		# redibujado posterior queda recortado (canvas_item_set_custom_rect) a esa
-		# región vieja — por eso el rectángulo de marquee y los contornos de
-		# multiselección de MoveTool.draw_preview() nunca se veían al arrastrar.
-		# Encontrado el 19/08/2026 verificando en vivo por qué no aparecía ningún
-		# bounding box de selección múltiple ni el marco de arrastre.
-		_dirty_regions.clear()
-		RenderingServer.canvas_item_set_custom_rect(get_canvas_item(), false, Rect2())
-
-	else:
-		# Redibujar todo si no hay regiones sucias
-		if current_tool and current_tool.has_method("draw_preview"):
-			current_tool.draw_preview(self)
-	
-	# Dibujar el cursor inteligente
-	_draw_smart_cursor()
-
-
-func _draw_smart_cursor() -> void:
-	"""
-	Dibuja el cursor inteligente en el canvas.
-	"""
-	if not _cursor_visible or not _cursor_material or not smart_cursor:
-		return
-	
-	# Obtener la posición global del mouse
-	var mouse_pos = _cursor_position
-	if mouse_pos == Vector2.ZERO:
-		mouse_pos = get_global_mouse_position()
-	
-	# Convertir a coordenadas locales
-	var local_pos = to_local(mouse_pos)
-	
-	# Dibujar el cursor
-	draw_set_transform(local_pos)
-	
-	var cs_size = smart_cursor.get_current_size()
-	draw_rect(
-		Rect2(-cs_size, -cs_size, cs_size * 2, cs_size * 2),
-		Color(1, 1, 1, 1), 
-		true
-	)
-	
-	draw_set_transform(Vector2.ZERO)
-
+	# El redibujado de herramientas se procesa en _tool_overlay (z_index=4096)
+	# para que los nodos, tiradores Bézier y contornos nunca queden cubiertos
+	# por el relleno opaco de las figuras ni por los artboards hijos.
+	var ov := _get_tool_overlay()
+	if is_instance_valid(ov):
+		ov.queue_redraw()
 
 # ── API Pública para Redraw Regional ───────────────────────────────────────
 
@@ -566,9 +739,10 @@ func mark_region_dirty(region: Rect2) -> void:
 	"""
 	if region.has_area():
 		_dirty_regions.append(region)
-		# Combinar regiones superpuestas para optimizar
 		_combine_dirty_regions()
 		queue_redraw()
+		if is_instance_valid(_tool_overlay):
+			_tool_overlay.queue_redraw()
 
 
 func mark_point_dirty(_point_position: Vector2, radius: float = 10.0) -> void:
@@ -692,8 +866,32 @@ func _connect_gui_input() -> void:
 
 # ── Métodos de Cámara y Sincronización ────────────────────────────────────────
 
+## Control de pausa de navegación y zoom del canvas (prioridad a objetos 3D)
+var _canvas_zoom_paused: bool = false
+
+func pause_canvas_zoom(pause: bool = true) -> void:
+	_canvas_zoom_paused = pause
+
+func is_canvas_zoom_paused(at_pos: Vector2 = Vector2.INF) -> bool:
+	if _canvas_zoom_paused:
+		return true
+	var p: Vector2 = at_pos if at_pos != Vector2.INF else get_global_mouse_position()
+	if current_tool:
+		if current_tool.has_method("is_3d_focused"):
+			if current_tool.is_3d_focused(p):
+				return true
+		if "active_3d_model" in current_tool and is_instance_valid(current_tool.active_3d_model):
+			return true
+		if "is_middle_dragging_3d" in current_tool and current_tool.is_middle_dragging_3d:
+			return true
+		if "_is_dragging_3d" in current_tool and current_tool._is_dragging_3d:
+			return true
+	return false
+
 func zoom_at_point(factor: float, world_point: Vector2) -> void:
 	if not is_instance_valid(camera):
+		return
+	if is_canvas_zoom_paused(world_point):
 		return
 		
 	var old_zoom: float = camera.zoom.x
@@ -742,3 +940,45 @@ func _sincronizar_ui_toolbar() -> void:
 		if toolbar_ui:
 			var toolbar_rect = toolbar_ui.get_global_rect()
 			mark_region_dirty(toolbar_rect)
+
+func _delete_selected_shapes(shapes: Array) -> void:
+	if shapes.is_empty():
+		return
+	var nodes: Array = shapes.duplicate()
+	var parents: Array = []
+	var indices: Array = []
+	for n in nodes:
+		if is_instance_valid(n):
+			parents.append(n.get_parent())
+			indices.append(n.get_index())
+		else:
+			parents.append(null)
+			indices.append(-1)
+
+	if HistoryManager:
+		HistoryManager.register_action("Eliminar selección")
+		HistoryManager.add_do(_do_remove_nodes.bind(nodes))
+		HistoryManager.add_undo(_do_restore_nodes.bind(nodes, parents, indices))
+		HistoryManager.commit()
+	_do_remove_nodes(nodes)
+
+func _do_remove_nodes(nodes: Array) -> void:
+	for n in nodes:
+		if is_instance_valid(n) and is_instance_valid(n.get_parent()):
+			n.get_parent().remove_child(n)
+	if SelectionManager and SelectionManager.has_method("clear"):
+		SelectionManager.clear()
+	if current_tool and current_tool.has_method("_clear_selection"):
+		current_tool._clear_selection()
+	queue_redraw()
+
+func _do_restore_nodes(nodes: Array, parents: Array, indices: Array) -> void:
+	for i in range(nodes.size()):
+		var n = nodes[i]
+		var p = parents[i]
+		if is_instance_valid(n) and is_instance_valid(p) and not n.is_inside_tree():
+			p.add_child(n)
+			p.move_child(n, mini(indices[i], p.get_child_count() - 1))
+	if SelectionManager and SelectionManager.has_method("set_selection"):
+		SelectionManager.set_selection(nodes)
+	queue_redraw()
