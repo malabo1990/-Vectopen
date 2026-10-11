@@ -24,7 +24,7 @@ class_name VectopenAPI
 extends RefCounted
 
 const API_VERSION := "1.0"
-const SvgImport = preload("res://script_gdscript/shapes/SvgImportService.gd")
+const SvgImport = preload("res://script_gdscript/system/svg_import.gd")
 
 ## Referencia de la API (autocompletado y ayuda de la pestaña Script).
 ## [grupo, firma, descripción]. Un test comprueba que coincide con el código.
@@ -69,6 +69,29 @@ const REFERENCE := [
 	["Organizar", "delete(objeto_o_lista)", "Borra"],
 	["Organizar", "duplicate(objeto, desplazamiento = (20,20)) -> Node2D", "Copia"],
 	["Organizar", "group(lista, nombre = \"Grupo\") -> Node2D", "Agrupa"],
+	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
+	["Organizar", "align(lista, modo)", "left, center_h, right, top, middle, bottom ([] = selección)"],
+	["Organizar", "distribute(lista, eje)", "Reparte 3+ objetos: \"h\" o \"v\""],
+	["Organizar", "boolean(op, lista) -> Node", "union, subtract, intersect, exclude, flatten, release"],
+	["Efectos", "effect_types() -> Array", "Tipos de efecto (Drop Shadow, Blur, 3D…)"],
+	["Efectos", "add_effect(objeto, tipo, params = {}) -> Dictionary", "Añade un efecto"],
+	["Efectos", "clear_effects(objeto, tipo = \"\")", "Quita efectos"],
+	["Efectos", "filter_types() -> Array", "Tipos de filtro (glass, grain, neon…)"],
+	["Efectos", "add_filter(objeto, tipo, params = {}) -> Dictionary", "Añade un filtro"],
+	["Efectos", "clear_filters(objeto)", "Quita los filtros"],
+	["Shaders", "shaders() -> Array", "Shaders guardados en la biblioteca"],
+	["Shaders", "shader_templates() -> Array", "Plantillas de shader"],
+	["Shaders", "shader_code(nombre) -> String", "Código de un shader o plantilla"],
+	["Shaders", "save_shader(nombre, codigo) -> Array", "Guarda en la biblioteca; devuelve errores"],
+	["Shaders", "apply_shader(objeto_o_lista, nombre_o_codigo) -> bool", "Aplica un shader"],
+	["Shaders", "remove_shader(objeto_o_lista)", "Quita el shader"],
+	["Shaders", "get_shader(objeto) -> Dictionary", "Shader aplicado ({} si no hay)"],
+	["Documento", "add_artboard(tamaño, nombre) -> Node2D", "Artboard nuevo (y activo)"],
+	["Documento", "add_image(ruta_o_image, centro) -> Node2D", "Imagen"],
+	["Documento", "export(ruta, artboard = null, opciones = {}) -> bool", ".svg .pdf .eps .png .jpg .webp .vop .tscn .scn (await)"],
+	["Documento", "svg(artboard = null) -> String", "SVG del artboard como texto"],
+	["Documento", "vectorize_presets() -> Array", "Presets de vectorización"],
+	["Documento", "vectorize(imagen, preset, ocultar = true) -> Node2D", "Imagen → trazados Bézier (await)"],
 	["Deshacer", "begin(nombre)", "Abre un paso de deshacer"],
 	["Deshacer", "end()", "Cierra el paso abierto con begin()"],
 	["Deshacer", "transaction(nombre, funcion)", "Ejecuta funcion como un paso"],
@@ -481,16 +504,14 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 	t.set_meta("size", size)
 	return add(t)
 
-## Importa un SVG (texto) como grupo de trazados. `pos` = esquina sup.-izq.
+## Importa un SVG (texto) como grupo de objetos editables (trazados Bézier,
+## texto, imágenes). `pos` = esquina sup.-izq. del SVG en el artboard.
 func import_svg(svg_text: String, pos: Vector2 = Vector2.ZERO, name: String = "SVG") -> Node2D:
-	var g := Node2D.new()
-	g.name = name
-	g.set_meta("shape_type", "group")
-	var paths: Array = SvgImport.build_from_svg(svg_text, g)
-	if paths.is_empty():
-		g.free()
-		error("import_svg: el SVG no tiene trazados")
+	var data := SvgImport.parse(svg_text)
+	if (data["items"] as Array).is_empty():
+		error("import_svg: el SVG no tiene nada que importar")
 		return null
+	var g := SvgImport.build(data, name)
 	g.position = pos
 	return add(g)
 
@@ -574,6 +595,325 @@ func group(nodes: Array, name: String = "Grupo") -> Node2D:
 			parent.remove_child(g)
 	do_fn.call()
 	_record("Agrupar", do_fn, undo_fn, false)
+	return g
+
+# ── orden (capas) ────────────────────────────────────────────────────────────
+## Cambia el orden de apilado: "front" (arriba del todo), "back", "up", "down".
+func arrange(node: Node, where: String) -> void:
+	if not is_instance_valid(node) or node.get_parent() == null:
+		return
+	var p := node.get_parent()
+	var before := node.get_index()
+	var last := p.get_child_count() - 1
+	var after := before
+	match where:
+		"front": after = last
+		"back": after = 0
+		"up": after = mini(before + 1, last)
+		"down": after = maxi(before - 1, 0)
+		_:
+			error("arrange: usa front, back, up o down")
+			return
+	if after == before:
+		return
+	p.move_child(node, after)
+	_record("Orden",
+		func() -> void:
+			if is_instance_valid(node) and node.get_parent() == p: p.move_child(node, after),
+		func() -> void:
+			if is_instance_valid(node) and node.get_parent() == p: p.move_child(node, before),
+		false)
+	_tx_dirty = true
+	if _tx_depth == 0:
+		_flush()
+
+# ── alinear, distribuir, booleanas ───────────────────────────────────────────
+## Alinea objetos (o la selección si `nodes` está vacío). `mode`: left,
+## center_h, right, top, middle, bottom (o una lista de ellos). Con un solo
+## objeto se alinea al artboard.
+func align(nodes: Array, mode: Variant) -> void:
+	_with_selection(nodes, func() -> void:
+		var ic := _n("InspectorCore")
+		if ic: ic.align(mode))
+
+## Reparte 3 objetos o más con el mismo espacio. `axis`: "h" o "v".
+func distribute(nodes: Array, axis: String) -> void:
+	_with_selection(nodes, func() -> void:
+		var ic := _n("InspectorCore")
+		if ic: ic.distribute(axis))
+
+## Operación booleana: "union", "subtract", "intersect", "exclude",
+## "flatten" (convertir en trazado) o "release" (deshacer la booleana).
+## Devuelve el objeto resultante.
+func boolean(op: String, nodes: Array) -> Node:
+	var bc := _n("BooleanCore")
+	if bc == null:
+		return null
+	var res: Array = [null]
+	_absorb("Booleana " + op, func() -> void:
+		res[0] = bc.apply_operation(op, nodes))
+	if res[0] == null and not (op in ["release"]):
+		error("boolean: no se pudo aplicar «%s» (¿2 objetos o más?)" % op)
+	return res[0]
+
+## Selecciona `nodes` (si hay), ejecuta `fn` y restaura la selección.
+func _with_selection(nodes: Array, fn: Callable) -> void:
+	var prev := selection()
+	if not nodes.is_empty():
+		select(nodes)
+	var ic := _n("InspectorCore")
+	if ic:
+		ic._sync_selection()
+	_absorb("Alinear", fn)
+	if not nodes.is_empty():
+		select(prev)
+
+## Ejecuta `fn` (que usa un sistema de la app con su propio deshacer) y
+## convierte los pasos que registró en parte de ESTE paso/transacción.
+func _absorb(action_name: String, fn: Callable) -> void:
+	var hm := _n("HistoryManager")
+	var ur = hm._undo_redo if hm and "_undo_redo" in hm else null
+	if ur == null:
+		fn.call()
+		return
+	var n0: int = ur.undo_stack.size()
+	fn.call()
+	if ur.undo_stack.size() <= n0:
+		return
+	var actions: Array = ur.undo_stack.slice(n0)
+	ur.undo_stack.resize(n0)
+	_record(action_name,
+		func() -> void:
+			for a in actions:
+				for c in a.do_callables:
+					c.call(),
+		func() -> void:
+			for i in range(actions.size() - 1, -1, -1):
+				var cs: Array = actions[i].undo_callables
+				for j in range(cs.size() - 1, -1, -1):
+					cs[j].call(),
+		false)
+	ur.version_changed.emit(ur.can_undo(), ur.can_redo())
+
+# ── efectos, filtros y shaders ───────────────────────────────────────────────
+## Tipos de efecto: Drop Shadow, Inner Shadow, Outline, Blur, Color Overlay,
+## Gradient Overlay, Inner Glow, 3D, Bevel Emboss, Extrusion.
+func effect_types() -> Array:
+	return Array(EffectsPanel.EFFECT_ORDER)
+
+## Añade un efecto con sus valores por defecto + `params`. Devuelve el efecto.
+func add_effect(node: Node, type: String, params: Dictionary = {}) -> Dictionary:
+	if not (type in EffectsPanel.EFFECT_ORDER):
+		error("add_effect: tipo desconocido «%s». Usa effect_types()" % type)
+		return {}
+	var fx := EffectsPanel.default_effect(type)
+	fx.merge(params, true)
+	var list: Array = get_prop(node, "effects") if get_prop(node, "effects") is Array else []
+	list.append(fx)
+	set_prop(node, "effects", list)
+	return fx
+
+## Quita todos los efectos (o solo los de `type`).
+func clear_effects(node: Node, type: String = "") -> void:
+	var list: Array = get_prop(node, "effects") if get_prop(node, "effects") is Array else []
+	set_prop(node, "effects", [] if type == "" else list.filter(func(f) -> bool: return String(f.get("type", "")) != type))
+
+## Tipos de filtro: glass, grain, duotone, neon, halftone, pixelate, chromatic…
+func filter_types() -> Array:
+	return FilterFx.DEFAULTS.keys()
+
+## Añade un filtro con sus valores por defecto + `params`.
+func add_filter(node: Node, type: String, params: Dictionary = {}) -> Dictionary:
+	var f := FilterFx.make(type)
+	if not FilterFx.DEFAULTS.has(String(f["type"])):
+		error("add_filter: tipo desconocido «%s». Usa filter_types()" % type)
+		return {}
+	f.merge(params, true)
+	var list: Array = (get_prop(node, "filters") as Array).duplicate(true) if get_prop(node, "filters") is Array else []
+	list.append(f)
+	set_prop(node, "filters", list)
+	return f
+
+func clear_filters(node: Node) -> void:
+	set_prop(node, "filters", [])
+
+## Nombres de los shaders guardados en la biblioteca (pestaña Shader).
+func shaders() -> Array:
+	return ShaderLib.list().map(func(it) -> String: return String(it["name"]))
+
+## Nombres de las plantillas de shader.
+func shader_templates() -> Array:
+	return ShaderLib.TEMPLATES.keys()
+
+## Código de un shader guardado o de una plantilla ("" si no existe).
+func shader_code(name: String) -> String:
+	for it in ShaderLib.list():
+		if String(it["name"]) == name:
+			return ShaderLib.load_code(String(it["path"]))
+	if ShaderLib.TEMPLATES.has(name):
+		return ShaderLib.template_code(name)
+	return ""
+
+## Guarda un shader en la biblioteca. Devuelve los errores ([] = compila).
+func save_shader(name: String, code: String) -> Array:
+	var errs := ShaderLib.validate(code)
+	if errs.is_empty():
+		ShaderLib.save(name, code)
+	else:
+		error("save_shader: «%s» no compila (línea %d: %s)" % [name, int(errs[0]["line"]), errs[0]["msg"]])
+	return errs
+
+## Aplica un shader a uno o varios objetos: nombre de la biblioteca, nombre
+## de plantilla o código directamente. Devuelve false si no compila.
+func apply_shader(nodes: Variant, shader: String) -> bool:
+	var nm := shader
+	var code := shader_code(shader)
+	if code == "":
+		if "shader_type" in shader:
+			code = shader
+			nm = "Shader"
+		else:
+			error("apply_shader: no hay ningún shader llamado «%s»" % shader)
+			return false
+	var errs := ShaderLib.validate(code)
+	if not errs.is_empty():
+		error("apply_shader: «%s» no compila (línea %d: %s)" % [nm, int(errs[0]["line"]), errs[0]["msg"]])
+		return false
+	var value := {"name": nm, "code": code, "margin": ShaderLib.margin_of(code), "params": {}, "enabled": true}
+	begin("Shader · " + nm)
+	for n in (nodes if nodes is Array else [nodes]):
+		set_prop(n, "custom_shader", value.duplicate(true))
+	end()
+	return true
+
+func remove_shader(nodes: Variant) -> void:
+	begin("Quitar shader")
+	for n in (nodes if nodes is Array else [nodes]):
+		set_prop(n, "custom_shader", {})
+	end()
+
+## Shader aplicado a un objeto ({} si no tiene).
+func get_shader(node: Node) -> Dictionary:
+	var v = get_prop(node, "custom_shader")
+	return v if v is Dictionary else {}
+
+# ── artboards, imágenes, exportar, vectorizar ────────────────────────────────
+## Crea un artboard nuevo (a la derecha del último) y lo activa.
+func add_artboard(size: Vector2 = Vector2(794, 1123), name: String = "Artboard") -> Node2D:
+	var first := artboard()
+	var cont := first.get_parent() if first else null
+	if cont == null:
+		error("add_artboard: no hay contenedor de artboards")
+		return null
+	var pos := Vector2.ZERO
+	for a in artboards():
+		pos.x = maxf(pos.x, a.global_position.x + a.artboard_size.x + 80.0)
+		pos.y = a.global_position.y if pos.y == 0.0 else pos.y
+	var ab := Node2D.new()
+	ab.set_script(load("res://scripts/canvas/artboard.gd"))
+	ab.name = NameUtils.unique_child_name(cont, name)
+	ab.artboard_size = size
+	cont.add_child(ab)
+	ab.global_position = pos
+	set_active_artboard(ab)
+	_record("Nuevo artboard",
+		func() -> void:
+			if is_instance_valid(ab) and ab.get_parent() == null:
+				cont.add_child(ab)
+				ab.global_position = pos,
+		func() -> void:
+			if is_instance_valid(ab) and ab.get_parent() == cont:
+				cont.remove_child(ab)
+				if is_instance_valid(first): set_active_artboard(first),
+		false)
+	return ab
+
+## Imagen (ruta de archivo o Image) centrada en `center`.
+func add_image(source: Variant, center: Vector2, name: String = "Imagen") -> Node2D:
+	var img: Image = source if source is Image else null
+	if img == null:
+		img = Image.new()
+		if img.load(String(source)) != OK:
+			error("add_image: no se pudo cargar «%s»" % source)
+			return null
+		if name == "Imagen":
+			name = "Foto_" + String(source).get_file().get_basename()
+	var sp := Sprite2D.new()
+	sp.name = name
+	sp.texture = ImageTexture.create_from_image(img)
+	sp.centered = false
+	sp.position = center - Vector2(img.get_size()) / 2.0
+	return add(sp)
+
+## Exporta un artboard según la extensión: .svg .pdf .eps .png .jpg .webp
+## .vop .tscn .scn. `options`: scale (imagen), quality 1-100, transparent.
+## Usar con await. Devuelve true si se escribió.
+func export(path: String, ab: Node2D = null, options: Dictionary = {}) -> bool:
+	var a := ab if ab else artboard()
+	var iem := _n("ImportExportManager")
+	if a == null or iem == null:
+		error("export: no hay artboard o exportador")
+		return false
+	var fmt := {"svg": "SVG", "pdf": "PDF", "eps": "EPS", "png": "PNG", "jpg": "JPEG", "jpeg": "JPEG",
+		"webp": "WEBP", "vop": "VOP", "tscn": "TSCN", "scn": "SCN"}
+	var ext := path.get_extension().to_lower()
+	if not fmt.has(ext):
+		error("export: formato no soportado «.%s»" % ext)
+		return false
+	var err: Error = await iem.export_artboard(a, iem.ExportFormat[fmt[ext]], path, options)
+	if err != OK:
+		error("export: no se pudo escribir «%s» (%s)" % [path, error_string(err)])
+	return err == OK
+
+## SVG del artboard como texto.
+func svg(ab: Node2D = null) -> String:
+	var iem := _n("ImportExportManager")
+	var a := ab if ab else artboard()
+	return iem.export_to_svg_string(a) if iem and a else ""
+
+## Presets de vectorización: Logo / icono, Ilustración, Foto (más detalle),
+## Blanco y negro, Pixel art.
+func vectorize_presets() -> Array:
+	return VecPanel.PRESETS.keys()
+
+## Vectoriza una imagen (Sprite2D) en trazados Bézier. Usar con await.
+## Devuelve el grupo creado (o null).
+func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original: bool = true) -> Node2D:
+	if not ClassDB.class_exists("VectorizerJob"):
+		error("vectorize: el vectorizador nativo no está cargado")
+		return null
+	if not is_instance_valid(sprite) or sprite.texture == null:
+		error("vectorize: hace falta una imagen")
+		return null
+	var opts: Dictionary = (VecPanel.PRESETS.get(preset, VecPanel.PRESETS["Ilustración"]) as Dictionary).duplicate()
+	opts["hierarchical"] = "stacked"
+	opts["path_precision"] = 3
+	var src := VecPanel._tmp_path("api_in.png")
+	var out := VecPanel._tmp_path("api_out.svg")
+	var img := sprite.texture.get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.save_png(src)
+	var j = ClassDB.instantiate("VectorizerJob")
+	j.start_vectorize(ProjectSettings.globalize_path(src), ProjectSettings.globalize_path(out), opts,
+		false, false, ProjectSettings.globalize_path("user://"))
+	while not j.is_done():
+		await _host.get_tree().process_frame
+	var err: String = j.get_error()
+	var text := FileAccess.get_file_as_string(out)
+	VecPanel._cleanup([src, out])
+	if err != "" or text == "":
+		error("vectorize: " + (err if err != "" else "sin resultado"))
+		return null
+	var g := VecPanel.build_group(sprite, text)
+	if g == null:
+		error("vectorize: la imagen no produjo trazados")
+		return null
+	begin("Vectorizar")
+	add(g, sprite.get_parent())
+	if hide_original:
+		set_prop(sprite, "visible", false)
+	end()
 	return g
 
 # ── deshacer / transacciones ─────────────────────────────────────────────────
@@ -700,3 +1040,7 @@ func run_operator(id: String) -> bool:
 	return true
 
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
+const ShaderLib = preload("res://script_gdscript/shapes/shader_library.gd")
+const FilterFx = preload("res://script_gdscript/shapes/filter_fx.gd")
+const EffectsPanel = preload("res://script_gdscript/ui/panels/effects/effects.gd")
+const VecPanel = preload("res://script_gdscript/ui/panels/effects/vectorize_panel.gd")

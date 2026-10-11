@@ -35,6 +35,10 @@ func _find_script_node(n: Node, suffix: String) -> Node:
 
 func _run() -> void:
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
+	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
+	for _w in 600:
+		if Engine.has_meta(&"vectopen_startup_done"): break
+		await process_frame
 	await _frames(30)
 	Engine.max_fps = 0
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)

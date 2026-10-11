@@ -51,8 +51,15 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	var regla_v = windows_regla.get_node("regla vertical") as Control
 	assert_that(windows_regla.offset_top).is_equal(36.0)
 	assert_that(regla_h.offset_right).is_equal(-268.0)
-	assert_that(regla_v.offset_left).is_equal(260.0)
-	assert_that(regla_h.offset_left).is_equal(284.0)
+	# la regla empieza justo en el borde del panel acoplado (su ancho real:
+	# 260 como mínimo, más si el contenido lo necesita; antes se salía de
+	# la pantalla por la izquierda)
+	await get_tree().process_frame
+	var dock_w: float = layout.offset_right - layout.offset_left
+	assert_that(dock_w).is_greater_equal(260.0)
+	assert_that(regla_v.offset_left).is_equal(dock_w)
+	assert_that(regla_h.offset_left).is_equal(dock_w + 24.0)
+	assert_that((layout.get_node("PanelContainer") as Control).get_global_rect().position.x).is_greater_equal(0.0)
 	# The ruler-corner settings button duplicated the top-bar one
 	assert_that((windows_regla.get_node("Button") as Control).visible).is_false()
 
@@ -141,7 +148,9 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(regla_h.offset_right).is_equal(0.0)
 	assert_that(regla_h.offset_left).is_equal(0.0)
 	assert_that(layout.offset_left).is_equal(-106.0)
-	assert_that(inner_panel.offset_left).is_equal(-476.0)
+	# modo smart: el panel queda a 10 px (EDGE_GAP) del borde derecho
+	assert_that(inner_panel.offset_left).is_equal(-486.0)
+	assert_that(inner_panel.offset_right).is_equal(-10.0)
 	assert_that(vert_tools.visible).is_true()
 
 	var restored_inner_sb = inner_panel.get_theme_stylebox("panel") as StyleBoxFlat

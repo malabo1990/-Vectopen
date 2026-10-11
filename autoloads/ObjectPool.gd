@@ -13,7 +13,11 @@ signal pool_initialized(pool_name: String, size: int)
 const POOL_CONFIG := {
 	"BoundingBox": {
 		"scene_path": "res://scenes/canvas/boundingbox.tscn",
-		"initial_size": 20,
+		# ARRANQUE RÁPIDO: antes se creaban 20 al abrir (~250 ms antes de ver
+		# la ventana). Solo hay una caja en uso a la vez y acquire() crea más
+		# bajo demanda, así que basta con 2, precreadas DESPUÉS del primer
+		# fotograma (ver _prewarm).
+		"initial_size": 2,
 		"max_size": 100
 	}
 }
@@ -51,15 +55,29 @@ func _initialize_pool(pool_name: String) -> void:
 	add_child(pool["container"])
 	pool["container"].name = "Pool_" + pool_name
 	
-	# Pre-cargar objetos iniciales
-	for i in range(pool["initial_size"]):
-		var instance = _instantiate_scene(pool["scene_path"])
-		if instance:
-			pool["available"].append(instance)
-			pool["container"].add_child(instance)
-			instance.visible = false
-	
 	_pools[pool_name] = pool
+	# Pre-cargar objetos iniciales FUERA del arranque: uno por fotograma,
+	# cuando la ventana ya se ve.
+	_prewarm.call_deferred(pool_name)
+
+
+func _prewarm(pool_name: String) -> void:
+	var pool: Dictionary = _pools.get(pool_name, {})
+	if pool.is_empty():
+		return
+	if is_inside_tree():
+		await get_tree().process_frame
+	while pool["available"].size() + pool["in_use"].size() < pool["initial_size"]:
+		if is_inside_tree():
+			await get_tree().process_frame
+		if not is_instance_valid(pool["container"]):
+			return
+		var instance = _instantiate_scene(pool["scene_path"])
+		if instance == null:
+			break
+		pool["available"].append(instance)
+		pool["container"].add_child(instance)
+		instance.visible = false
 	pool_initialized.emit(pool_name, pool["initial_size"])
 
 

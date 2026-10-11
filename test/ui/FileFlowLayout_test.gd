@@ -50,7 +50,10 @@ func test_preview_espacio_muestra_overlay_centrado() -> void:
 	ev.pressed = true
 	ffl._input(ev)
 
-	var overlay := ffl.get_node("BigPreviewOverlay") as Control
+	# en su propia capa, por encima del panel de exportar y de todo lo demás
+	var layer := ffl.get_node("BigPreviewLayer") as CanvasLayer
+	assert_int(layer.layer).is_greater(50)
+	var overlay := layer.get_node("BigPreviewOverlay") as Control
 	assert_that(overlay.visible).is_true()
 	var ev2 := InputEventKey.new()
 	ev2.keycode = KEY_SPACE
@@ -174,48 +177,42 @@ func test_archivo_externo_se_agrega_a_seccion_desktop() -> void:
 	DirAccess.remove_absolute(test_path)
 
 # ============================================================================
-#                     CONFIGURACIÓN CONTEXTUAL POR FORMATO
+#        COLUMNA EXPORTAR (filas por elemento, diseño «smart export»)
 # ============================================================================
+# Sustituye a la antigua columna de formato (Estilo/Resolución/Página), que
+# no llegaba al exportador.
 
-func test_formato_png_muestra_resolucion_y_color() -> void:
-	var panel := _panel()
-	var cfg := _format_panel(panel)
-	cfg._apply_format("PNG")
-	assert_that(cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/LabelFormato").text).is_equal("Color")
-	var option: OptionButton = cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/OptionFormat")
-	assert_int(option.item_count).is_equal(2)
-	assert_that(option.get_item_text(0)).is_equal("RGBA")
-	assert_that(option.get_item_text(1)).is_equal("RGB")
-	var res_row: HBoxContainer = cfg.get_node("MarginContainer/VBoxContainer/ResolucionHBox")
-	assert_that(res_row.visible).is_true()
+func _rows(panel: Node) -> Node:
+	return _format_panel(panel).find_child("ExportRows", true, false)
 
-func test_formato_svg_oculta_resolucion() -> void:
+func test_columna_exportar_sustituye_al_formulario() -> void:
 	var panel := _panel()
-	var cfg := _format_panel(panel)
-	cfg._apply_format("SVG")
-	assert_that(cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/LabelFormato").text).is_equal("Estilo")
-	var option: OptionButton = cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/OptionFormat")
-	assert_int(option.item_count).is_equal(2)
-	assert_that(option.get_item_text(0)).is_equal("Optimizado")
-	var res_row: HBoxContainer = cfg.get_node("MarginContainer/VBoxContainer/ResolucionHBox")
-	assert_that(res_row.visible).is_false()
+	var rows := _rows(panel)
+	assert_object(rows).is_not_null()
+	assert_object(_format_panel(panel).find_child("BtnExport", true, false)).is_null()
+	assert_object(rows.find_child("ExportChecked", true, false)).is_not_null()
 
-func test_formato_pdf_opciones_pagina() -> void:
+func test_formatos_sin_jpeg_xl_y_escala_solo_en_imagen() -> void:
 	var panel := _panel()
-	var cfg := _format_panel(panel)
-	cfg._apply_format("PDF")
-	assert_that(cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/LabelFormato").text).is_equal("Página")
-	var option: OptionButton = cfg.get_node("MarginContainer/VBoxContainer/FormatoHBox/OptionFormat")
-	assert_that(option.get_item_text(0)).is_equal("A4")
-	var res_row: HBoxContainer = cfg.get_node("MarginContainer/VBoxContainer/ResolucionHBox")
-	assert_that(res_row.visible).is_false()
+	var rows := _rows(panel)
+	assert_bool("JPEG XL" in rows.FORMATS).is_false()
+	for f in ["SVG", "PNG", "JPEG", "WEBP", "PDF", "EPS", "VOP", "TSCN", "SCN"]:
+		assert_bool(f in rows.FORMATS).override_failure_message(f).is_true()
+	var row = rows.ExportRow.new()
+	row.owner_panel = rows
+	row.build("x", "rectangle")
+	auto_free(row)
+	for f in ["PNG", "JPEG", "WEBP"]:
+		row.format = f
+		row._sync_scale()
+		assert_bool(row._scale.visible).override_failure_message(f).is_true()
+	for f in ["SVG", "PDF", "EPS", "VOP"]:
+		row.format = f
+		row._sync_scale()
+		assert_bool(row._scale.visible).override_failure_message(f).is_false()
 
-func test_get_config_devuelve_formato_y_opcion() -> void:
+func test_destino_por_defecto_no_es_de_windows() -> void:
 	var panel := _panel()
-	var cfg := _format_panel(panel)
-	cfg._apply_format("JPEG")
-	var config: Dictionary = cfg.get_config()
-	assert_that(config["format"]).is_equal("JPEG")
-	assert_that(config["option"]).is_equal("Alta")
-	assert_that(config.has("quantity")).is_true()
-	assert_that(config.has("resolution")).is_true()
+	var rows := _rows(panel)
+	assert_bool(String(rows.dest_dir).begins_with("C:")).is_false()
+	assert_bool(DirAccess.dir_exists_absolute(rows.dest_dir)).is_true()

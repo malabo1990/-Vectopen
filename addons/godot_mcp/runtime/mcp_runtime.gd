@@ -34,6 +34,11 @@ var _started_at_msec := 0
 
 
 func _ready() -> void:
+	# Solo para desarrollo: en la versión exportada para clientes no hay
+	# servidor godot-mcp; no se conecta ni reintenta en cada fotograma.
+	if not OS.has_feature("editor"):
+		set_process(false)
+		return
 	_project_path = ProjectSettings.globalize_path("res://")
 	_started_at_msec = Time.get_ticks_msec()
 	process_mode = Node.PROCESS_MODE_ALWAYS

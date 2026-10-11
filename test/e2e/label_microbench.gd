@@ -20,6 +20,10 @@ func _bench(name: String, make: Callable) -> void:
 func _run() -> void:
 	if OS.get_environment("BENCH_APP") != "":
 		change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
+		# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
+		for _w in 600:
+			if Engine.has_meta(&"vectopen_startup_done"): break
+			await process_frame
 		for i in 20: await process_frame
 		var pm = root.get_node_or_null("PerformanceManager")
 		if pm: pm.target_fps = 0; pm.set_idle_render(false)

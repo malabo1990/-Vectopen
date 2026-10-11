@@ -23,7 +23,7 @@ class MouseIndicator extends Control:
 	var right_on := false
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(16, 22)
+		custom_minimum_size = Vector2(14, 20)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
@@ -103,6 +103,15 @@ func _ready() -> void:
 		content.move_child(_mouse, old_mouse.get_index())
 	else:
 		content.add_child(_mouse)
+	# separador entre los botones y la zona de teclas / ratón (como la barra
+	# de arriba a la derecha)
+	if _btn_keyboard and not content.has_node("HudSep"):
+		var sep := VSeparator.new()
+		sep.name = "HudSep"
+		sep.custom_minimum_size = Vector2(5, 16)
+		content.add_child(sep)
+		content.move_child(sep, _btn_keyboard.get_index() + 1)
+	_place_chip()
 	_show_idle()
 	_apply_theme()
 	var tm := get_node_or_null("/root/ThemeManager")
@@ -165,19 +174,56 @@ func _show_idle() -> void:
 		_lbl_key.text = "⌨"
 	_style_caps(false)
 
+## Misma distancia al borde que la barra de arriba a la derecha (16 px),
+## por encima de la regla vertical.
+func _place_chip() -> void:
+	var host := get_parent() as Control
+	if host == null:
+		return
+	host.offset_bottom = -16.0
+	host.offset_top = -16.0 - 28.0
+	host.offset_left = 40.0
+	# la escena le fijaba 40 px de alto: se ajusta a su contenido (28 px,
+	# como la barra de arriba a la derecha)
+	if is_instance_valid(_chip):
+		_chip.position = Vector2.ZERO
+		(func() -> void:
+			if is_instance_valid(_chip):
+				_chip.reset_size()).call_deferred()
+
 # ── Theme ─────────────────────────────────────────────────────────────────────
+## Mismo diseño que la barra de arriba a la derecha (BARRA_VISUAL): píldora
+## de 26 px, botones de 24 px sin fondo (solo al pasar el ratón), sombra suave.
 func _apply_theme() -> void:
 	if is_instance_valid(_chip):
-		var sb := ProUIStyle.flat(ProUIStyle.col("PANEL_SURFACE"), 12, ProUIStyle.col("BORDER"), 8, 5)
-		sb.shadow_color = Color(0, 0, 0, 0.30 if ProUIStyle.is_dark() else 0.10)
-		sb.shadow_size = 10
-		sb.shadow_offset = Vector2(0, 3)
+		var sb := ProUIStyle.flat(ProUIStyle.col("PANEL_SURFACE"), 13, ProUIStyle.col("BORDER"), 6, 2)
+		sb.shadow_color = Color(0, 0, 0, 0.25 if ProUIStyle.is_dark() else 0.08)
+		sb.shadow_size = 6
+		sb.shadow_offset = Vector2(0, 2)
 		_chip.add_theme_stylebox_override("panel", sb)
+		var mc := _chip.get_node_or_null("MarginContainer") as MarginContainer
+		if mc:
+			for side in ["left", "right", "top", "bottom"]:
+				mc.add_theme_constant_override("margin_" + side, 0)
+		var box := _chip.get_node_or_null("MarginContainer/Contenido") as BoxContainer
+		if box:
+			box.add_theme_constant_override("separation", 3)
+			box.alignment = BoxContainer.ALIGNMENT_CENTER
+		var sep := box.get_node_or_null("HudSep") as VSeparator if box else null
+		if sep:
+			var line := StyleBoxLine.new()
+			line.color = ProUIStyle.col("BORDER")
+			line.vertical = true
+			line.thickness = 1
+			sep.add_theme_stylebox_override("separator", line)
+	var hov := ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 4)
+	var prs := ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 4, ProUIStyle.col("ACCENT"), 0, 0)
+	prs.set_border_width_all(1)
 	for b in [_btn_export, _btn_keyboard]:
 		if not is_instance_valid(b):
 			continue
 		b.expand_icon = false
-		b.custom_minimum_size = Vector2(28, 28)
+		b.custom_minimum_size = Vector2(24, 24)
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		var path: String = b.icon.resource_path if b.icon else ""
 		if not b.has_meta("hud_icon_path"):
@@ -185,11 +231,21 @@ func _apply_theme() -> void:
 		path = String(b.get_meta("hud_icon_path"))
 		if path != "":
 			b.icon = ProUIStyle.icon(path, ProUIStyle.col("ICON_PRIMARY"), 16)
-		ProUIStyle.style_toggle(b, b.toggle_mode and b.button_pressed)
+		var active: bool = b.toggle_mode and b.button_pressed
+		b.add_theme_stylebox_override("normal", prs if active else StyleBoxEmpty.new())
+		b.add_theme_stylebox_override("hover", hov)
+		b.add_theme_stylebox_override("pressed", prs)
+		b.add_theme_stylebox_override("hover_pressed", prs)
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		b.remove_meta("pro_icon_path")
+		if b.toggle_mode and not b.toggled.is_connected(_on_hud_toggled):
+			b.toggled.connect(_on_hud_toggled)
 	_style_caps(_last_key_ms > 0)
 	if is_instance_valid(_mouse):
 		_mouse.queue_redraw()
+
+func _on_hud_toggled(_on: bool) -> void:
+	_apply_theme()
 
 ## Key caps: rounded chips; bright while a key was just pressed, dim at rest.
 func _style_caps(active: bool) -> void:
@@ -200,8 +256,8 @@ func _style_caps(active: bool) -> void:
 			ProUIStyle.col("ACCENT") if active else ProUIStyle.col("BORDER"), 6, 1)
 		cap.border_width_bottom = 2
 		l.add_theme_stylebox_override("normal", cap)
-		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_font_size_override("font_size", 11)
 		l.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT") if active else ProUIStyle.col("TEXT_SECONDARY"))
-		l.custom_minimum_size = Vector2(24, 22)
+		l.custom_minimum_size = Vector2(22, 20)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

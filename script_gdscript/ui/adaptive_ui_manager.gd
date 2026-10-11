@@ -30,6 +30,8 @@ const PRO_LEFT_W := 320.0
 const PRO_RIGHT_W := 272.0
 # Modern layout: layers drawer docked flush to the left edge (no side rail)
 const MODERN_LEFT_W := 260.0
+## Separación estándar entre paneles flotantes y bordes / barras.
+const EDGE_GAP := 10.0
 
 # Elementos existentes de main.tscn a armonizar
 @export var barra_visual_panel: Control
@@ -196,13 +198,12 @@ func _connect_events() -> void:
 		if not ge.request_settings_dialog.is_connected(_on_request_settings_dialog):
 			ge.request_settings_dialog.connect(_on_request_settings_dialog)
 
-	if is_instance_valid(modern_nav_rail):
-		if modern_nav_rail.has_signal("left_panel_toggled"):
-			if not modern_nav_rail.left_panel_toggled.is_connected(_on_nav_rail_left_panel_toggled):
-				modern_nav_rail.left_panel_toggled.connect(_on_nav_rail_left_panel_toggled)
-		if modern_nav_rail.has_signal("section_selected"):
-			if not modern_nav_rail.section_selected.is_connected(_on_nav_rail_section_selected):
-				modern_nav_rail.section_selected.connect(_on_nav_rail_section_selected)
+	_connect_nav_rail()
+
+	# Arranque por fases: paneles que llegan después del primer fotograma.
+	var phases := get_parent().get_node_or_null("StartupPhases") if get_parent() else null
+	if phases and phases.has_signal("panel_added") and not phases.panel_added.is_connected(_on_phase_panel_added):
+		phases.panel_added.connect(_on_phase_panel_added)
 
 	var tm = get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
@@ -253,9 +254,31 @@ func _on_nav_rail_section_selected(section_id: String) -> void:
 	elif section_id == "settings":
 		_on_request_settings_dialog()
 
+func _connect_nav_rail() -> void:
+	if not is_instance_valid(modern_nav_rail):
+		return
+	if modern_nav_rail.has_signal("left_panel_toggled"):
+		if not modern_nav_rail.left_panel_toggled.is_connected(_on_nav_rail_left_panel_toggled):
+			modern_nav_rail.left_panel_toggled.connect(_on_nav_rail_left_panel_toggled)
+	if modern_nav_rail.has_signal("section_selected"):
+		if not modern_nav_rail.section_selected.is_connected(_on_nav_rail_section_selected):
+			modern_nav_rail.section_selected.connect(_on_nav_rail_section_selected)
+
+## StartupPhases añadió un panel (fase 2/3): localizarlo. En modo Smart todos
+## llegan ocultos, igual que los dejaba _apply_smart_mode.
+func _on_phase_panel_added(_panel: Control) -> void:
+	_resolve_nodes()
+	_connect_nav_rail()
+
 func _on_request_settings_dialog() -> void:
 	if not is_instance_valid(manager_windws_regla):
 		_resolve_nodes()
+	if not is_instance_valid(manager_windws_regla):
+		# Abierto antes de la fase 3: crear ya la ventana de ajustes.
+		var phases := get_parent().get_node_or_null("StartupPhases") if get_parent() else null
+		if phases and phases.has_method("ensure"):
+			phases.ensure("MANAGER WINDWS_REGLA")
+			_resolve_nodes()
 	if is_instance_valid(manager_windws_regla):
 		if manager_windws_regla.has_method("toggle_settings"):
 			if not manager_windws_regla.visible:
@@ -375,11 +398,13 @@ func _apply_smart_mode() -> void:
 			inner.anchor_right = _default_inner_anchor_right
 			inner.anchor_top = _default_inner_anchor_top
 			inner.anchor_bottom = _default_inner_anchor_bottom
-			inner.offset_left = _default_inner_offset_left
-			inner.offset_right = _default_inner_offset_right
+			# 10 px de aire con el borde derecho de la ventana (antes tocaba)
+			inner.offset_right = -EDGE_GAP
+			inner.offset_left = _default_inner_offset_left - _default_inner_offset_right - EDGE_GAP
 			inner.offset_top = _default_inner_offset_top
 			inner.offset_bottom = _default_inner_offset_bottom
 			inner.custom_minimum_size = _default_inner_min_size
+			inner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 
 			# Estilo de Capas en Smart mode con radio redondeado y color de tema reactivo
 			var tm = get_node_or_null("/root/ThemeManager")
@@ -589,6 +614,8 @@ func _apply_modern_mode() -> void:
 				toggle_ctrl.visible = false
 
 	_update_toolbar_subpanels_direction(false, true)
+	# ancho real de la barra (contenido) y reglas a su lado
+	set_left_dock_width.call_deferred(-1.0)
 
 func _apply_professional_mode() -> void:
 	# Professional Panel: dense docked panels under a compact full-width top bar.
@@ -736,6 +763,8 @@ func _apply_professional_mode() -> void:
 				toggle_ctrl.visible = false
 
 	_update_toolbar_subpanels_direction(true)
+	# ancho real de la barra (contenido) y reglas a su lado
+	set_left_dock_width.call_deferred(-1.0)
 
 func _update_toolbar_subpanels_direction(is_pro: bool, is_modern: bool = false) -> void:
 	if not is_instance_valid(layout_node):
@@ -796,6 +825,36 @@ func _update_toolbar_subpanels_direction(is_pro: bool, is_modern: bool = false) 
 		else:
 			bru.offset_left = -325.0
 			bru.offset_right = -15.0
+
+	# Ajuste final con la geometría REAL: cada subpanel queda a EDGE_GAP del
+	# borde exterior del panel de capas (antes: polígonos pegado, texto a 4
+	# px, selector a 27…), también cada vez que se abre.
+	for sub_name in ["polygon", "text", "Selector", "bezier", "brush"]:
+		var sp = tools.get_node_or_null(sub_name) as Control
+		if is_instance_valid(sp):
+			if not sp.visibility_changed.is_connected(_align_subpanel):
+				sp.visibility_changed.connect(_align_subpanel.bind(sp))
+			if sp.visible:
+				_align_subpanel.call_deferred(sp)
+
+## Coloca un subpanel de herramientas a EDGE_GAP del panel de capas: a su
+## izquierda en Smart (flotante a la derecha), a su derecha si está acoplado.
+func _align_subpanel(sp: Control) -> void:
+	if not is_instance_valid(sp) or not sp.is_visible_in_tree() or not is_instance_valid(layout_node):
+		return
+	await get_tree().process_frame   # tamaño final ya calculado
+	if not is_instance_valid(sp):
+		return
+	var frame := layout_node.get_node_or_null("PanelContainer") as Control
+	if frame == null:
+		return
+	var fr := frame.get_global_rect()
+	var r := sp.get_global_rect()
+	var docked_left := frame.get_global_rect().position.x < get_viewport().get_visible_rect().size.x * 0.5
+	var delta: float = (fr.end.x + EDGE_GAP - r.position.x) if docked_left else (fr.position.x - EDGE_GAP - r.end.x)
+	if absf(delta) > 0.5:
+		sp.offset_left += delta
+		sp.offset_right += delta
 
 func _set_modern_ui_visible(show: bool) -> void:
 	if is_instance_valid(modern_bottom_toolbar):
@@ -1274,3 +1333,37 @@ func _sync_smart_zoom_from_canvas() -> void:
 
 func is_focus_canvas_active() -> bool:
 	return _focus_canvas_active
+
+## Modos con la barra de capas ACOPLADA a la izquierda (Modern, Professional):
+## cambia su ancho y mueve las reglas con ella, para que el lienzo ocupe el
+## hueco (botón carpeta: ocultar el contenido del panel). w < 0 = ancho normal.
+func set_left_dock_width(w: float) -> void:
+	var gui = get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if gui and gui.has_method("get_ui_mode") else "smart"
+	if mode == "smart" or not is_instance_valid(layout_node):
+		return
+	var full: float = PRO_LEFT_W if mode == "professional" else MODERN_LEFT_W
+	var inner = layout_node.get_node_or_null("PanelContainer") as Control
+	var width: float = full if w < 0.0 else w
+	if inner:
+		# crece hacia la DERECHA (heredaba «hacia la izquierda» del modo Smart
+		# y, si el contenido pedía más ancho, se salía de la pantalla)
+		inner.grow_horizontal = Control.GROW_DIRECTION_END
+		inner.custom_minimum_size.x = 0.0
+		if w < 0.0:
+			# ancho normal, o el que de verdad necesita el contenido si es mayor
+			width = maxf(full, inner.get_combined_minimum_size().x)
+		inner.custom_minimum_size.x = width
+	layout_node.offset_right = layout_node.offset_left + width
+	if is_instance_valid(windows_regla):
+		var regla_v = windows_regla.get_node_or_null("regla vertical") as Control
+		if regla_v:
+			regla_v.offset_left = width
+			regla_v.offset_right = width + 24.0
+		var btn_settings = windows_regla.get_node_or_null("Button") as Control
+		if btn_settings:
+			btn_settings.offset_left = width
+			btn_settings.offset_right = width + 24.0
+		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control
+		if regla_h:
+			regla_h.offset_left = width + 24.0

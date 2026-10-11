@@ -28,6 +28,17 @@ func run() -> void:
 - **Guardar** (Ctrl+S) los deja en `user://scripts/`; hay plantillas de ejemplo.
 - `run()` puede usar `await api.wait(0.2)`.
 
+La API cubre: crear figuras, texto, imágenes y artboards; propiedades del Inspector;
+selección; orden de capas, alinear, distribuir y booleanas; efectos, filtros y
+**shaders**; importar SVG, exportar (.svg .png .jpg .webp .pdf) y vectorizar imágenes.
+
+```gdscript
+# Cada estrella de la selección con un shader de la biblioteca, en UN paso.
+for s in api.selection():
+	api.apply_shader(s, "Mi shader")          # o el nombre de una plantilla, o código
+api.add_effect(api.selection()[0], "Drop Shadow", {"blur": 12.0})
+```
+
 Coordenadas: las del artboard (origen arriba-izquierda); las figuras se colocan por su **centro**.
 
 ## Complementos

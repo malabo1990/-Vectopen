@@ -172,6 +172,12 @@ func _ready() -> void:
 const DOCK_GAP := 10.0
 
 func _dock() -> void:
+	# Regla común de la interfaz: 10 px del BORDE EXTERIOR del panel de capas,
+	# a su izquierda (Smart) o a su derecha (Modern / Professional).
+	var adaptive := get_tree().root.find_child("AdaptiveUIManager", true, false) if is_inside_tree() else null
+	if adaptive and adaptive.has_method("_align_subpanel"):
+		adaptive._align_subpanel(self)
+		return
 	var bar := get_parent().get_node_or_null("PanelContainer") as Control if get_parent() else null
 	if bar == null or bar == self:
 		return

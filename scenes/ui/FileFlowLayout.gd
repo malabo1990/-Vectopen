@@ -25,6 +25,7 @@ var _thumb_stop := false
 var _thumb_task_id := -1
 var _dir_cache: Dictionary = {}
 
+const THUMB_EXTS := ["png", "jpg", "jpeg", "webp", "svg", "vop"]
 const DEFAULT_EXPORT_FORMATS := ["SVG", "PNG", "PDF", "JPEG"]
 const SUPPORTED_FILTERS := ["*.svg, *.png, *.jpg, *.jpeg, *.pdf, *.glb, *.gltf ; Archivos soportados"]
 const EMPTY_MSG := "No documents exist"
@@ -80,6 +81,71 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(THUMB_CACHE_DIR)
 	_load_recent_files()
 	_refresh_translated_texts()
+	# (Antes estas conexiones estaban en _exit_tree: la búsqueda no filtraba.)
+	if recent_search_bar and not recent_search_bar.text_changed.is_connected(_on_recent_search_text_changed):
+		recent_search_bar.text_changed.connect(_on_recent_search_text_changed)
+	if file_dialog:
+		file_dialog.dir_selected.connect(_on_dir_selected)
+		file_dialog.file_selected.connect(_on_file_selected)
+	add_to_group("vectopen_file_flow")
+	var panel_root := get_parent().get_parent() if get_parent() else null
+	if panel_root:
+		panel_root.add_to_group("vectopen_overlay_panel")   # está ENCIMA de otros paneles
+	_install_sidebar()
+	# Columna derecha: lista de exportación (diseño «smart export»).
+	var host := get_node_or_null("ExportPanel") as Control
+	if host:
+		ExportRows.install(host)
+
+const ExportRows = preload("res://script_gdscript/ui/panels/export/export_rows.gd")
+const PlacesSidebar = preload("res://script_gdscript/ui/panels/export/places_sidebar.gd")
+var sidebar: Node = null
+
+## Barra de Lugares + Favoritos a la izquierda de la lista (como un gestor
+## de archivos): panel propio delante de FileLibraryPanel, sin tocar la
+## estructura de la escena (otras partes usan sus rutas).
+func _install_sidebar() -> void:
+	if has_node("PlacesPanel"):
+		return
+	var panel := PanelContainer.new()
+	panel.name = "PlacesPanel"
+	var m := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 6)
+	panel.add_child(m)
+	sidebar = PlacesSidebar.new()
+	sidebar.file_flow = self
+	m.add_child(sidebar)
+	add_child(panel)
+	move_child(panel, 0)
+
+## Vuelve a leer la vista actual (tras exportar/borrar archivos).
+func refresh_view() -> void:
+	_dir_cache.clear()
+	_rebuild_tree(_current_filter())
+
+func _export_panel() -> Node:
+	return get_tree().get_first_node_in_group(ExportRows.GROUP) if get_tree() else null
+
+## Carpeta de destino bajo el cursor: una carpeta de la lista, la carpeta que
+## se está viendo, o "" (vista Recientes → Biblioteca).
+func _drop_dir_at(item_meta: Variant) -> String:
+	if item_meta is Dictionary and bool(item_meta.get("dir", false)):
+		return String(item_meta["path"])
+	if _view_mode == "files" and _browse_dir != "":
+		return _browse_dir
+	return ""
+
+func _drop_export(rows: Array, item_meta: Variant) -> void:
+	var panel := _export_panel()
+	if panel == null:
+		return
+	var dir := _drop_dir_at(item_meta)
+	if dir == "":
+		await panel.save_to_library(rows)
+	else:
+		await panel.export_rows_to(rows, dir)
+	refresh_view()
 
 func _exit_tree() -> void:
 	_thumb_mutex.lock()
@@ -89,15 +155,6 @@ func _exit_tree() -> void:
 		WorkerThreadPool.wait_for_group_task_completion(_thumb_task_id)
 	_thumb_task_id = -1
 
-	if recent_search_bar:
-		recent_search_bar.text_changed.connect(_on_recent_search_text_changed)
-	if btn_browse:
-		btn_browse.pressed.connect(_on_browse_pressed)
-	if file_dialog:
-		file_dialog.dir_selected.connect(_on_dir_selected)
-		file_dialog.file_selected.connect(_on_file_selected)
-	if format_selector:
-		format_selector.item_selected.connect(_on_format_selected)
 
 	_ensure_file_dialog()
 
@@ -126,6 +183,7 @@ func _setup_ui() -> void:
 func _setup_drag_and_drop() -> void:
 	recent_files_tree.connect("item_selected", _on_recent_file_selected)
 	recent_files_tree.connect("cell_selected", _on_recent_cell_selected)
+	recent_files_tree.item_activated.connect(_on_recent_activated)
 	_attach_drag_handler(recent_files_tree, "_recent")
 
 	var export_tree := _get_export_node("ExportLayersTree") as Tree
@@ -134,7 +192,7 @@ func _setup_drag_and_drop() -> void:
 	if _icon_list:
 		_attach_drag_handler(_icon_list, "_grid")
 		_icon_list.item_selected.connect(_on_grid_item_selected)
-		_icon_list.item_activated.connect(_on_grid_item_selected)
+		_icon_list.item_activated.connect(_on_grid_item_activated)
 
 func _attach_drag_handler(node: Node, method_prefix: String) -> void:
 	if not node or not ("drag_handler" in node):
@@ -255,8 +313,9 @@ func _on_zoom_changed(value: float) -> void:
 		_icon_list.fixed_icon_size = Vector2i(zoom, zoom)
 		_icon_list.fixed_column_width = zoom + 56
 		_icon_list.add_theme_font_size_override("font_size", text_size)
-	recent_files_tree.add_theme_font_size_override("font_size", text_size)
-	recent_files_tree.set_column_custom_minimum_width(0, zoom)
+	# La lista (Detalles) es compacta: el zoom solo cambia la vista de iconos.
+	recent_files_tree.add_theme_constant_override("icon_max_width", 18)
+	recent_files_tree.set_column_custom_minimum_width(0, 26)
 
 func _on_details_pressed() -> void:
 	set_details_mode(true)
@@ -353,7 +412,10 @@ func _is_drop_data(data: Variant) -> bool:
 	return typeof(data) == TYPE_DICTIONARY
 
 func _recent_can_drop(_at_position: Vector2, data: Variant) -> bool:
-	return _is_drop_data(data) and (data.has("files") or data["type"] in ["export_element", "external_file"])
+	var ok: bool = _is_drop_data(data) and (data.has("files") or String(data.get("type", "")) in ["export_element", "external_file"])
+	# Al arrastrar una fila de exportación se resalta la carpeta de destino.
+	recent_files_tree.drop_mode_flags = Tree.DROP_MODE_ON_ITEM if ok and String(data.get("type", "")) == "export_element" else Tree.DROP_MODE_DISABLED
+	return ok
 
 func _export_can_drop(_at_position: Vector2, data: Variant) -> bool:
 	return _is_drop_data(data) and (data.has("files") or data["type"] in ["recent_file", "external_file"])
@@ -364,8 +426,10 @@ func _recent_drop(at_position: Vector2, data: Variant) -> void:
 		return
 	match data["type"]:
 		"export_element":
-			var file_path = FileSystemManager.save_canvas_element_to_recent(data["node_reference"], data["format"])
-			_add_to_recent_files(file_path)
+			# La posición que da Godot al soltar no siempre es local a la lista
+			# (dentro de un CanvasLayer llegaba desplazada): se usa el ratón.
+			var it := recent_files_tree.get_item_at_position(_local_in(recent_files_tree, at_position))
+			_drop_export(data.get("rows", []), it.get_metadata(1) if it else null)
 		"external_file":
 			emit_signal("element_dropped_internally", data["path"], at_position)
 
@@ -375,10 +439,131 @@ func _export_drop(at_position: Vector2, data: Variant) -> void:
 		return
 	emit_signal("element_dropped_internally", data["path"], at_position)
 
+## Arrastrar un archivo desde la vista de iconos.
+func _grid_drag(at_position: Vector2) -> Variant:
+	if not _icon_list:
+		return null
+	var idx := _icon_list.get_item_at_position(at_position, true)
+	if idx < 0:
+		return null
+	var meta: Variant = _icon_list.get_item_metadata(idx)
+	if not (meta is Dictionary) or bool(meta.get("dir", false)) or String(meta.get("path", "")) == "":
+		return null
+	var prev := TextureRect.new()
+	prev.texture = _icon_list.get_item_icon(idx)
+	prev.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	prev.custom_minimum_size = Vector2(64, 64)
+	_icon_list.set_drag_preview(prev)
+	_dragging_path = String(meta["path"])
+	return {"type": "recent_file", "path": _dragging_path, "name": _icon_list.get_item_text(idx)}
+
+var _dragging_path := ""
+var _drop_catcher: Control = null
+
+## Mientras se arrastra un archivo de la lista, una capa transparente por
+## ENCIMA de toda la interfaz recoge el soltado fuera del panel (antes otro
+## control encima del lienzo —capas, inspector, una capa de la UI— se quedaba
+## con el arrastre y el archivo no se importaba). Sobre el panel se aparta
+## (MOUSE_FILTER_IGNORE) para que las filas y carpetas sigan funcionando.
+func _ensure_drop_catcher() -> void:
+	if is_instance_valid(_drop_catcher):
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "FileDropLayer"
+	layer.layer = 110
+	add_child(layer)
+	_drop_catcher = DropCatcher.new()
+	_drop_catcher.name = "FileDropCatcher"
+	_drop_catcher.flow = self
+	_drop_catcher.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_drop_catcher.visible = false
+	layer.add_child(_drop_catcher)
+
+func _panel_rect() -> Rect2:
+	var panel_root := get_parent().get_parent() as Control
+	return panel_root.get_global_rect() if panel_root and panel_root.is_visible_in_tree() else Rect2()
+
+## ¿El punto cae sobre un panel que recibe sus propios soltados? (este panel
+## si está abierto, y los marcados con el grupo vectopen_drop_exclude, como
+## Recursos).
+func _over_drop_panel(p: Vector2) -> bool:
+	if _panel_rect().has_point(p):
+		return true
+	for n in get_tree().get_nodes_in_group("vectopen_drop_exclude"):
+		if n is Control and (n as Control).is_visible_in_tree() and (n as Control).get_global_rect().has_point(p):
+			return true
+	return false
+
+## Importa `path` en el artboard que hay bajo el punto de pantalla `screen`.
+func import_at_screen(path: String, screen: Vector2) -> bool:
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas")
+	var mgr := ArtboardManager.find(get_tree())
+	if canvas == null or mgr == null:
+		return false
+	var world: Vector2 = (canvas as Node2D).get_viewport().get_canvas_transform().affine_inverse() * screen
+	var ab: Node2D = mgr.artboard_at_point(world)
+	if ab == null:
+		ab = mgr.get_active_artboard()
+	var iem := get_node_or_null("/root/ImportExportManager")
+	if iem == null or ab == null:
+		return false
+	var res: Dictionary = iem.import_any(path, ab, ab.to_local(world))
+	if not res["ok"]:
+		push_warning(String(res["error"]))
+	return bool(res["ok"])
+
+class DropCatcher extends Control:
+	var flow: Node
+	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+		return data is Dictionary and String(data.get("type", "")) == "recent_file"
+	func _drop_data(_at: Vector2, data: Variant) -> void:
+		flow.import_at_screen(String(data["path"]), flow._last_mouse)
+
+## Un archivo de la lista soltado fuera de cualquier panel (sobre el lienzo)
+## se IMPORTA ahí: el lienzo no es un Control y no recibe arrastres.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and recent_files_tree:
+		_refresh_translated_texts()
+	elif what == NOTIFICATION_DRAG_BEGIN:
+		var d = get_viewport().gui_get_drag_data()
+		_dragging_path = String(d.get("path", "")) if d is Dictionary and String(d.get("type", "")) == "recent_file" else ""
+		if _dragging_path != "":
+			_ensure_drop_catcher()
+			_drop_catcher.visible = true
+			_drop_catcher.mouse_filter = Control.MOUSE_FILTER_IGNORE if _over_drop_panel(_last_mouse) else Control.MOUSE_FILTER_STOP
+	elif what == NOTIFICATION_DRAG_END:
+		var path := _dragging_path
+		_dragging_path = ""
+		if is_instance_valid(_drop_catcher):
+			_drop_catcher.visible = false
+		if path == "" or get_viewport().gui_is_drag_successful():
+			return
+		# Soltado fuera del panel y sobre un artboard → importar ahí.
+		var mouse := _last_mouse
+		if _over_drop_panel(mouse):
+			return
+		var canvas = get_tree().get_first_node_in_group("_vectopen_canvas")
+		var mgr := ArtboardManager.find(get_tree())
+		if canvas == null or mgr == null:
+			return
+		var world: Vector2 = (canvas as Node2D).get_viewport().get_canvas_transform().affine_inverse() * mouse
+		var ab: Node2D = mgr.artboard_at_point(world)
+		if ab == null:
+			return
+		var iem := get_node_or_null("/root/ImportExportManager")
+		if iem:
+			var res: Dictionary = iem.import_any(path, ab, ab.to_local(world))
+			if not res["ok"]:
+				push_warning(String(res["error"]))
+
 func _grid_can_drop(at_position: Vector2, data: Variant) -> bool:
 	return _recent_can_drop(at_position, data)
 
 func _grid_drop(at_position: Vector2, data: Variant) -> void:
+	if data is Dictionary and String(data.get("type", "")) == "export_element" and _icon_list:
+		var idx := _icon_list.get_item_at_position(_local_in(_icon_list, at_position), true)
+		_drop_export(data.get("rows", []), _icon_list.get_item_metadata(idx) if idx >= 0 else null)
+		return
 	_recent_drop(at_position, data)
 
 func _handle_external_files(paths: PackedStringArray, at_position: Vector2) -> void:
@@ -405,9 +590,6 @@ func _add_to_recent_files(file_path: String) -> void:
 		RecentFilesManager.add_file(file_path)
 	_load_recent_files()
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_TRANSLATION_CHANGED and recent_files_tree:
-		_refresh_translated_texts()
 
 func _refresh_translated_texts() -> void:
 	if not recent_files_tree:
@@ -721,25 +903,19 @@ func _thumb_worker_group(_index: int) -> void:
 		_thumb_mutex.unlock()
 
 func _thumb_cache_path(path: String) -> String:
-	return THUMB_CACHE_DIR + path.sha256_text() + ".png"
+	# con la fecha: si el archivo cambia, su miniatura se vuelve a generar
+	return THUMB_CACHE_DIR + ("%s|%d" % [path, FileAccess.get_modified_time(path)]).sha256_text() + ".png"
 
 func _decode_thumbnail(file_path: String) -> Image:
-	var ext := file_path.get_extension().to_lower()
-	if ext not in ["png", "jpg", "jpeg"] or not FileAccess.file_exists(file_path):
+	# Mismo decodificador que la vista previa (PNG, JPG, WEBP, SVG, VOP), en
+	# proporción (antes solo PNG/JPG y deformadas a un cuadrado).
+	if file_path.get_extension().to_lower() not in THUMB_EXTS:
 		return null
-	var data := FileAccess.get_file_as_bytes(file_path)
-	if data.size() < 3 or data.size() > 4 * 1024 * 1024:
+	var fa := FileAccess.open(file_path, FileAccess.READ)
+	if fa == null or fa.get_length() > 16 * 1024 * 1024:
 		return null
-	var image := Image.new()
-	var err: Error = ERR_FILE_UNRECOGNIZED
-	if ext == "png" and data[0] == 0x89 and data[1] == 0x50:
-		err = image.load_png_from_buffer(data)
-	elif data[0] == 0xFF and data[1] == 0xD8:
-		err = image.load_jpg_from_buffer(data)
-	if err != OK:
-		return null
-	image.resize(64, 64, Image.INTERPOLATE_LANCZOS)
-	return image
+	fa.close()
+	return _preview_image(file_path, 64)
 
 func _process(_delta: float) -> void:
 	_consume_thumbnails()
@@ -775,7 +951,7 @@ func _collect_item_paths(item: TreeItem, paths: Array[String]) -> void:
 		p = meta
 	elif meta is Dictionary:
 		p = meta.get("path", "")
-	if not p.is_empty() and p.get_extension().to_lower() in ["png", "jpg", "jpeg"]:
+	if not p.is_empty() and p.get_extension().to_lower() in THUMB_EXTS:
 		paths.append(p)
 	for i in item.get_child_count():
 		_collect_item_paths(item.get_child(i), paths)
@@ -878,25 +1054,54 @@ func _on_recent_file_selected() -> void:
 		return
 	_handle_item_meta(selected.get_metadata(1))
 
-func _handle_item_meta(meta: Variant) -> void:
+## Como un gestor de archivos: UN clic selecciona (archivo → vista previa;
+## carpeta → solo seleccionada, se puede arrastrar), DOBLE clic / Intro abre
+## (carpeta → entrar; archivo → importarlo en el artboard activo o abrir
+## el proyecto). Antes un clic en una carpeta ya entraba: no se podía arrastrar.
+func _handle_item_meta(meta: Variant, activate: bool = false) -> void:
+	var path := ""
+	var is_dir := false
 	if meta is Dictionary:
-		var path: String = meta.get("path", "")
-		if path.is_empty():
-			return
-		if meta.get("dir", false):
-			_selected_path = ""
-			_hide_small_preview()
+		path = String(meta.get("path", ""))
+		is_dir = bool(meta.get("dir", false))
+	elif meta is String:
+		path = meta
+	if path.is_empty():
+		return
+	if is_dir:
+		_selected_path = ""
+		_hide_small_preview()
+		if activate:
 			_navigate_dir(path)
-		elif _view_mode == "recover":
+		return
+	if _view_mode == "recover":
+		if activate:
 			_recover_file(path)
-		else:
-			_selected_path = path
-			_update_small_preview(path)
-			emit_signal("element_dropped_internally", path, Vector2.ZERO)
-	elif meta is String and not (meta as String).is_empty():
-		_selected_path = meta
-		_update_small_preview(meta)
-		emit_signal("element_dropped_internally", meta, Vector2.ZERO)
+		return
+	_selected_path = path
+	_update_small_preview(path)
+	if activate:
+		_open_or_import(path)
+
+## Doble clic en un archivo: proyecto → abrir; lo demás → importar en el
+## centro del artboard activo (un Ctrl+Z).
+func _open_or_import(path: String) -> void:
+	var iem := get_node_or_null("/root/ImportExportManager")
+	var mgr := ArtboardManager.find(get_tree()) if get_tree() else null
+	if iem == null:
+		return
+	var res: Dictionary = iem.import_any(path, mgr.get_active_artboard() if mgr else null)
+	if not res["ok"]:
+		push_warning(String(res["error"]))
+
+func _on_recent_activated() -> void:
+	var it := recent_files_tree.get_selected()
+	if it and it.get_parent():
+		_handle_item_meta(it.get_metadata(1), true)
+
+func _on_grid_item_activated(index: int) -> void:
+	if _icon_list:
+		_handle_item_meta(_icon_list.get_item_metadata(index), true)
 
 # ============================================================================
 #   VISTA PREVIA (panel derecho + popup gigante centrado con Espacio)
@@ -913,28 +1118,54 @@ func _hide_small_preview() -> void:
 	if _preview_panel:
 		_preview_panel.visible = false
 
+## Vista previa de un archivo: PNG, JPG, WEBP, SVG y VOP (su capa render),
+## manteniendo la proporción. La caché se invalida si el archivo cambia
+## (antes un archivo listado mientras se exportaba se quedaba sin imagen).
 func _get_preview_texture(path: String, max_size: int) -> Texture2D:
-	if _preview_cache.has(path) and _preview_cache[path] is Texture2D:
-		return _preview_cache[path]
-	var ext := path.get_extension().to_lower()
-	var tex: Texture2D = null
-	if ext in ["png", "jpg", "jpeg"] and FileAccess.file_exists(path):
-		var data := FileAccess.get_file_as_bytes(path)
-		var image := Image.new()
-		var err: Error = ERR_FILE_UNRECOGNIZED
-		if data.size() > 1:
-			if ext == "png" and data[0] == 0x89:
-				err = image.load_png_from_buffer(data)
-			elif data[0] == 0xFF:
-				err = image.load_jpg_from_buffer(data)
-		if err == OK:
-			if image.get_width() > max_size or image.get_height() > max_size:
-				image.resize(max_size, max_size, Image.INTERPOLATE_LANCZOS)
-			tex = ImageTexture.create_from_image(image)
-	if not tex:
-		tex = _get_item_icon(path)
-	_preview_cache[path] = tex
+	var key := "%s|%d|%d" % [path, FileAccess.get_modified_time(path), max_size]
+	if _preview_cache.has(key) and _preview_cache[key] is Texture2D:
+		return _preview_cache[key]
+	var image := _preview_image(path, max_size)
+	var tex: Texture2D = ImageTexture.create_from_image(image) if image else _get_item_icon(path)
+	if image:
+		_preview_cache[key] = tex
 	return tex
+
+static func _preview_image(path: String, max_size: int) -> Image:
+	if not FileAccess.file_exists(path):
+		return null
+	var ext := path.get_extension().to_lower()
+	var image := Image.new()
+	var err: Error = ERR_FILE_UNRECOGNIZED
+	match ext:
+		"png", "jpg", "jpeg", "webp", "bmp", "tga":
+			err = image.load(path)
+		"svg":
+			err = _load_svg_fit(image, FileAccess.get_file_as_string(path), max_size)
+		"vop":
+			var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+			if data is Dictionary and data.get("render") is Dictionary:
+				err = _load_svg_fit(image, VopPreview.to_svg(data), max_size)
+	if err != OK or image.is_empty():
+		return null
+	var w := image.get_width()
+	var h := image.get_height()
+	if w > max_size or h > max_size:
+		var k := float(max_size) / maxf(w, h)
+		image.resize(maxi(1, int(w * k)), maxi(1, int(h * k)), Image.INTERPOLATE_LANCZOS)
+	return image
+
+## SVG → imagen escalada para caber en `max_size` (el SVG puede ser enorme o
+## diminuto: se rasteriza ya a la escala justa).
+static func _load_svg_fit(image: Image, svg: String, max_size: int) -> Error:
+	var probe := Image.new()
+	var err := probe.load_svg_from_string(svg, 1.0)
+	if err != OK:
+		return err
+	var k := clampf(float(max_size) / maxf(probe.get_width(), probe.get_height()), 0.05, 16.0)
+	return image.load_svg_from_string(svg, k)
+
+const VopPreview = preload("res://script_gdscript/system/vop_preview.gd")
 
 func _build_big_overlay() -> void:
 	_big_overlay = Control.new()
@@ -955,9 +1186,28 @@ func _build_big_overlay() -> void:
 	_big_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_big_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_big_overlay.add_child(_big_texture)
-	add_child(_big_overlay)
+	# En su propia capa, por ENCIMA de todo (antes la tapaba el panel de exportar).
+	var layer := CanvasLayer.new()
+	layer.name = "BigPreviewLayer"
+	layer.layer = 120
+	add_child(layer)
+	layer.add_child(_big_overlay)
+
+## Última posición del ratón vista en los eventos (no la del cursor del
+## sistema, que durante un arrastre o en Wayland puede estar desfasada).
+var _last_mouse := Vector2.ZERO
+
+## Punto local en `c` del último ratón (si está dentro); si no, `fallback`.
+func _local_in(c: Control, fallback: Vector2) -> Vector2:
+	if c.get_global_rect().has_point(_last_mouse):
+		return c.get_global_transform().affine_inverse() * _last_mouse
+	return fallback
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouse:
+		_last_mouse = (event as InputEventMouse).global_position
+		if _dragging_path != "" and is_instance_valid(_drop_catcher) and _drop_catcher.visible:
+			_drop_catcher.mouse_filter = Control.MOUSE_FILTER_IGNORE if _over_drop_panel(_last_mouse) else Control.MOUSE_FILTER_STOP
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_SPACE and not _selected_path.is_empty():
 			_toggle_big_preview()
@@ -987,11 +1237,20 @@ func _on_recent_cell_selected(_column: int = -1) -> void:
 
 func _recent_drag(_at_position: Vector2) -> Variant:
 	var selected := recent_files_tree.get_selected()
-	if not selected or not (selected.get_metadata(1) is String):
+	if not selected:
 		return null
-	var path: String = selected.get_metadata(1)
+	# El metadato es {path, dir} (antes se esperaba un String: arrastrar
+	# desde la lista no funcionaba nunca).
+	var meta: Variant = selected.get_metadata(1)
+	var path: String = String(meta.get("path", "")) if meta is Dictionary else (String(meta) if meta is String else "")
 	if path.is_empty():
 		return null
+	if meta is Dictionary and bool(meta.get("dir", false)):
+		# una carpeta: se puede soltar en Favoritos
+		var lab := Label.new()
+		lab.text = "  " + path.get_file()
+		recent_files_tree.set_drag_preview(lab)
+		return {"type": "folder", "path": path}
 	var preview := TextureRect.new()
 	var icon := selected.get_icon(0)
 	if icon:

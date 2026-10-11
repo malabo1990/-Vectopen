@@ -36,6 +36,8 @@ var _sueltos_item : TreeItem = null
 # ─── PESTAÑAS [ CAPAS | PÁGINAS ] Y FUSIÓN ───
 var _tab_capas_btn: Button = null
 var _tab_paginas_btn: Button = null
+var _tab_recursos_btn: Button = null
+var _recursos_panel: Control = null
 var _fusion_row: HBoxContainer = null
 var _opt_blend_mode: OptionButton = null
 var _slider_opacity: HSlider = null
@@ -159,6 +161,7 @@ const _CLIP_ON := 2   # CanvasItem.CLIP_CHILDREN_AND_DRAW
 # INICIALIZACIÓN Y CONEXIONES DE SEÑALES
 # =============================================================================
 func _ready() -> void:
+	_wire_panel_toggle.call_deferred()
 	# Localizar componentes automáticamente en la escena viva si quedan null
 	if not layer_tree:
 		var escena_activa = get_tree().current_scene
@@ -514,6 +517,17 @@ func _setup_tabs_fusion_pages() -> void:
 	_tab_paginas_btn.pressed.connect(func(): _switch_left_tab("paginas"))
 	tabs_box.add_child(_tab_paginas_btn)
 
+	# Recursos: biblioteca reutilizable (logos, iconos…), como Assets de Affinity
+	_tab_recursos_btn = Button.new()
+	_tab_recursos_btn.name = "TabRecursos"
+	_tab_recursos_btn.text = "Recursos"
+	_tab_recursos_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_recursos_btn.custom_minimum_size = Vector2(0, 26)
+	_tab_recursos_btn.focus_mode = Control.FOCUS_NONE
+	_tab_recursos_btn.add_theme_font_size_override("font_size", 11)
+	_tab_recursos_btn.pressed.connect(func(): _switch_left_tab("recursos"))
+	tabs_box.add_child(_tab_recursos_btn)
+
 	if title_bar:
 		vbox.add_child(tabs_box)
 		vbox.move_child(tabs_box, title_bar.get_index() + 1)
@@ -572,6 +586,9 @@ func _setup_tabs_fusion_pages() -> void:
 	vbox.add_child(_paginas_panel)
 
 	_build_paginas_panel_content()
+	_recursos_panel = load("res://script_gdscript/ui/panels/assets/assets_panel.gd").new()
+	_recursos_panel.visible = false
+	vbox.add_child(_recursos_panel)
 	_style_tabs_fusion()
 
 	var ic = get_node_or_null("/root/InspectorCore")
@@ -637,6 +654,7 @@ func _build_paginas_panel_content() -> void:
 
 func _switch_left_tab(tab: String) -> void:
 	_active_left_tab = tab
+	LayersSettings.save_value("last_tab", tab)
 	var is_capas: bool = (tab == "capas")
 	if is_instance_valid(_fusion_row): _fusion_row.visible = is_capas
 	var buscador = find_child("SearchLayers", true, false) as Control
@@ -646,9 +664,13 @@ func _switch_left_tab(tab: String) -> void:
 	var layers_cont = find_child("LayersContainer", true, false) as Control
 	if is_instance_valid(layers_cont): layers_cont.visible = is_capas
 	if is_instance_valid(_paginas_panel):
-		_paginas_panel.visible = not is_capas
-		if not is_capas:
+		_paginas_panel.visible = tab == "paginas"
+		if tab == "paginas":
 			_refresh_paginas_list()
+	if is_instance_valid(_recursos_panel):
+		_recursos_panel.visible = tab == "recursos"
+		if tab == "recursos":
+			_recursos_panel.refresh()
 	_style_tabs_fusion()
 
 func _on_left_blend_mode_selected(index: int) -> void:
@@ -738,6 +760,18 @@ func _style_tabs_fusion() -> void:
 		_tab_paginas_btn.add_theme_stylebox_override("normal", sb)
 		_tab_paginas_btn.add_theme_stylebox_override("hover", sb)
 		_tab_paginas_btn.add_theme_color_override("font_color", panel_text if is_act else muted)
+
+	if is_instance_valid(_tab_recursos_btn):
+		var is_act: bool = (_active_left_tab == "recursos")
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = surface_raised if is_act else button_bg
+		sb.set_corner_radius_all(5)
+		sb.border_width_left = 1; sb.border_width_top = 1; sb.border_width_right = 1; sb.border_width_bottom = 1
+		sb.border_color = accent if is_act else border_col
+		sb.content_margin_left = 6; sb.content_margin_right = 6; sb.content_margin_top = 2; sb.content_margin_bottom = 2
+		_tab_recursos_btn.add_theme_stylebox_override("normal", sb)
+		_tab_recursos_btn.add_theme_stylebox_override("hover", sb)
+		_tab_recursos_btn.add_theme_color_override("font_color", panel_text if is_act else muted)
 
 	if is_instance_valid(_opt_blend_mode):
 		var sb_opt := StyleBoxFlat.new()
@@ -2306,3 +2340,98 @@ func _contar_descendientes(nodo: Node) -> int:
 			n += 1
 			n += _contar_descendientes(hijo)
 	return n
+
+
+## El botón carpeta de la columna de herramientas (button_capas) mostraba
+## un panel vacío de prueba («Selector»). Ahora muestra / oculta ESTE panel
+## (Capas · Páginas · Recursos); la columna de herramientas sigue visible.
+func _wire_panel_toggle() -> void:
+	if not is_inside_tree():
+		return
+	var btn := get_tree().root.find_child("button_capas", true, false)
+	if btn == null or not ("target_node" in btn):
+		return
+	var n: Node = self
+	while n.get_parent() and not n.get_parent().has_node("Herramientas"):
+		n = n.get_parent()
+	if n.get_parent() == null:
+		return
+	btn.target_node = n
+	if btn is Control:
+		(btn as Control).tooltip_text = "Mostrar / ocultar el panel Capas · Páginas · Recursos"
+	if btn is BaseButton and not (btn as BaseButton).pressed.is_connected(_on_panel_toggled):
+		(btn as BaseButton).pressed.connect(_on_panel_toggled.bind(n))
+	# al cambiar de modo con el panel oculto, el gestor de modos lo vuelve a
+	# ensanchar: se encoge otra vez
+	var gui := get_node_or_null("/root/GlobalUI")
+	if gui and gui.has_signal("ui_mode_changed"):
+		gui.ui_mode_changed.connect(func(_m: String) -> void:
+			if is_instance_valid(n) and not n.visible:
+				var fr := n.get_parent()
+				while fr and not (fr.get_parent() and fr.get_parent().name == "Layout"):
+					fr = fr.get_parent()
+				if fr:
+					fr.remove_meta("panel_offsets")
+				await get_tree().process_frame
+				_on_panel_toggled(n))
+	# Ajustes del panel (botón ⚙): antes una maqueta sin código.
+	var layout_panel := n.get_parent()
+	while layout_panel and not (layout_panel.get_parent() and layout_panel.get_parent().name == "Layout"):
+		layout_panel = layout_panel.get_parent()
+	var gear: Button = layout_panel.get_node_or_null("Control/Button") if layout_panel else null
+	var host: Control = layout_panel.get_node_or_null("Control/Configuracion de Capas") if layout_panel else null
+	if gear and host:
+		LayersSettings.install(gear, host, self)
+	LayersSettings.apply(self)
+	var t := LayersSettings.start_tab()
+	if t != _active_left_tab and t in ["capas", "paginas", "recursos"]:
+		_switch_left_tab(t)
+
+const LayersSettings = preload("res://script_gdscript/ui/panels/layers_settings.gd")
+
+## Al ocultar el contenido, el MARCO del panel se encoge hasta la columna de
+## herramientas (antes quedaba una caja vacía de 476 px); al mostrarlo vuelve
+## a su ancho. Flotante a la derecha (Smart) → se mueve el borde izquierdo;
+## acoplado a la izquierda (Modern/Pro) → el derecho.
+func _on_panel_toggled(content: Control) -> void:
+	await get_tree().process_frame   # btn_toggle ya cambió la visibilidad
+	var frame := content.get_parent()
+	while frame and not (frame.get_parent() and frame.get_parent().name == "Layout"):
+		frame = frame.get_parent()
+	if not (frame is Control):
+		return
+	var f := frame as Control
+	# Modos acoplados (Modern / Professional): la barra lateral y las reglas
+	# las coloca el gestor de modos.
+	var adaptive := get_tree().root.find_child("AdaptiveUIManager", true, false)
+	var gui := get_node_or_null("/root/GlobalUI")
+	if adaptive and adaptive.has_method("set_left_dock_width") and gui and gui.has_method("get_ui_mode") and gui.get_ui_mode() != "smart":
+		if content.visible:
+			adaptive.set_left_dock_width(-1.0)
+		else:
+			await get_tree().process_frame
+			var tools_d := content.get_parent().get_node_or_null("Herramientas") as Control
+			var margin_d := maxf(tools_d.get_global_rect().position.x - f.get_global_rect().position.x, 4.0) if tools_d else 8.0
+			adaptive.set_left_dock_width((tools_d.get_global_rect().size.x if tools_d else 56.0) + margin_d * 2.0)
+		return
+	var right_anchored := f.anchor_left >= 0.99
+	if not content.visible:
+		f.set_meta("panel_offsets", Vector2(f.offset_left, f.offset_right))
+		await get_tree().process_frame
+		# ancho = columna de herramientas + el mismo margen a cada lado (el
+		# «tamaño mínimo» del marco incluía otros hijos, como los ajustes ⚙)
+		var tools := content.get_parent().get_node_or_null("Herramientas") as Control
+		var w := f.get_combined_minimum_size().x
+		if tools:
+			var tr := tools.get_global_rect()
+			var margin := maxf(tr.position.x - f.get_global_rect().position.x, 4.0)
+			w = tr.size.x + margin * 2.0
+		if right_anchored:
+			f.offset_left = f.offset_right - w
+		else:
+			f.offset_right = f.offset_left + w
+	elif f.has_meta("panel_offsets"):
+		var o: Vector2 = f.get_meta("panel_offsets")
+		f.offset_left = o.x
+		f.offset_right = o.y
+		f.remove_meta("panel_offsets")

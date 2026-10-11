@@ -100,6 +100,16 @@ func handle_input(event: InputEvent) -> bool:
 			if _bounding_box.has_method("handle_annotator_input") and _bounding_box.handle_annotator_input(event):
 				return true
 
+	# Teclas del modo 3D (vistas, F, Inicio, Esc): ANTES de mirar si el ratón
+	# está sobre la interfaz — con el ratón sobre el recuadro del modelo esa
+	# comprobación las descartaba y los números acababan cambiando la opacidad.
+	if event is InputEventKey and is_instance_valid(active_3d_model):
+		if event.pressed and event.keycode == KEY_ESCAPE:
+			_exit_3d_mode()
+			return true
+		if handle_key_3d(event):
+			return true
+
 	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
 		var gm_check: Vector2 = canvas.get_canvas_transform().affine_inverse() * event.position if (is_instance_valid(canvas) and ("position" in event)) else (canvas.get_global_mouse_position() if is_instance_valid(canvas) else Vector2.ZERO)
 		var hit_ab := _artboard_for_point(gm_check)
@@ -113,6 +123,8 @@ func handle_input(event: InputEvent) -> bool:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			_exit_3d_mode()
 			return true
+		if event is InputEventKey and handle_key_3d(event):
+			return true
 
 		if event is InputEventMouseButton:
 			if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
@@ -123,6 +135,12 @@ func handle_input(event: InputEvent) -> bool:
 					return true
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				if event.pressed:
+					# clic en el gizmo de ejes → vista (como Godot / Blender)
+					if active_3d_model.has_method("gizmo_hit"):
+						var view_name: String = active_3d_model.gizmo_hit(active_3d_model.to_local(gm3d))
+						if view_name != "":
+							active_3d_model.set_view(view_name)
+							return true
 					if _node_contains_point(active_3d_model, gm3d):
 						_is_dragging_3d = true
 						_last_3d_mouse = gm3d
@@ -148,8 +166,7 @@ func handle_input(event: InputEvent) -> bool:
 			elif _is_dragging_3d:
 				var delta: Vector2 = gm3d - _last_3d_mouse
 				_last_3d_mouse = gm3d
-				if active_3d_model.has_method("rotate_orbit"):
-					active_3d_model.rotate_orbit(delta.x, delta.y)
+				navigate_3d(active_3d_model, _screen_delta(delta))
 				return true
 
 	# Soporte MMB (rueda/clic medio) y Wheel estilo Blender para modelos 3D fuera de modo explícito

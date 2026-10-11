@@ -144,7 +144,9 @@ func _input(_event: InputEvent) -> void:
 ## Además del input, ciertas señales del editor cuentan como actividad
 ## (crear/mover/borrar figuras, cambiar de herramienta, deshacer…): así una
 ## animación disparada por código no se ve a 10 FPS.
-func mark_activity() -> void:
+## Admite (e ignora) los argumentos de las señales que lo llaman
+## (import_finished(path), vectorization_progress(…)…).
+func mark_activity(_a: Variant = null, _b: Variant = null, _c: Variant = null) -> void:
 	_last_activity_ms = Time.get_ticks_msec()
 	if _is_idle:
 		_is_idle = false

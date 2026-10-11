@@ -4,29 +4,19 @@
 [ext_resource type="PackedScene" uid="uid://blxyl3f2e5udj" path="res://scenes/ui/logo.tscn" id="1_uu6xs"]
 [ext_resource type="PackedScene" uid="uid://q15ts0d7cg45" path="res://scenes/ui/SliderRange.tscn" id="2_cm0pq"]
 [ext_resource type="PackedScene" uid="uid://c17j4e1yuvjgf" path="res://scenes/ui/layout.tscn" id="3_fos0i"]
-[ext_resource type="PackedScene" uid="uid://cr6hxhkm4rbis" path="res://scenes/ui/tool_in_mouse.tscn" id="3_r0du0"]
 [ext_resource type="Texture2D" uid="uid://b7qpg06o584cd" path="res://icon/UI/Export.svg" id="4_j4qnp"]
-[ext_resource type="PackedScene" uid="uid://cadpjrn1ympx4" path="res://scenes/ui/panels/manager_windws_regla.tscn" id="4_wweun"]
 [ext_resource type="Script" uid="uid://dlqx7jasihjde" path="res://script_gdscript/ui/TogglePanelSetting.gd" id="5_wkp8b"]
-[ext_resource type="PackedScene" uid="uid://bwfvuaxaip16m" path="res://scenes/ui/panel_export.tscn" id="9_03owx"]
 [ext_resource type="Texture2D" uid="uid://c0sbxqnnj1uty" path="res://icon/UI/fill-color.svg" id="10_fpfj3"]
 [ext_resource type="Script" uid="uid://df4s6afogq4dh" path="res://script_gdscript/utils/vistaprevia.gd" id="10_kjvhd"]
-[ext_resource type="PackedScene" uid="uid://br8cexqk0eqvj" path="res://scenes/ui/panel__effects.tscn" id="11_20pc6"]
 [ext_resource type="Texture2D" uid="uid://cuoyoylca84cf" path="res://icon/UI/eye.svg" id="11_c6i3y"]
 [ext_resource type="Texture2D" uid="uid://df4yglt7v5rp0" path="res://icon/UI/circle-spark.svg" id="11_sc1dx"]
-[ext_resource type="PackedScene" uid="uid://prp1f7keamjb" path="res://scenes/ui/pickr_color_tool.tscn" id="12_5vvyt"]
 [ext_resource type="Texture2D" uid="uid://bmracgsala0o" path="res://icon/UI/lock.svg" id="14_c2ibq"]
 [ext_resource type="Texture2D" uid="uid://c8aa7sfxeqfhx" path="res://icon/UI/keyboard.svg" id="14_sc1dx"]
 [ext_resource type="Script" uid="uid://tvsph50ywuy8" path="res://script_gdscript/ui/Color_moouse_click.gd" id="15_fpfj3"]
 [ext_resource type="Texture2D" uid="uid://conyxgtqek4s0" path="res://icon/UI/web-window.svg" id="17_sc1dx"]
 [ext_resource type="Script" uid="uid://boewao87mrb0e" path="res://script_gdscript/ui/InputConfigPanel.gd" id="18_wweun"]
-[ext_resource type="PackedScene" path="res://scenes/ui/docked_inspector.tscn" id="23_docked_insp"]
 [ext_resource type="Script" path="res://script_gdscript/ui/adaptive_ui_manager.gd" id="24_adapt_mgr"]
-[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_bottom_toolbar.tscn" id="25_mbt"]
-[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_top_bar.tscn" id="26_mtb"]
-[ext_resource type="PackedScene" path="res://scenes/ui/modern/modern_nav_rail.tscn" id="27_mnr"]
-[ext_resource type="PackedScene" path="res://scenes/ui/modern/command_palette.tscn" id="28_cp"]
-
+[ext_resource type="Script" path="res://script_gdscript/system/startup_phases.gd" id="99_startup"]
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gb15f"]
 bg_color = Color(0.19140625, 0.19140625, 0.19140625, 1)
 
@@ -170,6 +160,7 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+
 [node name="Control" type="Control" unique_id=1932901795]
 layout_mode = 3
 anchors_preset = 15
@@ -219,7 +210,7 @@ grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_gb15f")
 metadata/_edit_lock_ = true
 
-[node name="Button" type="Button" parent="windows_ recla" unique_id=1946388509 node_paths=PackedStringArray("target_panel")]
+[node name="Button" type="Button" parent="windows_ recla" unique_id=1946388509]
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 0
 offset_right = 24.0
@@ -228,14 +219,7 @@ icon = ExtResource("17_sc1dx")
 icon_alignment = 1
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel = NodePath("../MANAGER WINDWS_REGLA")
-
-[node name="MANAGER WINDWS_REGLA" parent="windows_ recla" unique_id=1408537131 instance=ExtResource("4_wweun")]
-layout_mode = 1
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 652.0
-offset_bottom = 489.0
+target_panel_path = NodePath("../MANAGER WINDWS_REGLA")
 
 [node name="Logo" parent="." unique_id=1990907455 instance=ExtResource("1_uu6xs")]
 layout_mode = 0
@@ -253,27 +237,8 @@ metadata/_edit_lock_ = true
 [node name="Layout" parent="." unique_id=1707319570 instance=ExtResource("3_fos0i")]
 layout_mode = 1
 
-[node name="tool_in_Mouse" parent="." unique_id=1421326824 instance=ExtResource("3_r0du0")]
-layout_mode = 0
-offset_left = 1045.0
-offset_top = 128.0
-offset_right = 1267.0
-offset_bottom = 488.0
-
 [node name="Cursor_moue" type="Control" parent="." unique_id=305341708]
 anchors_preset = 0
-
-[node name="pickr_color_windows" parent="." unique_id=1723383269 instance=ExtResource("12_5vvyt")]
-visible = false
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -218.0
-offset_top = 66.0
-offset_right = -16.0
-offset_bottom = 440.0
-grow_horizontal = 0
 
 [node name="Panel_PREVIEW" type="Panel" parent="." unique_id=869513070 node_paths=PackedStringArray("zoom_slider", "label_porcentaje")]
 visible = false
@@ -369,7 +334,7 @@ theme_override_constants/margin_bottom = 2
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="Button" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=1151590828 node_paths=PackedStringArray("target_panel")]
+[node name="Button" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=1151590828]
 custom_minimum_size = Vector2(22, 22)
 layout_mode = 2
 tooltip_text = "Color Picker"
@@ -381,9 +346,9 @@ icon = ExtResource("10_fpfj3")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel = NodePath("../../../pickr_color_windows")
+target_panel_path = NodePath("../../../pickr_color_windows")
 
-[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455 node_paths=PackedStringArray("target_panel")]
+[node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455]
 custom_minimum_size = Vector2(22, 22)
 layout_mode = 2
 tooltip_text = "Effects"
@@ -394,7 +359,7 @@ icon = ExtResource("11_sc1dx")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel = NodePath("../../../panel__effects")
+target_panel_path = NodePath("../../../panel__effects")
 
 [node name="BUTTON_PEWVIEW" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=603546554 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(22, 22)
@@ -409,10 +374,6 @@ icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
 target_panel = NodePath("../../../Panel_PREVIEW")
-
-[node name="panel__effects" parent="." unique_id=1308037831 instance=ExtResource("11_20pc6")]
-visible = false
-layout_mode = 1
 
 [node name="Control2" type="Control" parent="." unique_id=2110585857]
 layout_mode = 1
@@ -722,7 +683,7 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="Button2" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=337932661 node_paths=PackedStringArray("target_panel")]
+[node name="Button2" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=337932661]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 tooltip_text = "Export"
@@ -732,7 +693,7 @@ icon = ExtResource("4_j4qnp")
 icon_alignment = 1
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel = NodePath("../../../../../Panel_export")
+target_panel_path = NodePath("../../../../../Panel_export")
 
 [node name="Button" type="Button" parent="keyboard/PanelContainer/MarginContainer/Contenido" unique_id=1973582187 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(24, 24)
@@ -841,33 +802,8 @@ custom_minimum_size = Vector2(6, 0)
 layout_mode = 2
 color = Color(0.585938, 0.585938, 0.585938, 1)
 
-[node name="Panel_export" parent="." unique_id=454116989 instance=ExtResource("9_03owx")]
-visible = false
-z_index = 20
-z_as_relative = false
-layout_mode = 1
-offset_top = -370.0
-
-[node name="DockedInspector" parent="." unique_id=987123456 instance=ExtResource("23_docked_insp")]
-visible = false
-layout_mode = 1
-
-[node name="ModernTopBar" parent="." unique_id=987123460 instance=ExtResource("26_mtb")]
-visible = false
-layout_mode = 1
-
-[node name="ModernNavRail" parent="." unique_id=987123461 instance=ExtResource("27_mnr")]
-visible = false
-layout_mode = 1
-
-[node name="ModernBottomToolbar" parent="." unique_id=987123462 instance=ExtResource("25_mbt")]
-visible = false
-layout_mode = 1
-
-[node name="CommandPalette" parent="." unique_id=987123463 instance=ExtResource("28_cp")]
-visible = false
-layout_mode = 1
-
 [node name="AdaptiveUIManager" type="Node" parent="." unique_id=987123457]
 script = ExtResource("24_adapt_mgr")
 
+[node name="StartupPhases" type="Node" parent="."]
+script = ExtResource("99_startup")

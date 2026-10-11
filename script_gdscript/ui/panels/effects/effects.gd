@@ -54,16 +54,33 @@ func _ready() -> void:
 	_sync_from_inspector()
 	# Pestaña "Filters" (grano, duotono, neón, glitch…): se crea por código.
 	(func() -> void: load("res://script_gdscript/ui/panels/effects/filters_panel.gd").install(self)).call_deferred()
-	# Pestaña "Shader": área de código + biblioteca de shaders guardados.
-	(func() -> void: load("res://script_gdscript/ui/panels/effects/shader_panel.gd").install(self)).call_deferred()
-	# Pestaña "Vectorizar": imagen → trazados Bézier (GDExtension nativo).
-	(func() -> void: load("res://script_gdscript/ui/panels/effects/vectorize_panel.gd").install(self)).call_deferred()
-	# Pestaña "Script": scripts GDScript con la API + gestor de complementos.
-	(func() -> void: load("res://script_gdscript/ui/panels/effects/script_panel.gd").install(self)).call_deferred()
+	# Pestañas "Shader" (código + biblioteca), "Vectorizar" (imagen → Bézier)
+	# y "Script" (GDScript con la API + complementos). ARRANQUE RÁPIDO: se
+	# montan la PRIMERA VEZ que se muestran (antes, ~190 ms al abrir Vectopen
+	# aunque nadie las mirase). install() es idempotente.
+	_install_tab_lazily("Shader", "shader_panel")
+	_install_tab_lazily("Vectorizar", "vectorize_panel")
+	_install_tab_lazily("Script", "script_panel")
 	_restyle()
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m: String) -> void: _restyle())
+
+## Monta la pestaña `host_name` con `<script_file>.gd` cuando su anfitrión
+## se vuelve visible por primera vez (o ya, si se ve al arrancar).
+func _install_tab_lazily(host_name: String, script_file: String) -> void:
+	var install := func() -> void:
+		load("res://script_gdscript/ui/panels/effects/%s.gd" % script_file).install(self)
+	var content := get_parent()
+	var host := content.get_node_or_null(host_name) as Control if content else null
+	if host == null or host.is_visible_in_tree():
+		install.call_deferred()
+		return
+	var done := [false]
+	host.visibility_changed.connect(func() -> void:
+		if not done[0] and host.is_visible_in_tree():
+			done[0] = true
+			install.call())
 
 ## Diseño común con la pestaña Filtros, con los colores del tema actual.
 func _restyle() -> void:
@@ -123,7 +140,8 @@ func _on_popup_id_pressed(id: int) -> void:
 	var effect_name: String = EFFECT_ORDER[id]
 	_add_new_effect(effect_name)
 
-func _add_new_effect(effect_name: String) -> void:
+## Efecto nuevo con sus valores por defecto (también lo usa VectopenAPI).
+static func default_effect(effect_name: String) -> Dictionary:
 	var new_fx := {
 		"type": effect_name,
 		"enabled": true,
@@ -163,8 +181,10 @@ func _add_new_effect(effect_name: String) -> void:
 			new_fx["opacity"] = 1.0
 		"3D", "Bevel Emboss", "Extrusion":
 			new_fx.merge(FxLight.defaults(FxLight.canonical(effect_name)), true)
+	return new_fx
 
-
+func _add_new_effect(effect_name: String) -> void:
+	var new_fx := default_effect(effect_name)
 	var list := _collect_effects_from_ui()
 	list.append(new_fx)
 	_apply_effects_to_selection(list)

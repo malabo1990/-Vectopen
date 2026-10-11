@@ -54,7 +54,15 @@ static func install(effects_panel: Control) -> Control:
 		c.queue_free()
 	var panel: Control = load("res://script_gdscript/ui/panels/effects/shader_panel.gd").new()
 	panel.name = PANEL_NAME
-	host.add_child(panel)
+	# Márgenes como la pestaña Vectorizar: el contenido no toca los bordes.
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	host.add_child(margin)
+	margin.add_child(panel)
 	return panel
 
 func _init() -> void:

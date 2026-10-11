@@ -131,6 +131,11 @@ var spin_3d_rot_z: NumericField
 var spin_3d_distance: NumericField
 var spin_3d_fov: NumericField
 var spin_3d_light_energy: NumericField
+var opt_3d_preset: OptionButton
+var chk_3d_shadows: CheckBox
+var spin_3d_ambient: NumericField
+var cpb_3d_light_color: ColorPickerButton
+var btn_3d_ortho: Button
 var btn_3d_reset_view: Button
 
 # ── Estado de sincronización y tema ──
@@ -1159,6 +1164,63 @@ func _build_3d_model_section() -> void:
 	spin_3d_light_energy.value_changed.connect(func(v: float): _set_3d_param("light_energy", v))
 	row_cam_light.add_child(spin_3d_light_energy)
 
+	# ── Iluminación: esquema, sombras, ambiente y color de la luz principal ──
+	var row_light := HBoxContainer.new()
+	row_light.add_theme_constant_override("separation", 4)
+	sec_3d_model.add_child(row_light)
+	opt_3d_preset = OptionButton.new()
+	opt_3d_preset.name = "LightPreset"
+	opt_3d_preset.tooltip_text = "Esquema de luces (Alt + arrastrar sobre el modelo gira la luz)"
+	opt_3d_preset.focus_mode = Control.FOCUS_NONE
+	opt_3d_preset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for preset in VectorModel3D.LIGHT_PRESETS.keys():
+		opt_3d_preset.add_item(String(preset))
+	opt_3d_preset.item_selected.connect(func(i: int): _set_3d_param("light_preset", opt_3d_preset.get_item_text(i)))
+	row_light.add_child(opt_3d_preset)
+	chk_3d_shadows = CheckBox.new()
+	chk_3d_shadows.name = "Shadows"
+	chk_3d_shadows.text = "Sombras"
+	chk_3d_shadows.focus_mode = Control.FOCUS_NONE
+	chk_3d_shadows.button_pressed = true
+	chk_3d_shadows.add_theme_font_size_override("font_size", 10)
+	chk_3d_shadows.toggled.connect(func(on: bool): _set_3d_param("model_shadows", on))
+	row_light.add_child(chk_3d_shadows)
+
+	var row_amb := HBoxContainer.new()
+	row_amb.add_theme_constant_override("separation", 4)
+	sec_3d_model.add_child(row_amb)
+	spin_3d_ambient = NumericField.new("Amb", "", 0.0, 4.0, 0.1)
+	spin_3d_ambient.custom_minimum_size = Vector2(80, 22)
+	spin_3d_ambient.value = 1.0
+	spin_3d_ambient.tooltip_text = "Luz ambiente (cielo)"
+	spin_3d_ambient.value_changed.connect(func(v: float): _set_3d_param("ambient_energy", v))
+	row_amb.add_child(spin_3d_ambient)
+	cpb_3d_light_color = ColorPickerButton.new()
+	cpb_3d_light_color.name = "LightColor"
+	cpb_3d_light_color.color = Color.WHITE
+	cpb_3d_light_color.tooltip_text = "Color de la luz principal"
+	cpb_3d_light_color.custom_minimum_size = Vector2(36, 22)
+	cpb_3d_light_color.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cpb_3d_light_color.color_changed.connect(func(c: Color): _set_3d_param("light_color", c))
+	row_amb.add_child(cpb_3d_light_color)
+
+	# ── Vistas rápidas (como el teclado numérico de Blender) ──
+	var row_views := HFlowContainer.new()
+	row_views.add_theme_constant_override("h_separation", 3)
+	row_views.add_theme_constant_override("v_separation", 3)
+	sec_3d_model.add_child(row_views)
+	for v in [["Frente", "front", "1"], ["Derecha", "right", "3"], ["Arriba", "top", "7"], ["Iso", "iso", "9"]]:
+		var vb := _create_chip_button(v[0], "Vista %s (tecla %s; Ctrl = opuesta)" % [v[0].to_lower(), v[2]], Vector2(0, 22))
+		vb.pressed.connect(_on_3d_view.bind(v[1]))
+		row_views.add_child(vb)
+	btn_3d_ortho = _create_chip_button("Orto", "Perspectiva / ortográfica (tecla 5)", Vector2(0, 22))
+	btn_3d_ortho.toggle_mode = true
+	btn_3d_ortho.toggled.connect(func(on: bool): _set_3d_param("camera_ortho", on))
+	row_views.add_child(btn_3d_ortho)
+	var bf := _create_chip_button("Encuadrar", "Centrar y encuadrar el modelo (tecla F)", Vector2(0, 22))
+	bf.pressed.connect(_on_3d_view.bind("frame"))
+	row_views.add_child(bf)
+
 	btn_3d_reset_view = _create_chip_button("Restablecer vista 3D", "Restablecer rotacion orbital y distancia de camara", Vector2(0, 24))
 	btn_3d_reset_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_3d_reset_view.pressed.connect(_on_3d_reset_view_pressed)
@@ -1170,6 +1232,19 @@ func _build_3d_model_section() -> void:
 	hint_lbl.add_theme_font_size_override("font_size", 9)
 	hint_lbl.add_theme_color_override("font_color", _C_MUTED)
 	sec_3d_model.add_child(hint_lbl)
+
+## Vistas rápidas sobre los modelos 3D seleccionados (la vista se guarda
+## con el proyecto, pero no es un paso de deshacer, como en Blender).
+func _on_3d_view(view_name: String) -> void:
+	var ic = get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return
+	for s in ic.selection():
+		if s is VectorModel3D:
+			if view_name == "frame":
+				s.frame_model()
+			else:
+				s.set_view(view_name)
 
 func _set_3d_param(param: String, val: Variant) -> void:
 	if _syncing: return
@@ -1221,7 +1296,22 @@ func _sync_3d_controls(model) -> void:
 		spin_3d_distance.value = model.camera_distance
 	if is_instance_valid(spin_3d_light_energy) and "light_energy" in model:
 		spin_3d_light_energy.value = model.light_energy
+	_sync_3d_light_controls(model.light_preset, model.model_shadows, model.ambient_energy, model.light_color, model.camera_ortho)
 	_syncing = false
+
+func _sync_3d_light_controls(preset: String, shadows: bool, ambient: float, color: Color, ortho: bool) -> void:
+	if is_instance_valid(opt_3d_preset):
+		for i in opt_3d_preset.item_count:
+			if opt_3d_preset.get_item_text(i) == preset:
+				opt_3d_preset.select(i)
+	if is_instance_valid(chk_3d_shadows):
+		chk_3d_shadows.set_pressed_no_signal(shadows)
+	if is_instance_valid(spin_3d_ambient):
+		spin_3d_ambient.value = ambient
+	if is_instance_valid(cpb_3d_light_color):
+		cpb_3d_light_color.color = color
+	if is_instance_valid(btn_3d_ortho):
+		btn_3d_ortho.set_pressed_no_signal(ortho)
 
 
 # ── SECCIÓN RELLENO (FILL) ──
@@ -1942,6 +2032,10 @@ func _on_inspector_changed(props: Dictionary) -> void:
 	if props.has("light_energy") and not props["light_energy"].get("mixed", false):
 		if is_instance_valid(spin_3d_light_energy):
 			spin_3d_light_energy.value = float(props["light_energy"]["value"])
+	if props.has("light_preset"):
+		_sync_3d_light_controls(String(props["light_preset"]["value"]), bool(props.get("model_shadows", {}).get("value", true)),
+			float(props.get("ambient_energy", {}).get("value", 1.0)), props.get("light_color", {}).get("value", Color.WHITE),
+			bool(props.get("camera_ortho", {}).get("value", false)))
 	_syncing = false
 
 func _update_from_inspector() -> void:

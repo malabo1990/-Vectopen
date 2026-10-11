@@ -80,8 +80,55 @@ func handle_middle_motion_3d(gm: Vector2) -> bool:
 		return false
 	var delta: Vector2 = gm - _last_mmb_3d_pos
 	_last_mmb_3d_pos = gm
-	if _mmb_3d_target.has_method("rotate_orbit"):
-		_mmb_3d_target.rotate_orbit(delta.x, delta.y)
+	navigate_3d(_mmb_3d_target, _screen_delta(delta))
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
+	return true
+
+## Arrastre de navegación 3D, como Blender: sin tecla = orbitar,
+## Mayús = desplazar, Ctrl = zoom, Alt = girar la luz.
+func navigate_3d(target: Node, delta: Vector2) -> void:
+	if Input.is_key_pressed(KEY_SHIFT) and target.has_method("pan_view"):
+		target.pan_view(delta.x, delta.y)
+	elif Input.is_key_pressed(KEY_CTRL) and target.has_method("zoom_camera"):
+		target.zoom_camera(-delta.y * 0.05)
+	elif Input.is_key_pressed(KEY_ALT) and target.has_method("rotate_light"):
+		target.rotate_light(delta.x, delta.y)
+	elif target.has_method("rotate_orbit"):
+		target.rotate_orbit(delta.x, delta.y)
+
+## Los arrastres llegan en coordenadas del mundo: se pasan a píxeles de
+## pantalla para que la velocidad no dependa del zoom del lienzo.
+func _screen_delta(world_delta: Vector2) -> Vector2:
+	var z: float = canvas.get_canvas_transform().get_scale().x if is_instance_valid(canvas) else 1.0
+	return world_delta * z
+
+## Teclas del modo 3D (teclado numérico como Blender; también los números
+## normales para portátiles): 1 frente, 3 derecha, 7 arriba (Ctrl = vista
+## opuesta), 5 perspectiva/ortográfica, 9 isométrica, F encuadrar, Inicio
+## restablecer. Devuelve true si la tecla era suya.
+func handle_key_3d(event: InputEventKey) -> bool:
+	if not (event.pressed and is_instance_valid(active_3d_model)):
+		return false
+	var m := active_3d_model
+	var ctrl := event.ctrl_pressed
+	match event.keycode:
+		KEY_KP_1, KEY_1:
+			m.set_view("back" if ctrl else "front")
+		KEY_KP_3, KEY_3:
+			m.set_view("left" if ctrl else "right")
+		KEY_KP_7, KEY_7:
+			m.set_view("bottom" if ctrl else "top")
+		KEY_KP_9, KEY_9:
+			m.set_view("iso")
+		KEY_KP_5, KEY_5:
+			m.toggle_ortho()
+		KEY_F, KEY_KP_PERIOD:
+			m.frame_model()
+		KEY_HOME:
+			m.reset_view()
+		_:
+			return false
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 	return true

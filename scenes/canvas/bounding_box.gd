@@ -880,7 +880,12 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 	# Si hay un modelo 3D en modo de edición activo, delegar la interacción de ratón directamente a MoveTool
 	if is_instance_valid(move_tool_reference) and "active_3d_model" in move_tool_reference and is_instance_valid(move_tool_reference.active_3d_model):
 		if event is InputEventMouseButton or event is InputEventMouseMotion:
-			if move_tool_reference.handle_input(event):
+			# handle_input espera la posición de PANTALLA; en _gui_input llega
+			# LOCAL a este recuadro → antes cada clic sobre el modelo se leía
+			# como «fuera» y salía del modo 3D al primer arrastre.
+			var ev: InputEventMouse = event.duplicate()
+			ev.position = (event as InputEventMouse).global_position
+			if move_tool_reference.handle_input(ev):
 				accept_event()
 				return
 

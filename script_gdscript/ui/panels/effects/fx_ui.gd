@@ -56,6 +56,21 @@ static func t(s: String) -> String:
 static func c(slot: String) -> Color:
 	return ProUIStyle.col(slot)
 
+## Botón de ACCIÓN PRINCIPAL en verde (Exportar, Vectorizar): el verde del
+## tema algo oscurecido para que el texto blanco se lea bien.
+static func style_primary_green(b: Button) -> void:
+	var tm = Engine.get_main_loop().root.get_node_or_null("ThemeManager") if Engine.get_main_loop() else null
+	var g: Color = c("AFFIRMATIVE") if tm and tm.Slot.has("AFFIRMATIVE") else Color(0.19, 0.72, 0.35)
+	var base := g.darkened(0.22)
+	b.add_theme_stylebox_override("normal", flat(base, 6, base, 10, 4))
+	b.add_theme_stylebox_override("hover", flat(base.lightened(0.1), 6, base.lightened(0.1), 10, 4))
+	b.add_theme_stylebox_override("pressed", flat(base.darkened(0.15), 6, base.darkened(0.15), 10, 4))
+	b.add_theme_stylebox_override("disabled", flat(base.darkened(0.3).lerp(Color(0.4, 0.4, 0.4), 0.5), 6, Color(0, 0, 0, 0), 10, 4))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(k, Color.WHITE)
+	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.6))
+
 static func flat(bg: Color, radius: int, border: Color = Color(0, 0, 0, 0), mh: int = 0, mv: int = 0) -> StyleBoxFlat:
 	return ProUIStyle.flat(bg, radius, border, mh, mv)
 

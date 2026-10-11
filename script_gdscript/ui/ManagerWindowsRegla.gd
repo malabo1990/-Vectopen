@@ -28,7 +28,8 @@ func _ready() -> void:
 			tm_node.button_clicked.connect(_on_tab_changed)
 
 	_connect_theme()
-	_apply_theme()
+	# ARRANQUE RÁPIDO: la ventana empieza oculta → se estiliza al abrirla.
+	LazyTheme.apply(self, _apply_theme)
 
 func _connect_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
@@ -39,10 +40,10 @@ func _connect_theme() -> void:
 			tm.color_slot_changed.connect(_on_color_slot_changed)
 
 func _on_theme_changed(_mode: String) -> void:
-	_apply_theme()
+	LazyTheme.apply(self, _apply_theme)
 
 func _on_color_slot_changed(_slot: String, _color: Color) -> void:
-	_apply_theme()
+	LazyTheme.apply(self, _apply_theme)
 
 func _on_tab_changed(index: int) -> void:
 	_active_tab_index = index

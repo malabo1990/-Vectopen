@@ -423,6 +423,9 @@ func restyle() -> void:
 		if b is OptionButton or b is CheckBox:
 			continue
 		var main: bool = b == _btn_go
+		if main:
+			FxUI.style_primary_green(b)   # acción principal: verde, como Exportar
+			continue
 		b.add_theme_stylebox_override("normal", FxUI.flat(FxUI.c("ACCENT") if main else FxUI.c("INPUT_BG"), 4, FxUI.c("ACCENT") if main else FxUI.c("INPUT_BORDER"), 8, 0))
 		b.add_theme_stylebox_override("hover", FxUI.flat(FxUI.c("ACCENT_HOVER") if main and _has("ACCENT_HOVER") else FxUI.c("BUTTON_HOVER"), 4, FxUI.c("BORDER_STRONG"), 8, 0))
 		b.add_theme_stylebox_override("pressed", FxUI.flat(FxUI.c("BUTTON_PRESSED"), 4, FxUI.c("ACCENT"), 8, 0))

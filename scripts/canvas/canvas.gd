@@ -297,12 +297,28 @@ func switch_tool(tool_type: String) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey:
+		if _route_key_to_3d(event):
+			return
 		_handle_keyboard(event)
+
+## Modo 3D activo: sus teclas (1 3 7 5 9, F, Inicio, Esc) van primero a la
+## herramienta; si no, los números ponían la OPACIDAD del modelo.
+## (_unhandled_key_input llega ANTES que _unhandled_input.)
+func _route_key_to_3d(event: InputEventKey) -> bool:
+	if current_tool and is_instance_valid(current_tool.get("active_3d_model")) and current_tool.has_method("handle_input"):
+		if current_tool.handle_input(event):
+			get_viewport().set_input_as_handled()
+			return true
+	return false
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		print("[CanvasEditor] _unhandled_input MB pos=%s current_tool=%s" % [event.position, current_tool.get_script().resource_path if current_tool else "null"])
 	if event is InputEventKey:
+		# Modo 3D activo: sus teclas (1 3 7 5 9, F, Inicio, Esc) van antes a la
+		# herramienta; si no, los números ponían la OPACIDAD del modelo.
+		if _route_key_to_3d(event):
+			return
 		_handle_keyboard(event)
 		return
 
@@ -336,6 +352,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_MIDDLE)) \
 			or _zoom_drag:
 		en_modo_navegacion_forzada = true
+		# …salvo sobre un modelo 3D (o en su modo 3D): ahí el botón central
+		# ORBITA, como en Blender / Godot.
+		if current_tool and current_tool.has_method("is_3d_focused") and not _zoom_drag:
+			var gm3 := get_canvas_transform().affine_inverse() * (event as InputEventMouse).position
+			if current_tool.is_3d_focused(gm3):
+				en_modo_navegacion_forzada = false
 	
 	if current_tool and not en_modo_navegacion_forzada:
 		if current_tool.has_method("handle_input"):

@@ -24,6 +24,7 @@ func run() -> void:
 - One run = **one undo step**. If the script fails, its changes are rolled back and the console shows the line (click to jump).
 - Syntax is checked while typing; `api.` + Ctrl+Space autocompletes; **API** button shows the reference (`VectopenAPI.REFERENCE`).
 - **Guardar** (Ctrl+S) saves to `user://scripts/`; templates included. `run()` may `await api.wait(0.2)`.
+- The API covers shapes, text, images, artboards, Inspector properties, selection, z-order, align/distribute, booleans, effects, filters, **shaders** (`apply_shader`, `save_shader`…), SVG import, export (.svg/.png/.jpg/.webp/.pdf) and vectorize. System operations with their own undo (booleans, align) are folded into the script's single undo step.
 - Coordinates are artboard document space (top-left origin); shapes are placed by their **center**.
 - An infinite loop freezes the app (GDScript cannot be interrupted).
 

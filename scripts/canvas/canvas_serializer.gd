@@ -381,6 +381,10 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["camera_fov"] = node.camera_fov
 		base["light_energy"] = node.light_energy
 		base["light_rotation"] = [node.light_rotation.x, node.light_rotation.y, node.light_rotation.z]
+		base["view"] = {"yaw": node.view_yaw, "pitch": node.view_pitch,
+			"target": [node.view_target.x, node.view_target.y, node.view_target.z], "ortho": node.camera_ortho}
+		base["lighting"] = {"preset": node.light_preset, "shadows": node.model_shadows,
+			"color": _col(node.light_color), "ambient": node.ambient_energy}
 		return base
 	# GRUPO: cualquier Node2D con hijos Node2D que no sea un tipo conocido.
 	if base.has("children"):
@@ -959,6 +963,19 @@ static func _element_from(d: Dictionary) -> Node2D:
 				m3d.light_energy = float(d["light_energy"])
 			if d.has("light_rotation") and d["light_rotation"] is Array and d["light_rotation"].size() >= 3:
 				m3d.light_rotation = Vector3(float(d["light_rotation"][0]), float(d["light_rotation"][1]), float(d["light_rotation"][2]))
+			if d.get("view") is Dictionary:
+				var v: Dictionary = d["view"]
+				m3d.view_yaw = float(v.get("yaw", 0.0))
+				m3d.view_pitch = float(v.get("pitch", 0.0))
+				var t: Array = v.get("target", [0, 0, 0])
+				m3d.view_target = Vector3(float(t[0]), float(t[1]), float(t[2]))
+				m3d.camera_ortho = bool(v.get("ortho", false))
+			if d.get("lighting") is Dictionary:
+				var l: Dictionary = d["lighting"]
+				m3d.light_preset = String(l.get("preset", "Estudio"))
+				m3d.model_shadows = bool(l.get("shadows", true))
+				m3d.light_color = _to_col(l.get("color", [1, 1, 1, 1]))
+				m3d.ambient_energy = float(l.get("ambient", 1.0))
 			var mp: String = String(d.get("model_path", ""))
 			if not mp.is_empty():
 				m3d.model_path = mp

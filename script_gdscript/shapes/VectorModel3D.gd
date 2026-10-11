@@ -49,21 +49,84 @@ var _is_capturing: bool = false
 		camera_fov = clampf(v, 5.0, 120.0)
 		if is_instance_valid(_camera):
 			_camera.fov = camera_fov
+		_apply_camera_transform()
 		request_render_update()
 
 @export var light_energy: float = 1.2:
 	set(v):
 		light_energy = maxf(0.0, v)
-		if is_instance_valid(_light):
-			_light.light_energy = light_energy
+		_apply_lighting()
 		request_render_update()
 
 @export var light_rotation: Vector3 = Vector3(-35.0, 45.0, 0.0):
 	set(v):
 		light_rotation = v
-		if is_instance_valid(_light):
-			_light.rotation_degrees = light_rotation
+		_apply_lighting()
 		request_render_update()
+
+# ── Vista (cámara orbital estilo Blender / Godot) ──────────────────────────
+## Ángulos de la cámara alrededor del punto de interés, en grados.
+@export var view_yaw: float = 0.0:
+	set(v):
+		view_yaw = wrapf(v, -180.0, 180.0)
+		_apply_camera_transform()
+		request_render_update()
+@export var view_pitch: float = 0.0:
+	set(v):
+		view_pitch = clampf(v, -89.5, 89.5)
+		_apply_camera_transform()
+		request_render_update()
+## Punto al que mira la cámara (desplazar con Mayús + arrastrar).
+@export var view_target: Vector3 = Vector3.ZERO:
+	set(v):
+		view_target = v
+		_apply_camera_transform()
+		request_render_update()
+## Proyección ortográfica (5 del teclado numérico, como Blender).
+@export var camera_ortho: bool = false:
+	set(v):
+		camera_ortho = v
+		_apply_camera_transform()
+		request_render_update()
+
+# ── Iluminación ─────────────────────────────────────────────────────────────
+const LIGHT_PRESETS := {
+	"Estudio": {"key": [1.35, Color(1.0, 0.97, 0.92), Vector3(-40, 35, 0)], "fill": [0.45, Color(0.85, 0.9, 1.0), Vector3(-15, -60, 0)],
+		"rim": [0.8, Color(1, 1, 1), Vector3(-10, 175, 0)], "ambient": 0.35, "sky_top": Color(0.62, 0.66, 0.72), "sky_horizon": Color(0.8, 0.8, 0.82), "ground": Color(0.25, 0.24, 0.23)},
+	"Exterior": {"key": [2.0, Color(1.0, 0.95, 0.85), Vector3(-55, 30, 0)], "fill": [0.0, Color.WHITE, Vector3.ZERO],
+		"rim": [0.0, Color.WHITE, Vector3.ZERO], "ambient": 0.75, "sky_top": Color(0.35, 0.55, 0.9), "sky_horizon": Color(0.75, 0.82, 0.92), "ground": Color(0.3, 0.27, 0.22)},
+	"Suave": {"key": [0.9, Color(1, 1, 1), Vector3(-50, 20, 0)], "fill": [0.6, Color(1, 1, 1), Vector3(-20, -70, 0)],
+		"rim": [0.3, Color(1, 1, 1), Vector3(-10, 170, 0)], "ambient": 0.8, "sky_top": Color(0.8, 0.8, 0.82), "sky_horizon": Color(0.85, 0.85, 0.86), "ground": Color(0.5, 0.5, 0.5)},
+	"Dramático": {"key": [2.2, Color(1.0, 0.9, 0.78), Vector3(-20, 80, 0)], "fill": [0.05, Color(0.6, 0.7, 1.0), Vector3(-10, -80, 0)],
+		"rim": [1.3, Color(0.55, 0.7, 1.0), Vector3(-5, -170, 0)], "ambient": 0.08, "sky_top": Color(0.1, 0.1, 0.14), "sky_horizon": Color(0.15, 0.15, 0.2), "ground": Color(0.05, 0.05, 0.05)},
+	"Plano": {"key": [0.5, Color(1, 1, 1), Vector3(-30, 0, 0)], "fill": [0.0, Color.WHITE, Vector3.ZERO],
+		"rim": [0.0, Color.WHITE, Vector3.ZERO], "ambient": 1.1, "sky_top": Color(1, 1, 1), "sky_horizon": Color(1, 1, 1), "ground": Color(0.9, 0.9, 0.9)},
+}
+## Esquema de luces (Estudio, Exterior, Suave, Dramático, Plano).
+@export var light_preset: String = "Estudio":
+	set(v):
+		light_preset = v if LIGHT_PRESETS.has(v) else "Estudio"
+		_apply_lighting()
+		request_render_update()
+@export var model_shadows: bool = true:
+	set(v):
+		model_shadows = v
+		_apply_lighting()
+		request_render_update()
+@export var light_color: Color = Color(1, 1, 1):
+	set(v):
+		light_color = v
+		_apply_lighting()
+		request_render_update()
+@export var ambient_energy: float = 1.0:
+	set(v):
+		ambient_energy = clampf(v, 0.0, 4.0)
+		_apply_lighting()
+		request_render_update()
+
+var _fill_light: DirectionalLight3D = null
+var _rim_light: DirectionalLight3D = null
+var _env: Environment = null
 
 var is_3d_editing: bool = false:
 	set(v):
@@ -144,16 +207,31 @@ func _setup_3d_pipeline() -> void:
 	_light.rotation_degrees = light_rotation
 	_world_node.add_child(_light)
 
-	# Luz ambiental sutil para que las partes ocultas no se vean completamente negras
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0, 0, 0, 0)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.35, 0.35, 0.4, 1.0)
-	env.ambient_light_energy = 0.8
+	# Luces de relleno y contraluz (esquema de tres luces de estudio)
+	_fill_light = DirectionalLight3D.new()
+	_fill_light.name = "FillLight"
+	_world_node.add_child(_fill_light)
+	_rim_light = DirectionalLight3D.new()
+	_rim_light.name = "RimLight"
+	_world_node.add_child(_rim_light)
+
+	# Entorno: cielo procedural SOLO para la luz ambiental y los reflejos
+	# (el fondo sigue transparente), tonemapping fílmico
+	_env = Environment.new()
+	_env.background_mode = Environment.BG_CLEAR_COLOR
+	var sky := Sky.new()
+	sky.sky_material = ProceduralSkyMaterial.new()
+	_env.sky = sky
+	# ambiente por COLOR (instantáneo); el cielo solo para reflejos: su luz
+	# ambiental se calcula en varios fotogramas y llegaba tarde a la imagen
+	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	_env.tonemap_white = 6.0
 	var camera_env := WorldEnvironment.new()
-	camera_env.environment = env
+	camera_env.environment = _env
 	_world_node.add_child(camera_env)
+	_apply_lighting()
 
 	_model_container = Node3D.new()
 	_model_container.name = "ModelContainer"
@@ -208,11 +286,53 @@ func _schedule_resize_settle() -> void:
 			capture_high_quality()
 	)
 
+## Cámara ORBITAL: gira alrededor de `view_target` a `camera_distance`
+## (como Blender / el editor de Godot), en perspectiva u ortográfica.
 func _apply_camera_transform() -> void:
 	if not is_instance_valid(_camera):
 		return
-	_camera.position = Vector3(0.0, 0.0, camera_distance)
-	_camera.rotation = Vector3.ZERO
+	var yaw := deg_to_rad(view_yaw)
+	var pitch := deg_to_rad(view_pitch)
+	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
+	var pos := view_target + dir * camera_distance
+	var up := Vector3.UP if absf(view_pitch) < 89.0 else Vector3(0, 0, -signf(view_pitch))
+	# sin look_at(): funciona también antes de entrar en la escena (al cargar)
+	_camera.transform = Transform3D(Basis.looking_at(view_target - pos, up), pos)
+	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL if camera_ortho else Camera3D.PROJECTION_PERSPECTIVE
+	_camera.size = 2.0 * camera_distance * tan(deg_to_rad(camera_fov) * 0.5)
+	_camera.near = 0.02
+	_camera.far = 200.0
+
+## Aplica el esquema de luces + color/intensidad/rotación de la luz principal.
+func _apply_lighting() -> void:
+	if not is_instance_valid(_light):
+		return
+	var pr: Dictionary = LIGHT_PRESETS.get(light_preset, LIGHT_PRESETS["Estudio"])
+	_light.light_energy = float(pr["key"][0]) * light_energy / 1.2
+	_light.light_color = (pr["key"][1] as Color) * light_color
+	_light.rotation_degrees = light_rotation
+	_light.shadow_enabled = model_shadows
+	_light.shadow_blur = 1.5
+	_light.directional_shadow_max_distance = 30.0
+	for pair in [[_fill_light, "fill"], [_rim_light, "rim"]]:
+		var l: DirectionalLight3D = pair[0]
+		if is_instance_valid(l):
+			var spec: Array = pr[pair[1]]
+			l.light_energy = float(spec[0])
+			l.light_color = spec[1]
+			# las luces secundarias acompañan a la principal al girarla
+			l.rotation_degrees = (spec[2] as Vector3) + Vector3(0, light_rotation.y - 45.0, 0)
+			l.visible = float(spec[0]) > 0.0
+			l.shadow_enabled = false
+	if _env:
+		var sm := _env.sky.sky_material as ProceduralSkyMaterial
+		sm.sky_top_color = pr["sky_top"]
+		sm.sky_horizon_color = pr["sky_horizon"]
+		sm.ground_bottom_color = pr["ground"]
+		sm.ground_horizon_color = pr["sky_horizon"]
+		var top: Color = pr["sky_top"]
+		_env.ambient_light_color = top.lerp(pr["sky_horizon"], 0.5).lerp(pr["ground"], 0.2)
+		_env.ambient_light_energy = float(pr["ambient"]) * ambient_energy
 
 func _apply_model_transform() -> void:
 	if not is_instance_valid(_model_container):
@@ -355,18 +475,28 @@ func capture_high_quality() -> void:
 	_viewport.msaa_3d = Viewport.MSAA_4X
 	_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	_viewport.use_debanding = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	# Se renderiza de continuo y se copia la imagen tras DOS fotogramas
+	# dibujados: con UPDATE_ONCE y copia en el primero, la copia salía con un
+	# cambio de retraso (luz, sombras o vista anteriores).
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_is_capturing = true
+	_capture_wait = 2
 	if not RenderingServer.frame_post_draw.is_connected(_on_post_draw_capture):
-		RenderingServer.frame_post_draw.connect(_on_post_draw_capture, CONNECT_ONE_SHOT)
-	call_deferred("_fallback_capture")
+		RenderingServer.frame_post_draw.connect(_on_post_draw_capture)
+	# respaldo por si frame_post_draw no llega
+	if is_inside_tree():
+		get_tree().create_timer(0.5).timeout.connect(_fallback_capture)
 	queue_redraw()
 
+var _capture_wait := 0
+
 func _on_post_draw_capture() -> void:
-	_do_capture()
+	_capture_wait -= 1
+	if _capture_wait <= 0:
+		_do_capture()
 
 func _fallback_capture() -> void:
-	if _is_capturing:
+	if _is_capturing and _capture_wait <= 0:
 		_do_capture()
 
 func _do_capture() -> void:
@@ -385,27 +515,63 @@ func _do_capture() -> void:
 	_is_capturing = false
 	queue_redraw()
 
+## Orbitar la CÁMARA (arrastrar): derecha → gira alrededor, arriba → mira
+## desde más arriba. El modelo no se mueve (como Blender / Godot).
 func rotate_orbit(delta_x: float, delta_y: float) -> void:
-	var sens := 0.6
-	# Estilo Sketchfab (turntable): arrastrar hacia la derecha gira el modelo a la derecha,
-	# arrastrar hacia la izquierda gira el modelo a la izquierda;
-	# arrastrar hacia arriba inclina la vista para ver la parte superior del modelo.
-	model_rotation.y += delta_x * sens
-	model_rotation.x -= delta_y * sens
-	# Mantener rotaciones dentro de rango -180..180 y limitar cabeceo para evitar gimbal lock
-	model_rotation.y = wrapf(model_rotation.y, -180.0, 180.0)
-	model_rotation.x = clampf(model_rotation.x, -89.0, 89.0)
-	_apply_model_transform()
+	var sens := 0.45
+	view_yaw = wrapf(view_yaw - delta_x * sens, -180.0, 180.0)
+	view_pitch = clampf(view_pitch + delta_y * sens, -89.5, 89.5)
+	_apply_camera_transform()
 	request_render_update()
 
+## Desplazar la vista (Mayús + arrastrar): mueve el punto de interés en el
+## plano de la pantalla, a la velocidad del ratón.
+func pan_view(delta_x: float, delta_y: float) -> void:
+	if not is_instance_valid(_camera):
+		return
+	var world_per_px := (2.0 * camera_distance * tan(deg_to_rad(camera_fov) * 0.5)) / maxf(size.y, 1.0)
+	var b := _camera.global_transform.basis
+	view_target += (-b.x * delta_x + b.y * delta_y) * world_per_px
+	_apply_camera_transform()
+	request_render_update()
+
+## Girar la luz principal (Alt + arrastrar).
+func rotate_light(delta_x: float, delta_y: float) -> void:
+	light_rotation = Vector3(clampf(light_rotation.x + delta_y * 0.5, -89.0, 89.0), wrapf(light_rotation.y + delta_x * 0.5, -180.0, 180.0), light_rotation.z)
+	_apply_lighting()
+	request_render_update()
+
+## Zoom de cámara (rueda): acercar/alejar multiplicando la distancia.
 func zoom_camera(delta: float) -> void:
-	camera_distance = clampf(camera_distance - delta * 0.25, 0.8, 25.0)
+	camera_distance = clampf(camera_distance * pow(0.88, delta), 0.3, 60.0)
 	_apply_camera_transform()
 	is_interactive_zooming = true
 	if is_instance_valid(_viewport):
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	queue_redraw()
 	_schedule_zoom_settle()
+
+## Vistas rápidas: front, back, right, left, top, bottom, iso.
+const VIEWS := {"front": [0.0, 0.0], "back": [180.0, 0.0], "right": [90.0, 0.0], "left": [-90.0, 0.0],
+	"top": [0.0, 89.5], "bottom": [0.0, -89.5], "iso": [45.0, 30.0]}
+
+func set_view(name: String) -> void:
+	if not VIEWS.has(name):
+		return
+	view_yaw = VIEWS[name][0]
+	view_pitch = VIEWS[name][1]
+	_apply_camera_transform()
+	request_render_update()
+
+func toggle_ortho() -> void:
+	camera_ortho = not camera_ortho
+
+## Encuadrar (F): centra el modelo y ajusta la distancia para que quepa.
+func frame_model() -> void:
+	view_target = Vector3.ZERO
+	camera_distance = 1.25 / tan(deg_to_rad(camera_fov) * 0.5) * 1.15
+	_apply_camera_transform()
+	request_render_update()
 
 func _schedule_zoom_settle() -> void:
 	_zoom_settle_token += 1
@@ -420,11 +586,67 @@ func _schedule_zoom_settle() -> void:
 
 func reset_view() -> void:
 	model_rotation = Vector3.ZERO
+	view_yaw = 0.0
+	view_pitch = 0.0
+	view_target = Vector3.ZERO
+	camera_ortho = false
 	camera_distance = 3.5
 	camera_fov = 45.0
 	_apply_model_transform()
 	_apply_camera_transform()
 	request_render_update()
+
+# ── gizmo de ejes (esquina superior derecha, como Godot / Blender) ─────────
+const GIZMO_R := 26.0
+const AXES := {"X": [Vector3.RIGHT, Color(0.93, 0.3, 0.33), "right", "left"],
+	"Y": [Vector3.UP, Color(0.45, 0.82, 0.25), "top", "bottom"],
+	"Z": [Vector3.BACK, Color(0.3, 0.55, 0.98), "front", "back"]}
+
+func _gizmo_center() -> Vector2:
+	var rect := Rect2(-size * 0.5, size)
+	return Vector2(rect.end.x - GIZMO_R - 8.0, rect.position.y + GIZMO_R + 26.0)
+
+## Ejes proyectados: [[pos 2D local, color, etiqueta, vista, delante?]…]
+func _gizmo_axes() -> Array:
+	var out: Array = []
+	if not is_instance_valid(_camera):
+		return out
+	var inv := _camera.global_transform.basis.inverse()
+	var c := _gizmo_center()
+	for k in AXES:
+		for sgn in [1.0, -1.0]:
+			var v: Vector3 = inv * ((AXES[k][0] as Vector3) * sgn)
+			out.append([c + Vector2(v.x, -v.y) * (GIZMO_R - 7.0), AXES[k][1], k if sgn > 0 else "", AXES[k][2] if sgn > 0 else AXES[k][3], v.z])
+	out.sort_custom(func(a, b) -> bool: return a[4] < b[4])   # los de detrás primero
+	return out
+
+## Vista bajo un punto local del gizmo ("" si no hay eje ahí).
+func gizmo_hit(local: Vector2) -> String:
+	if not is_3d_editing:
+		return ""
+	var best := ""
+	var best_d := 9.0
+	for a in _gizmo_axes():
+		var d: float = (a[0] as Vector2).distance_to(local)
+		if d < best_d:
+			best_d = d
+			best = a[3]
+	return best
+
+func _draw_gizmo() -> void:
+	var c := _gizmo_center()
+	draw_circle(c, GIZMO_R, Color(0.08, 0.1, 0.14, 0.55))
+	var font := ThemeDB.fallback_font
+	for a in _gizmo_axes():
+		var p: Vector2 = a[0]
+		var col: Color = a[1]
+		if String(a[2]) != "":
+			draw_line(c, p, col, 2.0, true)
+			draw_circle(p, 7.0, col)
+			draw_string(font, p + Vector2(-3.5, 4.0), String(a[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.05, 0.05, 0.05))
+		else:
+			draw_circle(p, 6.0, Color(col, 0.35))
+			draw_arc(p, 6.0, 0, TAU, 16, col, 1.2, true)
 
 func set_3d_editing(active: bool) -> void:
 	is_3d_editing = active
@@ -475,7 +697,11 @@ func _draw() -> void:
 		var font := ThemeDB.fallback_font
 		var banner_bg := Rect2(rect.position, Vector2(rect.size.x, 20.0))
 		draw_rect(banner_bg, Color(0.08, 0.12, 0.18, 0.85), true)
-		draw_string(font, rect.position + Vector2(6, 14), "3D EDIT (MMB/Drag: Orbit, Wheel: Zoom)", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
+		var hint := "Arrastrar: orbitar · Mayús: desplazar · Rueda: zoom · Alt: luz · 1 3 7 5 · F · Esc"
+		if rect.size.x < 330.0:
+			hint = "Orbitar · Mayús desplazar · Alt luz · Esc"
+		draw_string(font, rect.position + Vector2(6, 14), hint, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 12.0, 10, Color.WHITE)
+		_draw_gizmo()
 
 	draw_effects_overlays(pts)
 
@@ -488,4 +714,12 @@ func get_state() -> Dictionary:
 	s["camera_fov"] = camera_fov
 	s["light_energy"] = light_energy
 	s["light_rotation"] = light_rotation
+	s["view_yaw"] = view_yaw
+	s["view_pitch"] = view_pitch
+	s["view_target"] = view_target
+	s["camera_ortho"] = camera_ortho
+	s["light_preset"] = light_preset
+	s["model_shadows"] = model_shadows
+	s["light_color"] = light_color
+	s["ambient_energy"] = ambient_energy
 	return s

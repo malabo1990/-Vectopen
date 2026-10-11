@@ -120,6 +120,10 @@ func _run() -> void:
 	if env_out != "": out = env_out
 	DirAccess.make_dir_recursive_absolute(out)
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
+	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
+	for _w in 600:
+		if Engine.has_meta(&"vectopen_startup_done"): break
+		await process_frame
 	await _frames(30)
 	canvas = get_first_node_in_group("_vectopen_canvas")
 	ic = root.get_node("InspectorCore")

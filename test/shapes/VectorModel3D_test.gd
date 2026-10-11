@@ -19,9 +19,11 @@ func test_orbit_rotation() -> void:
 	var m: Node2D = auto_free(VectorModel3DScript.new())
 	add_child(m)
 
+	# como Blender / Godot: orbita la CÁMARA, el modelo no se mueve
 	m.rotate_orbit(10.0, 5.0)
-	assert_float(m.model_rotation.y).is_not_equal(0.0)
-	assert_float(m.model_rotation.x).is_not_equal(0.0)
+	assert_float(m.view_yaw).is_not_equal(0.0)
+	assert_float(m.view_pitch).is_not_equal(0.0)
+	assert_vector(m.model_rotation).is_equal(Vector3.ZERO)
 
 	m.reset_view()
 	assert_vector(m.model_rotation).is_equal(Vector3.ZERO)
@@ -169,12 +171,13 @@ func test_blender_style_middle_mouse_orbit() -> void:
 	assert_bool(mt.is_middle_dragging_3d).is_true()
 	assert_bool(m.is_interactive_rotating).is_true()
 
-	# 2. Arrastre de ratón con MMB rota el modelo
+	# 2. Arrastre de ratón con MMB orbita la cámara
+	var yaw0: float = m.view_yaw
 	var motion := InputEventMouseMotion.new()
 	motion.position = Vector2(120, 110)
 	var handled_motion := mt.handle_input(motion)
 	assert_bool(handled_motion).is_true()
-	assert_float(m.model_rotation.y).is_not_equal(0.0)
+	assert_float(m.view_yaw).is_not_equal(yaw0)
 
 	# 3. Soltar MMB concluye el gesto y congela el buffer en alta calidad
 	var mmb_release := InputEventMouseButton.new()
@@ -231,15 +234,16 @@ func test_sketchfab_rotation_directions() -> void:
 	var m: Node2D = auto_free(VectorModel3DScript.new())
 	add_child(m)
 
-	# Arrastre hacia la derecha (delta_x > 0) -> rotación Y aumenta (el modelo gira a la derecha como en Sketchfab)
+	# Arrastre a la derecha: la cámara gira a la izquierda (yaw baja), así
+	# el modelo parece girar hacia la derecha, como en Blender / Godot
+	var yaw0: float = m.view_yaw
 	m.rotate_orbit(10.0, 0.0)
-	assert_float(m.model_rotation.y).is_greater(0.0)
+	assert_float(m.view_yaw).is_less(yaw0)
 
-	m.reset_view()
-
-	# Arrastre hacia arriba (delta_y < 0 en pantalla) -> rotación X aumenta (el modelo cabecea hacia el usuario para ver la parte superior)
-	m.rotate_orbit(0.0, -10.0)
-	assert_float(m.model_rotation.x).is_greater(0.0)
+	# Arrastre hacia abajo: la cámara sube y se ve más la parte de arriba
+	var pitch0: float = m.view_pitch
+	m.rotate_orbit(0.0, 10.0)
+	assert_float(m.view_pitch).is_greater(pitch0)
 
 func test_zoom_deactivates_canvas_zoom_when_over_3d() -> void:
 	var CanvasScript = preload("res://scripts/canvas/canvas.gd")

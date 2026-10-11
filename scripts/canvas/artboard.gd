@@ -419,27 +419,10 @@ func _draw_dimension_pill(w: float, h: float, inv: float) -> void:
 # "Nonexistent function 'export_to_svg'/'export_to_png'" al exportar SVG/PNG)
 # ─────────────────────────────────────────────────────────────────────────────
 
-## Recorre recursivamente los hijos del artboard y arma un documento SVG.
-## Las herramientas reales (CircleTool, RectangleTool, brushtool) crean
-## Polygon2D/Line2D/Path2D directamente, NO las clases VectorRectangle/
-## VectorCircle/VectorPath — por eso hay un fallback genérico por tipo de
-## nodo además del has_method("to_svg") (que sí cubre esas clases, por si
-## se llegan a usar más adelante).
-func export_to_svg(path: String) -> String:
-	var body := ""
-	if fill_color != Color.WHITE and fill_color.a > 0.0:
-		body += '  <rect width="%f" height="%f" fill="%s" />\n' % [
-			artboard_size.x, artboard_size.y, fill_color.to_html()
-		]
-	for child in get_children():
-		if child.name == "ArtboardTitle" or child.name == "TitleEdit" or child.name == "Contorno_Stroke":
-			continue
-		body += _node_to_svg(child)
-
-	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%f" height="%f" viewBox="0 0 %f %f">\n%s</svg>\n' % [
-		artboard_size.x, artboard_size.y, artboard_size.x, artboard_size.y, body
-	]
-
+## Documento SVG del artboard (motor común con PDF/EPS: vector_export.gd).
+## Con `path` lo escribe además en disco.
+func export_to_svg(path: String, transparent: bool = false) -> String:
+	var svg := VectorExport.to_svg(VectorExport.collect(self, transparent))
 	if not path.is_empty():
 		var file := FileAccess.open(path, FileAccess.WRITE)
 		if file:
@@ -447,124 +430,70 @@ func export_to_svg(path: String) -> String:
 			file.close()
 		else:
 			push_error("Artboard.export_to_svg: no se pudo abrir %s para escritura" % path)
-
 	return svg
 
-func _node_to_svg(node: Node) -> String:
-	if node.has_method("to_svg"):
-		return "  " + node.to_svg() + "\n"
+const VectorExport = preload("res://script_gdscript/system/vector_export.gd")
 
-	if node is Polygon2D:
-		var pts: PackedVector2Array = node.polygon
-		if pts.size() >= 3:
-			var points_str := ""
-			for p in pts:
-				points_str += "%f,%f " % [node.position.x + p.x, node.position.y + p.y]
-			return '  <polygon points="%s" fill="%s" />\n' % [points_str.strip_edges(), node.color.to_html()]
-		return ""
-
-	if node is Line2D:
-		var pts: PackedVector2Array = node.points
-		if pts.size() >= 2:
-			var points_str := ""
-			for p in pts:
-				points_str += "%f,%f " % [node.position.x + p.x, node.position.y + p.y]
-			return '  <polyline points="%s" fill="none" stroke="%s" stroke-width="%f" stroke-linecap="round" stroke-linejoin="round" />\n' % [
-				points_str.strip_edges(), node.default_color.to_html(), node.width
-			]
-		return ""
-
-	if node is Path2D and node.curve and node.curve.point_count >= 2:
-		var baked: PackedVector2Array = node.curve.get_baked_points()
-		if baked.size() >= 2:
-			var d := "M %f,%f " % [node.position.x + baked[0].x, node.position.y + baked[0].y]
-			for i in range(1, baked.size()):
-				d += "L %f,%f " % [node.position.x + baked[i].x, node.position.y + baked[i].y]
-			return '  <path d="%s" fill="none" stroke="black" stroke-width="2" />\n' % d
-		return ""
-
-	if node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text_"):
-		var txt: String = String(node.get_meta("text", ""))
-		var dl = node.get_node_or_null("DisplayLabel") as Label
-		if txt.is_empty() and is_instance_valid(dl):
-			txt = dl.text
-		var esc := txt.xml_escape()
-		var font_size: int = int(node.get_meta("font_size", 24))
-		var col: Color = node.get_meta("text_color") if node.has_meta("text_color") else (dl.get_theme_color("font_color") if is_instance_valid(dl) else Color.BLACK)
-		if col.a <= 0.0:
-			col = Color.BLACK
-		var family: String = String(node.get_meta("font_family", "sans-serif"))
-		return '  <text x="%f" y="%f" font-family="%s" font-size="%d" fill="#%s" dominant-baseline="hanging">%s</text>\n' % [
-			node.position.x, node.position.y, family, font_size, col.to_html(false), esc
-		]
-
-	if node is Label:
-		var txt: String = node.text
-		var esc := txt.xml_escape()
-		var font_size: int = node.get("base_font_size") if ("base_font_size" in node) else node.get_theme_font_size("font_size")
-		if font_size <= 0:
-			font_size = 24
-		var col: Color = node.get_theme_color("font_color")
-		if col.a <= 0.0:
-			col = Color.BLACK
-		var family: String = String(node.get_meta("font_family", "sans-serif"))
-		return '  <text x="%f" y="%f" font-family="%s" font-size="%d" fill="#%s" dominant-baseline="hanging">%s</text>\n' % [
-			node.position.x, node.position.y, family, font_size, col.to_html(false), esc
-		]
-
-	return ""
-
-## Renderiza el artboard a un Image de Godot usando un SubViewport temporal.
-func render_to_image(img_scale: float = 1.0) -> Image:
+## `transparent`: sin el fondo del artboard (PNG/WEBP con alfa).
+## `only` + `crop`: solo esos objetos (hijos directos), recortados a `crop`
+## (coordenadas del artboard) — exportar un elemento suelto.
+func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Array = [], crop: Rect2 = Rect2()) -> Image:
+	var area := crop if crop.has_area() else Rect2(Vector2.ZERO, artboard_size)
 	var sub_viewport := SubViewport.new()
-	sub_viewport.size = Vector2i(artboard_size * img_scale)
-	sub_viewport.transparent_bg = false
+	sub_viewport.size = Vector2i((area.size * img_scale).round()).max(Vector2i.ONE)
+	sub_viewport.transparent_bg = transparent
 	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
-	var artboard_copy := duplicate() as Node2D
-	artboard_copy.position = Vector2.ZERO
-	if artboard_copy is ArtboardEditor:
-		(artboard_copy as ArtboardEditor).is_selected = false
+	# La copia se RECONSTRUYE con el serializador del proyecto (duplicate()
+	# no copiaba el contenido del texto nativo: los textos salían en blanco)
+	# en un contenedor simple, no en otro artboard (no se registra como tal).
+	var artboard_copy := Node2D.new()
 	artboard_copy.scale = Vector2(img_scale, img_scale)
+	artboard_copy.position = -area.position * img_scale
+	if not transparent and fill_color.a > 0.0:
+		var bg := ColorRect.new()
+		bg.color = fill_color
+		bg.size = artboard_size
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		artboard_copy.add_child(bg)
+	var Ser = load("res://scripts/canvas/canvas_serializer.gd")
+	var elements: Array = []
+	if not only.is_empty():
+		for n in only:
+			if is_instance_valid(n) and n.get_parent() == self:
+				var e: Dictionary = Ser._serialize_element(n)
+				if not e.is_empty():
+					elements.append(e)
+	else:
+		elements = dormant_content() if is_dormant else Ser.serialize_elements(self)
+	Ser.instantiate_elements(artboard_copy, elements)
 
 	sub_viewport.add_child(artboard_copy)
 	add_child(sub_viewport)
 
 	if is_inside_tree():
-		await get_tree().process_frame
-		await get_tree().process_frame
+		# 3 fotogramas: texto nativo y capas de efectos/shaders necesitan uno más.
+		for i in 3:
+			await get_tree().process_frame
 
 	var image: Image = sub_viewport.get_texture().get_image()
 	sub_viewport.queue_free()
 	return image
 
-func export_to_png(path: String, png_scale: float = 1.0) -> void:
-	var image: Image = await render_to_image(png_scale)
-	if image:
-		var err := image.save_png(path)
-		if err != OK:
-			push_error("Artboard.export_to_png: save_png falló (%d) para %s" % [err, path])
+func export_to_png(path: String, png_scale: float = 1.0, transparent: bool = false) -> Error:
+	var image: Image = await render_to_image(png_scale, transparent)
+	return image.save_png(path) if image else FAILED
 
-func export_to_jpeg(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
-	var image: Image = await render_to_image(scale_val)
-	if image:
-		var err := image.save_jpg(path, clampf(quality / 100.0, 0.1, 1.0))
-		if err != OK:
-			push_error("Artboard.export_to_jpeg: save_jpg falló (%d) para %s" % [err, path])
+func export_to_jpeg(path: String, scale_val: float = 1.0, quality: float = 90.0) -> Error:
+	var image: Image = await render_to_image(scale_val, false)
+	return image.save_jpg(path, clampf(quality / 100.0, 0.1, 1.0)) if image else FAILED
 
-func export_to_webp(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
-	var image: Image = await render_to_image(scale_val)
-	if image:
-		var err := image.save_webp(path, false, clampf(quality / 100.0, 0.1, 1.0))
-		if err != OK:
-			push_error("Artboard.export_to_webp: save_webp falló (%d) para %s" % [err, path])
-
-func export_to_jpegxl(path: String, scale_val: float = 1.0, quality: float = 90.0) -> void:
-	var image: Image = await render_to_image(scale_val)
-	if image:
-		var err := image.save_webp(path, false, clampf(quality / 100.0, 0.1, 1.0))
-		if err != OK:
-			image.save_png(path)
+func export_to_webp(path: String, scale_val: float = 1.0, quality: float = 90.0, transparent: bool = false) -> Error:
+	var image: Image = await render_to_image(scale_val, transparent)
+	if image == null:
+		return FAILED
+	# calidad 100 = sin pérdida
+	return image.save_webp(path, quality < 100.0, clampf(quality / 100.0, 0.1, 1.0))
 
 func export_to_svg_string() -> String:
 	return export_to_svg("")

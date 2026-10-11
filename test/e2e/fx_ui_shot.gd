@@ -29,6 +29,10 @@ func _run() -> void:
 	if out == "": out = "user://fx_ui"
 	DirAccess.make_dir_recursive_absolute(out)
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
+	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
+	for _w in 600:
+		if Engine.has_meta(&"vectopen_startup_done"): break
+		await process_frame
 	await _frames(30)
 	var th := OS.get_environment("FX_THEME")
 	root.get_node("ThemeManager").set_mode(th if th != "" else "light")

@@ -289,3 +289,98 @@ func test_referencia_coincide_con_los_metodos() -> void:
 		if n.begins_with("_") or n == "reference_method":
 			continue
 		assert_bool(documented.has(n)).override_failure_message("sin documentar: " + n).is_true()
+
+# ── API ampliada ─────────────────────────────────────────────────────────────
+const SHADER_OK := "shader_type canvas_item;\nvoid fragment() { COLOR = vec4(1.0, 0.0, 0.0, 1.0); }\n"
+
+func test_shaders_biblioteca_y_aplicar_en_un_paso() -> void:
+	var nm := "API test shader"
+	assert_array(_api.save_shader(nm, SHADER_OK)).is_empty()
+	assert_bool(nm in _api.shaders()).is_true()
+	assert_bool(_api.shader_templates().size() > 0).is_true()
+	var a := _api.add_star(Vector2(100, 100), 30)
+	var b := _api.add_rect(Vector2(200, 100), Vector2(40, 40))
+	HistoryManager.clear()
+	assert_bool(_api.apply_shader([a, b], nm)).is_true()
+	assert_str(String(_api.get_shader(a).get("name", ""))).is_equal(nm)
+	assert_str(String(_api.get_shader(b).get("code", ""))).contains("fragment")
+	HistoryManager.undo()
+	assert_dict(_api.get_shader(a)).is_empty()
+	assert_bool(HistoryManager.can_undo()).is_false()
+	# plantilla por nombre y código directo
+	assert_bool(_api.apply_shader(a, _api.shader_templates()[0])).is_true()
+	assert_bool(_api.apply_shader(a, SHADER_OK)).is_true()
+	_api.remove_shader(a)
+	assert_dict(_api.get_shader(a)).is_empty()
+	# no compila → false y nada cambia
+	assert_bool(_api.apply_shader(a, "shader_type canvas_item;\nvoid fragment() { COLOR = ; }")).is_false()
+	assert_bool(_api.apply_shader(a, "no existe")).is_false()
+	for it in ShaderLibT.list():
+		if it["name"] == nm:
+			ShaderLibT.remove(it["path"])
+	_consume_expected_errors()
+
+const ShaderLibT = preload("res://script_gdscript/shapes/shader_library.gd")
+
+func test_efectos_y_filtros() -> void:
+	var r := _api.add_rect(Vector2(100, 100), Vector2(60, 60))
+	assert_bool("Drop Shadow" in _api.effect_types()).is_true()
+	var fx := _api.add_effect(r, "Drop Shadow", {"blur": 12.0})
+	assert_float(float(fx["blur"])).is_equal(12.0)
+	assert_int((_api.get_prop(r, "effects") as Array).size()).is_equal(1)
+	_api.add_filter(r, "grain", {"amount": 50.0})
+	assert_int((_api.get_prop(r, "filters") as Array).size()).is_equal(1)
+	_api.clear_effects(r)
+	_api.clear_filters(r)
+	assert_array(_api.get_prop(r, "effects")).is_empty()
+	assert_array(_api.get_prop(r, "filters")).is_empty()
+
+func test_orden_alinear_booleana_un_paso() -> void:
+	var a := _api.add_rect(Vector2(100, 100), Vector2(80, 80))
+	var b := _api.add_rect(Vector2(140, 160), Vector2(80, 80))
+	_api.arrange(a, "front")
+	assert_int(a.get_index()).is_greater(b.get_index())
+	HistoryManager.clear()
+	_api.begin("Lote mixto")
+	_api.align([a, b], "left")
+	var res := _api.boolean("union", [a, b])
+	_api.end()
+	assert_object(res).is_not_null()
+	assert_str(HistoryManager.get_undo_name()).is_equal("Lote mixto")
+	HistoryManager.undo()
+	assert_bool(HistoryManager.can_undo()).is_false()
+	assert_object(a.get_parent()).is_same(_ab)
+	assert_float(_api.get_position(b).x).is_equal_approx(140.0, 0.01)
+
+func test_artboard_imagen_exportar() -> void:
+	var n0 := _api.artboards().size()
+	var ab := _api.add_artboard(Vector2(400, 300), "Extra")
+	assert_int(_api.artboards().size()).is_equal(n0 + 1)
+	assert_object(_api.artboard()).is_same(ab)
+	_api.add_ellipse(Vector2(200, 150), Vector2(100, 100))
+	var img := Image.create(20, 10, false, Image.FORMAT_RGBA8)
+	img.fill(Color.RED)
+	var sp := _api.add_image(img, Vector2(50, 50))
+	assert_str(_api.kind_of(sp)).is_equal("image")
+	assert_vector(sp.position).is_equal(Vector2(40, 45))
+	var path := ProjectSettings.globalize_path("user://api_export_test.svg")
+	assert_bool(await _api.export(path)).is_true()
+	assert_str(FileAccess.get_file_as_string(path)).contains("<svg")
+	DirAccess.remove_absolute(path)
+	HistoryManager.undo(); HistoryManager.undo(); HistoryManager.undo()
+	assert_int(_api.artboards().size()).is_equal(n0)
+
+func test_vectorizar_imagen() -> void:
+	if not ClassDB.class_exists("VectorizerJob"):
+		return
+	var img := Image.create(80, 60, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	img.fill_rect(Rect2i(10, 10, 40, 30), Color(0.1, 0.3, 0.9))
+	var sp := _api.add_image(img, Vector2(200, 200))
+	var g := await _api.vectorize(sp, "Logo / icono")
+	assert_object(g).is_not_null()
+	assert_int(g.get_child_count()).is_greater(0)
+	assert_bool(sp.visible).is_false()
+	HistoryManager.undo()
+	assert_object(g.get_parent()).is_null()
+	assert_bool(sp.visible).is_true()

@@ -10,7 +10,17 @@ extends Button
 				target_panel.visibility_changed.connect(_on_target_visibility_changed)
 			_sync_state()
 
+## Ruta al panel cuando este se crea DESPUÉS (arranque por fases,
+## StartupPhases): se resuelve en cuanto el panel entra en el árbol.
+@export var target_panel_path: NodePath
+
 func _ready() -> void:
+	if not target_panel and not target_panel_path.is_empty():
+		target_panel = get_node_or_null(target_panel_path) as Control
+		if not target_panel:
+			get_tree().node_added.connect(_on_tree_node_added)
+			_connect_pressed()
+			return
 	if not target_panel:
 		target_panel = get_node_or_null("Panel_keyboard") as Control
 		if not target_panel:
@@ -19,13 +29,24 @@ func _ready() -> void:
 					target_panel = child
 					break
 
-	if not pressed.is_connected(_on_pressed):
-		pressed.connect(_on_pressed)
+	_connect_pressed()
 
 	if is_instance_valid(target_panel):
 		if not target_panel.visibility_changed.is_connected(_on_target_visibility_changed):
 			target_panel.visibility_changed.connect(_on_target_visibility_changed)
 		_sync_state()
+
+func _connect_pressed() -> void:
+	if not pressed.is_connected(_on_pressed):
+		pressed.connect(_on_pressed)
+
+func _on_tree_node_added(node: Node) -> void:
+	if node.name != StringName(target_panel_path.get_name(target_panel_path.get_name_count() - 1)):
+		return
+	var panel := get_node_or_null(target_panel_path) as Control
+	if panel:
+		get_tree().node_added.disconnect(_on_tree_node_added)
+		target_panel = panel   # el setter conecta visibility_changed y sincroniza
 
 func _sync_state() -> void:
 	if toggle_mode and is_instance_valid(target_panel):
@@ -35,6 +56,11 @@ func _on_target_visibility_changed() -> void:
 	_sync_state()
 
 func _on_pressed() -> void:
+	if not is_instance_valid(target_panel) and not target_panel_path.is_empty():
+		# Pulsado antes de que su fase lo cree: crearlo ya.
+		var phases := get_tree().get_first_node_in_group(StartupPhases.GROUP)
+		if phases:
+			phases.ensure(String(target_panel_path.get_name(target_panel_path.get_name_count() - 1)))
 	if is_instance_valid(target_panel):
 		target_panel.visible = not target_panel.visible
 

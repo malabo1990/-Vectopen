@@ -46,6 +46,7 @@ const PROPS := [
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
 	"sides", "is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle", "drop_curvature",
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
+	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -326,6 +327,8 @@ func _read(shape, prop):
 		"model_path":
 			if "model_path" in shape: return String(shape.model_path)
 			return null
+		"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho":
+			return shape.get(prop) if prop in shape else null
 		"model_rotation_x":
 			if "model_rotation" in shape: return float(shape.model_rotation.x)
 			return null
@@ -927,6 +930,9 @@ func _write_prop(shape, prop, value) -> void:
 				shape.model_path = String(value)
 				if shape.has_method("load_model") and not String(value).is_empty():
 					shape.load_model(String(value))
+		"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho":
+			if prop in shape:
+				shape.set(prop, value)
 		"model_rotation_x":
 			if "model_rotation" in shape:
 				var mr: Vector3 = shape.model_rotation

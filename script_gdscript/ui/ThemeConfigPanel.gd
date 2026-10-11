@@ -35,7 +35,8 @@ func _ready() -> void:
 	_populate_mcp_section()
 	_connect_signals()
 	_connect_theme()
-	_apply_theme()
+	# ARRANQUE RÁPIDO: vive en la ventana de ajustes (oculta al abrir).
+	LazyTheme.apply(self, _apply_theme)
 
 func _connect_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
@@ -46,11 +47,11 @@ func _connect_theme() -> void:
 			tm.color_slot_changed.connect(_on_color_slot_changed)
 
 func _on_theme_changed(_mode: String) -> void:
-	_apply_theme()
+	LazyTheme.apply(self, _apply_theme)
 	_sync_theme_dropdown()
 
 func _on_color_slot_changed(_slot_name: String, _color: Color) -> void:
-	_apply_theme()
+	LazyTheme.apply(self, _apply_theme)
 
 func _apply_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
