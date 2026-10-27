@@ -14,6 +14,10 @@ func _canvas_real() -> Node2D:
 	var scene: Node2D = load("res://scenes/canvas/canvas.tscn").instantiate()
 	add_child(scene)
 	await get_tree().process_frame
+	# Estas medidas comparan tamaños de Control sin escalar: valen al 100 %
+	# (la app abre al 70 %; la etiqueta se escala con el zoom).
+	if scene.has_method("_reset_camera"):
+		scene._reset_camera(1.0)
 	await get_tree().process_frame
 	return scene
 

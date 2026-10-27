@@ -331,16 +331,19 @@ func maybe_render_blur(points: PackedVector2Array) -> bool:
 func draw_effects_shadows(points: PackedVector2Array) -> void:
 	if _active_fx("drop_shadow").is_empty():
 		FxPolyGpu.clear(_fxgpu, "shadow")
-	if effects.is_empty() or points.size() < 3:
-		return
-	for fx in FxLight.migrate_list(effects):
-		if not (fx is Dictionary) or not bool(fx.get("enabled", true)):
-			continue
-		var type: String = FxLight.canonical(String(fx.get("type", "")))
-		if type == "drop_shadow":
-			_render_drop_shadow(points, fx)
-		elif type == "extrusion":
-			_render_3d_extrusion(points, fx)
+	var ds_n := 0
+	if not effects.is_empty() and points.size() >= 3:
+		for fx in FxLight.migrate_list(effects):
+			if not (fx is Dictionary) or not bool(fx.get("enabled", true)):
+				continue
+			var type: String = FxLight.canonical(String(fx.get("type", "")))
+			if type == "drop_shadow":
+				# cada sombra en su capa (antes cada una borraba la anterior)
+				_render_drop_shadow(points, fx, "shadow" if ds_n == 0 else "shadow%d" % ds_n)
+				ds_n += 1
+			elif type == "extrusion":
+				_render_3d_extrusion(points, fx)
+	FxPolyGpu.clear_extra(_fxgpu, "shadow", ds_n)
 
 func draw_effects_overlays(points: PackedVector2Array) -> void:
 	if _active_fx("inner_shadow").is_empty():
@@ -349,6 +352,7 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 		FxPolyGpu.clear(_fxgpu, "glow")
 	FxPolyGpu.clear(_fxgpu, "blur")
 	var light_used: Array = []
+	var inner_n := 0
 	for fx in FxLight.migrate_list(effects):
 		if not (fx is Dictionary) or not bool(fx.get("enabled", true)) or points.size() < 3:
 			continue
@@ -361,7 +365,8 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 			continue
 		match type:
 			"inner_shadow":
-				_render_inner_shadow(points, fx)
+				_render_inner_shadow(points, fx, "inner" if inner_n == 0 else "inner%d" % inner_n)
+				inner_n += 1
 			"outline":
 				_render_outline_effect(points, fx)
 			"color_overlay":
@@ -374,6 +379,7 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 		if not light_used.has(k):
 			FxPolyGpu.clear(_fxgpu, k + "mul")
 			FxPolyGpu.clear(_fxgpu, k + "scr")
+	FxPolyGpu.clear_extra(_fxgpu, "inner", inner_n)
 
 func _parse_fx_color(val: Variant, default_col: Color) -> Color:
 	if val is Color:
@@ -385,7 +391,7 @@ func _parse_fx_color(val: Variant, default_col: Color) -> Color:
 		return Color(float(val[0]), float(val[1]), float(val[2]), a)
 	return default_col
 
-func _render_drop_shadow(points: PackedVector2Array, fx: Dictionary) -> void:
+func _render_drop_shadow(points: PackedVector2Array, fx: Dictionary, key: String = "shadow") -> void:
 	var offset := Vector2(float(fx.get("offset_x", 4.0)), float(fx.get("offset_y", 4.0)))
 	var blur := maxf(0.0, float(fx.get("blur", 6.0)))
 	var spread := float(fx.get("spread", 0.0))
@@ -393,7 +399,7 @@ func _render_drop_shadow(points: PackedVector2Array, fx: Dictionary) -> void:
 	if base_col.a <= 0.001:
 		return
 	if is_inside_tree():
-		FxPolyGpu.drop_shadow(self, _fxgpu, points, fx)
+		FxPolyGpu.drop_shadow(self, _fxgpu, points, fx, key)
 		return
 
 	if blur <= 0.5:
@@ -440,7 +446,7 @@ func _render_drop_shadow(points: PackedVector2Array, fx: Dictionary) -> void:
 					if out_p.size() >= 3:
 						draw_colored_polygon(out_p, pass_col)
 
-func _render_inner_shadow(points: PackedVector2Array, fx: Dictionary) -> void:
+func _render_inner_shadow(points: PackedVector2Array, fx: Dictionary, key: String = "inner") -> void:
 	var offset := Vector2(float(fx.get("offset_x", 2.0)), float(fx.get("offset_y", 2.0)))
 	var blur := maxf(0.5, float(fx.get("blur", 4.0)))
 	var spread := float(fx.get("spread", fx.get("choke", 0.0)))
@@ -448,7 +454,7 @@ func _render_inner_shadow(points: PackedVector2Array, fx: Dictionary) -> void:
 	if base_col.a <= 0.001 or points.size() < 3:
 		return
 	if is_inside_tree():
-		FxPolyGpu.inner_shadow(self, _fxgpu, "inner", points, fx)
+		FxPolyGpu.inner_shadow(self, _fxgpu, key, points, fx)
 		return
 
 	var passes: int = clampi(int(blur * 1.5), 8, 20)

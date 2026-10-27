@@ -514,6 +514,7 @@ func _on_press(gm: Vector2) -> bool:
 		_alt_drag_duplicated = false
 		_shift_drag_axis = ""
 		is_dragging_shape = true
+		_snap_session(true)
 		transform_initial_mouse = gm
 		transform_initial_states.clear()
 		
@@ -596,6 +597,7 @@ func _on_release(gm: Vector2) -> bool:
 	_pending_shift_deselect = null
 
 	is_dragging_shape = false
+	_snap_session(false)
 	_alt_drag_duplicated = false
 	_shift_drag_axis = ""
 	is_resizing = false
@@ -644,6 +646,7 @@ func _heal_stuck_gesture() -> void:
 		return
 	# El ratón no está pulsado pero seguimos "en gesto" → estado zombi. Cerramos.
 	is_dragging_shape = false
+	_snap_session(false)
 	is_marquee = false
 	is_dragging_artboard = false
 	is_resizing_artboard = false
@@ -924,6 +927,8 @@ func start_handle_transform(handle_code: String) -> bool:
 	resize_handle = handle_code
 
 	transform_initial_mouse = gm
+	if is_dragging_shape:
+		_snap_session(true)
 	transform_macro_rect = macro
 	initial_macro_center = macro.get_center()
 	live_pivot = initial_macro_center
@@ -935,3 +940,12 @@ func start_handle_transform(handle_code: String) -> bool:
 
 	canvas.queue_redraw()
 	return true
+
+## Histéresis del imán solo durante el arrastre (SnapManager la olvida al soltar).
+func _snap_session(on: bool) -> void:
+	var sm := _snap_manager()
+	if sm and sm.has_method("begin_snap_session"):
+		if on:
+			sm.begin_snap_session()
+		else:
+			sm.end_snap_session()

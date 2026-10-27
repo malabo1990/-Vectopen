@@ -475,6 +475,11 @@ func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Ar
 		# 3 fotogramas: texto nativo y capas de efectos/shaders necesitan uno más.
 		for i in 3:
 			await get_tree().process_frame
+			if not is_inside_tree():
+				# la mesa se quitó a mitad (cerrar documento, pruebas): sin imagen
+				if is_instance_valid(sub_viewport):
+					sub_viewport.queue_free()
+				return Image.new()
 
 	var image: Image = sub_viewport.get_texture().get_image()
 	sub_viewport.queue_free()
@@ -826,6 +831,7 @@ func _verificar_y_crear_titulo() -> void:
 	if not label:
 		label = WorldTextLabel.new()
 		label.name = "ArtboardTitle"
+		label.visibility_layer = 2   # solo editor: la vista previa no lo dibuja
 		label.set_script(_get_title_script())
 		add_child(label)
 	elif label.get_script() == null:

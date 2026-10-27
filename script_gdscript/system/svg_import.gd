@@ -784,9 +784,10 @@ static func _text_node(it: Dictionary) -> Node2D:
 		vrt.name = "VectorRichText"
 		vrt.set_is_paragraph(false)
 		TextCore.apply_vrt_fonts(vrt, t)
+		# set_text() reinicia el formato: primero el texto (si no, 24 px negro).
+		vrt.set_text(String(it["text"]))
 		vrt.set_text_color(t.get_meta("text_color"))
 		vrt.set_font_size(float(label.base_font_size))
-		vrt.set_text(String(it["text"]))
 		t.add_child(vrt)
 		label.visible = false
 	return t

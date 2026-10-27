@@ -165,7 +165,14 @@ func test_barra_lugares_y_favoritos() -> void:
 	# soltar una fila de exportación sobre un lugar = exportar ahí
 	_api.add_rect(Vector2(100, 100), Vector2(40, 30))
 	_rows.set_scope("layers")
-	var place_row = sb._fav_box.get_child(0)
+	# La fila de ESTE favorito (no la primera): si el usuario ya tenía
+	# favoritos guardados, get_child(0) era uno suyo y el test exportaba en su
+	# carpeta real (dejaba «Rectángulo (N).svg» en cada ejecución).
+	var place_row = null
+	for c in sb._fav_box.get_children():
+		if "path" in c and String(c.path) == _dir:
+			place_row = c
+	assert_object(place_row).is_not_null()
 	var data := {"type": "export_element", "rows": [_rows.rows()[0]], "format": "SVG"}
 	assert_bool(place_row._can_drop_data(Vector2.ZERO, data)).is_true()
 	place_row._drop_data(Vector2.ZERO, data)

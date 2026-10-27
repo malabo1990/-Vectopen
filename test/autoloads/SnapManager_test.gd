@@ -63,11 +63,12 @@ func test_fuera_del_umbral_no_ajusta() -> void:
 	assert_vector(r["offset"]).is_equal(Vector2.ZERO)
 
 func test_umbral_escala_con_el_zoom() -> void:
-	# moving.right 10 vs cand.left 25 = 15 : fuera a zoom 1, dentro a zoom 0.5
+	# Umbral 6 px de pantalla. moving.right 10 vs cand.left 20 = 10 : fuera a
+	# zoom 1 (6 de mundo), dentro a zoom 0.5 (12 de mundo).
 	var moving := Rect2(0, 300, 10, 10)
-	var cand := [Rect2(25, 0, 10, 10)]
+	var cand := [Rect2(20, 0, 10, 10)]
 	assert_vector(SnapManager.smart_snap(moving, cand, 1.0)["offset"]).is_equal(Vector2.ZERO)
-	assert_float(SnapManager.smart_snap(moving, cand, 0.5)["offset"].x).is_equal_approx(15.0, 0.001)
+	assert_float(SnapManager.smart_snap(moving, cand, 0.5)["offset"].x).is_equal_approx(10.0, 0.001)
 
 func test_ajusta_en_ambos_ejes_a_la_vez() -> void:
 	# moving left 103 / top 300 ; candidato left 100 / top 303 → offset (-3, +3)

@@ -78,8 +78,14 @@ const DEFAULTS: Dictionary = {
 	"help_shortcuts": [{"key": KEY_F1}],
 }
 
+const PenScrub = preload("res://script_gdscript/ui/pen_scrub.gd")
+
 func _ready() -> void:
 	_register_defaults()
+	# Todos los SpinBox: arrastre del número apto para lápiz de tableta.
+	get_tree().node_added.connect(func(n: Node) -> void:
+		if n is SpinBox:
+			PenScrub.attach(n))
 
 func _register_defaults() -> void:
 	var cfg := ConfigFile.new()

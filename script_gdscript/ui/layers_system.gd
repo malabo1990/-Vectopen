@@ -44,6 +44,7 @@ var _slider_opacity: HSlider = null
 var _lbl_opacity: Label = null
 var _paginas_panel: VBoxContainer = null
 var _paginas_list: ItemList = null
+var _pages_panel: PagesPanel = null
 var _active_left_tab: String = "capas"
 
 ## Iconos de las acciones por fila (ojo, candado, máscara de recorte), escalados
@@ -596,25 +597,10 @@ func _setup_tabs_fusion_pages() -> void:
 		ic.changed.connect(_on_inspector_props_for_fusion)
 
 func _build_paginas_panel_content() -> void:
-	var lbl_sec := Label.new()
-	lbl_sec.text = tr("PAGES & SPREADS")
-	lbl_sec.set_meta("txt_key", "PAGES & SPREADS")
-	lbl_sec.add_theme_font_size_override("font_size", 11)
-	_paginas_panel.add_child(lbl_sec)
-
-	_paginas_list = ItemList.new()
-	_paginas_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_paginas_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_paginas_list.custom_minimum_size = Vector2(0, 120)
-	_paginas_list.item_selected.connect(_on_pagina_selected)
-	_paginas_panel.add_child(_paginas_list)
-
-	var btn_add_page := Button.new()
-	btn_add_page.text = tr("New Page / Artboard")
-	btn_add_page.set_meta("txt_key", "New Page / Artboard")
-	btn_add_page.custom_minimum_size = Vector2(0, 26)
-	btn_add_page.pressed.connect(_on_btn_add_artboard)
-	_paginas_panel.add_child(btn_add_page)
+	# Panel de páginas para documentos grandes (miniaturas virtualizadas,
+	# ir a página, reordenar, selección múltiple). Antes: una ItemList de nombres.
+	_pages_panel = PagesPanel.new()
+	_paginas_panel.add_child(_pages_panel)
 
 	# Sangrado
 	var bleed_row := HBoxContainer.new()
@@ -715,6 +701,8 @@ func _on_pagina_selected(idx: int) -> void:
 			cam.global_position = ab.global_position + (ab.artboard_size / 2.0 if "artboard_size" in ab else Vector2.ZERO)
 
 func _refresh_paginas_list() -> void:
+	if is_instance_valid(_pages_panel):
+		_pages_panel.refresh()
 	if not is_instance_valid(_paginas_list): return
 	_paginas_list.clear()
 	if not is_instance_valid(artboard_container): return

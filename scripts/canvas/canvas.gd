@@ -135,7 +135,9 @@ func _inicializar_escena() -> void:
 		var first_artboard = artboards_container.get_child(0)
 		if "position" in first_artboard:
 			first_artboard.position = Vector2(100, 100)
-	_reset_camera()
+	# Documento real (con mesa de trabajo): abrir al 70 % para verla entera.
+	var has_artboard := is_instance_valid(artboards_container) and artboards_container.get_child_count() > 0
+	_reset_camera(START_ZOOM if has_artboard else 1.0)
 
 func _registrar_herramientas_iniciales() -> void:
 	if MoveTool_Script:
@@ -237,6 +239,7 @@ func change_tool(new_tool) -> void:
 
 func switch_tool(tool_type: String) -> void:
 	var tool_manager = get_node_or_null("/root/ToolManager")
+	var handled := true   # el lienzo crea la herramienta (si no, ToolManager)
 	match tool_type.to_lower():
 		"move":
 			if MoveTool_Script: change_tool(_new_tool(MoveTool_Script))
@@ -273,7 +276,7 @@ func switch_tool(tool_type: String) -> void:
 		"paragraph":
 			if ParagraphTool_Script: change_tool(_new_tool(ParagraphTool_Script))
 		"hand":
-			pass
+			handled = false   # la Mano la instancia ToolManager
 		"artboard":
 			if ArtboardTool_Script: change_tool(_new_tool(ArtboardTool_Script))
 		"shape_builder", "shapebuilder":
@@ -290,7 +293,10 @@ func switch_tool(tool_type: String) -> void:
 	# lanzaba un push_error real ("Herramienta no encontrada") cada vez que
 	# se activaban esas herramientas, aunque el cambio real (arriba) ya
 	# hubiera funcionado — encontrado el 19/08/2026 al probar el tipo Párrafo.
-	if tool_manager and tool_manager.has_method("switch_tool") and tool_manager.has_method("get_available_tools") and tool_manager.get_available_tools().has(tool_type.to_lower()):
+	if tool_manager and handled and tool_manager.has_method("notify_external_tool"):
+		# La herramienta ya está activa aquí: no crear OTRA en ToolManager.
+		tool_manager.notify_external_tool(tool_type.to_lower())
+	elif tool_manager and tool_manager.has_method("switch_tool") and tool_manager.has_method("get_available_tools") and tool_manager.get_available_tools().has(tool_type.to_lower()):
 		tool_manager.switch_tool(tool_type)
 
 # ── Procesamiento de Entrada Centralizado ────────────────────────────────────
@@ -736,6 +742,7 @@ func _get_tool_overlay() -> Node2D:
 		_tool_overlay.name = "ToolOverlay"
 		_tool_overlay.z_index = 4096
 		_tool_overlay.z_as_relative = false
+		_tool_overlay.visibility_layer = 2   # solo editor: la vista previa no lo dibuja
 		_tool_overlay.draw.connect(_on_tool_overlay_draw)
 		add_child(_tool_overlay)
 	return _tool_overlay
@@ -936,7 +943,11 @@ func zoom_at_point(factor: float, world_point: Vector2) -> void:
 	zoom_percentage = new_zoom * 100.0
 	mark_region_dirty(region)
 
-func _reset_camera() -> void:
+## Zoom al abrir Vectopen: 70 % para ver la mesa de trabajo entera (antes
+## 100 %, un A4 no cabía). Restablecer (tecla 5) sigue siendo 100 %.
+const START_ZOOM := 0.7
+
+func _reset_camera(zoom_level: float = 1.0) -> void:
 	if not is_instance_valid(camera):
 		return
 		
@@ -952,8 +963,8 @@ func _reset_camera() -> void:
 	else:
 		camera.position = Vector2.ZERO
 		
-	camera.zoom = Vector2.ONE
-	zoom_percentage = 100.0
+	camera.zoom = Vector2(zoom_level, zoom_level)
+	zoom_percentage = zoom_level * 100.0
 
 func get_current_tool():
 	return current_tool

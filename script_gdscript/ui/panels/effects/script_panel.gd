@@ -891,16 +891,7 @@ func _make_highlighter() -> CodeHighlighter:
 
 ## Código + consola + lista necesitan sitio: la ventana crece (como Shader).
 func _fit_window() -> void:
-	var n: Node = self
-	while n and not (n is Control and (n as Control).name == "panel__effects"):
-		n = n.get_parent()
-	var win := n as Control
-	if win == null:
-		return
-	var vp := win.get_viewport_rect().size
-	var want_w := minf(800.0, vp.x - 40.0)
-	var want_h := minf(600.0, vp.y - win.offset_top - 40.0)
-	if win.size.x < want_w:
-		win.offset_left -= ceilf(want_w - win.size.x)
-	if win.size.y < want_h:
-		win.offset_bottom = win.offset_top + want_h
+	# El tamaño por pestaña lo pone el panel de Efectos (effects.gd,
+	# _apply_tab_size): aquí solo se ensanchaba y nunca volvía a encoger.
+	return
+

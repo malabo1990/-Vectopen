@@ -33,14 +33,31 @@ var dest_dir := ""
 var transparent := true
 var text_curves := false
 var quality := 92.0
+## Ajustes POR FORMATO (calidad, sin fondo, texto a curvas, sin pérdida).
+## Antes eran globales y JPEG/WEBP no tenían forma de elegir la calidad.
+const FMT_DEFAULTS := {
+	"PNG": {"transparent": true},
+	"JPEG": {"quality": 92.0},
+	"WEBP": {"quality": 90.0, "lossless": false, "transparent": true},
+	"SVG": {"transparent": true, "text_curves": false},
+	"PDF": {"transparent": true},
+	"EPS": {"transparent": true},
+}
+var fmt_settings := {}
+var _fmt_tab := "PNG"
+var _fmt_chips: HBoxContainer = null
+var _fmt_box: VBoxContainer = null
+var _fmt_section: VBoxContainer = null
+var _fmt_toggle: Button = null
+var _chk_all: CheckBox = null
+var _bulk_fmt: OptionButton = null
+var _count: Label = null
 
 var _tabs: HBoxContainer = null
 var _list: VBoxContainer = null
 var _hint: Label = null
 var _dest_btn: Button = null
 var _dest_menu: PopupMenu = null
-var _chk_transp: CheckBox = null
-var _chk_curves: CheckBox = null
 var _status: RichTextLabel = null
 var _export_btn: Button = null
 var _last_written: PackedStringArray = []
@@ -88,6 +105,40 @@ func _init() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(set_scope.bind(s[0]))
 		_tabs.add_child(b)
+	# Barra de lote: marcar todo · un formato para todas · contador.
+	var bulk := HBoxContainer.new()
+	bulk.name = "BulkBar"
+	bulk.add_theme_constant_override("separation", 8)
+	add_child(bulk)
+	_chk_all = CheckBox.new()
+	_chk_all.name = "CheckAll"
+	_chk_all.text = "Todo"
+	_chk_all.tooltip_text = "Marcar / desmarcar todas las filas"
+	_chk_all.focus_mode = Control.FOCUS_NONE
+	_chk_all.add_theme_font_size_override("font_size", 11)
+	_chk_all.toggled.connect(set_all_checked)
+	bulk.add_child(_chk_all)
+	_bulk_fmt = OptionButton.new()
+	_bulk_fmt.name = "BulkFormat"
+	_bulk_fmt.focus_mode = Control.FOCUS_NONE
+	_bulk_fmt.tooltip_text = "Un mismo formato para las filas marcadas (o todas si no hay ninguna marcada)"
+	_bulk_fmt.add_item("Formato para todas…")
+	_bulk_fmt.set_item_disabled(0, true)
+	for f in FORMATS:
+		_bulk_fmt.add_item(f)
+	_bulk_fmt.item_selected.connect(func(i: int) -> void:
+		if i > 0:
+			set_format_for_all(FORMATS[i - 1])
+		_bulk_fmt.select(0))
+	bulk.add_child(_bulk_fmt)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bulk.add_child(sp)
+	_count = Label.new()
+	_count.name = "Count"
+	_count.set_meta("muted", true)
+	_count.add_theme_font_size_override("font_size", 10)
+	bulk.add_child(_count)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -112,27 +163,32 @@ func _init() -> void:
 	_dest_btn.clip_text = true
 	_dest_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_dest_btn.pressed.connect(_show_dest_menu)
-	var checks := HBoxContainer.new()
-	checks.add_theme_constant_override("separation", 12)
-	add_child(checks)
-	_chk_transp = CheckBox.new()
-	_chk_transp.text = "Sin fondo"
-	_chk_transp.tooltip_text = "PNG, WEBP, SVG, PDF y EPS sin el fondo del artboard"
-	_chk_transp.focus_mode = Control.FOCUS_NONE
-	_chk_transp.add_theme_font_size_override("font_size", 11)
-	_chk_transp.toggled.connect(func(on: bool) -> void:
-		transparent = on
-		_save_cfg())
-	checks.add_child(_chk_transp)
-	_chk_curves = CheckBox.new()
-	_chk_curves.text = "Texto a curvas"
-	_chk_curves.tooltip_text = "SVG: el texto como formas con tu fuente exacta (no editable como texto).\nPDF y EPS siempre llevan el texto como curvas."
-	_chk_curves.focus_mode = Control.FOCUS_NONE
-	_chk_curves.add_theme_font_size_override("font_size", 11)
-	_chk_curves.toggled.connect(func(on: bool) -> void:
-		text_curves = on
-		_save_cfg())
-	checks.add_child(_chk_curves)
+	# Ajustes por formato (plegable): fichas PNG · JPEG · WEBP · SVG · PDF · EPS.
+	_fmt_toggle = _button(self, "Ajustes de formato  ▾", "Calidad, fondo y texto de cada formato")
+	_fmt_toggle.name = "FormatSettingsToggle"
+	_fmt_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_fmt_section = VBoxContainer.new()
+	_fmt_section.name = "FormatSettings"
+	_fmt_section.add_theme_constant_override("separation", 6)
+	_fmt_section.visible = false
+	add_child(_fmt_section)
+	_fmt_toggle.pressed.connect(func() -> void:
+		_fmt_section.visible = not _fmt_section.visible
+		_fmt_toggle.text = "Ajustes de formato  " + ("▴" if _fmt_section.visible else "▾"))
+	_fmt_chips = HBoxContainer.new()
+	_fmt_chips.add_theme_constant_override("separation", 3)
+	_fmt_section.add_child(_fmt_chips)
+	for f in FMT_DEFAULTS:
+		var c := Button.new()
+		c.name = f
+		c.text = f
+		c.focus_mode = Control.FOCUS_NONE
+		c.add_theme_font_size_override("font_size", 10)
+		c.pressed.connect(show_format_settings.bind(f))
+		_fmt_chips.add_child(c)
+	_fmt_box = VBoxContainer.new()
+	_fmt_box.add_theme_constant_override("separation", 6)
+	_fmt_section.add_child(_fmt_box)
 	_export_btn = _button(self, "Exportar marcados  (Ctrl+E)", "Exporta las filas marcadas a la carpeta de destino")
 	_export_btn.name = "ExportChecked"
 	_export_btn.custom_minimum_size = Vector2(0, 32)
@@ -263,6 +319,7 @@ func refresh() -> void:
 		l.set_meta("muted", true)
 		l.add_theme_font_size_override("font_size", 11)
 		_list.add_child(l)
+	_update_count()
 	restyle()
 
 func _make_row(ab: Node2D, nodes: Array, title: String, kind: String) -> Control:
@@ -281,7 +338,108 @@ func rows() -> Array:
 
 # ── exportar ─────────────────────────────────────────────────────────────────
 func settings_for(row: ExportRow) -> Dictionary:
-	return {"scale": row.export_scale, "quality": quality, "transparent": transparent, "text_curves": text_curves}
+	var st := fmt_value(row.format)
+	return {"scale": row.export_scale, "quality": float(st.get("quality", quality)),
+		"transparent": bool(st.get("transparent", transparent)), "text_curves": bool(st.get("text_curves", text_curves)),
+		"lossless": bool(st.get("lossless", false))}
+
+## Ajustes guardados del formato (con sus valores por defecto).
+func fmt_value(fmt: String) -> Dictionary:
+	var d: Dictionary = (FMT_DEFAULTS.get(fmt, {}) as Dictionary).duplicate()
+	d.merge(fmt_settings.get(fmt, {}), true)
+	return d
+
+func set_fmt_value(fmt: String, key: String, v: Variant) -> void:
+	var d: Dictionary = fmt_settings.get(fmt, {})
+	d[key] = v
+	fmt_settings[fmt] = d
+	_save_cfg()
+
+# ── lote ─────────────────────────────────────────────────────────────────────
+func set_all_checked(on: bool) -> void:
+	for r in rows():
+		r.set_checked(on)
+	_update_count()
+
+## Mismo formato para las filas marcadas, o para todas si no hay marcadas.
+func set_format_for_all(fmt: String) -> void:
+	var list := rows().filter(func(r) -> bool: return r.checked)
+	if list.is_empty():
+		list = rows()
+	for r in list:
+		r.set_format(fmt)
+	show_format_settings(fmt)
+	_set_status("%s para %d fila%s" % [fmt, list.size(), "" if list.size() == 1 else "s"], true)
+
+func _update_count() -> void:
+	var all := rows()
+	var n := all.filter(func(r) -> bool: return r.checked).size()
+	if _count:
+		_count.text = "%d de %d" % [n, all.size()]
+	if _chk_all:
+		_chk_all.set_pressed_no_signal(n > 0 and n == all.size())
+	if _export_btn:
+		_export_btn.text = ("Exportar %d marcado%s  (Ctrl+E)" % [n, "" if n == 1 else "s"]) if n > 0 else "Exportar marcados  (Ctrl+E)"
+
+## Ajustes del formato `fmt` en la sección plegable.
+func show_format_settings(fmt: String) -> void:
+	if not FMT_DEFAULTS.has(fmt):
+		fmt = "PNG"
+	_fmt_tab = fmt
+	if _fmt_chips:
+		FxUI.style_tabs(_fmt_chips, _fmt_chips.get_node(fmt) as Button)
+	if _fmt_box == null:
+		return
+	for c in _fmt_box.get_children():
+		_fmt_box.remove_child(c)
+		c.queue_free()
+	var st := fmt_value(fmt)
+	if st.has("quality"):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var l := Label.new()
+		l.text = "Calidad"
+		l.add_theme_font_size_override("font_size", 11)
+		l.custom_minimum_size = Vector2(70, 0)
+		row.add_child(l)
+		var q := ProNumField.new("", "Q", "Calidad (1–100): más alta = mejor imagen y archivo más grande")
+		q.name = "Quality"
+		q.min_value = 1.0
+		q.max_value = 100.0
+		q.step = 1.0
+		q.suffix = "%"
+		q.value = float(st["quality"])
+		q.value_changed.connect(func(v: float) -> void: set_fmt_value(fmt, "quality", v))
+		row.add_child(q)
+		_fmt_box.add_child(row)
+		if st.has("lossless"):
+			q.modulate.a = 0.4 if bool(st["lossless"]) else 1.0
+	for key in [["lossless", "Sin pérdida", "WEBP sin pérdida (como PNG, archivo mayor)"],
+			["transparent", "Sin fondo", "Sin el fondo del artboard"],
+			["text_curves", "Texto a curvas", "El texto como formas con tu fuente exacta (no editable como texto)"]]:
+		if not st.has(key[0]):
+			continue
+		var chk := CheckBox.new()
+		chk.name = String(key[0])
+		chk.text = key[1]
+		chk.tooltip_text = key[2]
+		chk.focus_mode = Control.FOCUS_NONE
+		chk.add_theme_font_size_override("font_size", 11)
+		chk.button_pressed = bool(st[key[0]])
+		var k: String = key[0]
+		chk.toggled.connect(func(on: bool) -> void:
+			set_fmt_value(fmt, k, on)
+			if k == "lossless":
+				show_format_settings(fmt))
+		_fmt_box.add_child(chk)
+	if fmt in ["PDF", "EPS"]:
+		var note := Label.new()
+		note.text = "El texto va siempre como curvas (se ve con tu fuente en cualquier equipo)."
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.set_meta("muted", true)
+		note.add_theme_font_size_override("font_size", 10)
+		_fmt_box.add_child(note)
+	restyle()
 
 ## Exporta una fila en `dir`. Devuelve la ruta escrita ("" si falló).
 func export_row(row: ExportRow, dir: String) -> String:
@@ -482,9 +640,20 @@ func _load_cfg() -> void:
 	text_curves = bool(cfg.get_value("export", "text_curves", false))
 	quality = float(cfg.get_value("export", "quality", 92.0))
 	scope = String(cfg.get_value("export", "scope", "artboards"))
-	_chk_transp.set_pressed_no_signal(transparent)
-	_chk_curves.set_pressed_no_signal(text_curves)
+	fmt_settings = {}
+	for f in FMT_DEFAULTS:
+		var saved = cfg.get_value("formats", f) if cfg.has_section_key("formats", f) else null
+		if saved is Dictionary:
+			fmt_settings[f] = saved
+		else:
+			# ajustes globales de antes → como valor inicial de cada formato
+			var d := {}
+			if (FMT_DEFAULTS[f] as Dictionary).has("transparent"): d["transparent"] = transparent
+			if (FMT_DEFAULTS[f] as Dictionary).has("text_curves"): d["text_curves"] = text_curves
+			if (FMT_DEFAULTS[f] as Dictionary).has("quality"): d["quality"] = quality
+			fmt_settings[f] = d
 	_update_dest()
+	show_format_settings(_fmt_tab)
 
 func _save_cfg() -> void:
 	var cfg := ConfigFile.new()
@@ -494,6 +663,8 @@ func _save_cfg() -> void:
 	cfg.set_value("export", "text_curves", text_curves)
 	cfg.set_value("export", "quality", quality)
 	cfg.set_value("export", "scope", scope)
+	for f in fmt_settings:
+		cfg.set_value("formats", f, fmt_settings[f])
 	cfg.save(CFG)
 
 # ── aspecto ──────────────────────────────────────────────────────────────────
@@ -524,9 +695,17 @@ func restyle() -> void:
 	FxUI.style_primary_green(_export_btn)
 	_export_btn.add_theme_font_size_override("font_size", 12)
 	_dest_btn.icon = ProUIStyle.icon("res://icon/UI/folder.svg", FxUI.c("ICON_PRIMARY"), 14)
-	for chk in [_chk_transp, _chk_curves]:
+	for chk in find_children("*", "CheckBox", true, false):
 		ProUIStyle.style_check(chk)
 		chk.add_theme_color_override("font_color", FxUI.c("PANEL_TEXT"))
+	for l in (_fmt_box.find_children("*", "Label", true, false) if _fmt_box else []):
+		if not l.has_meta("muted"):
+			l.add_theme_color_override("font_color", FxUI.c("PANEL_TEXT"))
+	if _bulk_fmt:
+		ProUIStyle.style_option(_bulk_fmt)
+		_bulk_fmt.add_theme_font_size_override("font_size", 11)
+	if _fmt_chips:
+		FxUI.style_tabs(_fmt_chips, _fmt_chips.get_node(_fmt_tab) as Button)
 	_status.add_theme_color_override("default_color", FxUI.c("PANEL_TEXT"))
 	for r in rows():
 		r.restyle()
@@ -554,7 +733,9 @@ class ExportRow extends PanelContainer:
 		_chk = CheckBox.new()
 		_chk.focus_mode = Control.FOCUS_NONE
 		_chk.tooltip_text = "Incluir en «Exportar marcados»"
-		_chk.toggled.connect(func(on: bool) -> void: checked = on)
+		_chk.toggled.connect(func(on: bool) -> void:
+			checked = on
+			owner_panel._update_count())
 		h.add_child(_chk)
 		var icon := TextureRect.new()
 		icon.custom_minimum_size = Vector2(16, 16)
@@ -598,6 +779,16 @@ class ExportRow extends PanelContainer:
 		grip.tooltip_text = "Arrastrar"
 		grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(grip)
+		_sync_scale()
+
+	func set_checked(on: bool) -> void:
+		checked = on
+		_chk.set_pressed_no_signal(on)
+
+	func set_format(f: String) -> void:
+		format = f
+		_fmt.select(maxi(0, FORMATS.find(f)))
+		_remember()
 		_sync_scale()
 
 	func _sync_scale() -> void:
@@ -662,7 +853,9 @@ class ExportRow extends PanelContainer:
 			l.add_theme_color_override("font_color", FxUI.c("PANEL_TEXT"))
 		for t in find_children("*", "TextureRect", true, false):
 			if t.has_meta("icon_path"):
-				t.texture = ProUIStyle.icon(String(t.get_meta("icon_path")), FxUI.c("ICON_PRIMARY"), 16)
+				# color secundario y más pequeño: el icono de tipo (p. ej. el
+				# cuadrado del rectángulo) no debe parecer otra casilla
+				t.texture = ProUIStyle.icon(String(t.get_meta("icon_path")), FxUI.c("TEXT_SECONDARY"), 13)
 		for o in [_fmt, _scale]:
 			ProUIStyle.style_option(o)
 			o.add_theme_font_size_override("font_size", 11)

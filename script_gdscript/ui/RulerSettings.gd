@@ -8,6 +8,14 @@ var _regla_node: Node
 var _color_pickers: Dictionary = {}
 
 const CONFIG_PATH := "user://vectopen_ruler.cfg"
+## Colores por defecto de guías y destellos (los mismos que regla.gd).
+const DEFAULT_COLORS := {
+	"color_guia_normal": Color(0, 0.7, 0.9, 0.4),
+	"color_guia_seleccionada": Color(0, 0.9, 1, 0.8),
+	"color_guia_previsualizacion": Color(1, 0.6, 0, 0.8),
+	"color_flash_crear": Color(0, 1, 0, 0.3),
+	"color_flash_eliminar": Color(1, 0, 0, 0.3),
+}
 
 func _ready() -> void:
 	_load_checks()
@@ -58,7 +66,10 @@ func _add_color_row(prop_name: String, label_text: String) -> void:
 
 	var picker := ColorPickerButton.new()
 	picker.custom_minimum_size = Vector2(24, 24)
-	picker.color = Color.WHITE
+	# Empieza con el color real: antes era BLANCO y, sin config guardada, se
+	# aplicaba a las reglas al abrir → guías blancas (invisibles sobre la mesa
+	# de trabajo) y destellos blancos.
+	picker.color = DEFAULT_COLORS.get(prop_name, Color.WHITE)
 	picker.color_changed.connect(_on_color_changed.bind(prop_name, picker))
 	row.add_child(picker)
 
@@ -142,14 +153,7 @@ func _on_color_changed(color: Color, prop_name: String, _picker: ColorPickerButt
 	_save_config()
 
 func _on_reset_color(prop_name: String, picker: ColorPickerButton) -> void:
-	var defaults := {
-		"color_guia_normal": Color(0, 0.7, 0.9, 0.4),
-		"color_guia_seleccionada": Color(0, 0.9, 1, 0.8),
-		"color_guia_previsualizacion": Color(1, 0.6, 0, 0.8),
-		"color_flash_crear": Color(0, 1, 0, 0.3),
-		"color_flash_eliminar": Color(1, 0, 0, 0.3),
-	}
-	var def = defaults.get(prop_name, Color.WHITE)
+	var def = DEFAULT_COLORS.get(prop_name, Color.WHITE)
 	picker.color = def
 	var regla = _find_regla()
 	if regla:

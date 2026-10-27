@@ -886,6 +886,11 @@ func _write_prop(shape, prop, value) -> void:
 			shape.set_meta("effects", eff_arr.duplicate(true))
 			if _is_text(shape) or shape is Line2D:
 				TextFx.sync(shape)   # textos y trazos de pincel: su propio nodo de efectos
+			else:
+				# imágenes y grupos: sombra propia (antes no se dibujaba nada)
+				var layer_fx = load("res://script_gdscript/shapes/layer_fx.gd")
+				if layer_fx.handles(shape):
+					layer_fx.sync(shape)
 		"custom_shader":
 			# Pestaña Shader: shader del usuario (meta + motor de filtros).
 			if value is Dictionary and not (value as Dictionary).is_empty():

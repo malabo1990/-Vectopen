@@ -2,10 +2,13 @@
 # VECTOPEN — CAMPO NUMÉRICO PROFESIONAL (estilo Figma / Illustrator)
 # RUTA: res://script_gdscript/ui/pro/pro_num_field.gd
 # [icono o letra][valor][unidad] en una sola caja de 24 px:
-#   · arrastrar en horizontal sobre el icono O sobre el número ajusta el
-#     valor (Shift ×0.1, Ctrl ×10), con el ratón oculto y sin tope de
-#     pantalla (estilo Blender/Figma) → `scrub_changed` en vivo y
-#     `scrub_ended` al soltar; un clic sin arrastrar entra a escribir;
+#   · arrastrar sobre el icono O sobre el número ajusta el valor: en
+#     horizontal (derecha = más) o en vertical (arriba = más), según hacia
+#     dónde se mueva primero (Shift ×0.1, Ctrl ×10) → `scrub_changed` en vivo
+#     y `scrub_ended` al soltar; un clic sin arrastrar entra a escribir.
+#     Se mide con la posición ABSOLUTA, sin capturar ni ocultar el ratón:
+#     con un lápiz de tableta (modo absoluto) la captura hacía saltar o
+#     congelaba el valor;
 #   · el texto acepta expresiones ("12*2", "24+6") y se confirma con Intro o
 #     al perder el foco; Flecha arriba/abajo = ±paso (Shift ×10);
 #   · `set_mixed(true)` muestra "Mixto" cuando la selección no coincide.
@@ -208,29 +211,26 @@ func is_scrubbing() -> bool:
 func _gui_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
-			_scrub = {"active": true, "acc": 0.0, "v0": value, "moved": false,
-				"screen": DisplayServer.mouse_get_position()}
+			_scrub = {"active": true, "v0": value, "moved": false, "axis": -1,
+				"start": ev.global_position}
 		elif _scrub["active"]:
 			var moved: bool = _scrub["moved"]
 			_scrub["active"] = false
 			if moved:
-				_release_pointer()
 				scrub_ended.emit(value)
 				value_changed.emit(value)
 			else:
 				begin_edit()
 		accept_event()
 	elif ev is InputEventMouseMotion and _scrub["active"]:
-		_scrub["acc"] = float(_scrub["acc"]) + ev.relative.x
-		var acc: float = _scrub["acc"]
-		if absf(acc) < 3.0 and not _scrub["moved"]:
-			return
+		var d: Vector2 = ev.global_position - (_scrub["start"] as Vector2)
 		if not _scrub["moved"]:
+			if d.length() < 3.0:
+				return
 			_scrub["moved"] = true
-			# Ratón oculto y capturado: se puede arrastrar sin topar con el
-			# borde de la pantalla (al soltar vuelve a donde empezó).
-			if DisplayServer.get_name() != "headless":
-				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			# eje dominante del primer movimiento: horizontal o vertical
+			_scrub["axis"] = 0 if absf(d.x) >= absf(d.y) else 1
+		var acc: float = d.x if int(_scrub["axis"]) == 0 else -d.y
 		var mul := 1.0
 		if Input.is_key_pressed(KEY_SHIFT):
 			mul = 0.1
@@ -244,17 +244,11 @@ func _gui_input(ev: InputEvent) -> void:
 			scrub_changed.emit(nv)
 		accept_event()
 
-func _release_pointer() -> void:
-	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		Input.warp_mouse(Vector2(_scrub.get("screen", Vector2i.ZERO)) - Vector2(DisplayServer.window_get_position()))
-
-## Si la caja desaparece a mitad de arrastre, no dejar el ratón capturado.
+## Si la caja desaparece a mitad de arrastre, terminar el arrastre.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_EXIT_TREE or (what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree()):
 		if _scrub.get("active", false):
 			_scrub["active"] = false
-			_release_pointer()
 
 ## Colores del ThemeManager (claro / oscuro).
 func apply_theme() -> void:

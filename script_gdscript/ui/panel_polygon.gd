@@ -206,14 +206,8 @@ func _build() -> void:
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", 12)
 	header.add_child(_title)
-	var close := Button.new()
-	close.text = "✕"
-	close.flat = true
-	close.focus_mode = Control.FOCUS_NONE
-	close.pressed.connect(func() -> void:
-		visible = false
-		closed.emit())
-	header.add_child(close)
+	# Sin botón ✕: ocultaba el panel y no había forma de volver a abrirlo
+	# (se muestra solo con su herramienta).
 
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 4)

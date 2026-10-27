@@ -30,7 +30,11 @@ func _shot(ctrl: Control, tag: String) -> void:
 	img.resize(r.size.x * 2, r.size.y * 2, Image.INTERPOLATE_NEAREST)
 	img.save_png("%s/%s.png" % [out, tag])
 
+var _pen_pos := Vector2.ZERO   # dónde quedó el puntero (arrastres en varios tramos)
+
 func _press(at: Vector2, down: bool) -> void:
+	if down:
+		_pen_pos = at
 	var e := InputEventMouseButton.new()
 	e.button_index = MOUSE_BUTTON_LEFT
 	e.pressed = down
@@ -39,12 +43,15 @@ func _press(at: Vector2, down: bool) -> void:
 	Input.parse_input_event(e)
 	await _frames(2)
 
-## Movimiento relativo en pasos de 2 px (como un arrastre real).
-func _move(at: Vector2, dx: float) -> void:
+## Arrastre real en pasos de 2 px: la posición avanza (el campo ya no
+## captura el ratón; mide la posición absoluta, como con un lápiz).
+func _move(_at: Vector2, dx: float) -> void:
 	for i in int(absf(dx) / 2.0):
 		var m := InputEventMouseMotion.new()
-		m.position = at
-		m.global_position = at
+		_pen_pos += Vector2(signf(dx) * 2.0, 0)
+		var p := _pen_pos
+		m.position = p
+		m.global_position = p
 		m.relative = Vector2(signf(dx) * 2.0, 0)
 		m.button_mask = MOUSE_BUTTON_MASK_LEFT
 		Input.parse_input_event(m)
@@ -61,6 +68,8 @@ func _run() -> void:
 	var env_out := OS.get_environment("E2E_OUT")
 	if env_out != "": out = env_out
 	DirAccess.make_dir_recursive_absolute(out)
+	# Pruebas con ventana en la 2.ª pantalla (Huion), no en la principal.
+	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
 	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
 	for _w in 600:

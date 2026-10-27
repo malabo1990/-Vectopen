@@ -108,16 +108,8 @@ func _build_ui() -> void:
 	_header_title.add_theme_font_size_override("font_size", 13)
 	header.add_child(_header_title)
 
-	_btn_close = Button.new()
-	_btn_close.text = "✕"
-	_btn_close.custom_minimum_size = Vector2(22, 22)
-	_btn_close.flat = true
-	_btn_close.focus_mode = Control.FOCUS_NONE
-	_btn_close.pressed.connect(func():
-		visible = false
-		closed.emit()
-	)
-	header.add_child(_btn_close)
+	# Sin botón ✕: ocultaba el panel y no había forma de volver a abrirlo
+	# (se muestra solo con su herramienta).
 
 	# Subtítulo informativo
 	_status_label = Label.new()

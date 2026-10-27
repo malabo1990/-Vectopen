@@ -33,6 +33,10 @@ const MODERN_LEFT_W := 260.0
 ## Separación estándar entre paneles flotantes y bordes / barras.
 const EDGE_GAP := 10.0
 
+# Paneles flotantes de herramienta (hijos de Herramientas) que en Modern se
+# acoplan al DockedInspector en lugar de flotar junto al lienzo.
+const TOOL_PANEL_NAMES := ["polygon", "text", "Selector", "bezier", "brush"]
+
 # Elementos existentes de main.tscn a armonizar
 @export var barra_visual_panel: Control
 @export var logo_node: Control
@@ -266,9 +270,30 @@ func _connect_nav_rail() -> void:
 
 ## StartupPhases añadió un panel (fase 2/3): localizarlo. En modo Smart todos
 ## llegan ocultos, igual que los dejaba _apply_smart_mode.
-func _on_phase_panel_added(_panel: Control) -> void:
+func _on_phase_panel_added(panel: Control) -> void:
 	_resolve_nodes()
 	_connect_nav_rail()
+	# El DockedInspector llega en la fase 2 (después del _ready de este nodo),
+	# así que si arrancamos en Modern hay que acoplar los paneles ahora.
+	if _is_modern_mode_active():
+		_ensure_tool_panels_hosted()
+	# los paneles de la barra de arriba (color, efectos) llegan en la fase 2
+	if String(panel.name) in ["pickr_color_windows", "panel__effects"]:
+		_place_under_bar(panel)
+
+## Panel de la barra de arriba a la derecha (Smart): justo DEBAJO de la barra
+## con EDGE_GAP de separación (antes empezaba pegado, en y = 66) y a 16 px
+## del borde derecho; conserva su altura.
+func _place_under_bar(p: Control) -> void:
+	if not is_instance_valid(p):
+		return
+	var bar_bottom := 66.0
+	if is_instance_valid(barra_visual_panel) and barra_visual_panel.is_inside_tree():
+		bar_bottom = barra_visual_panel.get_global_rect().end.y
+	var h := p.offset_bottom - p.offset_top
+	p.offset_top = bar_bottom + EDGE_GAP
+	p.offset_bottom = p.offset_top + h
+	p.offset_right = -16.0
 
 func _on_request_settings_dialog() -> void:
 	if not is_instance_valid(manager_windws_regla):
@@ -371,6 +396,15 @@ func _apply_smart_mode() -> void:
 			btn_settings.offset_bottom = 24.0
 			btn_settings.custom_minimum_size = Vector2(24, 24)
 			btn_settings.visible = true
+			# Mismo icono de configuración (engranaje) que Modern y Pro.
+			if btn_settings is Button:
+				var tmi = get_node_or_null("/root/ThemeManager")
+				var icol: Color = tmi.get_color(tmi.Slot.ICON_PRIMARY) if tmi else Color.WHITE
+				(btn_settings as Button).icon = ProUIStyle.icon("res://icon/UI/settings.svg", icol, 16)
+				(btn_settings as Button).expand_icon = false
+				(btn_settings as Button).icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				(btn_settings as Button).vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+				(btn_settings as Button).tooltip_text = tr("Configuración")
 		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control
 		if regla_h:
 			regla_h.offset_left = 0.0
@@ -453,6 +487,7 @@ func _apply_smart_mode() -> void:
 			if toggle_ctrl:
 				toggle_ctrl.visible = true
 
+	_release_tool_panels()
 	_update_toolbar_subpanels_direction(false)
 	_theme_smart_floating_controls()
 	_fit_smart_panel_height.call_deferred()
@@ -613,6 +648,9 @@ func _apply_modern_mode() -> void:
 			if toggle_ctrl:
 				toggle_ctrl.visible = false
 
+	_ensure_tool_panels_hosted()
+	# El inspector se crea en la fase 2: reintentar tras el frame por si aún no existe.
+	_ensure_tool_panels_hosted.call_deferred()
 	_update_toolbar_subpanels_direction(false, true)
 	# ancho real de la barra (contenido) y reglas a su lado
 	set_left_dock_width.call_deferred(-1.0)
@@ -762,6 +800,7 @@ func _apply_professional_mode() -> void:
 			if toggle_ctrl:
 				toggle_ctrl.visible = false
 
+	_release_tool_panels()
 	_update_toolbar_subpanels_direction(true)
 	# ancho real de la barra (contenido) y reglas a su lado
 	set_left_dock_width.call_deferred(-1.0)
@@ -855,6 +894,34 @@ func _align_subpanel(sp: Control) -> void:
 	if absf(delta) > 0.5:
 		sp.offset_left += delta
 		sp.offset_right += delta
+
+func _is_modern_mode_active() -> bool:
+	var gui := get_node_or_null("/root/GlobalUI")
+	return is_instance_valid(gui) and gui.get_ui_mode() == "modern"
+
+## Modern UI: mueve los paneles de herramienta de la columna Herramientas al
+## DockedInspector para que se muestren acoplados en lugar de flotando.
+func _ensure_tool_panels_hosted() -> void:
+	if not is_instance_valid(docked_inspector) or not docked_inspector.has_method("host_tool_panel"):
+		return
+	if not is_instance_valid(layout_node):
+		return
+	var tools := layout_node.find_child("Herramientas", true, false) as Control
+	if not is_instance_valid(tools):
+		return
+	for panel_name in TOOL_PANEL_NAMES:
+		var panel := tools.get_node_or_null(panel_name) as Control
+		if is_instance_valid(panel):
+			docked_inspector.host_tool_panel(panel)
+
+## Devuelve los paneles acoplados a la columna Herramientas (Smart / Pro).
+func _release_tool_panels() -> void:
+	if not is_instance_valid(docked_inspector) or not docked_inspector.has_method("release_tool_panels"):
+		return
+	var tools: Control = null
+	if is_instance_valid(layout_node):
+		tools = layout_node.find_child("Herramientas", true, false) as Control
+	docked_inspector.release_tool_panels(tools)
 
 func _set_modern_ui_visible(show: bool) -> void:
 	if is_instance_valid(modern_bottom_toolbar):
@@ -1151,8 +1218,7 @@ func _theme_smart_floating_controls() -> void:
 							b.target_panel = target
 				if "target_panel" in b and is_instance_valid(b.target_panel):
 					b.button_pressed = b.target_panel.visible
-					b.target_panel.offset_top = 66.0
-					b.target_panel.offset_right = -16.0
+					_place_under_bar(b.target_panel)
 
 				# Same visual size and centering for every icon in the bar
 				b.custom_minimum_size = Vector2(26, 26)

@@ -62,6 +62,8 @@ static func install(effects_panel: Control) -> Control:
 	panel.offset_right = -12
 	panel.offset_top = 8
 	panel.offset_bottom = -8
+	# Como las demás pestañas: el anfitrión ocupa el alto (antes medía 0).
+	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	host.add_child(panel)
 	return panel
 

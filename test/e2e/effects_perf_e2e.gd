@@ -34,6 +34,8 @@ func _find_script_node(n: Node, suffix: String) -> Node:
 	return null
 
 func _run() -> void:
+	# Pruebas con ventana en la 2.ª pantalla (Huion), no en la principal.
+	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
 	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
 	for _w in 600:

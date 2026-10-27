@@ -27,52 +27,68 @@ func _draw_hover_shape(c: Node2D) -> void:
 ## Dibuja las guías del imán: líneas de alineación (bordes/centros) que cruzan
 ## toda la vista + marcas en los bordes exactos, y las barras de separación
 ## (distribución / hueco igualado) con la distancia en px.
+## Guías del imán estilo Figma / Affinity: SOLO el tramo entre la figura y el
+## objeto con el que se alinea (antes se alargaba 4000 unidades y cruzaba toda
+## la pantalla), con una ✕ pequeña en cada punto alineado, y las separaciones
+## iguales con su medida en una pastilla. Grosor y tamaños constantes en
+## pantalla a cualquier zoom.
 func _dibujar_guias_iman(c: Node2D) -> void:
 	var vpg := c.get_viewport()
 	var zg: float = vpg.get_canvas_transform().get_scale().x if vpg else 1.0
 	zg = maxf(zg, 0.0002)
 	var k: float = 1.0 / zg                 # unidades de mundo por píxel de pantalla
-	var lw: float = 1.3 * k
+	var lw: float = 1.0 * k
+	var cross: float = 3.0 * k
 	var tick: float = 4.0 * k
-	var ext: float = 4000.0                 # prolongación de la línea (mundo)
 	var font := ThemeDB.fallback_font
-	var fs: int = maxi(1, int(round(11.0 * k)))
+	var fs: int = maxi(1, int(round(10.0 * k)))
+	var mv := _get_macro_rect()
 
 	for g in _snap_guides:
 		var coord: float = g["coord"]
 		var lo: float = minf(g["a"], g["b"])
 		var hi: float = maxf(g["a"], g["b"])
 		var col: Color = COLOR_SNAP_RULE if g.get("guide", false) else COLOR_SNAP_GUIDE
-		var gw2: float = lw * (1.4 if g.get("guide", false) else 1.0)
-		if String(g["axis"]) == "x":
-			c.draw_line(c.to_local(Vector2(coord, lo - ext)), c.to_local(Vector2(coord, hi + ext)), col, gw2)
-			c.draw_line(c.to_local(Vector2(coord - tick, g["a"])), c.to_local(Vector2(coord + tick, g["a"])), col, lw)
-			c.draw_line(c.to_local(Vector2(coord - tick, g["b"])), c.to_local(Vector2(coord + tick, g["b"])), col, lw)
-		else:
-			c.draw_line(c.to_local(Vector2(lo - ext, coord)), c.to_local(Vector2(hi + ext, coord)), col, gw2)
-			c.draw_line(c.to_local(Vector2(g["a"], coord - tick)), c.to_local(Vector2(g["a"], coord + tick)), col, lw)
-			c.draw_line(c.to_local(Vector2(g["b"], coord - tick)), c.to_local(Vector2(g["b"], coord + tick)), col, lw)
+		var horiz := String(g["axis"]) != "x"
+		var p := func(along: float) -> Vector2:
+			return c.to_local(Vector2(along, coord) if horiz else Vector2(coord, along))
+		c.draw_line(p.call(lo), p.call(hi), col, lw)
+		# ✕ en los extremos de la figura movida y del objeto de referencia
+		var marks: Array = [mv.position.x, mv.end.x] if horiz else [mv.position.y, mv.end.y]
+		marks.append_array(g.get("marks", []))
+		for m in marks:
+			var q: Vector2 = p.call(float(m))
+			c.draw_line(q + Vector2(-cross, -cross), q + Vector2(cross, cross), col, lw)
+			c.draw_line(q + Vector2(-cross, cross), q + Vector2(cross, -cross), col, lw)
 
 	var col_sp := Color(1.0, 0.36, 0.46, 0.98)
-	for s in _snap_spacing:
-		var perp: float = s["perp"]
-		var gap_txt := str(roundi(s["gap"]))
-		for seg in s["segs"]:
+	for sp in _snap_spacing:
+		var perp: float = sp["perp"]
+		var gap_txt := str(roundi(sp["gap"]))
+		for seg in sp["segs"]:
 			var a0: float = seg[0]
 			var a1: float = seg[1]
 			var mid: float = (a0 + a1) * 0.5
-			if String(s["axis"]) == "x":
-				c.draw_line(c.to_local(Vector2(a0, perp)), c.to_local(Vector2(a1, perp)), col_sp, lw)
-				c.draw_line(c.to_local(Vector2(a0, perp - tick)), c.to_local(Vector2(a0, perp + tick)), col_sp, lw)
-				c.draw_line(c.to_local(Vector2(a1, perp - tick)), c.to_local(Vector2(a1, perp + tick)), col_sp, lw)
-				if font:
-					c.draw_string(font, c.to_local(Vector2(mid, perp - tick * 2.0)), gap_txt, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, col_sp)
-			else:
-				c.draw_line(c.to_local(Vector2(perp, a0)), c.to_local(Vector2(perp, a1)), col_sp, lw)
-				c.draw_line(c.to_local(Vector2(perp - tick, a0)), c.to_local(Vector2(perp + tick, a0)), col_sp, lw)
-				c.draw_line(c.to_local(Vector2(perp - tick, a1)), c.to_local(Vector2(perp + tick, a1)), col_sp, lw)
-				if font:
-					c.draw_string(font, c.to_local(Vector2(perp + tick * 2.0, mid)), gap_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col_sp)
+			var horiz_sp := String(sp["axis"]) == "x"
+			var q0 := c.to_local(Vector2(a0, perp) if horiz_sp else Vector2(perp, a0))
+			var q1 := c.to_local(Vector2(a1, perp) if horiz_sp else Vector2(perp, a1))
+			var nrm := Vector2(0, tick) if horiz_sp else Vector2(tick, 0)
+			c.draw_line(q0, q1, col_sp, lw)
+			c.draw_line(q0 - nrm, q0 + nrm, col_sp, lw)
+			c.draw_line(q1 - nrm, q1 + nrm, col_sp, lw)
+			if font:
+				_draw_pill(c, c.to_local(Vector2(mid, perp) if horiz_sp else Vector2(perp, mid)), gap_txt, col_sp, font, fs, k)
+
+## Pastilla de medida (fondo de color, texto blanco) centrada en `at`.
+func _draw_pill(c: Node2D, at: Vector2, txt: String, bg: Color, font: Font, fs: int, k: float) -> void:
+	var ts := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+	var pad := Vector2(5.0 * k, 2.0 * k)
+	var r := Rect2(at - ts * 0.5 - pad, ts + pad * 2.0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(int(maxf(1.0, round(4.0 * k))))
+	c.draw_style_box(sb, r)
+	c.draw_string(font, Vector2(r.position.x + pad.x, r.position.y + pad.y + font.get_ascent(fs)), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 
 ## 13.1 Medidas y distancias inteligentes: muestra distancias al presionar Alt
 func _draw_alt_smart_measurements(c: Node2D) -> void:

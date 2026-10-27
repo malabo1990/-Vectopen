@@ -135,6 +135,7 @@ const GRAD_HIT_PX: float = 18.0
 func _ready() -> void:
 	# Permitir que los eventos de ratón fluyan libremente a través de las capas de control
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	visibility_layer = 2   # solo editor: la vista previa no lo dibuja
 
 	# Conexión limpia usando la referencia del Inspector elegida por ti
 	if is_instance_valid(drag_panel):

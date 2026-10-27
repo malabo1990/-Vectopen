@@ -23,6 +23,11 @@ class_name ControlVertical
 # --- VARIABLES INTERNAS ---
 var _arrastrando: bool = false
 var _ultima_posicion_y: float = 0.0
+## Eje del arrastre: -1 aún sin decidir, 0 horizontal (derecha = más),
+## 1 vertical (arriba = más). Lo decide el primer movimiento (como ProNumField).
+var _eje: int = -1
+var _inicio := Vector2.ZERO
+var _ultima := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -64,6 +69,9 @@ func _input(event: InputEvent) -> void:
 			if _punto_en_area(event.global_position):
 				_arrastrando = true
 				_ultima_posicion_y = event.global_position.y
+				_eje = -1
+				_inicio = event.global_position
+				_ultima = event.global_position
 				# Opcional: capturar mouse para mejor experiencia
 				# Input.mouse_mode = Input.MOUSE_MODE_CAPTURED   # ← descomentar si quieres
 		else:
@@ -71,11 +79,18 @@ func _input(event: InputEvent) -> void:
 			# Input.mouse_mode = Input.MOUSE_MODE_VISIBLE     # ← si usaste captured
 	
 	elif event is InputEventMouseMotion and _arrastrando:
-		var delta_y = _ultima_posicion_y - event.global_position.y   # ↑ positivo = aumentar
-		var cambio = delta_y * sensibilidad_drag
+		if _eje < 0:
+			var d0: Vector2 = event.global_position - _inicio
+			if d0.length() < 3.0:
+				return
+			_eje = 0 if absf(d0.x) >= absf(d0.y) else 1
+		# horizontal: derecha = aumentar; vertical: arriba = aumentar
+		var delta: float = (event.global_position.x - _ultima.x) if _eje == 0 else (_ultima.y - event.global_position.y)
+		var cambio = delta * sensibilidad_drag
 		var nuevo_valor = progress_bar.value + cambio
 		
 		_set_valor(nuevo_valor)
+		_ultima = event.global_position
 		_ultima_posicion_y = event.global_position.y
 
 

@@ -123,9 +123,13 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 			stops.append([g.get_offset(i), g.get_color(i)])
 		it["grad"] = {"type": s.fill_gradient_type, "angle": s.fill_gradient_angle, "stops": stops}
 		it["fill"] = g.get_color(0)
+	# TODAS las sombras proyectadas (antes solo quedaba la última)
+	var shadows: Array = []
 	for fx in s.effects:
 		if fx is Dictionary and bool(fx.get("enabled", true)) and String(fx.get("type", "")) == "Drop Shadow":
-			it["shadow"] = fx
+			shadows.append(fx)
+	if not shadows.is_empty():
+		it["shadow"] = shadows
 	out["items"].append(it)
 
 static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> void:
@@ -643,11 +647,31 @@ static func _svg_gradient(id: String, g: Dictionary) -> String:
 			id, _n(0.5 - d.x), _n(0.5 - d.y), _n(0.5 + d.x), _n(0.5 + d.y), stops]
 	return '<radialGradient id="%s" cx="0.5" cy="0.5" r="0.5">%s</radialGradient>' % [id, stops]
 
-static func _svg_shadow(id: String, fx: Dictionary) -> String:
+## Filtro SVG de una o varias sombras proyectadas (`shadow`: efecto o lista).
+static func _svg_shadow(id: String, shadow: Variant) -> String:
+	var list: Array = shadow if shadow is Array else [shadow]
+	var head := '<filter id="%s" x="-50%%" y="-50%%" width="200%%" height="200%%">' % id
+	if list.size() == 1:
+		var fx: Dictionary = list[0]
+		var col := _shadow_col(fx)
+		return head + '<feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s" flood-opacity="%s"/></filter>' % [
+			_n(float(fx.get("offset_x", 4.0))), _n(float(fx.get("offset_y", 4.0))), _n(float(fx.get("blur", 6.0)) / 2.0), _hex(col), _n(col.a)]
+	# Varias: cada sombra por separado y todas debajo de la figura.
+	var parts := ""
+	var merge := ""
+	for i in list.size():
+		var fx: Dictionary = list[i]
+		var col := _shadow_col(fx)
+		parts += '<feGaussianBlur in="SourceAlpha" stdDeviation="%s" result="b%d"/>' % [_n(float(fx.get("blur", 6.0)) / 2.0), i]
+		parts += '<feOffset in="b%d" dx="%s" dy="%s" result="o%d"/>' % [i, _n(float(fx.get("offset_x", 4.0))), _n(float(fx.get("offset_y", 4.0))), i]
+		parts += '<feFlood flood-color="%s" flood-opacity="%s" result="c%d"/>' % [_hex(col), _n(col.a), i]
+		parts += '<feComposite in="c%d" in2="o%d" operator="in" result="s%d"/>' % [i, i, i]
+		merge += '<feMergeNode in="s%d"/>' % i
+	return head + parts + '<feMerge>%s<feMergeNode in="SourceGraphic"/></feMerge></filter>' % merge
+
+static func _shadow_col(fx: Dictionary) -> Color:
 	var c: Variant = fx.get("color", Color(0, 0, 0, 0.4))
-	var col: Color = c if c is Color else Color(0, 0, 0, 0.4)
-	return '<filter id="%s" x="-50%%" y="-50%%" width="200%%" height="200%%"><feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s" flood-opacity="%s"/></filter>' % [
-		id, _n(float(fx.get("offset_x", 4.0))), _n(float(fx.get("offset_y", 4.0))), _n(float(fx.get("blur", 6.0)) / 2.0), _hex(col), _n(col.a)]
+	return c if c is Color else Color(0, 0, 0, 0.4)
 
 static func _svg_text(it: Dictionary) -> String:
 	var size: float = it["size"]

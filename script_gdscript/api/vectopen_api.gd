@@ -493,9 +493,11 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 		vrt.name = "VectorRichText"
 		vrt.set_is_paragraph(false)
 		TextCore.apply_vrt_fonts(vrt, t)
+		# set_text() reinicia el formato del nativo: primero el texto, después
+		# color y tamaño (antes salía siempre a 24 px y en negro).
+		vrt.set_text(text)
 		vrt.set_text_color(color)
 		vrt.set_font_size(float(font_size))
-		vrt.set_text(text)
 		t.add_child(vrt)
 		label.visible = false
 	t.position = pos

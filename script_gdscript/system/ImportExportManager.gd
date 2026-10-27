@@ -498,7 +498,8 @@ func export_nodes(artboard: Node, nodes: Array, format: String, path: String, se
 				match fmt:
 					"PNG": err = img.save_png(path)
 					"JPEG": err = img.save_jpg(path, q)
-					"WEBP": err = img.save_webp(path, q < 1.0, q)
+					# «Sin pérdida» (ajustes de WEBP) o calidad 100 → sin pérdida
+					"WEBP": err = img.save_webp(path, q < 1.0 and not bool(settings.get("lossless", false)), q)
 		"VOP":
 			err = _write_text(path, JSON.stringify(vop_data(artboard, nodes), "\t"))
 		"TSCN", "SCN":

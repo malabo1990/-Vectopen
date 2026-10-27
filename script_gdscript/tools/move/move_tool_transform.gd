@@ -352,16 +352,59 @@ func _macro_rect_inicial() -> Rect2:
 	var got := false
 	for s in selected_shapes:
 		if is_instance_valid(s) and transform_initial_states.has(s):
-			var rr := Rect2(transform_initial_states[s]["gpos"], _global_rect(s).size)
+			# Caja REAL al empezar el gesto: la actual desplazada lo que el nodo
+			# se ha movido. Antes se usaba `gpos` como esquina superior
+			# izquierda, pero en figuras con origen en el centro (rectángulo,
+			# elipse…) el imán calculaba con la caja media figura desplazada
+			# y enganchaba en sitios raros.
+			var cur := _global_rect(s)
+			var moved: Vector2 = (s as Node2D).global_position - (transform_initial_states[s]["gpos"] as Vector2)
+			var rr := Rect2(cur.position - moved, cur.size)
 			r = rr if not got else r.merge(rr)
 			got = true
 	return r if got else Rect2()
 
 ## Rects (mundo) contra los que imanta la selección: los artboards que la
 ## contienen + sus capas de primer nivel (sin la propia selección ni sus
-## ancestros/descendientes).
+## ancestros/descendientes). Estilo Figma / Affinity: solo lo que SE VE en
+## pantalla y, de eso, los SNAP_MAX_NEAR más cercanos (antes hasta 240
+## capas, también fuera de la vista: con muchas imágenes el objeto daba
+## saltos y aparecían demasiadas líneas).
+const SNAP_MAX_NEAR := 60
+
 func _snap_candidates() -> Array:
+	var all := _snap_candidates_all()
+	if all.size() <= 1:
+		return all
+	var vis := _visible_world_rect()
+	var mv := _macro_rect_inicial()
+	var mc := mv.get_center() if mv.size != Vector2.ZERO else vis.get_center()
+	var boards: Array = []
+	var near: Array = []
+	for i in all.size():
+		var r: Rect2 = all[i]
+		if bool(_snap_is_board.get(i, false)):
+			boards.append(r)
+		elif vis.size == Vector2.ZERO or vis.intersects(r):
+			near.append(r)
+	near.sort_custom(func(a: Rect2, b: Rect2) -> bool:
+		return a.get_center().distance_squared_to(mc) < b.get_center().distance_squared_to(mc))
+	return boards + near.slice(0, SNAP_MAX_NEAR)
+
+## Rect de mundo visible en la ventana (algo ampliado).
+func _visible_world_rect() -> Rect2:
+	var vp := get_viewport() if is_inside_tree() else null
+	if vp == null:
+		return Rect2()
+	var inv := vp.get_canvas_transform().affine_inverse()
+	var r := inv * vp.get_visible_rect()
+	return r.grow(maxf(r.size.x, r.size.y) * 0.1)
+
+var _snap_is_board := {}   # índice en _snap_candidates_all → es artboard
+
+func _snap_candidates_all() -> Array:
 	var out: Array = []
+	_snap_is_board = {}
 	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
 	if mgr == null:
 		return out
@@ -373,6 +416,7 @@ func _snap_candidates() -> Array:
 		if ab == null or vistos.has(ab):
 			continue
 		vistos[ab] = true
+		_snap_is_board[out.size()] = true
 		out.append(mgr.world_rect(ab))
 		var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
 		var raiz: Node = dl if dl else ab

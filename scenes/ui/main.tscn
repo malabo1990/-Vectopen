@@ -346,7 +346,7 @@ icon = ExtResource("10_fpfj3")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel_path = NodePath("../../../pickr_color_windows")
+target_panel_path = NodePath("../../../../pickr_color_windows")
 
 [node name="Button2" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=337114455]
 custom_minimum_size = Vector2(22, 22)
@@ -359,7 +359,7 @@ icon = ExtResource("11_sc1dx")
 icon_alignment = 2
 expand_icon = true
 script = ExtResource("5_wkp8b")
-target_panel_path = NodePath("../../../panel__effects")
+target_panel_path = NodePath("../../../../panel__effects")
 
 [node name="BUTTON_PEWVIEW" type="Button" parent="PanelContainer/MarginContainer/BARRA_VISUAL" unique_id=603546554 node_paths=PackedStringArray("target_panel")]
 custom_minimum_size = Vector2(22, 22)

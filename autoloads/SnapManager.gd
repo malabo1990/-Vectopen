@@ -23,9 +23,26 @@ func set_guides(vertical_x: Array, horizontal_y: Array) -> void:
 	guide_y = horizontal_y.duplicate()
 
 ## Umbral del imán, en píxeles de PANTALLA (constante a cualquier zoom).
-const SMART_SNAP_PX := 11.0
+## Estilo Figma / Affinity: 6 px (antes 11 → muy pegajoso con muchas capas).
+const SMART_SNAP_PX := 6.0
 ## Umbral (px pantalla) para igualar separaciones / distribuir.
-const SPACING_SNAP_PX := 9.0
+const SPACING_SNAP_PX := 6.0
+## Una vez enganchado a una línea, se mantiene hasta alejarse este factor del
+## umbral (histéresis): así no salta de un borde a otro al mover despacio.
+const STICKY_FACTOR := 1.6
+## Enganches de la sesión de arrastre actual (se olvidan tras una pausa).
+var _sticky := {"x": {}, "y": {}, "t": 0}
+## La histéresis solo vale DENTRO de un arrastre (MoveTool abre y cierra la
+## sesión); llamadas sueltas a smart_snap no recuerdan nada.
+var _session := false
+
+func begin_snap_session() -> void:
+	_session = true
+	_sticky = {"x": {}, "y": {}, "t": Time.get_ticks_msec()}
+
+func end_snap_session() -> void:
+	_session = false
+	_sticky = {"x": {}, "y": {}, "t": 0}
 ## Tolerancia (px mundo) al comparar dos separaciones "iguales".
 const SPACING_MATCH_EPS := 1.5
 
@@ -67,6 +84,18 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 	var line_x: Dictionary = {}
 	var best_dy: float = INF
 	var line_y: Dictionary = {}
+	var near_x: float = INF   # a igual distancia, gana el objeto más cercano
+	var near_y: float = INF
+	var mc := moving.get_center()
+
+	# Histéresis: seguir en la línea de antes mientras no se aleje.
+	var now := Time.get_ticks_msec()
+	if not _session or now - int(_sticky["t"]) > 300:
+		_sticky["x"] = {}
+		_sticky["y"] = {}
+	_sticky["t"] = now
+	var sx0: Dictionary = _sticky["x"]
+	var sy0: Dictionary = _sticky["y"]
 
 	if usar_obj:
 		for cand in candidates:
@@ -79,14 +108,19 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 				for bi in 3:
 					if not snap_to_center and (ai == 1 or bi == 1):
 						continue
+					var dist_c: float = mc.distance_to(c.get_center())
 					var d: float = cx[bi] - mx[ai]
-					if absf(d) <= thr and absf(d) < absf(best_dx):
+					if absf(d) <= thr and (absf(d) < absf(best_dx) - 0.01 or (absf(d) <= absf(best_dx) + 0.01 and dist_c < near_x)):
 						best_dx = d
-						line_x = { "coord": cx[bi], "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y) }
+						near_x = dist_c
+						line_x = { "coord": cx[bi], "a": minf(moving.position.y, c.position.y), "b": maxf(moving.end.y, c.end.y),
+							"marks": [c.position.y, c.end.y], "mai": ai }
 					var e: float = cy[bi] - my[ai]
-					if absf(e) <= thr and absf(e) < absf(best_dy):
+					if absf(e) <= thr and (absf(e) < absf(best_dy) - 0.01 or (absf(e) <= absf(best_dy) + 0.01 and dist_c < near_y)):
 						best_dy = e
-						line_y = { "coord": cy[bi], "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x) }
+						near_y = dist_c
+						line_y = { "coord": cy[bi], "a": minf(moving.position.x, c.position.x), "b": maxf(moving.end.x, c.end.x),
+							"marks": [c.position.x, c.end.x], "mai": ai }
 
 	# ── Guías de regla (línea vertical → eje X ; horizontal → eje Y) ──
 	if usar_guias:
@@ -107,14 +141,43 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 					best_dy = e
 					line_y = { "coord": float(gy), "a": moving.position.x, "b": moving.end.x, "guide": true }
 
+	# Histéresis: la línea anterior se mantiene hasta alejarse STICKY_FACTOR ×
+	# umbral, salvo que otra esté CLARAMENTE más cerca (1 px de pantalla):
+	# retrasa el "soltar", no impide pasar a una línea mejor.
+	var keep_x := _sticky_keep(sx0, mx, thr * STICKY_FACTOR)
+	if not keep_x.is_empty() and (best_dx == INF or absf(float(keep_x["d"])) <= absf(best_dx) + 1.0 / z):
+		best_dx = keep_x["d"]
+		line_x = (sx0["line"] as Dictionary).duplicate()
+	var keep_y := _sticky_keep(sy0, my, thr * STICKY_FACTOR)
+	if not keep_y.is_empty() and (best_dy == INF or absf(float(keep_y["d"])) <= absf(best_dy) + 1.0 / z):
+		best_dy = keep_y["d"]
+		line_y = (sy0["line"] as Dictionary).duplicate()
+
+	# Tramo de la guía: de la figura (ya en su sitio) al objeto de referencia,
+	# recalculado en cada paso (la figura se mueve).
+	var snapped := Rect2(moving.position + Vector2(best_dx if best_dx != INF else 0.0, best_dy if best_dy != INF else 0.0), moving.size)
 	if best_dx != INF:
 		res["offset"].x = best_dx
 		line_x["axis"] = "x"
+		var mk_x: Array = line_x.get("marks", [])
+		line_x["a"] = minf(snapped.position.y, float(mk_x[0]) if mk_x.size() > 0 else snapped.position.y)
+		line_x["b"] = maxf(snapped.end.y, float(mk_x[1]) if mk_x.size() > 1 else snapped.end.y)
 		res["guides"].append(line_x)
+		if _session:
+			_sticky["x"] = {"coord": float(line_x["coord"]), "line": line_x}
+	else:
+		_sticky["x"] = {}
 	if best_dy != INF:
 		res["offset"].y = best_dy
 		line_y["axis"] = "y"
+		var mk_y: Array = line_y.get("marks", [])
+		line_y["a"] = minf(snapped.position.x, float(mk_y[0]) if mk_y.size() > 0 else snapped.position.x)
+		line_y["b"] = maxf(snapped.end.x, float(mk_y[1]) if mk_y.size() > 1 else snapped.end.x)
 		res["guides"].append(line_y)
+		if _session:
+			_sticky["y"] = {"coord": float(line_y["coord"]), "line": line_y}
+	else:
+		_sticky["y"] = {}
 
 	# ── Separación (solo en el eje que NO se alineó por borde) ──
 	var mv := Rect2(moving.position + res["offset"], moving.size)
@@ -129,6 +192,19 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 			res["offset"].y += sy["delta"]
 			res["spacing"].append(sy["info"])
 	return res
+
+## {"d": desplazamiento} si la línea enganchada `st` sigue a menos de `lim` de
+## algún borde/centro `edges` de la figura; si no, {}.
+func _sticky_keep(st: Dictionary, edges: Array, lim: float) -> Dictionary:
+	if st.is_empty():
+		return {}
+	var coord: float = st["coord"]
+	var best: float = INF
+	for e in edges:
+		var d: float = coord - float(e)
+		if absf(d) <= lim and absf(d) < absf(best):
+			best = d
+	return {} if best == INF else {"d": best}
 
 ## Vecinos de `mv` en un eje (horizontal=true → izquierda/derecha). Devuelve
 ## {} o { "delta": float, "info": Dictionary }.

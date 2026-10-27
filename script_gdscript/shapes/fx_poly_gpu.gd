@@ -40,6 +40,16 @@ static func _ci(node: CanvasItem, store: Dictionary, key: String, index: int) ->
 		store[key + "_ci"] = r
 	return r
 
+## Vacía las capas `prefix`N (N >= max(used, 1)): sombras que ya no existen.
+static func clear_extra(store: Dictionary, prefix: String, used: int) -> void:
+	for k in store.keys():
+		var ks := String(k)
+		if not (ks.begins_with(prefix) and ks.ends_with("_ci")):
+			continue
+		var idx := ks.trim_prefix(prefix).trim_suffix("_ci")
+		if idx.is_valid_int() and int(idx) >= maxi(used, 1):
+			RenderingServer.canvas_item_clear(store[k])
+
 static func clear(store: Dictionary, key: String) -> void:
 	var r: RID = store.get(key + "_ci", RID())
 	if r.is_valid():
@@ -94,8 +104,9 @@ static func set_poly(mat: ShaderMaterial, points: PackedVector2Array, pregrow: f
 	mat.set_shader_parameter("u_poly_points", arr)
 	mat.set_shader_parameter("u_poly_bounds", Vector4(b.position.x, b.position.y, b.end.x, b.end.y))
 
-static func drop_shadow(node: CanvasItem, store: Dictionary, points: PackedVector2Array, fx: Dictionary) -> void:
-	var ci := _ci(node, store, "shadow", -1)
+## `key`: "shadow" la 1.ª; "shadow1", "shadow2"… las siguientes (capa propia).
+static func drop_shadow(node: CanvasItem, store: Dictionary, points: PackedVector2Array, fx: Dictionary, key: String = "shadow") -> void:
+	var ci := _ci(node, store, key, -1)
 	RenderingServer.canvas_item_clear(ci)
 	var col := _col(fx.get("color"), Color(0, 0, 0, 0.4))
 	if col.a <= 0.001 or points.size() < 3:
@@ -103,7 +114,7 @@ static func drop_shadow(node: CanvasItem, store: Dictionary, points: PackedVecto
 	var off := Vector2(float(fx.get("offset_x", 4.0)), float(fx.get("offset_y", 4.0)))
 	var blur := maxf(0.0, float(fx.get("blur", 6.0)))
 	var spread := float(fx.get("spread", 0.0))
-	var m := _mat(store, "shadow", SHADOW)
+	var m := _mat(store, key, SHADOW)
 	set_poly(m, points, spread)
 	m.set_shader_parameter("u_shadow_offset", off)
 	m.set_shader_parameter("u_blur", blur)

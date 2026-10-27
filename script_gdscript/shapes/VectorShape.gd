@@ -160,6 +160,8 @@ var is_selected: bool = false
 				RenderingServer.canvas_item_clear(_bevel_3d_ci)
 			if _inner_glow_ci.is_valid():
 				RenderingServer.canvas_item_clear(_inner_glow_ci)
+			_clear_extra_fx("ds", 0)
+			_clear_extra_fx("is", 0)
 		queue_redraw()
 
 static var _shadow_shader: Shader = null
@@ -177,6 +179,40 @@ var _bevel_3d_ci: RID = RID()
 ## interior y se borraba al final del mismo dibujo si no había sombra interior).
 var _inner_glow_ci: RID = RID()
 var _inner_glow_mat: ShaderMaterial = null
+## 2.ª, 3.ª… sombra proyectada ("ds1"…) e interior ("is1"…): capa y material
+## PROPIOS por sombra. Antes había una sola capa: la sombra proyectada pintaba
+## solo la primera de la lista y la interior solo la última.
+var _extra_fx_cis: Dictionary = {}
+var _extra_fx_mats: Dictionary = {}
+
+func _extra_fx_ci(key: String, draw_index: int) -> RID:
+	var r: RID = _extra_fx_cis.get(key, RID())
+	if not r.is_valid() and is_inside_tree():
+		r = RenderingServer.canvas_item_create()
+		RenderingServer.canvas_item_set_parent(r, get_canvas_item())
+		RenderingServer.canvas_item_set_draw_index(r, draw_index)
+		_extra_fx_cis[key] = r
+	return r
+
+func _extra_fx_mat(key: String, shader: Shader) -> ShaderMaterial:
+	var m: ShaderMaterial = _extra_fx_mats.get(key)
+	if m == null:
+		m = ShaderMaterial.new()
+		m.shader = shader
+		_extra_fx_mats[key] = m
+	return m
+
+## Vacía las capas extra `prefix`N que sobran (N >= `used`).
+func _clear_extra_fx(prefix: String, used: int) -> void:
+	for k in _extra_fx_cis:
+		if String(k).begins_with(prefix) and int(String(k).substr(prefix.length())) >= maxi(used, 1):
+			RenderingServer.canvas_item_clear(_extra_fx_cis[k])
+
+func _free_extra_fx() -> void:
+	for k in _extra_fx_cis:
+		if (_extra_fx_cis[k] as RID).is_valid():
+			RenderingServer.free_rid(_extra_fx_cis[k])
+	_extra_fx_cis.clear()
 
 func _get_shadow_shader() -> Shader:
 	if _shadow_shader == null:
@@ -244,6 +280,7 @@ func _exit_tree() -> void:
 	if _inner_glow_ci.is_valid():
 		RenderingServer.free_rid(_inner_glow_ci)
 		_inner_glow_ci = RID()
+	_free_extra_fx()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSFORM_CHANGED and not _light_store.is_empty():
@@ -251,6 +288,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_PREDELETE:
 		FxPolyGpu.free_all(_light_store)
 	if what == NOTIFICATION_PREDELETE:
+		_free_extra_fx()
 		if _shadow_ci.is_valid():
 			RenderingServer.free_rid(_shadow_ci)
 			_shadow_ci = RID()
@@ -327,26 +365,31 @@ func draw_effects_shadows(points: PackedVector2Array) -> void:
 	if effects.is_empty() or points.size() < 3:
 		if _shadow_ci.is_valid():
 			RenderingServer.canvas_item_clear(_shadow_ci)
+		_clear_extra_fx("ds", 0)
 		return
 
-	var ds_fx: Dictionary = {}
+	var ds_list: Array = []
 	var threed_fx: Dictionary = {}
 	for fx in FxLight.migrate_list(effects):
 		if fx is Dictionary and bool(fx.get("enabled", true)):
 			var type: String = FxLight.canonical(String(fx.get("type", "")))
-			if type == "drop_shadow" and ds_fx.is_empty():
-				ds_fx = fx
+			if type == "drop_shadow":
+				ds_list.append(fx)
 			elif type == "extrusion" and threed_fx.is_empty():
 				threed_fx = fx
 
-	# 1. Drop shadow (GPU SDF con fallback CPU)
-	if not ds_fx.is_empty():
-		if _ensure_shadow_ci():
-			_render_drop_shadow_gpu(points, ds_fx)
+	# 1. Drop shadow (GPU SDF con fallback CPU): TODAS las de la lista
+	for i in ds_list.size():
+		if not _ensure_shadow_ci():
+			_render_drop_shadow_fallback(points, ds_list[i])
+		elif i == 0:
+			_render_drop_shadow_gpu(points, ds_list[i])
 		else:
-			_render_drop_shadow_fallback(points, ds_fx)
-	elif _shadow_ci.is_valid():
+			var key := "ds%d" % i
+			_render_drop_shadow_gpu(points, ds_list[i], _extra_fx_ci(key, -1), _extra_fx_mat(key, _get_shadow_shader()))
+	if ds_list.is_empty() and _shadow_ci.is_valid():
 		RenderingServer.canvas_item_clear(_shadow_ci)
+	_clear_extra_fx("ds", ds_list.size())
 
 	# 2. Extrusión (efecto propio, detrás de la figura)
 	if not threed_fx.is_empty():
@@ -446,17 +489,19 @@ func set_fx_shape_uniforms(mat: ShaderMaterial, points: PackedVector2Array, preg
 		mat.set_shader_parameter("u_poly_points", arr)
 		mat.set_shader_parameter("u_poly_bounds", Vector4(lo.x, lo.y, hi.x, hi.y))
 
-func _render_drop_shadow_gpu(points: PackedVector2Array, fx: Dictionary) -> void:
+func _render_drop_shadow_gpu(points: PackedVector2Array, fx: Dictionary, ci: RID = RID(), mat_in: ShaderMaterial = null) -> void:
+	if not ci.is_valid():
+		ci = _shadow_ci
 	var offset := Vector2(float(fx.get("offset_x", 4.0)), float(fx.get("offset_y", 4.0)))
 	var blur := maxf(0.0, float(fx.get("blur", 6.0)))
 	var spread := float(fx.get("spread", 0.0))
 	var base_col := _parse_fx_color(fx.get("color", null), Color(0.0, 0.0, 0.0, 0.4))
 
 	if base_col.a <= 0.001:
-		RenderingServer.canvas_item_clear(_shadow_ci)
+		RenderingServer.canvas_item_clear(ci)
 		return
 
-	var mat := _get_shadow_material()
+	var mat := mat_in if mat_in != null else _get_shadow_material()
 	var shape_code: int = get_shape_type_code()
 	set_fx_shape_uniforms(mat, points, spread if shape_code == 2 else 0.0)
 
@@ -471,9 +516,9 @@ func _render_drop_shadow_gpu(points: PackedVector2Array, fx: Dictionary) -> void
 	var quad: Rect2 = box.grow(margin)
 	quad.position += offset
 
-	RenderingServer.canvas_item_clear(_shadow_ci)
-	RenderingServer.canvas_item_set_material(_shadow_ci, mat.get_rid())
-	RenderingServer.canvas_item_add_rect(_shadow_ci, quad, Color.WHITE)
+	RenderingServer.canvas_item_clear(ci)
+	RenderingServer.canvas_item_set_material(ci, mat.get_rid())
+	RenderingServer.canvas_item_add_rect(ci, quad, Color.WHITE)
 
 func _render_drop_shadow_fallback(points: PackedVector2Array, fx: Dictionary) -> void:
 	var offset := Vector2(float(fx.get("offset_x", 4.0)), float(fx.get("offset_y", 4.0)))
@@ -592,12 +637,14 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 			RenderingServer.canvas_item_clear(_bevel_3d_ci)
 		if _inner_glow_ci.is_valid():
 			RenderingServer.canvas_item_clear(_inner_glow_ci)
+		_clear_extra_fx("is", 0)
 		for k in ["3d", "bevel_emboss"]:
 			FxPolyGpu.clear(_light_store, k + "mul")
 			FxPolyGpu.clear(_light_store, k + "scr")
 		return
 
 	var has_inner_shadow: bool = false
+	var inner_n: int = 0
 	var has_inner_glow: bool = false
 	var has_3d: bool = false
 	var light_used: Array = []
@@ -610,10 +657,14 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 		match type:
 			"inner_shadow":
 				has_inner_shadow = true
-				if _ensure_inner_shadow_ci():
+				if not _ensure_inner_shadow_ci():
+					_render_inner_shadow_fallback(points, fx)
+				elif inner_n == 0:
 					_render_inner_shadow_gpu(points, fx)
 				else:
-					_render_inner_shadow_fallback(points, fx)
+					var key := "is%d" % inner_n
+					_render_inner_shadow_gpu(points, fx, _extra_fx_ci(key, 1), _extra_fx_mat(key, _get_inner_shadow_shader()))
+				inner_n += 1
 			"outline":
 				_render_outline_effect(points, fx)
 			"color_overlay":
@@ -635,6 +686,7 @@ func draw_effects_overlays(points: PackedVector2Array) -> void:
 			FxPolyGpu.clear(_light_store, k + "scr")
 	if not has_inner_shadow and _inner_shadow_ci.is_valid():
 		RenderingServer.canvas_item_clear(_inner_shadow_ci)
+	_clear_extra_fx("is", inner_n)
 	if not has_3d and _bevel_3d_ci.is_valid():
 		RenderingServer.canvas_item_clear(_bevel_3d_ci)
 	if not has_inner_glow and _inner_glow_ci.is_valid():
@@ -923,6 +975,8 @@ func _render_3d_bevel_fallback(points: PackedVector2Array, fx: Dictionary) -> vo
 				draw_colored_polygon(poly, edge_col)
 
 func get_svg_filter_attr() -> String:
+	# Una drop-shadow() por sombra (CSS las encadena; antes solo la 1.ª).
+	var parts: PackedStringArray = []
 	for fx in effects:
 		if fx is Dictionary and bool(fx.get("enabled", true)):
 			var type: String = String(fx.get("type", "")).to_lower().replace(" ", "_")
@@ -931,10 +985,10 @@ func get_svg_filter_attr() -> String:
 				var oy: float = float(fx.get("offset_y", 4.0))
 				var blur: float = float(fx.get("blur", 6.0))
 				var col: Color = _parse_fx_color(fx.get("color", null), Color(0, 0, 0, 0.4))
-				return ' style="filter: drop-shadow(%.1fpx %.1fpx %.1fpx rgba(%d,%d,%d,%.2f));"' % [
+				parts.append("drop-shadow(%.1fpx %.1fpx %.1fpx rgba(%d,%d,%d,%.2f))" % [
 					ox, oy, blur, int(col.r * 255), int(col.g * 255), int(col.b * 255), col.a
-				]
-	return ""
+				])
+	return "" if parts.is_empty() else ' style="filter: %s;"' % " ".join(parts)
 
 ## Dibuja el relleno del polígono dado: degradado si hay `fill_gradient`,
 ## si no el `fill_color` plano. Las subclases lo llaman desde su `_draw()`.

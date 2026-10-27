@@ -387,7 +387,7 @@ func _draw() -> void:
 		if ps and ps.visible:
 			max_x = minf(max_x, ps.global_position.x)
 		var lay = p.find_child("Layout", true, false) as Control
-		if lay and lay.visible:
+		if _is_left_dock(lay):
 			min_x = maxf(min_x, lay.global_position.x + lay.size.x)
 		var topb = p.find_child("ModernTopBar", true, false) as Control
 		if topb and topb.visible:
@@ -430,6 +430,16 @@ func _draw() -> void:
 		var sx: float = (guias_verticales[indice_guia_activa] - lienzo_start.x) * zoom.x - gpos.x
 		_etiqueta_coord(false, sx, guias_verticales[indice_guia_activa])
 
+## ¿El panel de capas está ACOPLADO a la izquierda (Modern / Pro)? En Smart
+## flota a la derecha: antes se tomaba igual como borde izquierdo y las guías
+## quedaban fuera de la pantalla (no se veía ninguna).
+func _is_left_dock(lay: Control) -> bool:
+	if lay == null or not lay.is_visible_in_tree():
+		return false
+	var vs := get_viewport_rect().size
+	var r := lay.get_global_rect()
+	return r.position.x < vs.x * 0.5 and r.size.x < vs.x * 0.5
+
 ## Pastilla con la coordenada de mundo junto a la guía que se arrastra.
 func _etiqueta_coord(es_horizontal: bool, screen_pos: float, world_coord: float) -> void:
 	var font := ThemeDB.fallback_font
@@ -451,7 +461,7 @@ func _etiqueta_coord(es_horizontal: bool, screen_pos: float, world_coord: float)
 		if ps and ps.visible:
 			max_x = minf(max_x, ps.position.x)
 		var lay = p.find_child("Layout", true, false) as Control
-		if lay and lay.visible:
+		if _is_left_dock(lay):
 			min_x = maxf(min_x, lay.position.x + lay.size.x)
 		var topb = p.find_child("ModernTopBar", true, false) as Control
 		if topb and topb.visible:

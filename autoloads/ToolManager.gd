@@ -157,6 +157,22 @@ func switch_tool(tool_name: String, force: bool = false) -> bool:
 	return success
 
 
+## El lienzo ya creó y activó la herramienta `tool_name` (Sistema B): aquí
+## solo se registra el cambio y se avisa, SIN instanciar otra. Antes se creaba
+## un segundo MoveTool con su propia caja de selección del pool, que se
+## quedaba fija en pantalla al arrastrar (dos cajas: una quieta y otra que se
+## mueve).
+func notify_external_tool(tool_name: String) -> void:
+	_deactivate_current_tool()
+	if _current_tool_name == tool_name:
+		return
+	_current_tool_name = tool_name
+	if DataRepository:
+		DataRepository.set_current_tool(tool_name)
+	if GlobalEvents:
+		GlobalEvents.emit_safe("data_tool_changed", tool_name)
+		GlobalEvents.emit_safe("tool_changed", tool_name)
+
 func _deactivate_current_tool() -> void:
 	"""Desactiva y elimina la herramienta actual"""
 	if _current_tool_instance:

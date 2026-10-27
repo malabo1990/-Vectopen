@@ -52,6 +52,19 @@ func _ready() -> void:
 			ic.changed.connect(_on_inspector_changed)
 
 	_sync_from_inspector()
+	# Sin botón ✕ en la cabecera: ocultaba el panel y su botón de la barra no
+	# siempre lo volvía a mostrar. Se abre y cierra con ese botón.
+	var header := get_parent().get_parent().get_node_or_null("MarginContainer/HBoxContainer") if get_parent() and get_parent().get_parent() else null
+	var cancel := header.get_node_or_null("cancel") if header else null
+	if cancel:
+		header.remove_child(cancel)
+		cancel.queue_free()
+	# Cada pestaña con SU ancho: Shader y Script anchas, el resto compacto.
+	# Antes al volver de Shader/Script a Efectos el panel seguía ancho.
+	if header:
+		for b in header.get_children():
+			_wire_tab_size(b)
+		header.child_entered_tree.connect(_wire_tab_size)   # Filtros llega después
 	# Pestaña "Filters" (grano, duotono, neón, glitch…): se crea por código.
 	(func() -> void: load("res://script_gdscript/ui/panels/effects/filters_panel.gd").install(self)).call_deferred()
 	# Pestañas "Shader" (código + biblioteca), "Vectorizar" (imagen → Bézier)
@@ -65,6 +78,33 @@ func _ready() -> void:
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m: String) -> void: _restyle())
+
+const TAB_SIZES := {"ButtonShader": Vector2(760, 560), "ButtonScript": Vector2(800, 600)}
+
+func _wire_tab_size(b: Node) -> void:
+	if b is Button and not (b as Button).pressed.is_connected(_on_tab_size.bind(String(b.name))):
+		(b as Button).pressed.connect(_on_tab_size.bind(String(b.name)))
+
+func _on_tab_size(btn_name: String) -> void:
+	_apply_tab_size.call_deferred(btn_name)
+
+## Ancho (y alto mínimo) del panel según la pestaña; el borde derecho queda fijo.
+func _apply_tab_size(btn_name: String) -> void:
+	var n: Node = self
+	while n and not (n is Control and (n as Control).name == "panel__effects"):
+		n = n.get_parent()
+	var win := n as Control
+	if win == null:
+		return
+	var vp := win.get_viewport_rect().size
+	var root := win.get_child(0) as Control if win.get_child_count() > 0 else null
+	var compact_w := maxf(300.0, ceilf((root.get_combined_minimum_size().x if root else 0.0)))
+	var want: Vector2 = TAB_SIZES.get(btn_name, Vector2(compact_w, 0.0))
+	var w := minf(want.x, vp.x - 40.0)
+	win.offset_left = win.offset_right - w
+	var h := minf(want.y, vp.y - win.offset_top - 40.0)
+	if win.size.y < h:
+		win.offset_bottom = win.offset_top + h
 
 ## Monta la pestaña `host_name` con `<script_file>.gd` cuando su anfitrión
 ## se vuelve visible por primera vez (o ya, si se ve al arrancar).

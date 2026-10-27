@@ -121,6 +121,12 @@ var spin_star_corner_radius: NumericField
 var sec_parametric_rect: VBoxContainer
 var spin_rect_corner_radius: NumericField
 
+# ── Sección Panel de Herramienta (Modern: polygon/text/Selector/bezier/brush) ──
+var sec_tool: VBoxContainer
+var _tool_slot: VBoxContainer
+var _tool_scroll_hosts: Dictionary = {}
+var _tool_min_x: Dictionary = {}
+
 # ── Sección Modelo 3D ──
 var sec_3d_model: VBoxContainer
 var lbl_3d_path: Label
@@ -366,6 +372,9 @@ func _build_ui() -> void:
 	# ── SECCION VACÍA: PROPIEDADES DE LIENZO / PÁGINA (CUANDO NO HAY SELECCIÓN) ──
 	_build_canvas_section()
 
+	# ── SECCIÓN: PANEL DE HERRAMIENTA (Modern acopla aquí los paneles flotantes) ──
+	_build_tool_section()
+
 	# ── SECCION A: ALINEACION (BARRA SEGMENTADA INTEGRADA DE 8 BOTONES) ──
 	_build_align_section()
 
@@ -398,6 +407,113 @@ func _build_ui() -> void:
 
 	# ── SECCION H: EXPORTAR (SOLO CUANDO HAY ELEMENTO SELECCIONADO) ──
 	_build_export_section()
+
+func _build_tool_section() -> void:
+	sec_tool = VBoxContainer.new()
+	sec_tool.name = "ToolPanelSection"
+	sec_tool.add_theme_constant_override("separation", 4)
+	sec_tool.visible = false
+	content_container.add_child(sec_tool)
+
+	sec_tool.add_child(_create_section_header("TOOL"))
+
+	_tool_slot = VBoxContainer.new()
+	_tool_slot.name = "ToolPanelSlot"
+	_tool_slot.add_theme_constant_override("separation", 4)
+	sec_tool.add_child(_tool_slot)
+
+## Modern UI: acopla un panel de herramienta (polygon/text/Selector/bezier/brush)
+## dentro del inspector en lugar de dejarlo flotando junto al lienzo. Los paneles
+## se diseñaron para 300-360px, así que cada uno va dentro de un ScrollContainer
+## horizontal: el inspector conserva su ancho y el panel mantiene su diseño.
+func host_tool_panel(panel: Control) -> void:
+	if not is_instance_valid(panel) or not is_instance_valid(_tool_slot):
+		return
+	if _tool_scroll_hosts.has(panel):
+		_refresh_tool_section_visibility()
+		return
+	if not panel.visibility_changed.is_connected(_on_hosted_tool_visibility):
+		panel.visibility_changed.connect(_on_hosted_tool_visibility)
+	if not panel.minimum_size_changed.is_connected(_sync_tool_scroll_height):
+		panel.minimum_size_changed.connect(_sync_tool_scroll_height)
+
+	_tool_min_x[panel] = panel.custom_minimum_size.x
+	panel.custom_minimum_size.x = 0.0
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "ToolScroll_%s" % panel.name
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tool_slot.add_child(scroll)
+
+	var old_parent := panel.get_parent()
+	if is_instance_valid(old_parent):
+		old_parent.remove_child(panel)
+	scroll.add_child(panel)
+	# El panel conserva las offsets de su layout flotante anterior; dentro del
+	# ScrollContainer debe empezar en (0,0) o se dibuja fuera del inspector.
+	panel.position = Vector2.ZERO
+	_tool_scroll_hosts[panel] = scroll
+	_sync_tool_scroll_height(panel)
+	_refresh_tool_section_visibility()
+
+func _on_hosted_tool_visibility(panel: Control) -> void:
+	var scroll := _tool_scroll_hosts.get(panel) as ScrollContainer
+	if is_instance_valid(scroll) and is_instance_valid(panel):
+		panel.position = Vector2.ZERO
+		scroll.queue_sort()
+		if panel.visible:
+			scroll.ensure_control_visible(panel)
+	_refresh_tool_section_visibility()
+
+func _sync_tool_scroll_height(panel: Control) -> void:
+	var scroll := _tool_scroll_hosts.get(panel) as ScrollContainer
+	if not is_instance_valid(scroll) or not is_instance_valid(panel):
+		return
+	panel.custom_minimum_size.x = 0.0
+	panel.position = Vector2.ZERO
+	scroll.custom_minimum_size.y = panel.get_combined_minimum_size().y + 10.0
+
+## Devuelve los paneles acoplados a `target_parent` (la columna Herramientas).
+func release_tool_panels(target_parent: Node) -> void:
+	for key in _tool_scroll_hosts.keys():
+		var panel := key as Control
+		var scroll := _tool_scroll_hosts[key] as ScrollContainer
+		if is_instance_valid(panel):
+			if panel.visibility_changed.is_connected(_on_hosted_tool_visibility):
+				panel.visibility_changed.disconnect(_on_hosted_tool_visibility)
+			if panel.minimum_size_changed.is_connected(_sync_tool_scroll_height):
+				panel.minimum_size_changed.disconnect(_sync_tool_scroll_height)
+			panel.custom_minimum_size.x = float(_tool_min_x.get(key, 0.0))
+			var old_parent := panel.get_parent()
+			if is_instance_valid(old_parent):
+				old_parent.remove_child(panel)
+			panel.visible = false
+			if is_instance_valid(target_parent):
+				target_parent.add_child(panel)
+		if is_instance_valid(scroll):
+			scroll.queue_free()
+	_tool_scroll_hosts.clear()
+	_tool_min_x.clear()
+	_refresh_tool_section_visibility()
+
+func _refresh_tool_section_visibility() -> void:
+	if not is_instance_valid(sec_tool) or not is_instance_valid(_tool_slot):
+		return
+	var any_visible: bool = false
+	for child in _tool_slot.get_children():
+		var scroll := child as ScrollContainer
+		if not is_instance_valid(scroll):
+			continue
+		var host_visible: bool = false
+		for sub in scroll.get_children():
+			if sub is Control and (sub as Control).visible:
+				host_visible = true
+				break
+		scroll.visible = host_visible
+		any_visible = any_visible or host_visible
+	sec_tool.visible = any_visible
 
 func _create_section_header(title: String, on_add: Callable = Callable()) -> Control:
 	var hbox := HBoxContainer.new()

@@ -686,6 +686,13 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 				fx_meta[mk] = enc
 	if not fx_meta.is_empty():
 		d["fx_meta"] = fx_meta
+	# EFECTOS de imágenes y grupos (sombra, LayerFx): las figuras, textos y
+	# trazos los guardan en su propia rama ("fx").
+	if not (node is VectorShape) and not (node is Line2D) and node.has_meta("effects") \
+			and not String(node.get_meta("shape_type", "")).begins_with("text_"):
+		var _efx = node.get_meta("effects", [])
+		if _efx is Array and not (_efx as Array).is_empty():
+			d["layer_fx"] = _enc_deep(_efx)
 	# FILTROS (pestaña Filtros): cualquier objeto, meta "filters".
 	var _flt = node.get_meta("filters", []) if node.has_meta("filters") else []
 	if _flt is Array and not (_flt as Array).is_empty():
@@ -722,6 +729,11 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 		node.set_meta("custom_shader", _dec_deep(d["custom_shader"]))
 	if node.has_meta("filters") or node.has_meta("custom_shader"):
 		load("res://script_gdscript/shapes/filter_fx.gd").sync(node)
+	if d.get("layer_fx") is Array and not (d["layer_fx"] as Array).is_empty():
+		node.set_meta("effects", _dec_deep(d["layer_fx"]))
+		var layer_fx = load("res://script_gdscript/shapes/layer_fx.gd")
+		if layer_fx.handles(node):
+			layer_fx.sync(node)
 
 
 static func _apply_material(node: CanvasItem, md: Dictionary) -> void:
