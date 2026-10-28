@@ -18,7 +18,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Vectopen"
-config/version="0.1.1"
+config/version="0.2.0-alpha"
 run/main_scene="uid://dq780ohbvwe87"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(1, 1, 1, 1)
