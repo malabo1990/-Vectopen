@@ -108,7 +108,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Author
 
-**Vectopen** is created and maintained by **Casimiro Ondo Obiang** ([@malabo1990](https://github.com/malabo1990)).
+**Vectopen** is created and maintained by **Casimiro Ondo Obiang** ([@malabo1990](https://github.com/malabo1990)). The project was started on **19 May 2025**, when this repository was created.
 
 - 💬 Telegram: [t.me/vectopen](https://t.me/vectopen)
 - 🐛 Issues: [github.com/malabo1990/-Vectopen/issues](https://github.com/malabo1990/-Vectopen/issues)
