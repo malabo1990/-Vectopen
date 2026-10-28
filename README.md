@@ -1,64 +1,48 @@
-# Vectopen — Open-Source Vector Graphics Editor
+# Vectopen — Free, Open-Source Vector Graphics Editor
 
-![Vectopen Logo](icon/logo/logo_vectopen.svg)
+**Vectopen** is a free, open-source vector graphics editor for **Windows, macOS and Linux**, built with **Godot Engine 4.7**. No account, no telemetry, no paid tier.
 
-**Vectopen** is an open-source vector graphics editor built with **Godot Engine 4.7**. It is designed for designers, developers, and creatives who need a lightweight, cross-platform alternative to proprietary tools like formato vectorial (.ai) or editor profesional Designer.
+🌐 **Website:** https://malabo1990.github.io/vectopen-web/ · 📖 **Manual:** [English](https://malabo1990.github.io/vectopen-web/docs/) · [Español](https://malabo1990.github.io/vectopen-web/docs/es/) · 💬 **Telegram:** [t.me/vectopen](https://t.me/vectopen)
+
+![Vectopen — Modern interface](https://malabo1990.github.io/vectopen-web/media/shots/modern_light.webp)
+
+## Download
+
+**Version 0.2.0-alpha** — [all files on the Releases page](https://github.com/malabo1990/-Vectopen/releases/tag/v0.2.0-alpha)
+
+| System | Package |
+|---|---|
+| Windows 10/11 (x64) | `.zip` — extract and run `Vectopen.exe` |
+| macOS (Intel + Apple Silicon) | universal `.dmg` / `.zip` — *not yet tested on a real Mac* |
+| Linux (x86_64) | `.deb`, `.rpm`, portable `.tar.gz` |
+
+Alpha builds are not signed yet: see the [installation guide](https://malabo1990.github.io/vectopen-web/docs/getting-started/installation/) for the Windows and macOS warnings.
 
 ## Features
 
-- 🎨 **Full Vector Editing** — Shapes, bezier curves, boolean operations, and path editing
-- 🖱️ **Multi-Tool System** — Selection, move, pen, bezier, brush, text, and shape tools (rectangle, ellipse, polygon, star, triangle, water drop)
-- 📐 **Precision Tools** — Smart guides, grid snapping, rulers, and measurement overlays
-- 🎭 **Layer System** — Layer tree with drag-and-drop, visibility toggles, and reordering
-- ✨ **Effects Pipeline** — Drop shadow, inner shadow, glow, blur, color overlay, gradient overlay, outline, 3D effect
-- 🌓 **Theme Support** — Dark and light themes with live switching
-- 🌍 **Internationalization** — 11 languages (EN, ES, DE, FR, PT, RU, JA, ZH, HI, AR, and more)
-- 🖨️ **Export** — Export to SVG, PNG, Godot `.tscn` format (via plugins)
-- ⚡ **Performance** — Object pooling, smart caching, and GPU-based rendering pipeline
-- 📦 **Plugin System** — Extend functionality via Godot editor plugins
-- 🔄 **Undo/Redo** — Full history stack with multi-level undo support
-- 💾 **Save/Load** — JSON-based `.vectopen` project format with auto-save and backup recovery
+- ✏️ **Drawing & node editing** — pen, Bézier and brush (with tablet pressure), full node editing; rectangles, ellipses, polygons, stars and a shape library (heart, drop, arrows, cloud…).
+- 🖼️ **Vectorize images with AI** — turn logos, icons, scans and drawings into vector shapes ([VTracer](https://github.com/visioncortex/vtracer): Bézier, polygon or pixel output). Two **offline AI tools** prepare the image: **background removal** (U²-Net) and **×4 upscaling** (Real-ESRGAN). The models ship inside the app — nothing is uploaded. *(Linux build in 0.2.0-alpha.)* [Guide →](https://malabo1990.github.io/vectopen-web/docs/objects/vectorize/)
+- 🎨 **Colour & gradients** — solid, linear and radial gradients on fill **and stroke**, edited on the canvas.
+- ✨ **Effects, filters & shaders** — shadows, glow, bevel, 3D, overlays; image filters (frosted glass, grain, duotone, neon, glitch, halftone…); a live shader editor with templates.
+- 🗂️ **Professional layers** — sub-layers, clipping masks, type icons, thumbnails, compact view, search filters.
+- 📄 **Many artboards, huge files** — the `.vtc` format loads pages on demand: 1,000 pages / 100,000 objects open in ~1.4 s.
+- 🔤 **Text & typography** — point and paragraph text, linked frames, Google Fonts, per-letter effects, text to curves.
+- 🧩 **Scripts & add-ons** — a GDScript console with the Vectopen API; install add-ons from `.zip`, folder or `.gd`.
+- 🤖 **MCP server** — let an AI agent drive a running Vectopen through the same undoable operations as the UI.
+- 🖥️ **Three interfaces** — Smart, Modern and Pro; light/dark theme; 10 languages.
+- 📤 **Export** — SVG, PDF, EPS, PNG, JPEG, WEBP, Godot scenes. **Import** — SVG (real Bézier curves), PNG/JPEG/WEBP, glTF.
 
-## Platforms
+## Run from source
 
-| Platform | Status |
-|----------|--------|
-| Windows | ✅ Supported (CI builds) |
-| Linux | ✅ Supported (CI builds) |
-| estándar | ✅ Supported (CI builds) |
-| Web (HTML5) | ✅ Export preset configured |
-
-## Screenshots
-
-> *(Coming soon — see the [Telegram community](https://t.me/vectopen) for previews)*
-
-## Getting Started
-
-### Prerequisites
-
-- [Godot Engine 4.7+](https://godotengine.org/download/) (GL Compatibility renderer)
-
-### Run from Source
+Requires [Godot Engine 4.7+](https://godotengine.org/download/) (standard build, no .NET).
 
 ```bash
-# Clone the repository
 git clone https://github.com/malabo1990/-Vectopen.git
 cd -Vectopen
-
-# Open in Godot Editor
 godot --path . --editor
 ```
 
-The main scene is `res://scenes/canvas/canvas.tscn`.
-
-### Build an Executable
-
-```bash
-# Export preset configured for Windows:
-godot --headless --export-debug "Windows" ./build/vectopen.exe
-```
-
-See `export_presets.cfg` for all available presets (Windows, Linux, estándar, Web).
+The main scene is `res://scenes/canvas/canvas.tscn`. The native parts (text shaping and the vectorizer) are Rust GDExtensions in `rust/`; packaged builds are produced with `tools/package_release.sh`.
 
 ## Project Structure
 
@@ -102,11 +86,11 @@ docs/es/            # Spanish documentation
 | Component | Technology |
 |-----------|-----------|
 | Engine | Godot 4.7 (GL Compatibility) |
-| Language | GDScript |
-| Testing | gdUnit4 (unit tests) |
-| CI/CD | Manual (GitHub Actions workflow planned) |
-| MCP | godot-ai (AI-assisted development) |
-| Format | `.vectopen` (JSON-based project files) |
+| Language | GDScript (~98%) + Rust GDExtensions via [godot-rust](https://github.com/godot-rust/gdext) |
+| Vectorizing | [VTracer](https://github.com/visioncortex/vtracer) |
+| AI image tools | [ONNX Runtime](https://onnxruntime.ai/) (via `ort`): U²-Net-p (background removal), Real-ESRGAN General x4v3 (upscaling) |
+| Testing | gdUnit4 (750+ unit tests) + interface tests that click the real UI |
+| Format | `.vtc` (paged, compressed document container) — [specification](https://malabo1990.github.io/vectopen-web/docs/files/project-format/#technical-details) |
 
 ## Contributing
 
@@ -130,4 +114,4 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 - Built with [Godot Engine](https://godotengine.org/)
 - Testing via [gdUnit4](https://github.com/MikeSchulze/gdUnit4)
-- Inspired by editor profesional Designer, un editor profesional, and estándar
+- Vectorizing by [VTracer](https://github.com/visioncortex/vtracer) (MIT); background removal with U²-Net ([rembg](https://github.com/danielgatis/rembg) model, Apache-2.0); upscaling with [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) (BSD-3-Clause)
