@@ -68,6 +68,7 @@ func _run() -> void:
 	Input.use_accumulated_input = false
 	# Pruebas con ventana en la 2.ª pantalla (Huion), no en la principal.
 	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)  # pantalla Huion completa
 	await frames(5)
 	var ui := VBoxContainer.new()
 	ui.position = Vector2(200, 200)

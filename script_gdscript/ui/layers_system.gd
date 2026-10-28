@@ -277,6 +277,24 @@ func _volcar_item(it: TreeItem, prof: int, tree: Tree, log_fn: Callable) -> void
 func _on_theme_changed(_mode: String) -> void:
 	_aplicar_tema_panel()
 	_refrescar_tema_arbol_recursivo()
+	_style_rename_editor()
+	_apply_view_metrics.call_deferred()   # el tema del árbol vuelve a poner 16 px
+	_style_pages_extras()
+
+## Sangrado y Márgenes (pestaña Páginas): se creaban sin colores y en el tema
+## claro las etiquetas salían blancas sobre fondo claro (invisibles).
+func _style_pages_extras() -> void:
+	if not is_instance_valid(_paginas_panel):
+		return
+	for n in _paginas_panel.get_children():
+		if not (n is HBoxContainer):
+			continue
+		for c in n.get_children():
+			if c is Label:
+				(c as Label).add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+			elif c is SpinBox:
+				ProUIStyle.style_line_edit((c as SpinBox).get_line_edit())
+				(c as SpinBox).add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
 
 func _on_ui_mode_changed(_mode: String) -> void:
 	_aplicar_tema_panel()
@@ -637,6 +655,7 @@ func _build_paginas_panel_content() -> void:
 	spin_margin.custom_minimum_size = Vector2(70, 24)
 	margin_row.add_child(spin_margin)
 	_paginas_panel.add_child(margin_row)
+	_style_pages_extras()
 
 func _switch_left_tab(tab: String) -> void:
 	_active_left_tab = tab
@@ -915,6 +934,16 @@ func conectar_senales_sistema() -> void:
 	# CORRECCIÓN DEL CRASH: 'child_exiting_tree' en lugar de 'child_exited_tree'
 	if not artboard_container.child_exiting_tree.is_connected(_on_node_removed):
 		artboard_container.child_exiting_tree.connect(_on_node_removed)
+
+	# Altas / bajas a CUALQUIER profundidad (figura dentro de figura, dentro de
+	# un grupo…). Antes solo se oían los hijos directos del contenedor y de
+	# cada artboard: al meter una figura dentro de otra se borraba su fila y
+	# nunca volvía a salir ("subcapas no visibles").
+	var st := get_tree()
+	if st and not st.node_added.is_connected(_on_any_node_added):
+		st.node_added.connect(_on_any_node_added)
+	if st and not st.node_removed.is_connected(_on_any_node_removed):
+		st.node_removed.connect(_on_any_node_removed)
 
 	# Conectar el evento de edición del propio Tree
 	if is_instance_valid(layer_tree):
@@ -1327,7 +1356,10 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 		type = "artboard"
 	elif real_node.has_meta("shape_type"):
 		type = real_node.get_meta("shape_type") as String
-	elif _tiene_hijos_capa(real_node):
+	elif _tiene_hijos_capa(real_node) and not _tiene_forma_propia(real_node):
+		# Solo un contenedor SIN forma propia es un grupo. Una figura con
+		# figuras dentro sigue siendo esa figura (su icono, su color); antes
+		# salía como carpeta azul.
 		type = "group"
 
 	# 2. Instanciar el TreeItem de forma segura
@@ -1346,9 +1378,12 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 	item.set_cell_mode(2, TreeItem.CELL_MODE_STRING)
 
 	var display_name := _nombre_visible_nodo(real_node)
-	item.set_text(0, display_name)
+	var compact := _layer_view == "compact"
+	# Compacta (Pixelmator): sin texto; el nombre va en el tooltip.
+	item.set_text(0, "" if compact else display_name)
+	item.set_tooltip_text(0, display_name)
 	item.set_editable(0, true)
-	item.set_icon(0, _type_icon(_clave_icono(real_node, type)))
+	item.set_icon(0, _icono_de_capa(real_node, type))
 	item.set_icon_max_width(0, 14)
 
 	item.set_metadata(1, real_node)   # slot de metadatos del nodo
@@ -1370,10 +1405,19 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 	# Aplicar paleta de color correspondiente (Gris, Azul para grupos, etc.)
 	_aplicar_estilo_visibilidad(item, real_node.visible, type)
 
+	# Miniatura (vista previa): la de caché ya, o se pide y llega luego.
+	if _layer_view != "icons" and type != "artboard" and is_instance_valid(_thumbs):
+		var cached: Texture2D = _thumbs.get_cached(real_node)
+		if cached:
+			_set_thumb_icon(item, cached, real_node.visible)
+		else:
+			item.set_icon_max_width(0, int(THUMB_PX[_layer_view]))
+			_thumbs.request(real_node)
+
 	# Aviso visual si la figura quedó fuera de los límites de su artboard
 	# (arrastrada fuera, o creada con coordenadas fuera de rango).
 	if type != "artboard" and _esta_fuera_del_artboard(real_node, artboard_actual):
-		item.set_text(0, display_name + "  ⚠ fuera del artboard")
+		item.set_text(0, "⚠" if compact else display_name + "  ⚠ fuera del artboard")
 		item.set_tooltip_text(0, "Esta figura está fuera de los límites del artboard")
 		if real_node.visible:
 			item.set_custom_color(0, Color(0.95, 0.65, 0.15))  # Naranja de aviso
@@ -1382,6 +1426,9 @@ func _create_tree_item(parent_item: TreeItem, real_node: Node2D, artboard_actual
 	_node_to_item_map[real_node] = item
 
 	return item
+
+func _tiene_forma_propia(n: Node) -> bool:
+	return n is VectorShape or n is Line2D or n is Polygon2D or n is Sprite2D or n is Path2D
 
 func _tiene_hijos_capa(nodo: Node) -> bool:
 	for h in nodo.get_children():
@@ -1660,7 +1707,8 @@ func _mostrar_menu_contextual(item: TreeItem, pos: Vector2) -> void:
 	_ctx_item = item
 	var nodo = item.get_metadata(1)
 	var tipo := str(item.get_metadata(0))
-	var es_contenedor := tipo == "group" or tipo == "artboard"
+	# Contenedor = grupo, artboard o una figura con figuras dentro.
+	var es_contenedor := tipo == "group" or tipo == "artboard" or item.get_child_count() > 0
 	# Asegurar que la fila del clic derecho forma parte de la selección viva
 	# (si ya había varias filas seleccionadas, se respetan).
 	var sm_ctx := get_node_or_null("/root/SelectionManager")
@@ -1761,6 +1809,10 @@ func _on_ctx_menu_id(id: int) -> void:
 			_seleccionar_similares(nodo)
 		_Ctx.RENOMBRAR:
 			if is_instance_valid(_ctx_item):
+				# Compacta: al renombrar se muestra el nombre actual para editarlo.
+				var ed := layer_tree.get_selected()
+				if ed and _layer_view == "compact" and is_instance_valid(ed.get_metadata(1)):
+					ed.set_text(0, String((ed.get_metadata(1) as Node).name))
 				layer_tree.edit_selected(true)
 		_Ctx.DUPLICAR:
 			_duplicar_seleccion()
@@ -2110,9 +2162,9 @@ func _on_layer_tree_item_edited() -> void:
 	var texto : String = item_editado.get_text(0).strip_edges()
 	if texto != "":
 		nodo_real.name = texto
-		item_editado.set_text(0, nodo_real.name)   # el nombre puede cambiar (dedup)
-	else:
-		item_editado.set_text(0, nodo_real.name)
+	# Compacta: la fila no muestra el nombre (va en el tooltip).
+	item_editado.set_text(0, "" if _layer_view == "compact" else String(nodo_real.name))
+	item_editado.set_tooltip_text(0, String(nodo_real.name))
 
 
 func _on_node_added(nodo: Node) -> void:
@@ -2120,6 +2172,26 @@ func _on_node_added(nodo: Node) -> void:
 	if nodo is Node2D:
 		_pending_changes.append({"node": nodo, "action": "added"})
 		_schedule_update()
+
+## Solo las capas que cuelgan MÁS ABAJO de un artboard (los hijos directos
+## ya llegan por child_entered_tree / child_exiting_tree).
+func _es_subcapa_profunda(nodo: Node) -> bool:
+	if not (nodo is Node2D) or not is_instance_valid(artboard_container):
+		return false
+	var p := nodo.get_parent()
+	if p == null or p == artboard_container or _es_artboard(p):
+		return false
+	if nodo.name == "Contorno_Stroke" or nodo.name == "Render_Visual":
+		return false
+	return artboard_container.is_ancestor_of(nodo)
+
+func _on_any_node_added(nodo: Node) -> void:
+	if _es_subcapa_profunda(nodo):
+		_on_node_added(nodo)
+
+func _on_any_node_removed(nodo: Node) -> void:
+	if _es_subcapa_profunda(nodo):
+		_on_node_removed(nodo)
 
 func _on_node_removed(nodo: Node) -> void:
 	# Se dispara cuando se quita un nodo
@@ -2189,14 +2261,19 @@ func _process_pending_changes() -> void:
 				continue  # ya está en el árbol
 			var parent_node = nodo.get_parent()
 			if parent_node and _node_to_item_map.has(parent_node):
-				_create_tree_item(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
+				# Con TODOS sus hijos (pegar/duplicar un grupo, booleana,
+				# vectorizado…): antes solo la fila del propio nodo y el grupo
+				# salía vacío.
+				if not (nodo is Node2D and _es_capa(nodo)):
+					continue
+				_construir_nodo_recursivo(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
 			elif artboard_container and artboard_container == parent_node:
 				if _es_artboard(nodo):
 					_vincular_senales_artboard(nodo)
-					_create_tree_item(layer_tree.get_root(), nodo, nodo)
+					_construir_nodo_recursivo(layer_tree.get_root(), nodo, nodo)
 				else:
 					# Figura SUELTA (hija directa del contenedor) → grupo "Fuera de artboard".
-					_create_tree_item(_get_sueltos_item(), nodo, null)
+					_construir_nodo_recursivo(_get_sueltos_item(), nodo, null)
 			else:
 				# Padre no mapeado (anidamiento profundo, orden raro): una
 				# reconstrucción completa — O(N) UNA vez, no O(N) por figura.
@@ -2287,7 +2364,11 @@ func _aplicar_estilo_visibilidad(item: TreeItem, esta_visible: bool, tipo: Strin
 	# set_icon() por sí solo deja el icono en icon_modulate por defecto
 	# (blanco, sin teñir) — sin esto, el icono blanco de _type_icon queda
 	# blanco fijo y se vuelve invisible en un tema claro.
-	item.set_icon_modulate(0, c_dim if not esta_visible else c_text)
+	if item.has_meta("thumb"):
+		# Miniatura: sus colores reales, atenuada si la capa está oculta.
+		item.set_icon_modulate(0, Color(1, 1, 1, 1.0 if esta_visible else 0.35))
+	else:
+		item.set_icon_modulate(0, c_dim if not esta_visible else c_text)
 
 
 func _repintar_canvas() -> void:
@@ -2371,11 +2452,146 @@ func _wire_panel_toggle() -> void:
 	if gear and host:
 		LayersSettings.install(gear, host, self)
 	LayersSettings.apply(self)
+	_style_rename_editor()
 	var t := LayersSettings.start_tab()
 	if t != _active_left_tab and t in ["capas", "paginas", "recursos"]:
 		_switch_left_tab(t)
 
 const LayersSettings = preload("res://script_gdscript/ui/panels/layers_settings.gd")
+const LayerIcons = preload("res://script_gdscript/ui/panels/layer_icons.gd")
+const LayerThumbs = preload("res://script_gdscript/ui/panels/layer_thumbs.gd")
+
+# ── Vista de las capas ──────────────────────────────────────────────────────
+## "icons": icono de tipo (triángulo, estrella…); "thumbs": miniatura + nombre
+## (Affinity / Photoshop); "compact": solo miniatura y 3 botones (Pixelmator).
+var _layer_view := "icons"
+var _thumbs: Node = null
+const THUMB_PX := {"thumbs": 30, "compact": 40}
+var _thumb_dirty: Dictionary = {}
+var _thumb_timer: Timer = null
+
+func get_layer_view() -> String:
+	return _layer_view
+
+func set_layer_view(mode: String) -> void:
+	if not (mode in ["icons", "thumbs", "compact"]):
+		mode = "icons"
+	_ensure_thumbs()
+	if mode == _layer_view:
+		return
+	_layer_view = mode
+	if mode != "icons":
+		_thumbs.set_size(int(THUMB_PX[mode]) * 2)   # a doble resolución: nítidas
+	_apply_view_metrics()
+	if is_instance_valid(layer_tree) and is_instance_valid(artboard_container):
+		sincronizar_arbol_completo()
+
+## Campo de RENOMBRAR una capa (doble clic): azul de acento suave y
+## translúcido, borde fino y esquinas redondeadas, estilo Apple. Antes salía
+## el editor por defecto de Godot: fondo negro y texto blanco.
+## La ventanita del editor hereda el TEMA (no los overrides) del árbol.
+func _style_rename_editor() -> void:
+	if not is_instance_valid(layer_tree):
+		return
+	var th: Theme = layer_tree.theme if layer_tree.theme else Theme.new()
+	var tm := get_node_or_null("/root/ThemeManager")
+	var acc: Color = tm.get_color(tm.Slot.ACCENT) if tm else Color(0.2, 0.55, 1.0)
+	var text: Color = tm.get_color(tm.Slot.PANEL_TEXT) if tm else Color(0.1, 0.1, 0.12)
+	var surf: Color = tm.get_color(tm.Slot.PANEL_SURFACE) if tm else Color(0.98, 0.98, 0.99)
+	var bg := surf.lerp(acc, 0.14)
+	bg.a = 0.96
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = Color(acc, 0.85)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(5)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 1
+	sb.shadow_color = Color(acc, 0.18)
+	sb.shadow_size = 4
+	for st in ["normal", "focus", "read_only"]:
+		th.set_stylebox(st, "LineEdit", sb)
+	th.set_color("font_color", "LineEdit", text)
+	th.set_color("font_selected_color", "LineEdit", text)
+	th.set_color("selection_color", "LineEdit", Color(acc, 0.35))
+	th.set_color("caret_color", "LineEdit", acc)
+	# El marco de la ventanita, transparente: solo se ve el campo.
+	th.set_stylebox("panel", "PopupPanel", StyleBoxEmpty.new())
+	th.set_stylebox("panel", "Popup", StyleBoxEmpty.new())
+	th.set_stylebox("embedded_border", "Window", StyleBoxEmpty.new())
+	layer_tree.theme = th
+
+## El árbol limita TODOS los iconos a 16 px (tema de Layertree): con
+## miniaturas hay que subir ese límite (si no, salían de 14 px).
+func _apply_view_metrics() -> void:
+	if not is_instance_valid(layer_tree):
+		return
+	layer_tree.add_theme_constant_override("icon_max_width", int(THUMB_PX.get(_layer_view, 16)))
+
+func _ensure_thumbs() -> void:
+	if is_instance_valid(_thumbs):
+		return
+	_thumbs = LayerThumbs.new()
+	_thumbs.name = "LayerThumbs"
+	add_child(_thumbs)
+	_thumbs.thumb_ready.connect(_on_thumb_ready)
+	# Cambios de estilo / transformación: rehacer la miniatura (agrupados).
+	_thumb_timer = Timer.new()
+	_thumb_timer.one_shot = true
+	_thumb_timer.wait_time = 0.3
+	_thumb_timer.timeout.connect(_flush_thumb_dirty)
+	add_child(_thumb_timer)
+	var ge := get_node_or_null("/root/GlobalEvents")
+	if ge:
+		for sig in ["object_style_changed", "object_transformed"]:
+			if ge.has_signal(sig):
+				ge.connect(sig, func(_a = null, _b = null) -> void: _mark_selection_thumbs_dirty())
+
+func _mark_selection_thumbs_dirty() -> void:
+	if _layer_view == "icons":
+		return
+	var sm := get_node_or_null("/root/SelectionManager")
+	if sm == null:
+		return
+	for n in sm.get_selected():
+		var a: Node = n
+		# la capa y sus contenedores (la miniatura del grupo también cambia)
+		while is_instance_valid(a) and a != artboard_container and not _es_artboard(a):
+			_thumb_dirty[a] = true
+			a = a.get_parent()
+	if is_instance_valid(_thumb_timer):
+		_thumb_timer.start()
+
+func _flush_thumb_dirty() -> void:
+	for n in _thumb_dirty.keys():
+		if is_instance_valid(n) and is_instance_valid(_thumbs):
+			_thumbs.invalidate(n)
+	_thumb_dirty.clear()
+
+func _on_thumb_ready(n: Node, tex: Texture2D) -> void:
+	if _layer_view == "icons":
+		return
+	var it: TreeItem = _node_to_item_map.get(n)
+	if it and is_instance_valid(it):
+		_set_thumb_icon(it, tex, (n as CanvasItem).visible if n is CanvasItem else true)
+
+func _set_thumb_icon(it: TreeItem, tex: Texture2D, visible_now: bool) -> void:
+	it.set_icon(0, tex)
+	it.set_icon_max_width(0, int(THUMB_PX.get(_layer_view, 14)))
+	it.set_meta("thumb", true)
+	# La miniatura conserva sus colores; oculta = atenuada.
+	it.set_icon_modulate(0, Color(1, 1, 1, 1.0 if visible_now else 0.35))
+
+## Icono de la fila en modo "icons" (o mientras llega la miniatura): el del
+## TIPO geométrico si lo hay (triángulo, estrella de N puntas, corazón…).
+func _icono_de_capa(real_node: Node, type: String) -> Texture2D:
+	if type != "artboard" and type != "group" and not String(type).begins_with("text"):
+		var t := LayerIcons.icon_for(real_node)
+		if t:
+			return t
+	return _type_icon(_clave_icono(real_node, type))
 
 ## Al ocultar el contenido, el MARCO del panel se encoge hasta la columna de
 ## herramientas (antes quedaba una caja vacía de 476 px); al mostrarlo vuelve
@@ -2399,8 +2615,13 @@ func _on_panel_toggled(content: Control) -> void:
 		else:
 			await get_tree().process_frame
 			var tools_d := content.get_parent().get_node_or_null("Herramientas") as Control
-			var margin_d := maxf(tools_d.get_global_rect().position.x - f.get_global_rect().position.x, 4.0) if tools_d else 8.0
-			adaptive.set_left_dock_width((tools_d.get_global_rect().size.x if tools_d else 56.0) + margin_d * 2.0)
+			# Modern: sin columna de herramientas, el lateral se cierra del todo
+			# (se vuelve a abrir con el botón de Capas de la barra superior).
+			if tools_d == null or not tools_d.visible:
+				adaptive.set_left_dock_width(0.0)
+				return
+			var margin_d := maxf(tools_d.get_global_rect().position.x - f.get_global_rect().position.x, 4.0)
+			adaptive.set_left_dock_width(tools_d.get_global_rect().size.x + margin_d * 2.0)
 		return
 	var right_anchored := f.anchor_left >= 0.99
 	if not content.visible:

@@ -35,7 +35,7 @@ func _panel() -> PanelPolygon:
 ## Cinco figuras, sin duplicados: estrella y polígono regular son UNA pestaña.
 func test_tabs_are_unique_kinds() -> void:
 	var panel := await _panel()
-	assert_int(panel._tabs.size()).is_equal(5)
+	assert_int(panel._tabs.size()).is_equal(6)   # + Formas (corazón, flecha…)
 	panel.set_kind(PanelPolygon.Kind.STAR)
 	assert_bool(panel._fields.has("points_count")).is_true()
 	assert_bool(panel._fields.has("inner_corner_radius")).is_true()

@@ -19,6 +19,17 @@ var btn_undo: Button
 var btn_redo: Button
 var btn_export: Button
 var btn_settings: Button
+## Mostrar / ocultar el panel Capas · Páginas · Recursos. En Modern ya no hay
+## columna de herramientas a la izquierda (donde estaba ese botón).
+var btn_layers: Button
+
+## [panel, icono, tooltip, nombre del botón]
+## Efectos, filtros, vectorizar y tipografía viven en el INSPECTOR (como
+## pidió el usuario: "no tiene sentido en la barra, el inspector ya los
+## tiene"). Aquí solo lo que no es una propiedad del objeto.
+const FLOATING_BUTTONS := [
+	["Panel_PREVIEW", "res://icon/UI/eye.svg", "Vista previa", "BtnPreview"],
+]
 var mode_selector: Control
 
 var _active_tool_id: String = "select"
@@ -112,6 +123,16 @@ func _build_ui() -> void:
 		logo_rect.texture = load("res://icon/logo/logo_vectopen.png")
 	left_box.add_child(logo_rect)
 
+	btn_layers = _create_chip_button("", "Mostrar / ocultar el panel Capas · Páginas · Recursos", Vector2(28, 24))
+	btn_layers.name = "BtnLayersToggle"
+	if ResourceLoader.exists("res://icon/UI/folder-tree.svg"):
+		btn_layers.icon = load("res://icon/UI/folder-tree.svg")
+		btn_layers.expand_icon = true
+	else:
+		btn_layers.text = "☰"
+	btn_layers.pressed.connect(_on_layers_toggle_pressed)
+	left_box.add_child(btn_layers)
+
 	lbl_title = Label.new()
 	lbl_title.text = "Vectopen"
 	lbl_title.add_theme_font_size_override("font_size", 12)
@@ -145,6 +166,22 @@ func _build_ui() -> void:
 	right_box.alignment = BoxContainer.ALIGNMENT_END
 	hbox.add_child(right_box)
 
+	# Vista previa (de Smart; no es una propiedad del objeto).
+	for spec in FLOATING_BUTTONS:
+		var fb := _create_chip_button("", String(spec[2]), Vector2(28, 24))
+		fb.name = String(spec[3])
+		fb.icon = ModernBottomToolbar._icon_blanco(String(spec[1]))
+		fb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fb.set_meta("tooltip_key", String(spec[2]))
+		var pname := String(spec[0])
+		fb.pressed.connect(func() -> void:
+			var ge := get_node_or_null("/root/GlobalEvents")
+			if ge and ge.has_signal("request_floating_panel"):
+				ge.emit_safe("request_floating_panel", pname))
+		right_box.add_child(fb)
+	var sep_fl := VSeparator.new()
+	right_box.add_child(sep_fl)
+
 	btn_undo = _create_chip_button("↶", "Deshacer (Ctrl+Z)", Vector2(28, 24))
 	btn_undo.pressed.connect(_on_undo_pressed)
 	right_box.add_child(btn_undo)
@@ -153,7 +190,7 @@ func _build_ui() -> void:
 	btn_redo.pressed.connect(_on_redo_pressed)
 	right_box.add_child(btn_redo)
 
-	btn_export = _create_chip_button("Export", "Exportar diseño (SVG, PNG, JPG)", Vector2(56, 24))
+	btn_export = _create_chip_button(tr("Export"), "Exportar diseño (SVG, PNG, JPG)", Vector2(56, 24))
 	btn_export.visible = true
 	btn_export.pressed.connect(_on_export_pressed)
 	right_box.add_child(btn_export)
@@ -232,6 +269,13 @@ func _create_chip_button(btn_text: String, tooltip: String, min_size: Vector2) -
 	btn.add_theme_font_size_override("font_size", 11)
 	_style_chip_button(btn)
 	return btn
+
+## Hace lo mismo que el botón carpeta de Smart/Pro (button_capas): ese botón
+## ya sabe ocultar el panel y encoger el lateral y las reglas.
+func _on_layers_toggle_pressed() -> void:
+	var b := get_tree().root.find_child("button_capas", true, false) as BaseButton
+	if b:
+		b.pressed.emit()
 
 func _on_undo_pressed() -> void:
 	var hm = get_node_or_null("/root/HistoryManager")

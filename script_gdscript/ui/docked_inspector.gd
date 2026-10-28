@@ -122,10 +122,7 @@ var sec_parametric_rect: VBoxContainer
 var spin_rect_corner_radius: NumericField
 
 # ── Sección Panel de Herramienta (Modern: polygon/text/Selector/bezier/brush) ──
-var sec_tool: VBoxContainer
-var _tool_slot: VBoxContainer
-var _tool_scroll_hosts: Dictionary = {}
-var _tool_min_x: Dictionary = {}
+var sec_tool: ToolPanelDock
 
 # ── Sección Modelo 3D ──
 var sec_3d_model: VBoxContainer
@@ -347,7 +344,7 @@ func _build_ui() -> void:
 	add_child(mode_selector)
 
 	lbl_selection = Label.new()
-	lbl_selection.text = "No selection"
+	lbl_selection.text = tr("No selection")
 	lbl_selection.add_theme_font_size_override("font_size", 10)
 	lbl_selection.add_theme_color_override("font_color", _C_MUTED)
 	header.add_child(lbl_selection)
@@ -363,6 +360,8 @@ func _build_ui() -> void:
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root_vbox.add_child(scroll_container)
+	# Botón central + arrastrar = desplazar (como en Capas).
+	preload("res://script_gdscript/ui/components/middle_drag_scroll.gd").attach(scroll_container)
 
 	content_container = VBoxContainer.new()
 	content_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -388,6 +387,7 @@ func _build_ui() -> void:
 
 	# ── SECCION D: TIPOGRAFÍA (TEXTO CONTEXTUAL) ──
 	_build_typography_section()
+	_embed_full(sec_typography, "res://scenes/ui/panel_tooltext.tscn", "FullTypography")
 
 	# ── SECCIONES PARAMÉTRICAS (CÍRCULO, ESTRELLA, ESQUINAS) ──
 	_build_parametric_circle_section()
@@ -404,116 +404,67 @@ func _build_ui() -> void:
 
 	# ── SECCION G: EFECTOS (SHADOW - FILA COMPACTA) ──
 	_build_effects_section()
+	_embed_full(sec_effects, "res://scenes/ui/panels/effects/effects.tscn", "FullEffects")
+	# Filtros y Vectorizar también aquí (antes solo en la ventana de Smart).
+	content_container.add_child(InspectorFxSections.create(InspectorFxSections.FILTERS, "SecFilters"))
+	content_container.add_child(InspectorFxSections.create(InspectorFxSections.VECTORIZE, "SecVectorize"))
 
 	# ── SECCION H: EXPORTAR (SOLO CUANDO HAY ELEMENTO SELECCIONADO) ──
 	_build_export_section()
 
+const InspectorFxSections = preload("res://script_gdscript/ui/components/inspector_fx_sections.gd")
+const SmartEmbed = preload("res://script_gdscript/ui/components/smart_embed.gd")
+
+## Filas reducidas de antes: dentro de un contenedor OCULTO (siguen vivas para
+## la sincronización, pero nada puede volver a mostrarlas por error).
+func _hide_legacy(section: Control, nodes: Array) -> void:
+	var holder := VBoxContainer.new()
+	holder.name = "LegacyHidden"
+	holder.visible = false
+	section.add_child(holder)
+	for n in nodes:
+		if is_instance_valid(n) and n != holder:
+			n.reparent(holder, false)
+
+## La sección usa el componente COMPLETO de Smart (tipografía entera, lista
+## de efectos entera) en vez de la versión reducida de antes. Las filas
+## reducidas se ocultan (se conservan: el resto del inspector aún las
+## sincroniza); la cabecera de la sección se queda.
+func _embed_full(section: Control, scene_path: String, node_name: String) -> void:
+	if not is_instance_valid(section):
+		return
+	var first := true
+	var legacy: Array = []
+	for c in section.get_children():
+		if first:
+			first = false
+			# El «+» de la cabecera hacía otra cosa (solo sombra): el
+			# componente completo trae su propio botón de añadir.
+			for b in c.get_children():
+				if b is Button:
+					b.visible = false
+			continue
+		legacy.append(c)
+	_hide_legacy(section, legacy)
+	SmartEmbed.embed(scene_path, section, node_name, SmartEmbed.TITLE_PATHS.get(scene_path, []))
+
 func _build_tool_section() -> void:
-	sec_tool = VBoxContainer.new()
+	# Dock compartido con ProStudio (ver tool_panel_dock.gd).
+	sec_tool = ToolPanelDock.new(_create_section_header("TOOL"))
 	sec_tool.name = "ToolPanelSection"
-	sec_tool.add_theme_constant_override("separation", 4)
-	sec_tool.visible = false
+	sec_tool.content_changed.connect(func() -> void: _dedupe_parametric.call_deferred())
 	content_container.add_child(sec_tool)
 
-	sec_tool.add_child(_create_section_header("TOOL"))
-
-	_tool_slot = VBoxContainer.new()
-	_tool_slot.name = "ToolPanelSlot"
-	_tool_slot.add_theme_constant_override("separation", 4)
-	sec_tool.add_child(_tool_slot)
-
 ## Modern UI: acopla un panel de herramienta (polygon/text/Selector/bezier/brush)
-## dentro del inspector en lugar de dejarlo flotando junto al lienzo. Los paneles
-## se diseñaron para 300-360px, así que cada uno va dentro de un ScrollContainer
-## horizontal: el inspector conserva su ancho y el panel mantiene su diseño.
+## dentro del inspector en lugar de dejarlo flotando junto al lienzo.
 func host_tool_panel(panel: Control) -> void:
-	if not is_instance_valid(panel) or not is_instance_valid(_tool_slot):
-		return
-	if _tool_scroll_hosts.has(panel):
-		_refresh_tool_section_visibility()
-		return
-	if not panel.visibility_changed.is_connected(_on_hosted_tool_visibility):
-		panel.visibility_changed.connect(_on_hosted_tool_visibility)
-	if not panel.minimum_size_changed.is_connected(_sync_tool_scroll_height):
-		panel.minimum_size_changed.connect(_sync_tool_scroll_height)
-
-	_tool_min_x[panel] = panel.custom_minimum_size.x
-	panel.custom_minimum_size.x = 0.0
-
-	var scroll := ScrollContainer.new()
-	scroll.name = "ToolScroll_%s" % panel.name
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tool_slot.add_child(scroll)
-
-	var old_parent := panel.get_parent()
-	if is_instance_valid(old_parent):
-		old_parent.remove_child(panel)
-	scroll.add_child(panel)
-	# El panel conserva las offsets de su layout flotante anterior; dentro del
-	# ScrollContainer debe empezar en (0,0) o se dibuja fuera del inspector.
-	panel.position = Vector2.ZERO
-	_tool_scroll_hosts[panel] = scroll
-	_sync_tool_scroll_height(panel)
-	_refresh_tool_section_visibility()
-
-func _on_hosted_tool_visibility(panel: Control) -> void:
-	var scroll := _tool_scroll_hosts.get(panel) as ScrollContainer
-	if is_instance_valid(scroll) and is_instance_valid(panel):
-		panel.position = Vector2.ZERO
-		scroll.queue_sort()
-		if panel.visible:
-			scroll.ensure_control_visible(panel)
-	_refresh_tool_section_visibility()
-
-func _sync_tool_scroll_height(panel: Control) -> void:
-	var scroll := _tool_scroll_hosts.get(panel) as ScrollContainer
-	if not is_instance_valid(scroll) or not is_instance_valid(panel):
-		return
-	panel.custom_minimum_size.x = 0.0
-	panel.position = Vector2.ZERO
-	scroll.custom_minimum_size.y = panel.get_combined_minimum_size().y + 10.0
+	if is_instance_valid(sec_tool):
+		sec_tool.host(panel)
 
 ## Devuelve los paneles acoplados a `target_parent` (la columna Herramientas).
 func release_tool_panels(target_parent: Node) -> void:
-	for key in _tool_scroll_hosts.keys():
-		var panel := key as Control
-		var scroll := _tool_scroll_hosts[key] as ScrollContainer
-		if is_instance_valid(panel):
-			if panel.visibility_changed.is_connected(_on_hosted_tool_visibility):
-				panel.visibility_changed.disconnect(_on_hosted_tool_visibility)
-			if panel.minimum_size_changed.is_connected(_sync_tool_scroll_height):
-				panel.minimum_size_changed.disconnect(_sync_tool_scroll_height)
-			panel.custom_minimum_size.x = float(_tool_min_x.get(key, 0.0))
-			var old_parent := panel.get_parent()
-			if is_instance_valid(old_parent):
-				old_parent.remove_child(panel)
-			panel.visible = false
-			if is_instance_valid(target_parent):
-				target_parent.add_child(panel)
-		if is_instance_valid(scroll):
-			scroll.queue_free()
-	_tool_scroll_hosts.clear()
-	_tool_min_x.clear()
-	_refresh_tool_section_visibility()
-
-func _refresh_tool_section_visibility() -> void:
-	if not is_instance_valid(sec_tool) or not is_instance_valid(_tool_slot):
-		return
-	var any_visible: bool = false
-	for child in _tool_slot.get_children():
-		var scroll := child as ScrollContainer
-		if not is_instance_valid(scroll):
-			continue
-		var host_visible: bool = false
-		for sub in scroll.get_children():
-			if sub is Control and (sub as Control).visible:
-				host_visible = true
-				break
-		scroll.visible = host_visible
-		any_visible = any_visible or host_visible
-	sec_tool.visible = any_visible
+	if is_instance_valid(sec_tool):
+		sec_tool.release_all(target_parent)
 
 func _create_section_header(title: String, on_add: Callable = Callable()) -> Control:
 	var hbox := HBoxContainer.new()
@@ -1519,7 +1470,7 @@ func _build_effects_section() -> void:
 	row.add_theme_constant_override("separation", 5)
 	sec_effects.add_child(row)
 
-	btn_shadow_toggle = _create_chip_button("▨ Drop Shadow", "Alternar sombra suave", Vector2(0, 24))
+	btn_shadow_toggle = _create_chip_button(tr("▨ Drop Shadow"), "Alternar sombra suave", Vector2(0, 24))
 	btn_shadow_toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_shadow_toggle.pressed.connect(_on_shadow_toggle_pressed)
 	row.add_child(btn_shadow_toggle)
@@ -1560,7 +1511,7 @@ func _build_export_section() -> void:
 	_style_option_button(opt_export_format)
 	row.add_child(opt_export_format)
 
-	btn_export_selection = _create_chip_button("Export", "Exportar seleccion activa", Vector2(0, 24))
+	btn_export_selection = _create_chip_button(tr("Export"), "Exportar seleccion activa", Vector2(0, 24))
 	btn_export_selection.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_export_selection.pressed.connect(_on_export_selection_pressed)
 	row.add_child(btn_export_selection)
@@ -1878,12 +1829,39 @@ func _get_selected_kind() -> String:
 		return "image"
 	return "shape"
 
+## Con el panel Polígonos abierto arriba (sección Herramienta), sus campos ya
+## editan en vivo la figura seleccionada: las secciones paramétricas de abajo
+## (ELLIPSE GEOMETRY, STAR GEOMETRY…) repetían lo mismo dos veces.
+func _dedupe_parametric() -> void:
+	if not is_instance_valid(sec_tool) or not sec_tool.visible:
+		return
+	var poly_open := false
+	for p in sec_tool.hosted_panels():
+		if is_instance_valid(p) and p is PanelPolygon and (p as Control).visible:
+			poly_open = not (p as PanelPolygon).targets().is_empty()
+	if not poly_open:
+		return
+	for sec in [sec_parametric_circle, sec_parametric_star, sec_parametric_rect, sec_parametric_polygon]:
+		if is_instance_valid(sec):
+			sec.visible = false
+
+## «RADIO DE ESQUINAS» repetía lo que ya hace el bloque Esquinas de DISEÑO
+## (TL/TR/BL/BR con enlace para un solo valor): se oculta cuando éste se ve.
+func _dedupe_corner_radius() -> void:
+	if not is_instance_valid(sec_parametric_rect) or not is_instance_valid(transform_panel):
+		return
+	var block: Array = transform_panel.get("_corners_block") if "_corners_block" in transform_panel else []
+	if not block.is_empty() and is_instance_valid(block[0]) and (block[0] as Control).visible:
+		sec_parametric_rect.visible = false
+
 # ── ACTUALIZACIÓN DE SELECCIÓN Y PROPIEDADES ──
 func _on_selection_size_changed(count: int) -> void:
 	_has_selection = count > 0
+	_dedupe_parametric.call_deferred()
+	_dedupe_corner_radius.call_deferred()
 	if count == 0:
-		lbl_title.text = "Page"
-		lbl_selection.text = "No selection"
+		lbl_title.text = tr("Page")
+		lbl_selection.text = tr("No selection")
 		if is_instance_valid(sec_canvas): sec_canvas.visible = true
 		if is_instance_valid(sec_align): sec_align.visible = false
 		if is_instance_valid(transform_panel): transform_panel.visible = false
@@ -1900,6 +1878,12 @@ func _on_selection_size_changed(count: int) -> void:
 		if is_instance_valid(sec_export): sec_export.visible = false
 	else:
 		if is_instance_valid(sec_canvas): sec_canvas.visible = false
+		# El título de Relleno pasa a «Color del texto» con un texto; con
+		# cualquier otra cosa vuelve a «Relleno» (antes se quedaba cambiado).
+		if is_instance_valid(sec_fill) and sec_fill.get_child_count() > 0:
+			var fh := sec_fill.get_child(0)
+			if fh.get_child_count() > 0 and fh.get_child(0) is Label:
+				(fh.get_child(0) as Label).text = tr("FILL")
 		var kind := _get_selected_kind()
 		var ic = get_node_or_null("/root/InspectorCore")
 		var sel_node: Node = null
@@ -1987,7 +1971,7 @@ func _on_selection_size_changed(count: int) -> void:
 					sec_fill.visible = true
 					var hdr = sec_fill.get_child(0) if sec_fill.get_child_count() > 0 else null
 					if hdr and hdr.get_child_count() > 0 and hdr.get_child(0) is Label:
-						hdr.get_child(0).text = "TEXT COLOR"
+						hdr.get_child(0).text = tr("TEXT COLOR")
 				if is_instance_valid(sec_stroke): sec_stroke.visible = true
 				if is_instance_valid(sec_effects): sec_effects.visible = true
 				if is_instance_valid(sec_export): sec_export.visible = true
@@ -2039,10 +2023,10 @@ func _on_selection_size_changed(count: int) -> void:
 			var props: Dictionary = ic.current_props() if ic else {}
 			var sname = props.get("name", {}).get("value", "Rectangle")
 			lbl_title.text = str(sname)
-			lbl_selection.text = "1 object selected"
+			lbl_selection.text = tr("1 object selected")
 		else:
 			lbl_title.text = "Selection"
-			lbl_selection.text = "%d objects selected" % count
+			lbl_selection.text = tr("%d objects selected") % count
 
 		var show_bool: bool = count > 1 or (sel_node != null and sel_node is VectorBooleanScript)
 		if is_instance_valid(_boolean_header):
@@ -2279,7 +2263,10 @@ func _on_popover_color_actualizado(col: Color) -> void:
 func _input(event: InputEvent) -> void:
 	if is_instance_valid(_color_popover) and _color_popover.visible:
 		if event is InputEventMouseButton and event.pressed:
-			var mp := get_global_mouse_position()
+			# La posición del PROPIO clic (no la del puntero del sistema, que
+			# con lápiz o eventos sintéticos puede no coincidir y cerraba el
+			# popover al pulsar dentro, p. ej. en «Lineal»).
+			var mp: Vector2 = (event as InputEventMouseButton).position
 			if not _color_popover.get_global_rect().has_point(mp):
 				var on_swatch: bool = false
 				for b in [picker_fill, picker_stroke, picker_canvas_bg]:

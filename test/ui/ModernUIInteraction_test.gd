@@ -69,9 +69,10 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(inner_panel.offset_left).is_equal(0.0)
 	assert_that(inner_panel.anchor_left).is_equal(0.0)
 
-	# 6. Herramientas verticales: visibles en Modern (acopladas a la izquierda)
+	# 6. Herramientas verticales: ocultas en Modern (una sola barra, la
+	#    inferior); vuelven al pasar a Smart (comprobado más abajo).
 	var vert_tools = inner_panel.find_child("Herramientas", true, false) as Control
-	assert_that(vert_tools.visible).is_true()
+	assert_that(vert_tools.visible).is_false()
 
 	# 7. Capas en modo moderno: sin radios las esquinas (corner_radius = 0)
 	var inner_sb = inner_panel.get_theme_stylebox("panel") as StyleBoxFlat
@@ -103,11 +104,15 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(bottom_bar.lbl_zoom.text).is_equal("100%")
 
 	# 9. Seleccion de herramienta desde ModernBottomToolbar
-	var rect_btn = bottom_bar._buttons.get("rectangle") as Button
-	assert_that(rect_btn).is_not_null()
-	rect_btn.emit_signal("pressed")
+	# Un solo botón de figuras (como Smart): activa la figura elegida en el
+	# panel de polígonos y ya no existen los botones sueltos.
+	assert_that(bottom_bar._buttons.get("rectangle")).is_null()
+	var shapes_btn = bottom_bar._buttons.get("shapes") as Button
+	assert_that(shapes_btn).is_not_null()
+	shapes_btn.emit_signal("pressed")
 	await get_tree().process_frame
-	assert_that(bottom_bar._active_tool).is_equal("rectangle")
+	assert_that(bottom_bar._active_tool).is_equal(PanelPolygon.current_tool)
+	assert_that(ModernBottomToolbar._button_of(bottom_bar._active_tool)).is_equal("shapes")
 
 	# 10. Diálogo de Configuración: apertura y cierre con botón ✕ y toggle
 	var settings_dialog = windows_regla.get_node("MANAGER WINDWS_REGLA") as ManagerWindowsRegla

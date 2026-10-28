@@ -48,14 +48,16 @@ static func execute(id: String, host: Node) -> void:
 			rotate_by(host, 90.0)
 		"rotate_ccw":
 			rotate_by(host, -90.0)
+		# Antes llamaban a _on_btn_group_selected / _on_btn_ungroup, que NO
+		# existen: Agrupar y Desagrupar del menú contextual no hacían nada.
 		"group":
 			var ls = layers_system(host)
-			if ls and ls.has_method("_on_btn_group_selected"):
-				ls._on_btn_group_selected()
+			if ls and ls.has_method("_agrupar_seleccion"):
+				ls._agrupar_seleccion()
 		"ungroup", "ungroup_all":
 			var ls = layers_system(host)
-			if ls and ls.has_method("_on_btn_ungroup"):
-				ls._on_btn_ungroup()
+			if ls and ls.has_method("_desagrupar_seleccion"):
+				ls._desagrupar_seleccion()
 		"rename":
 			rename_active_item(host)
 		"toggle_visibility":

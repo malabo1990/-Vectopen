@@ -57,6 +57,9 @@ func _pull_theme() -> void:
 var _fields: Dictionary = {}          # prop -> Field
 var _rot: Dial = null
 var _corners: Dictionary = {}         # "corner_tl".. -> Dial
+## Bloque Esquinas (cabecera + rejilla): solo se ve si la selección tiene
+## esquinas (rectángulos). En un círculo o una estrella no hacen nada.
+var _corners_block: Array[Control] = []
 var _corners_container: HBoxContainer = null
 var _sync_guard := false
 var _has_selection := false
@@ -475,8 +478,11 @@ func _build() -> void:
 	root.add_child(header_box)
 
 	var hdr := Label.new()
-	hdr.text = "LAYOUT"
+	hdr.text = tr("LAYOUT")
 	hdr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Un título traducido largo se recorta con «…» en vez de ensanchar el panel.
+	hdr.clip_text = true
+	hdr.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	hdr.add_theme_color_override("font_color", _MUTED)
 	hdr.add_theme_font_size_override("font_size", 10)
 	header_box.add_child(hdr)
@@ -540,7 +546,7 @@ func _build() -> void:
 	corners_header.add_theme_constant_override("separation", 4)
 	root.add_child(corners_header)
 	var corners_lbl := Label.new()
-	corners_lbl.text = "Esquinas"
+	corners_lbl.text = tr("Corners")
 	corners_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	corners_lbl.add_theme_color_override("font_color", _MUTED)
 	corners_lbl.add_theme_font_size_override("font_size", 10)
@@ -552,12 +558,14 @@ func _build() -> void:
 	_btn_link_corners.pressed.connect(_toggle_link_corners)
 	_update_toggle_button(_btn_link_corners, _corners_linked)
 	corners_header.add_child(_btn_link_corners)
+	_corners_block = [corners_header]
 
 	var corners_grid := GridContainer.new()
 	corners_grid.columns = 2
 	corners_grid.add_theme_constant_override("h_separation", 6)
 	corners_grid.add_theme_constant_override("v_separation", 6)
 	root.add_child(corners_grid)
+	_corners_block.append(corners_grid)
 	_corners_container = null
 	for spec in [["corner_tl", "TL"], ["corner_tr", "TR"], ["corner_bl", "BL"], ["corner_br", "BR"]]:
 		var d := _make_dial(Dial.Kind.RADIUS, spec[1], 400.0)
@@ -917,6 +925,10 @@ func _refresh(props: Dictionary = {}) -> void:
 	for prop in _corners:
 		if props.has(prop) and not props[prop]["mixed"]:
 			_corners[prop].set_value_silent(float(props[prop]["value"]))
+	var has_corners := props.has("corner_tl")
+	for c in _corners_block:
+		if is_instance_valid(c):
+			c.visible = has_corners
 
 	if props.has("width") and props.has("height") and not _aspect_locked:
 		var w: float = float(props["width"].get("value", 100.0))

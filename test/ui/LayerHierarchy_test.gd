@@ -49,10 +49,13 @@ func test_cadena_de_figuras_anidadas_aparece_entera_en_el_arbol() -> void:
 	assert_object(it_p1).is_not_null()
 	assert_object(it_c1.get_parent()).is_same(it_r1)
 	assert_object(it_p1.get_parent()).is_same(it_c1)
-	# R1 y C1 aparecen como contenedores (tienen hijos-capa); P1 no.
-	assert_str(str(it_r1.get_metadata(0))).is_equal("group")
-	assert_str(str(it_c1.get_metadata(0))).is_equal("group")
+	# R1 y C1 tienen hijos-capa pero SIGUEN SIENDO FIGURAS (su icono, su
+	# color): antes salían como carpeta azul de grupo. Se pliegan igual.
+	assert_str(str(it_r1.get_metadata(0))).is_equal("shape")
+	assert_str(str(it_c1.get_metadata(0))).is_equal("shape")
 	assert_str(str(it_p1.get_metadata(0))).is_equal("shape")
+	assert_int(it_r1.get_child_count()).is_equal(1)
+	assert_int(it_c1.get_child_count()).is_equal(1)
 
 
 ## Reparentar una figura DENTRO de otra figura (no un grupo) con un Undo.

@@ -35,7 +35,7 @@ const PROPS := [
 	"indent_left", "indent_right", "indent_first",
 	"columns", "column_gap",
 	"font_family", "font_weight", "font_italic",
-	"fill_paint", "text_align", "text_valign", "text",
+	"fill_paint", "stroke_paint", "text_align", "text_valign", "text",
 	"corner_tl", "corner_tr", "corner_br", "corner_bl",
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
@@ -85,6 +85,7 @@ func _get_move_tool():
 func _sync_selection() -> void:
 	_mt = _get_move_tool()   # solo para helpers de geometría (_global_rect, …)
 	var prev := _selection.size()
+	var prev_sel := _selection.duplicate()
 	# FUENTE DE VERDAD: SelectionManager. `MoveTool.selected_shapes` es únicamente
 	# un espejo que la herramienta mantiene; leerlo antes acoplaba el Inspector a
 	# la herramienta activa y podía mostrar una selección desincronizada. Se lee
@@ -97,7 +98,9 @@ func _sync_selection() -> void:
 		_selection = sm_sel.filter(func(s): return is_instance_valid(s))
 	else:
 		_selection = mt_sel.filter(func(s): return is_instance_valid(s))
-	if _selection.size() != prev:
+	# También si cambia QUÉ hay seleccionado con el mismo número (texto →
+	# rectángulo): antes el inspector seguía mostrando «Texto» y su tipografía.
+	if _selection.size() != prev or _selection != prev_sel:
 		selection_size_changed.emit(_selection.size())
 
 func selection() -> Array:
@@ -108,6 +111,22 @@ func selection() -> Array:
 func _bounds(shape) -> Vector2:
 	if _mt and _mt.has_method("_global_rect"):
 		return _mt._global_rect(shape).size
+	# Sin la herramienta Mover activa (p. ej. justo tras «Crear en el centro»
+	# con la de polígonos) polígonos, gotas y formas salían con W 0 · H 0.
+	if shape is Node2D and shape.has_method("get_evaluated_geometry"):
+		var geo: Array = shape.get_evaluated_geometry()
+		var have := false
+		var bb := Rect2()
+		for ring in geo:
+			for pt in (ring as PackedVector2Array):
+				var g: Vector2 = (shape as Node2D).to_global(pt)
+				if not have:
+					bb = Rect2(g, Vector2.ZERO)
+					have = true
+				else:
+					bb = bb.expand(g)
+		if have:
+			return bb.size
 	return Vector2.ZERO
 
 func _is_text(shape) -> bool:
@@ -244,6 +263,8 @@ func _read(shape, prop):
 			return null
 		"fill_paint":
 			return _read_fill_paint(shape)
+		"stroke_paint":
+			return _read_stroke_paint(shape)
 		"stroke_cap_start":
 			if "stroke_cap_start" in shape: return int(shape.stroke_cap_start)
 			if shape is Line2D: return int(shape.begin_cap_mode)
@@ -595,10 +616,16 @@ func apply(prop: String, value) -> void:
 		if before == null:
 			continue
 		var has_grad: bool = (s is VectorShape and s.has_gradient_fill()) or (s is Line2D and s.gradient is Gradient)
-		if not (prop == "fill_color" and has_grad):
+		var has_sgrad: bool = s.has_method("has_gradient_stroke") and s.has_gradient_stroke()
+		if not (prop == "fill_color" and has_grad) and not (prop == "stroke_color" and has_sgrad):
 			if _approx_eq(before, value):
 				continue
-		recs.append({"s": s, "before": before})
+		# Color plano sobre un trazo con degradado: deshacer debe devolver el
+		# degradado entero, no solo el color.
+		var rec := {"s": s, "before": before}
+		if prop == "stroke_color" and has_sgrad:
+			rec["before_paint"] = _read_stroke_paint(s)
+		recs.append(rec)
 	if recs.is_empty():
 		return
 	var do_fn := func() -> void:
@@ -607,7 +634,10 @@ func apply(prop: String, value) -> void:
 		_post_write()
 	var undo_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], prop, r["before"])
+			if r.has("before_paint"):
+				_write(r["s"], "stroke_paint", r["before_paint"])
+			else:
+				_write(r["s"], prop, r["before"])
 		_post_write()
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
@@ -783,7 +813,11 @@ func _write_prop(shape, prop, value) -> void:
 		"stroke_color":
 			if _is_text(shape):
 				_write_text_color(shape, "font_outline_color", value)
-			elif "stroke_color" in shape: shape.stroke_color = value
+			elif "stroke_color" in shape:
+				# Un color plano en el trazo quita su degradado.
+				if shape.has_method("clear_stroke_gradient") and shape.has_gradient_stroke():
+					shape.clear_stroke_gradient()
+				shape.stroke_color = value
 			elif shape is Line2D: shape.default_color = value
 		"stroke_width":
 			if _is_text(shape):
@@ -806,6 +840,8 @@ func _write_prop(shape, prop, value) -> void:
 			if "corner_bl" in shape: shape.corner_bl = maxf(0.0, float(value))
 		"fill_paint":
 			_write_fill_paint(shape, value)
+		"stroke_paint":
+			_write_stroke_paint(shape, value)
 		"text_align":
 			_write_text_align(shape, value)
 		"text_valign":
@@ -1117,6 +1153,71 @@ func _write_fill_paint(shape, value) -> void:
 		shape.texture = _grad_tex_for(g)
 	if shape.has_method("queue_redraw"):
 		shape.queue_redraw()
+
+## Pintura del trazo: color plano o degradado (lineal / radial).
+func _read_stroke_paint(shape) -> Variant:
+	if shape is Line2D:
+		return _read_fill_paint(shape)   # en una línea, el cuerpo ES el trazo
+	if not ("stroke_color" in shape) or _is_text(shape):
+		return null
+	if shape.has_method("has_gradient_stroke") and shape.has_gradient_stroke():
+		var g: Gradient = shape.stroke_gradient
+		var stops: Array = []
+		for i in g.get_point_count():
+			stops.append([g.get_offset(i), g.get_color(i)])
+		return {"type": "radial" if int(shape.stroke_gradient_type) == 1 else "linear",
+			"angle": float(shape.stroke_gradient_angle), "stops": stops}
+	return {"type": "solid", "color": shape.stroke_color}
+
+func _write_stroke_paint(shape, value) -> void:
+	if not (value is Dictionary):
+		return
+	if shape is Line2D:
+		_write_fill_paint(shape, value)
+		return
+	if not ("stroke_color" in shape) or _is_text(shape):
+		return
+	var kind := String(value.get("type", "solid"))
+	if kind == "solid":
+		if shape.has_method("clear_stroke_gradient"):
+			shape.clear_stroke_gradient()
+		shape.stroke_color = value.get("color", shape.stroke_color)
+		return
+	if not shape.has_method("has_gradient_stroke"):
+		return
+	var g := _gradient_from_stops(value.get("stops", []))
+	if g.get_point_count() < 2:
+		return
+	shape.stroke_gradient_type = 1 if kind == "radial" else 0
+	shape.stroke_gradient_angle = float(value.get("angle", 0.0))
+	# Un trazo invisible (grosor 0) con degradado no se vería: darle grosor.
+	if float(shape.stroke_width) <= 0.0:
+		shape.stroke_width = 2.0
+	shape.stroke_color.a = 1.0 if shape.stroke_color.a <= 0.0 else shape.stroke_color.a
+	shape.stroke_gradient = g
+
+func _gradient_from_stops(stops_val) -> Gradient:
+	if stops_val is Gradient:
+		return (stops_val as Gradient).duplicate()
+	var g := Gradient.new()
+	var offsets := PackedFloat32Array()
+	var colors := PackedColorArray()
+	if stops_val is Array:
+		for i in stops_val.size():
+			var st = stops_val[i]
+			if st is Array and st.size() >= 2:
+				offsets.append(float(st[0]))
+				colors.append(st[1] if st[1] is Color else Color.WHITE)
+			elif st is Dictionary:
+				offsets.append(float(st.get("offset", 0.0)))
+				colors.append(st.get("color") if st.get("color") is Color else Color.WHITE)
+			elif st is Color:
+				offsets.append(float(i) / maxf(1.0, float(stops_val.size() - 1)))
+				colors.append(st)
+	if offsets.size() >= 2:
+		g.offsets = offsets
+		g.colors = colors
+	return g
 
 func _grad_tex_for(g: Gradient) -> GradientTexture2D:
 	var t := GradientTexture2D.new()

@@ -912,7 +912,10 @@ func _snapshot(shape: Node2D) -> Dictionary:
 				g_stroke.append(stroke.to_global(p))
 			snap["g_stroke_pts"] = g_stroke
 	
-	elif "size" in shape and (shape is VectorRectangle or shape is VectorCircle or shape.has_method("rotate_orbit")):
+	# Cualquier figura vectorial con `size` (rectángulo, elipse, ESTRELLA…).
+	# Antes solo rectángulo/elipse: la estrella no guardaba su tamaño y
+	# arrastrar las asas no la redimensionaba.
+	elif "size" in shape and (shape is VectorShape or shape.has_method("rotate_orbit")):
 		snap["size"] = shape.get("size")
 
 	elif "vertices" in shape:

@@ -129,19 +129,46 @@ func _unique_sibling_name(base_name: String, parent: Node) -> String:
 		b = m.get_string(1)
 	return NameUtils.unique_child_name(parent, b)
 
+## La copia va al MISMO padre que la original, justo encima (como Figma /
+## Affinity). Antes: (1) sin un clic previo en el lienzo target_artboard era
+## null y no hacía nada (p. ej. seleccionando desde Capas + Duplicar) y (2)
+## una capa dentro de un grupo se copiaba fuera, a la raíz del artboard.
 func duplicate_selected() -> void:
-	if selected_shapes.is_empty() or not target_artboard:
+	if selected_shapes.is_empty():
 		return
-	var new_nodes: Array = []
+	var pairs: Array = []   # [clon, padre, índice]
 	for s in selected_shapes:
-		if is_instance_valid(s):
-			var clone = _duplicate_named(s, target_artboard)
-			clone.position = s.position + Vector2(20, 20)
-			new_nodes.append(clone)
-	if new_nodes.is_empty():
+		if not is_instance_valid(s) or s.get_parent() == null:
+			continue
+		var parent: Node = s.get_parent()
+		var clone = _duplicate_named(s, parent)
+		clone.position = s.position + Vector2(20, 20)
+		pairs.append([clone, parent, s.get_index() + 1])
+	if pairs.is_empty():
 		return
-
-	_commit_add_nodes("Duplicar selección", new_nodes)
+	var do_fn := func() -> void:
+		for p in pairs:
+			var c: Node = p[0]
+			if is_instance_valid(c) and not c.is_inside_tree() and is_instance_valid(p[1]):
+				p[1].add_child(c)
+				p[1].move_child(c, mini(int(p[2]), p[1].get_child_count() - 1))
+	var undo_fn := func() -> void:
+		for p in pairs:
+			var c: Node = p[0]
+			if is_instance_valid(c) and c.get_parent():
+				c.get_parent().remove_child(c)
+	HistoryManager.register_action("Duplicar selección")
+	HistoryManager.add_do(do_fn)
+	HistoryManager.add_undo(undo_fn)
+	HistoryManager.commit()
+	do_fn.call()
+	selected_shapes.clear()
+	for p in pairs:
+		selected_shapes.append(p[0])
+	_update_macro_rect()
+	_emit_selection_changed()
+	if is_instance_valid(canvas):
+		canvas.queue_redraw()
 
 ## `gm`: posición actual del mouse (la misma que ya tenía _on_motion en este
 ## frame) — necesaria para re-anclar transform_initial_mouse a ESTE instante,

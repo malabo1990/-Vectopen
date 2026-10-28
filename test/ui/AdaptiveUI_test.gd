@@ -113,10 +113,10 @@ func test_docked_inspector_selection_label() -> void:
 	add_child(inspector)
 
 	inspector._on_selection_size_changed(0)
-	assert_that(inspector.lbl_selection.text).is_equal("No selection")
+	assert_that(inspector.lbl_selection.text).is_equal(tr("No selection"))
 
 	inspector._on_selection_size_changed(3)
-	assert_that(inspector.lbl_selection.text).is_equal("3 objects selected")
+	assert_that(inspector.lbl_selection.text).is_equal(tr("%d objects selected") % 3)
 
 func test_adaptive_ui_manager_orchestration() -> void:
 	var host: Control = auto_free(Control.new())

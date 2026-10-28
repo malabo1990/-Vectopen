@@ -34,6 +34,7 @@ var _syncing: bool = false
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(310, 0)
+	ToolPanelDock.normalize_fonts(self)
 	_build_ui()
 	_connect_events()
 	_connect_theme()
@@ -423,8 +424,10 @@ func _on_stroke_width_changed(val: float) -> void:
 func _apply_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
 	var is_dark: bool = true
-	if tm and tm.has_method("is_dark_theme"):
-		is_dark = tm.is_dark_theme()
+	# El método es is_dark() (antes se preguntaba por is_dark_theme(), que no
+	# existe: siempre «oscuro» y texto blanco con el tema claro).
+	if tm and tm.has_method("is_dark"):
+		is_dark = tm.is_dark()
 
 	var bg_col := Color(0.14, 0.14, 0.17, 0.98) if is_dark else Color(0.96, 0.96, 0.97, 0.98)
 	var border_col := Color(1, 1, 1, 0.12) if is_dark else Color(0, 0, 0, 0.12)

@@ -13,7 +13,10 @@ extends RefCounted
 
 const FxUI = preload("res://script_gdscript/ui/panels/effects/fx_ui.gd")
 const CFG := "user://vectopen_layers_ui.cfg"
-const DEFAULTS := {"font_size": 12, "density": 1, "opacity": 1.0, "start_tab": "last", "thumb": 56}
+const DEFAULTS := {"font_size": 12, "density": 1, "opacity": 1.0, "start_tab": "last", "thumb": 56, "layer_view": "icons"}
+## Vista de cada capa: icono de tipo; miniatura + nombre (Affinity /
+## Photoshop); o compacta, solo miniatura y sus 3 botones (Pixelmator).
+const VIEWS := [["Iconos de tipo", "icons"], ["Miniaturas (vista previa)", "thumbs"], ["Compacta (solo miniatura)", "compact"]]
 const DENSITY := [["Compacto", 0], ["Normal", 4], ["Amplio", 9]]
 const TABS := [["Última usada", "last"], ["Capas", "capas"], ["Páginas", "paginas"], ["Recursos", "recursos"]]
 
@@ -46,6 +49,8 @@ static func apply(layers: Node, s: Dictionary = {}) -> void:
 	var rec := layers.find_child("RecursosPanel", true, false)
 	if rec and rec.has_method("set_thumb_size"):
 		rec.set_thumb_size(int(s["thumb"]))
+	if layers.has_method("set_layer_view"):
+		layers.set_layer_view(String(s["layer_view"]))
 
 static func _panel_root(layers: Node) -> CanvasItem:
 	var n: Node = layers
@@ -104,6 +109,15 @@ static func install(button: Button, host: Control, layers: Node) -> void:
 	op.value_changed.connect(func(x: float) -> void:
 		save_value("opacity", x / 100.0)
 		apply(layers))
+	var view_i := 0
+	for i in VIEWS.size():
+		if VIEWS[i][1] == String(s["layer_view"]):
+			view_i = i
+	var view := _option_row(v, "Vista de capas", VIEWS.map(func(x) -> String: return x[0]), view_i)
+	view.name = "LayerView"
+	view.item_selected.connect(func(i: int) -> void:
+		save_value("layer_view", VIEWS[i][1])
+		apply(layers))
 	var tab_i := 0
 	for i in TABS.size():
 		if TABS[i][1] == String(s["start_tab"]):
@@ -123,10 +137,18 @@ static func install(button: Button, host: Control, layers: Node) -> void:
 	reset.pressed.connect(func() -> void:
 		for k in DEFAULTS:
 			save_value(k, DEFAULTS[k])
+		# También el ancho del panel elegido arrastrando su borde.
+		var cfg := ConfigFile.new()
+		cfg.load(CFG)
+		for ui_m in ["smart", "modern", "professional"]:
+			if cfg.has_section_key("panel", "width_" + ui_m):
+				cfg.erase_section_key("panel", "width_" + ui_m)
+		cfg.save(CFG)
 		font_sl.set_value_no_signal(DEFAULTS["font_size"])
 		dens.select(int(DEFAULTS["density"]))
 		op.set_value_no_signal(100)
 		tab.select(0)
+		view.select(0)
 		th.set_value_no_signal(DEFAULTS["thumb"])
 		for sl in [font_sl, op, th]:
 			sl.value_changed.emit(sl.value)

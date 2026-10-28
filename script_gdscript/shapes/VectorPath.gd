@@ -69,6 +69,37 @@ const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
 		stroke_pointer_end = v
 		queue_redraw()
 
+const StrokePaint = preload("res://script_gdscript/shapes/stroke_paint.gd")
+
+## ── Degradado en el trazo (opcional) ──────────────────────────────────────
+## Con >= 2 puntos el trazo se pinta con este degradado (0 lineal, 1 radial)
+## en vez de `stroke_color`. Ver StrokePaint.
+@export var stroke_gradient: Gradient = null:
+	set(v):
+		if stroke_gradient and stroke_gradient.changed.is_connected(queue_redraw):
+			stroke_gradient.changed.disconnect(queue_redraw)
+		stroke_gradient = v
+		if stroke_gradient and not stroke_gradient.changed.is_connected(queue_redraw):
+			stroke_gradient.changed.connect(queue_redraw)
+		queue_redraw()
+@export var stroke_gradient_type: int = 0:
+	set(v):
+		stroke_gradient_type = v
+		queue_redraw()
+@export var stroke_gradient_angle: float = 0.0:
+	set(v):
+		stroke_gradient_angle = v
+		queue_redraw()
+
+func has_gradient_stroke() -> bool:
+	return stroke_gradient != null and stroke_gradient.get_point_count() >= 2
+
+func clear_stroke_gradient() -> void:
+	stroke_gradient = null
+
+func stroke_colors_for(points: PackedVector2Array) -> PackedColorArray:
+	return StrokePaint.colors_for(points, stroke_gradient, stroke_gradient_type, stroke_gradient_angle)
+
 ## Subtrazados EXTRA del mismo objeto (agujeros o islas), rellenos con la
 ## regla par-impar: una "O" o un anillo vectorizado es UN trazado con su
 ## hueco (antes cada subtrazado era una forma rellena aparte que tapaba el
@@ -188,8 +219,14 @@ func _draw_stroke_mesh(pts: PackedVector2Array, is_closed: bool) -> void:
 		stroke_cap_start, stroke_cap_end, sp[1], stroke_dash_len, stroke_dash_gap)
 	if (m["indices"] as PackedInt32Array).is_empty():
 		return
-	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"],
-		PackedColorArray([wc[1]]))
+	var cols := PackedColorArray([wc[1]])
+	if has_gradient_stroke():
+		cols = stroke_colors_for(m["points"])
+		var k: float = (wc[1] as Color).a / stroke_color.a if stroke_color.a > 0.0 else 1.0
+		if k < 1.0:
+			for i in cols.size():
+				cols[i].a *= k
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], cols)
 
 func _pointer_size() -> float:
 	return StrokeMarkers.size_for(stroke_width, stroke_pointer_scale)

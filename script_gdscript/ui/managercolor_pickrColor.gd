@@ -165,11 +165,10 @@ func _on_tab_pressed(tab_name: String) -> void:
 		var col: Color = nodo_color_rect.color if is_instance_valid(nodo_color_rect) else Color.WHITE
 		establecer_color(col, true)
 		var cc := get_tree().root.get_node_or_null("ColorCore") if (is_inside_tree() and get_tree() and get_tree().root) else null
-		if cc:
-			if cc.has_method("set_target"):
-				cc.set_target("fill")
-			if cc.has_method("set_paint"):
-				cc.set_paint({"type": "solid", "color": col}, "fill")
+		# Sólido en el objetivo activo. Antes forzaba «relleno» y el trazo
+		# nunca cogía el color (bug: "trazos no puede añadir color").
+		if cc and cc.has_method("set_paint"):
+			cc.set_paint({"type": "solid", "color": col}, "")
 		_deactivate_canvas_gradient_mode()
 	else:
 		if is_instance_valid(gradient_editor):
@@ -543,7 +542,9 @@ func _on_colorcore_changed(fill: Color, stroke: Color, target: String) -> void:
 			_sync_gradient_guard = true
 			picker_panel.set_color(c)
 			_sync_gradient_guard = false
-		color_actualizado.emit(c)
+		# Sin color_actualizado: sus dueños (Pro, inspector de Modern) lo
+		# devolvían a ColorCore con SU objetivo y los selectores se rebotaban
+		# el color sin fin (desbordamiento de pila al pasar a «trazo»).
 
 # 3. Función SET profesional (Modifica el color y lo comunica a todo tu motor)
 func establecer_color(nuevo_color: Color, force: bool = false) -> void:

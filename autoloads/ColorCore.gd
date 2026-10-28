@@ -32,6 +32,10 @@ var stroke_color: Color = Color(0.1, 0.1, 0.1, 1.0)
 var active_target: String = "fill"
 
 var _fill_paint: Dictionary = {"type": "solid", "color": fill_color}
+var _stroke_paint: Dictionary = {"type": "solid", "color": stroke_color}
+## Objetivo que eligió el usuario; el automático (líneas abiertas → trazo) no
+## lo pisa: al seleccionar otra cosa se vuelve a él.
+var _user_target: String = "fill"
 var recents: Array[Color] = []
 var palette: Array[Color] = []
 
@@ -40,6 +44,7 @@ var _sync_guard: bool = false
 ## ColorCore → InspectorCore.apply → object_style_changed → InspectorCore.changed
 ## → ColorCore._on_inspector_changed.
 var _applying: bool = false
+var _notifying: bool = false
 
 func _ready() -> void:
 	_load_state()
@@ -52,7 +57,9 @@ func set_target(t: String) -> void:
 	if t == active_target or not (t in ["fill", "stroke"]):
 		return
 	active_target = t
+	_user_target = t
 	changed.emit(fill_color, stroke_color, active_target)
+	paint_changed.emit(active_paint())
 
 func active_color() -> Color:
 	return fill_color if active_target == "fill" else stroke_color
@@ -60,13 +67,34 @@ func active_color() -> Color:
 func active_paint() -> Dictionary:
 	if active_target == "fill":
 		return _fill_paint.duplicate(true)
-	return {"type": "solid", "color": stroke_color}
+	return _stroke_paint.duplicate(true)
+
+## Líneas abiertas (trazos Bézier / pluma sin cerrar) no tienen relleno que
+## se vea: elegir un color o un degradado cambiaba ese relleno invisible y
+## "el trazo no cogía color". Con solo líneas abiertas seleccionadas, el
+## objetivo pasa solo a Trazo.
+static func is_open_line(n: Node) -> bool:
+	if n is Line2D:
+		return false   # pincel/pluma Line2D: su color ES el cuerpo (relleno)
+	if n is Path2D and "closed" in n:
+		return not bool(n.closed)
+	return false
+
+func _auto_target(sel: Array) -> void:
+	var all_open := not sel.is_empty()
+	for n in sel:
+		if not (is_instance_valid(n) and is_open_line(n)):
+			all_open = false
+			break
+	var want := "stroke" if all_open else _user_target
+	if want != active_target:
+		active_target = want
 
 # ── color sólido ─────────────────────────────────────────────────────────────
 ## Fija el color del objetivo activo, lo registra en recientes y lo aplica a la
 ## selección (o queda como color por defecto para figuras nuevas).
 func set_color(c: Color, target: String = "") -> void:
-	if _sync_guard:
+	if _sync_guard or _notifying:
 		return
 	var tgt := target if target != "" else active_target
 	if tgt == "fill":
@@ -74,11 +102,14 @@ func set_color(c: Color, target: String = "") -> void:
 		_fill_paint = {"type": "solid", "color": c}
 	else:
 		stroke_color = c
+		_stroke_paint = {"type": "solid", "color": c}
 	_add_recent(c)
 	_apply_to_selection(tgt)
+	# Mientras se avisa, un selector que reenvía el color no vuelve a entrar.
+	_notifying = true
 	changed.emit(fill_color, stroke_color, active_target)
-	if tgt == "fill":
-		paint_changed.emit(_fill_paint)
+	paint_changed.emit(active_paint())
+	_notifying = false
 
 ## Fija un paint completo (sólido o degradado) sobre el relleno de la selección.
 func set_paint(paint: Dictionary, target: String = "") -> void:
@@ -86,8 +117,7 @@ func set_paint(paint: Dictionary, target: String = "") -> void:
 		return
 	var tgt := target if target != "" else active_target
 	if tgt != "fill":
-		# los degradados solo aplican a relleno; para trazo tomamos su primer stop
-		set_color(_paint_representative_color(paint), "stroke")
+		_set_stroke_paint(paint)
 		return
 	var new_paint := paint.duplicate(true)
 	if new_paint.get("type", "solid") != "solid":
@@ -109,6 +139,20 @@ func set_paint(paint: Dictionary, target: String = "") -> void:
 	changed.emit(fill_color, stroke_color, active_target)
 	paint_changed.emit(_fill_paint)
 
+## Degradado (o color) en el trazo de la selección.
+func _set_stroke_paint(paint: Dictionary) -> void:
+	_stroke_paint = paint.duplicate(true)
+	if paint.get("type", "solid") == "solid":
+		stroke_color = paint.get("color", stroke_color)
+		_add_recent(stroke_color)
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("apply"):
+		_applying = true
+		ic.apply("stroke_paint", _stroke_paint)
+		_applying = false
+	changed.emit(fill_color, stroke_color, active_target)
+	paint_changed.emit(_stroke_paint)
+
 func apply_color(c: Color) -> void:
 	set_color(c)
 
@@ -118,15 +162,18 @@ func apply_fill(c: Color) -> void:
 func apply_stroke(c: Color) -> void:
 	set_color(c, "stroke")
 
+## Sólido / lineal / radial sobre el objetivo activo (relleno o trazo).
 func set_fill_mode(mode: String) -> void:
+	var tgt := active_target
+	var base: Color = fill_color if tgt == "fill" else stroke_color
 	if mode == "solid":
-		set_color(fill_color, "fill")
+		set_color(base, tgt)
 	elif mode == "linear":
-		var stops = [[0.0, fill_color], [1.0, fill_color.darkened(0.3)]]
-		set_paint(make_linear(stops), "fill")
+		var stops = [[0.0, base], [1.0, base.darkened(0.3) if base.get_luminance() > 0.25 else base.lightened(0.6)]]
+		set_paint(make_linear(stops), tgt)
 	elif mode == "radial":
-		var stops = [[0.0, fill_color], [1.0, fill_color.darkened(0.3)]]
-		set_paint(make_radial(stops), "fill")
+		var stops = [[0.0, base], [1.0, base.darkened(0.3) if base.get_luminance() > 0.25 else base.lightened(0.6)]]
+		set_paint(make_radial(stops), tgt)
 
 func _apply_to_selection(tgt: String) -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
@@ -144,6 +191,13 @@ func _on_inspector_changed(props: Dictionary) -> void:
 	if _applying or not (props is Dictionary):
 		return
 	_sync_guard = true
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("selection"):
+		_auto_target(ic.selection())
+	if props.has("stroke_paint") and not props["stroke_paint"]["mixed"] and props["stroke_paint"]["value"] is Dictionary:
+		_stroke_paint = (props["stroke_paint"]["value"] as Dictionary).duplicate(true)
+	elif props.has("stroke_color") and not props["stroke_color"]["mixed"]:
+		_stroke_paint = {"type": "solid", "color": props["stroke_color"]["value"]}
 	if props.has("fill_color") and not props["fill_color"]["mixed"]:
 		fill_color = props["fill_color"]["value"]
 	if props.has("stroke_color") and not props["stroke_color"]["mixed"]:
@@ -156,7 +210,7 @@ func _on_inspector_changed(props: Dictionary) -> void:
 		_fill_paint = {"type": "solid", "color": fill_color}
 	_sync_guard = false
 	changed.emit(fill_color, stroke_color, active_target)
-	paint_changed.emit(_fill_paint)
+	paint_changed.emit(active_paint())
 
 # ── modelo de paint ──────────────────────────────────────────────────────────
 func make_solid(c: Color) -> Dictionary:

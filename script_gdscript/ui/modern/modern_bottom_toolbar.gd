@@ -19,6 +19,19 @@ var lbl_zoom: Label
 var btn_zoom_in: Button
 var _text_popup: PopupMenu = null
 
+## Herramientas de dibujo que cuelgan del botón "shapes".
+const SHAPE_TOOLS := ["pentagon", "triangle", "star", "star4", "star5", "rectangle", "ellipse", "waterdrop"]
+## Panel de opciones que cada botón muestra en el lateral ("" = ninguno).
+const TOOL_PANEL := {"shapes": "polygon", "bezier": "bezier", "nodeselection": "bezier", "brush": "brush",
+	"text": "text", "paragraph": "text"}
+
+static func _button_of(tool_id: String) -> String:
+	if tool_id in SHAPE_TOOLS:
+		return "shapes"
+	if tool_id == "paragraph":
+		return "text"
+	return tool_id
+
 func _ready() -> void:
 	_setup_styles()
 	_build_ui()
@@ -80,13 +93,19 @@ func _build_ui() -> void:
 
 	var tools := [
 		{"name": "select", "label": "↖", "tooltip": "Select and Move (V)", "icon": "res://icon/UI/navigation.svg"},
+		# Selección de nodos e Imagen: antes solo estaban en la columna
+		# izquierda, que Modern ya no muestra (una sola barra, abajo).
+		{"name": "nodeselection", "label": "⌖", "tooltip": "Node selection (A)", "icon": "res://icon/UI/navigation_BLACK.svg"},
 		{"name": "artboard", "label": "⛶", "tooltip": "Frame / Artboard (F)", "icon": "res://icon/UI/frame-alt.svg"},
-		{"name": "rectangle", "label": "□", "tooltip": "Rectangle (R)", "icon": "res://icon/UI/square.svg"},
-		{"name": "ellipse", "label": "○", "tooltip": "Ellipse (O)", "icon": "res://icon/UI/circle-spark.svg"},
-		{"name": "star", "label": "★", "tooltip": "Star (S)", "icon": "res://icon/UI/star.svg"},
+		# UN botón de figuras, como en Smart: la figura (polígono, estrella,
+		# rectángulo, elipse, gota) se elige en su panel del lateral. Antes
+		# había tres botones sueltos que no abrían ningún panel y el
+		# inspector se quedaba vacío con la herramienta de círculo.
+		{"name": "shapes", "label": "⬠", "tooltip": "Polygons and shapes", "icon": "res://icon/UI/hexagon-plus.svg"},
 		{"name": "bezier", "label": "∿", "tooltip": "Bézier Curve (D)", "icon": "res://icon/UI/design_nodoblack.svg"},
 		{"name": "brush", "label": "🖌", "tooltip": "Brush (B)", "icon": "res://icon/UI/draw.svg"},
 		{"name": "text", "label": "T", "tooltip": "Text (T)", "icon": "res://icon/UI/text-square.svg"},
+		{"name": "image", "label": "🖼", "tooltip": "Image", "icon": "res://icon/UI/media-image.svg"},
 		{"name": "model3d", "label": "3D", "tooltip": "Import 3D Model (.glb / .gltf)", "icon": "res://icon/UI/cube.svg"}
 	]
 
@@ -289,6 +308,13 @@ func _on_tool_button_pressed(tool_id: String) -> void:
 			tool_id = "text"
 		_update_text_tool_button(tool_id)
 
+	var panel_name: String = TOOL_PANEL.get(tool_id, "")
+	if tool_id == "shapes":
+		tool_id = PanelPolygon.current_tool
+	var gev = get_node_or_null("/root/GlobalEvents")
+	if is_instance_valid(gev) and gev.has_signal("request_tool_panel"):
+		gev.emit_safe("request_tool_panel", panel_name)
+
 	if tool_id == "bezier":
 		var ge = get_node_or_null("/root/GlobalEvents")
 		if is_instance_valid(ge) and ge.has_method("emit_safe"):
@@ -311,6 +337,12 @@ func _on_data_tool_changed(tool_id: String) -> void:
 	if tid == "move": tid = "select"
 	if tid == "text" or tid == "paragraph":
 		_update_text_tool_button(tid)
+	# Atajo de teclado (R, O, S…) con Modern visible: abrir también su panel.
+	if is_visible_in_tree() and _button_of(tid) != _button_of(_active_tool):
+		var pn: String = TOOL_PANEL.get(_button_of(tid), "")
+		var ge = get_node_or_null("/root/GlobalEvents")
+		if pn != "" and is_instance_valid(ge) and ge.has_signal("request_tool_panel"):
+			ge.emit_safe("request_tool_panel", pn)
 	_active_tool = tid
 	_sync_active_tool()
 
@@ -347,7 +379,7 @@ func _sync_active_tool() -> void:
 		var btn: Button = _buttons[tid]
 		btn.add_theme_stylebox_override("hover", hover_sb)
 		btn.modulate = Color.WHITE
-		var is_active: bool = (tid == _active_tool) or (tid == "text" and (_active_tool == "text" or _active_tool == "paragraph"))
+		var is_active: bool = tid == _button_of(_active_tool)
 		if is_active:
 			btn.add_theme_stylebox_override("normal", active_sb)
 			btn.add_theme_color_override("font_color", active_text)

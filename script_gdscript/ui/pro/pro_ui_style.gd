@@ -140,6 +140,8 @@ static func style_line_edit(le: LineEdit) -> void:
 	le.add_theme_stylebox_override("read_only", flat(col("INPUT_BG"), 3, col("INPUT_BORDER"), 5, 1))
 	le.add_theme_color_override("font_color", col("PANEL_TEXT"))
 	le.add_theme_color_override("caret_color", col("PANEL_TEXT"))
+	# Texto de ayuda («Ir a…»): sin esto salía casi blanco en el tema claro.
+	le.add_theme_color_override("font_placeholder_color", col("TEXT_SECONDARY"))
 	le.add_theme_font_size_override("font_size", FONT_SIZE)
 	le.custom_minimum_size.y = ROW_H
 

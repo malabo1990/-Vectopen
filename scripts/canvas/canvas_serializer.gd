@@ -325,6 +325,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			base["stroke"] = _col(node.get("stroke_color"))
 		if "stroke_width" in node:
 			base["stroke_w"] = node.get("stroke_width")
+		if node.has_method("has_gradient_stroke") and node.has_gradient_stroke():
+			base["stroke_grad"] = _grad_to_dict(node.stroke_gradient, int(node.stroke_gradient_type), float(node.stroke_gradient_angle))
 		# Estilo, extremos, puntas y perfil: antes no se guardaban y se perdían
 		# al recargar.
 		for k in _PATH_STROKE_KEYS:
@@ -399,6 +401,8 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 	d["stroke_w"] = s.stroke_width
 	if s.has_gradient_fill():
 		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle), s.fill_gradient_p0, s.fill_gradient_p1)
+	if s.has_gradient_stroke():
+		d["stroke_grad"] = _grad_to_dict(s.stroke_gradient, int(s.stroke_gradient_type), float(s.stroke_gradient_angle))
 	# Efectos (best-effort): array de Effect (Resource) o de dicts {type,params}.
 	var fx := []
 	for e in s.effects:
@@ -903,6 +907,7 @@ static func _element_from(d: Dictionary) -> Node2D:
 			if d.has("fill"): vp.set("fill_color", _to_col(d["fill"]))
 			if d.has("stroke"): vp.set("stroke_color", _to_col(d["stroke"]))
 			if d.has("stroke_w"): vp.set("stroke_width", float(d["stroke_w"]))
+			_read_stroke_grad(vp, d)
 			vp.set("closed", bool(d.get("path_closed", false)))
 			if d.get("subs") is Array:
 				var subs: Array[Curve2D] = []
@@ -1132,10 +1137,19 @@ static func _text_from(d: Dictionary) -> Node2D:
 	return cont
 
 
+## Degradado del trazo (VectorShape y VectorPath).
+static func _read_stroke_grad(n: Node, d: Dictionary) -> void:
+	if not (d.get("stroke_grad") is Dictionary) or not n.has_method("has_gradient_stroke"):
+		return
+	n.set("stroke_gradient_type", int(d["stroke_grad"].get("type", 0)))
+	n.set("stroke_gradient_angle", float(d["stroke_grad"].get("angle", 0.0)))
+	n.set("stroke_gradient", _grad_from_dict(d["stroke_grad"]))
+
 static func _read_style(s: VectorShape, d: Dictionary) -> void:
 	s.fill_color = _to_col(d.get("fill", [1, 1, 1, 1]))
 	s.stroke_color = _to_col(d.get("stroke", [0, 0, 0, 1]))
 	s.stroke_width = d.get("stroke_w", 2.0)
+	_read_stroke_grad(s, d)
 	if d.has("fill_grad") and d["fill_grad"] is Dictionary:
 		s.fill_gradient_type = int(d["fill_grad"].get("type", 0))
 		s.fill_gradient_angle = float(d["fill_grad"].get("angle", 0.0))

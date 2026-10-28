@@ -168,7 +168,9 @@ func _get_event_gm(event: InputEvent) -> Vector2:
 	return Vector2.ZERO
 
 func handle_input(event: InputEvent) -> bool:
-	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
+	# Solo el ratón sobre un panel se ignora; el teclado (Esc, Supr, flechas…)
+	# funciona esté donde esté el puntero.
+	if event is InputEventMouse and "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
 		return false
 
 	var event_gm := _get_event_gm(event)

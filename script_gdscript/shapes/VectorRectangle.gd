@@ -124,7 +124,8 @@ func _draw() -> void:
 				s_rect = rect.grow(-stroke_width * 0.5)
 			elif stroke_align == 2: # Outside
 				s_rect = rect.grow(stroke_width * 0.5)
-			if stroke_style == 0:
+			# Con degradado en el trazo, draw_rect (un solo color) no sirve.
+			if stroke_style == 0 and not has_gradient_stroke():
 				var sp := _get_rendered_stroke_params(stroke_width, stroke_color)
 				draw_rect(s_rect, sp[1], false, sp[0], false)
 			else:

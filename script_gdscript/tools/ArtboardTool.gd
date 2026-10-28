@@ -33,7 +33,9 @@ func deactivate() -> void:
 
 func handle_input(event: InputEvent) -> bool:
 	# 1. Seguridad: Si el cursor está interactuando con paneles flotantes o UI, no dibujar
-	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
+	# Solo el ratón sobre un panel se ignora; el teclado (Esc, Supr, flechas…)
+	# funciona esté donde esté el puntero.
+	if event is InputEventMouse and "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
 		return false
 
 	# Obtener coordenadas globales escaladas dentro del espacio de trabajo infinito

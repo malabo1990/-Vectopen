@@ -28,8 +28,8 @@ func test_empty_selection_shows_canvas_properties_and_hides_shape_sections() -> 
 	# Simular sin selección (0 elementos)
 	inspector._on_selection_size_changed(0)
 
-	assert_that(inspector.lbl_title.text).is_equal("Page")
-	assert_that(inspector.lbl_selection.text).is_equal("No selection")
+	assert_that(inspector.lbl_title.text).is_equal(tr("Page"))
+	assert_that(inspector.lbl_selection.text).is_equal(tr("No selection"))
 	assert_bool(inspector.sec_canvas.visible).is_true()
 	assert_bool(inspector.sec_align.visible).is_false()
 	assert_bool(inspector.transform_panel.visible).is_false()
@@ -46,7 +46,7 @@ func test_active_selection_shows_shape_sections_and_hides_canvas_properties() ->
 	# Simular selección de 1 objeto
 	inspector._on_selection_size_changed(1)
 
-	assert_that(inspector.lbl_selection.text).is_equal("1 object selected")
+	assert_that(inspector.lbl_selection.text).is_equal(tr("1 object selected"))
 	assert_bool(inspector.sec_canvas.visible).is_false()
 	assert_bool(inspector.sec_align.visible).is_true()
 	assert_bool(inspector.transform_panel.visible).is_true()

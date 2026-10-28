@@ -32,6 +32,37 @@ class_name VectorShape
 		stroke_dash_gap = maxf(1.0, v)
 		queue_redraw()
 
+const StrokePaint = preload("res://script_gdscript/shapes/stroke_paint.gd")
+
+## ── Degradado en el trazo (opcional) ──────────────────────────────────────
+## Con >= 2 puntos el trazo se pinta con este degradado (0 lineal, 1 radial)
+## en vez de `stroke_color`. Ver StrokePaint.
+@export var stroke_gradient: Gradient = null:
+	set(v):
+		if stroke_gradient and stroke_gradient.changed.is_connected(queue_redraw):
+			stroke_gradient.changed.disconnect(queue_redraw)
+		stroke_gradient = v
+		if stroke_gradient and not stroke_gradient.changed.is_connected(queue_redraw):
+			stroke_gradient.changed.connect(queue_redraw)
+		queue_redraw()
+@export var stroke_gradient_type: int = 0:
+	set(v):
+		stroke_gradient_type = v
+		queue_redraw()
+@export var stroke_gradient_angle: float = 0.0:
+	set(v):
+		stroke_gradient_angle = v
+		queue_redraw()
+
+func has_gradient_stroke() -> bool:
+	return stroke_gradient != null and stroke_gradient.get_point_count() >= 2
+
+func clear_stroke_gradient() -> void:
+	stroke_gradient = null
+
+func stroke_colors_for(points: PackedVector2Array) -> PackedColorArray:
+	return StrokePaint.colors_for(points, stroke_gradient, stroke_gradient_type, stroke_gradient_angle)
+
 ## ── Relleno con degradado (opcional) ──────────────────────────────────────
 ## Si `fill_gradient` tiene >= 2 puntos, el relleno se dibuja como degradado
 ## (lineal o radial) en vez del `fill_color` plano. Todas las figuras dibujan
@@ -1028,7 +1059,14 @@ func draw_stroke_ring(points: PackedVector2Array) -> void:
 		4: # Double
 			_draw_ring_double(ring, rend_col)
 		_: # Solid
-			draw_polyline(ring, rend_col, rend_w, false)
+			if has_gradient_stroke():
+				var cols := stroke_colors_for(ring)
+				if rend_col.a < stroke_color.a and stroke_color.a > 0.0:
+					for i in cols.size():
+						cols[i].a *= rend_col.a / stroke_color.a
+				draw_polyline_colors(ring, cols, rend_w, false)
+			else:
+				draw_polyline(ring, rend_col, rend_w, false)
 
 func _draw_ring_dashed(ring: PackedVector2Array, rend_w: float = -1.0, rend_col: Color = Color(-1, -1, -1, -1)) -> void:
 	var use_w: float = stroke_width if rend_w < 0.0 else rend_w

@@ -89,6 +89,7 @@ func _ready() -> void:
 	_resolve_nodes()
 	_store_defaults()
 	_connect_events()
+	_ensure_edge_resizer.call_deferred()
 	# Live keyboard / mouse chip (bottom-left, Smart mode)
 	if is_instance_valid(keyboard_node) and keyboard_node.find_children("", "InputHud", false, false).is_empty():
 		var hud := InputHud.new()
@@ -201,6 +202,12 @@ func _connect_events() -> void:
 	if is_instance_valid(ge) and ge.has_signal("request_settings_dialog"):
 		if not ge.request_settings_dialog.is_connected(_on_request_settings_dialog):
 			ge.request_settings_dialog.connect(_on_request_settings_dialog)
+	if is_instance_valid(ge) and ge.has_signal("request_floating_panel"):
+		if not ge.request_floating_panel.is_connected(_on_request_floating_panel):
+			ge.request_floating_panel.connect(_on_request_floating_panel)
+	if is_instance_valid(ge) and ge.has_signal("request_tool_panel"):
+		if not ge.request_tool_panel.is_connected(_on_request_tool_panel):
+			ge.request_tool_panel.connect(_on_request_tool_panel)
 
 	_connect_nav_rail()
 
@@ -275,8 +282,8 @@ func _on_phase_panel_added(panel: Control) -> void:
 	_connect_nav_rail()
 	# El DockedInspector llega en la fase 2 (después del _ready de este nodo),
 	# así que si arrancamos en Modern hay que acoplar los paneles ahora.
-	if _is_modern_mode_active():
-		_ensure_tool_panels_hosted()
+	# (ProStudio también llega por fases: lo mismo en Pro.)
+	_ensure_tool_panels_hosted()
 	# los paneles de la barra de arriba (color, efectos) llegan en la fase 2
 	if String(panel.name) in ["pickr_color_windows", "panel__effects"]:
 		_place_under_bar(panel)
@@ -355,6 +362,13 @@ func apply_ui_mode(mode: String) -> void:
 			_apply_professional_mode()
 		_:
 			_apply_smart_mode()
+	# Cada modo tiene SUS paneles: al cambiar, los flotantes del modo anterior
+	# se cierran (antes el selector de color de Smart seguía abierto en Pro,
+	# tapado por la regla). Solo si el modo cambia de verdad.
+	if _applied_mode != "" and _applied_mode != mode:
+		_close_floating_panels()
+	_applied_mode = mode
+	_sync_edge_resizer.call_deferred()
 
 func _apply_smart_mode() -> void:
 	# Smart Panel: Canvas First. Ocultar chrome de Modern UI y Docked Inspector
@@ -435,6 +449,9 @@ func _apply_smart_mode() -> void:
 			# 10 px de aire con el borde derecho de la ventana (antes tocaba)
 			inner.offset_right = -EDGE_GAP
 			inner.offset_left = _default_inner_offset_left - _default_inner_offset_right - EDGE_GAP
+			var smart_w := _saved_panel_width("smart")
+			if smart_w > 0.0:
+				inner.offset_left = inner.offset_right - smart_w
 			inner.offset_top = _default_inner_offset_top
 			inner.offset_bottom = _default_inner_offset_bottom
 			inner.custom_minimum_size = _default_inner_min_size
@@ -486,6 +503,7 @@ func _apply_smart_mode() -> void:
 			var toggle_ctrl = inner.get_node_or_null("Control") as Control
 			if toggle_ctrl:
 				toggle_ctrl.visible = true
+				_place_layers_gear(toggle_ctrl, false)
 
 	_release_tool_panels()
 	_update_toolbar_subpanels_direction(false)
@@ -639,14 +657,21 @@ func _apply_modern_mode() -> void:
 				lsb.set_border_width_all(0)
 				layers_panel.add_theme_stylebox_override("panel", lsb)
 
-			# Herramientas verticales visibles en Modern UI y Pro UI
+			# Modern: UNA sola barra de herramientas, la inferior. La columna
+			# vertical de Smart duplicaba las mismas herramientas a la
+			# izquierda (pedido del usuario: "hay dos barras… izquierda
+			# quitarlo"). Sus paneles se acoplan en el inspector igualmente.
 			var tools = inner.find_child("Herramientas", true, false) as Control
 			if tools:
-				tools.visible = true
+				tools.visible = false
 			# Ocultar boton flotante de toggle original
+			# ⚙ Ajustes de Capas: antes se ocultaba en Modern/Pro (sin forma de
+			# llegar a ellos). Ahora arriba a la derecha del panel, y la
+			# ventanita se abre hacia el lienzo.
 			var toggle_ctrl = inner.get_node_or_null("Control") as Control
 			if toggle_ctrl:
-				toggle_ctrl.visible = false
+				toggle_ctrl.visible = true
+				_place_layers_gear(toggle_ctrl, true)
 
 	_ensure_tool_panels_hosted()
 	# El inspector se crea en la fase 2: reintentar tras el frame por si aún no existe.
@@ -796,11 +821,17 @@ func _apply_professional_mode() -> void:
 			var tools = inner.find_child("Herramientas", true, false) as Control
 			if tools:
 				tools.visible = true
+			# ⚙ Ajustes de Capas: antes se ocultaba en Modern/Pro (sin forma de
+			# llegar a ellos). Ahora arriba a la derecha del panel, y la
+			# ventanita se abre hacia el lienzo.
 			var toggle_ctrl = inner.get_node_or_null("Control") as Control
 			if toggle_ctrl:
-				toggle_ctrl.visible = false
+				toggle_ctrl.visible = true
+				_place_layers_gear(toggle_ctrl, true)
 
-	_release_tool_panels()
+	_ensure_tool_panels_hosted()
+	# ProStudio puede llegar en una fase posterior: reintentar tras el frame.
+	_ensure_tool_panels_hosted.call_deferred()
 	_update_toolbar_subpanels_direction(true)
 	# ancho real de la barra (contenido) y reglas a su lado
 	set_left_dock_width.call_deferred(-1.0)
@@ -882,7 +913,7 @@ func _align_subpanel(sp: Control) -> void:
 	if not is_instance_valid(sp) or not sp.is_visible_in_tree() or not is_instance_valid(layout_node):
 		return
 	await get_tree().process_frame   # tamaño final ya calculado
-	if not is_instance_valid(sp):
+	if not is_instance_valid(sp) or _is_docked_tool_panel(sp):
 		return
 	var frame := layout_node.get_node_or_null("PanelContainer") as Control
 	if frame == null:
@@ -895,33 +926,259 @@ func _align_subpanel(sp: Control) -> void:
 		sp.offset_left += delta
 		sp.offset_right += delta
 
+## Acoplado en el inspector (Modern/Pro): lo coloca su contenedor, no se mueve.
+func _is_docked_tool_panel(sp: Control) -> bool:
+	var p := sp.get_parent()
+	return p != null and p.get_parent() is ToolPanelDock
+
+## Botón ⚙ de Capas y su ventanita de ajustes. Smart: panel a la derecha de
+## la pantalla → ⚙ arriba a la izquierda y ajustes hacia la izquierda.
+## Modern/Pro: panel acoplado a la izquierda → ⚙ arriba a la derecha y
+## ajustes abiertos hacia la derecha (sobre el lienzo).
+func _place_layers_gear(ctrl: Control, docked_left: bool) -> void:
+	# El contenedor nunca captura clics (solo aloja el ⚙ y sus ajustes); en
+	# los modos acoplados ocupa el ancho del panel para anclar el ⚙ a la
+	# derecha (con tamaño 0 el ⚙ quedaba fuera del panel).
+	ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ctrl.size_flags_horizontal = Control.SIZE_FILL if docked_left else 0
+	var gear := ctrl.get_node_or_null("Button") as Control
+	var host := ctrl.get_node_or_null("Configuracion de Capas") as Control
+	if gear:
+		var a := 1.0 if docked_left else 0.0
+		gear.anchor_left = a
+		gear.anchor_right = a
+		gear.offset_left = -31.0 if docked_left else 9.0
+		gear.offset_right = -9.0 if docked_left else 31.0
+		gear.offset_top = 9.0
+		gear.offset_bottom = 31.0
+	if host:
+		_layers_settings_docked = docked_left
+		# Smart: dentro del panel, como siempre. Modern / Pro: por ENCIMA de
+		# todo y en el hueco libre (a la derecha de la regla vertical y bajo
+		# la horizontal). Antes quedaba debajo de las reglas: la horizontal
+		# tapaba el título y la vertical cortaba el borde izquierdo.
+		host.top_level = docked_left
+		host.z_index = 120 if docked_left else 0
+		if not docked_left:
+			host.anchor_left = 0.0
+			host.anchor_right = 0.0
+			host.offset_left = -394.0
+			host.offset_right = host.offset_left + 379.0
+			host.offset_top = -1.5
+			host.offset_bottom = 304.5
+		if not host.visibility_changed.is_connected(_place_layers_settings):
+			host.visibility_changed.connect(_place_layers_settings.bind(host))
+		_place_layers_settings(host)
+
+var _layers_settings_docked := false
+
+## Ventanita de Ajustes de Capas en Modern / Pro: en el hueco libre del lienzo.
+func _place_layers_settings(host: Control) -> void:
+	if not _layers_settings_docked or not is_instance_valid(host) or not host.visible:
+		return
+	var inner := layout_node.get_node_or_null("PanelContainer") as Control if is_instance_valid(layout_node) else null
+	if inner == null:
+		return
+	var r := inner.get_global_rect()
+	var ruler := 24.0
+	var rv := windows_regla.get_node_or_null("regla vertical") as Control if is_instance_valid(windows_regla) else null
+	if rv and rv.is_visible_in_tree():
+		ruler = rv.get_global_rect().size.x
+	host.size = Vector2(379.0, maxf(host.get_combined_minimum_size().y, 306.0))
+	host.global_position = Vector2(r.end.x + ruler + EDGE_GAP, r.position.y + ruler + EDGE_GAP)
+	host.move_to_front()
+
 func _is_modern_mode_active() -> bool:
 	var gui := get_node_or_null("/root/GlobalUI")
 	return is_instance_valid(gui) and gui.get_ui_mode() == "modern"
 
-## Modern UI: mueve los paneles de herramienta de la columna Herramientas al
-## DockedInspector para que se muestren acoplados en lugar de flotando.
+## Modern y Pro: los paneles de herramienta de la columna Herramientas se
+## acoplan en el inspector lateral (DockedInspector en Modern, ProStudio en
+## Pro) en lugar de flotar sobre el lienzo. En Smart siguen flotando.
+func _tool_panel_host() -> Node:
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	if mode == "modern":
+		return docked_inspector if is_instance_valid(docked_inspector) else null
+	if mode == "professional":
+		return pro_studio if is_instance_valid(pro_studio) else null
+	return null
+
 func _ensure_tool_panels_hosted() -> void:
-	if not is_instance_valid(docked_inspector) or not docked_inspector.has_method("host_tool_panel"):
+	var host := _tool_panel_host()
+	if host == null or not host.has_method("host_tool_panel"):
 		return
 	if not is_instance_valid(layout_node):
 		return
 	var tools := layout_node.find_child("Herramientas", true, false) as Control
 	if not is_instance_valid(tools):
 		return
+	# Si estaban en el lateral del otro modo, volver primero a la columna.
+	for other in [docked_inspector, pro_studio]:
+		if is_instance_valid(other) and other != host and other.has_method("release_tool_panels"):
+			other.release_tool_panels(tools)
 	for panel_name in TOOL_PANEL_NAMES:
 		var panel := tools.get_node_or_null(panel_name) as Control
 		if is_instance_valid(panel):
-			docked_inspector.host_tool_panel(panel)
+			_tool_panels[panel_name] = panel
+		else:
+			panel = _get_tool_panel(panel_name)
+		if is_instance_valid(panel):
+			host.host_tool_panel(panel)
 
-## Devuelve los paneles acoplados a la columna Herramientas (Smart / Pro).
-func _release_tool_panels() -> void:
-	if not is_instance_valid(docked_inspector) or not docked_inspector.has_method("release_tool_panels"):
+# ── Paneles flotantes de Smart también en Modern / Pro ──────────────────────
+## Smart los abre desde su barra de arriba (color, efectos con Filtros /
+## Vectorizar / Shader / Script, vista previa), el clic derecho (Tipografía)
+## y el chip de abajo (exportar). Modern y Pro no tenían acceso a ellos.
+## Pedido del usuario: "en modern y pro falta muchos: filtro, effects,
+## script, vectorizar y texto completo... en smart ya tiene todos".
+
+func _find_floating(panel_name: String) -> Control:
+	var main := layout_node.get_parent() if is_instance_valid(layout_node) else null
+	var p: Control = main.find_child(panel_name, true, false) as Control if main else null
+	if p == null:
+		var phases := get_parent().get_node_or_null("StartupPhases") if get_parent() else null
+		if phases and phases.has_method("ensure"):
+			phases.ensure(panel_name)
+			p = main.find_child(panel_name, true, false) as Control if main else null
+	return p
+
+## Abre (o cierra si ya está abierto) el panel `panel_name`.
+func _on_request_floating_panel(panel_name: String) -> void:
+	var p := _find_floating(panel_name)
+	if p == null:
 		return
+	if p.visible:
+		p.visible = false
+		return
+	p.visible = true
+	_place_floating(p)
+	p.move_to_front()
+
+## Sitio libre de los modos acoplados: debajo de la barra superior y a la
+## izquierda del lateral derecho (inspector de Modern / estudio de Pro).
+func _docked_free_area() -> Rect2:
+	var vp := get_viewport().get_visible_rect().size if get_viewport() else Vector2(1920, 1080)
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	var top := 40.0
+	var right := vp.x
+	var bar: Control = modern_top_bar if mode == "modern" else pro_top_bar
+	var side: Control = docked_inspector if mode == "modern" else pro_studio
+	if is_instance_valid(bar) and bar.is_visible_in_tree():
+		top = bar.get_global_rect().end.y
+	if is_instance_valid(side) and side.is_visible_in_tree():
+		right = side.get_global_rect().position.x
+	return Rect2(Vector2(0, top), Vector2(right, vp.y - top))
+
+func _place_floating(p: Control) -> void:
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	if mode == "smart":
+		_restore_floating(p)
+		if String(p.name) in ["pickr_color_windows", "panel__effects"]:
+			_place_under_bar(p)
+		return
+	if not p.has_meta("smart_layout"):
+		p.set_meta("smart_layout", [p.anchor_left, p.anchor_top, p.anchor_right, p.anchor_bottom,
+			p.offset_left, p.offset_top, p.offset_right, p.offset_bottom])
+	var free := _docked_free_area()
+	var vp := get_viewport().get_visible_rect().size
+	var w := maxf(p.size.x, p.get_combined_minimum_size().x)
+	var h := minf(maxf(p.size.y, p.get_combined_minimum_size().y), free.size.y - EDGE_GAP * 2.0)
+	# Anclado a la DERECHA: el panel de efectos ensancha hacia la izquierda
+	# con el borde derecho fijo (pestaña Shader), igual que en Smart.
+	p.anchor_left = 1.0
+	p.anchor_right = 1.0
+	p.anchor_top = 0.0
+	p.anchor_bottom = 0.0
+	p.offset_right = -(vp.x - free.end.x) - EDGE_GAP
+	p.offset_left = p.offset_right - w
+	p.offset_top = free.position.y + EDGE_GAP
+	p.offset_bottom = p.offset_top + h
+
+func _restore_floating(p: Control) -> void:
+	if not p.has_meta("smart_layout"):
+		return
+	var l: Array = p.get_meta("smart_layout")
+	p.anchor_left = l[0]
+	p.anchor_top = l[1]
+	p.anchor_right = l[2]
+	p.anchor_bottom = l[3]
+	p.offset_left = l[4]
+	p.offset_top = l[5]
+	p.offset_right = l[6]
+	p.offset_bottom = l[7]
+	p.remove_meta("smart_layout")
+
+## Al cambiar de modo: los paneles abiertos se recolocan; en Smart vuelven
+## a su sitio de siempre.
+var _applied_mode := ""
+
+## Paneles flotantes que pertenecen a UN modo (no la ventana de Configuración,
+## desde la que se cambia de modo).
+const FLOATING_PANELS := ["pickr_color_windows", "panel__effects", "Panel_PREVIEW", "Panel_export"]
+
+func _close_floating_panels() -> void:
+	var main := layout_node.get_parent() if is_instance_valid(layout_node) else null
+	if main == null:
+		return
+	var closed: Array = []
+	for n in FLOATING_PANELS:
+		var p: Control = main.find_child(n, true, false) as Control
+		if p == null:
+			continue
+		p.visible = false
+		_restore_floating(p)
+		closed.append(p)
+	# El panel del clic derecho de Smart (su "inspector" flotante).
+	var tim: Control = tool_in_mouse if is_instance_valid(tool_in_mouse) else main.find_child("tool_in_Mouse", true, false) as Control
+	if tim:
+		var tgt = tim.get("target_node")
+		if tgt is Control:
+			(tgt as Control).visible = false
+	# Los botones que los abrían dejan de verse pulsados.
+	for b in main.find_children("*", "BaseButton", true, false):
+		var t = b.get("target_panel") if "target_panel" in b else null
+		if t is Control and t in closed and (b as BaseButton).toggle_mode:
+			(b as BaseButton).set_pressed_no_signal(false)
+
+## Paneles de herramienta por nombre. Se guardan al encontrarlos porque en
+## Modern/Pro ya no cuelgan de la columna Herramientas (están en el lateral).
+var _tool_panels: Dictionary = {}
+
+func _get_tool_panel(panel_name: String) -> Control:
+	var p: Control = _tool_panels.get(panel_name) as Control
+	if is_instance_valid(p):
+		return p
+	if is_instance_valid(layout_node):
+		var tools := layout_node.find_child("Herramientas", true, false) as Control
+		if is_instance_valid(tools):
+			p = tools.get_node_or_null(panel_name) as Control
+	if is_instance_valid(p):
+		_tool_panels[panel_name] = p
+	return p
+
+## Barra inferior de Modern: cada herramienta muestra SU panel en el
+## lateral y oculta los demás (como Figma: una herramienta, unas opciones).
+## Solo en Modern/Pro; en Smart los paneles los abren sus propios botones.
+func _on_request_tool_panel(panel_name: String) -> void:
+	if _tool_panel_host() == null:
+		return
+	_ensure_tool_panels_hosted()
+	for n in TOOL_PANEL_NAMES:
+		var p := _get_tool_panel(n)
+		if is_instance_valid(p):
+			p.visible = (n == panel_name)
+
+## Devuelve los paneles acoplados a la columna Herramientas (Smart).
+func _release_tool_panels() -> void:
 	var tools: Control = null
 	if is_instance_valid(layout_node):
 		tools = layout_node.find_child("Herramientas", true, false) as Control
-	docked_inspector.release_tool_panels(tools)
+	for host in [docked_inspector, pro_studio]:
+		if is_instance_valid(host) and host.has_method("release_tool_panels"):
+			host.release_tool_panels(tools)
 
 func _set_modern_ui_visible(show: bool) -> void:
 	if is_instance_valid(modern_bottom_toolbar):
@@ -1403,12 +1660,81 @@ func is_focus_canvas_active() -> bool:
 ## Modos con la barra de capas ACOPLADA a la izquierda (Modern, Professional):
 ## cambia su ancho y mueve las reglas con ella, para que el lienzo ocupe el
 ## hueco (botón carpeta: ocultar el contenido del panel). w < 0 = ancho normal.
+# ── Ancho del panel de Capas arrastrando su borde ───────────────────────────
+## Smart: borde IZQUIERDO (el panel está a la derecha de la pantalla).
+## Modern / Pro: borde DERECHO, entre el panel y la regla (la regla y el
+## lienzo se apartan, como al plegar Capas). Se guarda por modo.
+const PANEL_MIN_W := {"smart": 300.0, "modern": 220.0, "professional": 240.0}
+const PANEL_MAX_W := 640.0
+var _edge_resizer: Control = null
+
+func _saved_panel_width(mode: String) -> float:
+	var LS = load("res://script_gdscript/ui/panels/layers_settings.gd")
+	var cfg := ConfigFile.new()
+	cfg.load(LS.CFG)
+	return float(cfg.get_value("panel", "width_" + mode, 0.0))
+
+func _ensure_edge_resizer() -> void:
+	if is_instance_valid(_edge_resizer) or not is_instance_valid(layout_node):
+		return
+	var host := layout_node.get_parent()
+	if host == null:
+		return
+	_edge_resizer = load("res://script_gdscript/ui/components/panel_edge_resizer.gd").new()
+	_edge_resizer.name = "LayersEdgeResizer"
+	host.add_child(_edge_resizer)
+	_edge_resizer.dragged.connect(_on_panel_edge_dragged)
+	_edge_resizer.released.connect(_on_panel_edge_released)
+	_sync_edge_resizer()
+
+## Qué borde y de qué panel, según el modo.
+func _sync_edge_resizer() -> void:
+	if not is_instance_valid(_edge_resizer) or not is_instance_valid(layout_node):
+		return
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	_edge_resizer.target = layout_node.get_node_or_null("PanelContainer") as Control
+	_edge_resizer.edge_left = mode == "smart"
+	_edge_resizer.get_parent().move_child(_edge_resizer, -1)
+
+func _current_panel_width() -> float:
+	var inner := layout_node.get_node_or_null("PanelContainer") as Control if is_instance_valid(layout_node) else null
+	return inner.size.x if inner else 0.0
+
+func _on_panel_edge_dragged(dx: float) -> void:
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	var inner := layout_node.get_node_or_null("PanelContainer") as Control
+	if inner == null:
+		return
+	var lo: float = PANEL_MIN_W.get(mode, 240.0)
+	if mode == "smart":
+		# Borde izquierdo: hacia la izquierda = más ancho.
+		var w := clampf(inner.size.x - dx, lo, PANEL_MAX_W)
+		inner.offset_left = inner.offset_right - w
+	else:
+		var w2 := clampf(inner.size.x + dx, lo, PANEL_MAX_W)
+		set_left_dock_width(w2)
+		var host := layout_node.find_child("Configuracion de Capas", true, false) as Control
+		if host and host.visible:
+			_place_layers_settings.call_deferred(host)
+
+func _on_panel_edge_released() -> void:
+	var gui := get_node_or_null("/root/GlobalUI")
+	var mode: String = gui.get_ui_mode() if is_instance_valid(gui) else "smart"
+	var LS = load("res://script_gdscript/ui/panels/layers_settings.gd")
+	LS.save_value("width_" + mode, roundf(_current_panel_width()))
+
 func set_left_dock_width(w: float) -> void:
 	var gui = get_node_or_null("/root/GlobalUI")
 	var mode: String = gui.get_ui_mode() if gui and gui.has_method("get_ui_mode") else "smart"
 	if mode == "smart" or not is_instance_valid(layout_node):
 		return
 	var full: float = PRO_LEFT_W if mode == "professional" else MODERN_LEFT_W
+	# Ancho elegido por el usuario arrastrando el borde (si lo hay).
+	var saved := _saved_panel_width(mode)
+	if saved > 0.0:
+		full = saved
 	var inner = layout_node.get_node_or_null("PanelContainer") as Control
 	var width: float = full if w < 0.0 else w
 	if inner:
@@ -1430,6 +1756,12 @@ func set_left_dock_width(w: float) -> void:
 		if btn_settings:
 			btn_settings.offset_left = width
 			btn_settings.offset_right = width + 24.0
+		# La esquina entre reglas va con ellas (antes se quedaba en el ancho
+		# viejo: cuadrado suelto junto al ⚙ de Capas).
+		var corner = windows_regla.get_node_or_null("RulerCorner") as Control
+		if corner:
+			corner.offset_left = width
+			corner.offset_right = width + 24.0
 		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control
 		if regla_h:
 			regla_h.offset_left = width + 24.0

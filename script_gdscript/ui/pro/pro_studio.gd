@@ -124,6 +124,8 @@ var _active_color_target: String = "fill"
 var _color_popover: PanelContainer
 var _color_popover_header_title: Label
 var _pickr_instance: GestorColor
+## Etiqueta «Relleno» / «Trazo» junto a las muestras (antes fija en Relleno).
+var _lbl_color_target: Label
 
 # Stroke
 var _spin_stroke_w: NumericField
@@ -199,6 +201,11 @@ var _chk_color_overlay: CheckBox
 var _slider_overlay_opacity: HSlider
 var _effect_rows: Dictionary = {}
 
+# Paneles de herramienta acoplados (Selector/Bézier/Pincel/Polígono/Texto).
+# El dock es persistente: sobrevive a _rebuild() (cambio de tema).
+var _tool_dock: ToolPanelDock = null
+var _tool_group: Control = null
+
 # State
 var _sync_guard: bool = false
 var _has_selection: bool = false
@@ -222,6 +229,9 @@ func _rebuild() -> void:
 		# Keep the old tree inside the scene until it is freed: its widgets are
 		# still connected to the theme_changed emission currently in progress.
 		_root.visible = false
+		# El dock de herramienta (con sus paneles) no se libera con el árbol viejo.
+		if is_instance_valid(_tool_dock) and is_instance_valid(_tool_dock.get_parent()):
+			_tool_dock.get_parent().remove_child(_tool_dock)
 		_root.queue_free()
 	_build_ui()
 	_connect_cores()
@@ -236,11 +246,15 @@ func _build_ui() -> void:
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_root.add_child(_scroll)
+	# Botón central + arrastrar = desplazar (como en Capas).
+	preload("res://script_gdscript/ui/components/middle_drag_scroll.gd").attach(_scroll)
 
 	_vbox = VBoxContainer.new()
 	_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_vbox.add_theme_constant_override("separation", 0)
 	_scroll.add_child(_vbox)
+
+	_vbox.add_child(_build_tool_group())
 
 	_build_color_page()
 	_build_swatches_page()
@@ -251,6 +265,13 @@ func _build_ui() -> void:
 	_build_transform_page()
 	_build_typography_page()
 	_build_effects_page()
+	# Componentes COMPLETOS de Smart dentro del estudio (antes versiones
+	# reducidas): tipografía entera en «Carácter», lista de efectos entera,
+	# y Filtros / Vectorizar en la pestaña Efectos.
+	_embed_full(_box_typo_general, "res://scenes/ui/panel_tooltext.tscn", "FullTypography")
+	_embed_full(_sec_effects, "res://scenes/ui/panels/effects/effects.tscn", "FullEffects")
+	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.FILTERS, "SecFilters"))
+	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.VECTORIZE, "SecVectorize"))
 	_pages_b = [_sec_transform, _sec_typography, _sec_effects]
 	_vbox.add_child(_tab_group(["Transformar", "Texto", "Efectos"], _pages_b, _tabs_b, _tab_b, _select_tab_b))
 
@@ -259,6 +280,57 @@ func _setup_panel_style() -> void:
 	sb.border_color = ProUIStyle.col("BORDER")
 	sb.border_width_left = 1
 	add_theme_stylebox_override("panel", sb)
+
+# ── HERRAMIENTA (paneles de herramienta acoplados) ──
+func _build_tool_group() -> Control:
+	if not is_instance_valid(_tool_dock):
+		_tool_dock = ToolPanelDock.new()
+		_tool_dock.content_changed.connect(_sync_tool_group)
+	var group := VBoxContainer.new()
+	group.name = "ToolGroup"
+	group.add_theme_constant_override("separation", 0)
+	var strip := PanelContainer.new()
+	var strip_sb := ProUIStyle.flat(ProUIStyle.col("TOOLBAR_BG"))
+	strip_sb.border_color = ProUIStyle.col("BORDER")
+	strip_sb.border_width_bottom = 1
+	strip_sb.content_margin_left = 8
+	strip.add_theme_stylebox_override("panel", strip_sb)
+	group.add_child(strip)
+	var title := Label.new()
+	title.text = tr("Herramienta")
+	title.custom_minimum_size = Vector2(0, 24)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+	title.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+	strip.add_child(title)
+	var body := MarginContainer.new()
+	body.add_theme_constant_override("margin_left", 4)
+	body.add_theme_constant_override("margin_right", 4)
+	body.add_theme_constant_override("margin_top", 4)
+	body.add_theme_constant_override("margin_bottom", 6)
+	group.add_child(body)
+	body.add_child(_tool_dock)
+	_tool_group = group
+	_sync_tool_group()
+	return group
+
+func _sync_tool_group() -> void:
+	if is_instance_valid(_tool_group) and is_instance_valid(_tool_dock):
+		_tool_group.visible = _tool_dock.visible
+
+## Modo Pro: acopla un panel de herramienta arriba del Studio.
+func host_tool_panel(panel: Control) -> void:
+	if not is_instance_valid(_tool_dock):
+		return
+	_tool_dock.host(panel)
+	# Al abrir una herramienta, sus opciones quedan a la vista.
+	if panel.visible and is_instance_valid(_scroll):
+		_scroll.scroll_vertical = 0
+
+## Devuelve los paneles acoplados a `target_parent` (la columna Herramientas).
+func release_tool_panels(target_parent: Node) -> void:
+	if is_instance_valid(_tool_dock):
+		_tool_dock.release_all(target_parent)
 
 # ── TABBED STUDIO GROUP ──
 func _tab_group(titles: Array, pages: Array[Control], out_tabs: Array[Button], active: int, on_select: Callable) -> Control:
@@ -402,7 +474,8 @@ func _build_color_page() -> void:
 	_swatch_stroke.pressed.connect(func(): _set_color_target("stroke"))
 	swatches_box.add_child(_swatch_stroke)
 
-	var lbl_target := ProUIStyle.label(tr("Relleno"), true, ProUIStyle.FONT_SIZE)
+	var lbl_target := ProUIStyle.label(tr("Relleno") if _active_color_target == "fill" else tr("Trazo"), true, ProUIStyle.FONT_SIZE)
+	_lbl_color_target = lbl_target
 	lbl_target.name = "LblColorTarget"
 	row1.add_child(lbl_target)
 
@@ -793,6 +866,28 @@ func _build_typography_page() -> void:
 	_switch_typography_subtab(_typo_subtab)
 
 # ── 6. EFFECTS ──
+const InspectorFxSections = preload("res://script_gdscript/ui/components/inspector_fx_sections.gd")
+const SmartEmbed = preload("res://script_gdscript/ui/components/smart_embed.gd")
+
+## Filas reducidas de antes: dentro de un contenedor OCULTO (siguen vivas para
+## la sincronización, pero nada puede volver a mostrarlas por error).
+func _hide_legacy(section: Control, nodes: Array) -> void:
+	var holder := VBoxContainer.new()
+	holder.name = "LegacyHidden"
+	holder.visible = false
+	section.add_child(holder)
+	for n in nodes:
+		if is_instance_valid(n) and n != holder:
+			n.reparent(holder, false)
+
+## Sustituye las filas reducidas de `section` por el componente completo de
+## Smart. Las filas viejas se ocultan (el estudio aún las sincroniza).
+func _embed_full(section: Control, scene_path: String, node_name: String) -> void:
+	if not is_instance_valid(section):
+		return
+	_hide_legacy(section, section.get_children())
+	SmartEmbed.embed(scene_path, section, node_name, SmartEmbed.TITLE_PATHS.get(scene_path, []))
+
 func _build_effects_page() -> void:
 	_sec_effects = _page()
 	_effect_rows.clear()
@@ -975,6 +1070,8 @@ func _set_color_target(target: String) -> void:
 	_update_color_sliders(active_c)
 
 func _update_swatches_ui(target: String) -> void:
+	if is_instance_valid(_lbl_color_target):
+		_lbl_color_target.text = tr("Relleno") if target == "fill" else tr("Trazo")
 	if not is_instance_valid(_swatch_fill) or not is_instance_valid(_swatch_stroke):
 		return
 	# The active target is drawn on top, like in desktop vector editors.

@@ -110,7 +110,9 @@ func handle_input(event: InputEvent) -> bool:
 		if handle_key_3d(event):
 			return true
 
-	if "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
+	# Solo el ratón sobre un panel se ignora; el teclado (Esc, Supr, flechas…)
+	# funciona esté donde esté el puntero.
+	if event is InputEventMouse and "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
 		var gm_check: Vector2 = canvas.get_canvas_transform().affine_inverse() * event.position if (is_instance_valid(canvas) and ("position" in event)) else (canvas.get_global_mouse_position() if is_instance_valid(canvas) else Vector2.ZERO)
 		var hit_ab := _artboard_for_point(gm_check)
 		if not is_instance_valid(hit_ab):

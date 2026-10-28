@@ -100,6 +100,30 @@ func _build() -> void:
 	_row.add_child(_lbl_selection)
 	_row.add_child(ProUIStyle.vsep())
 
+	# Vista previa y Exportar (Pro no tenía forma de exportar). Efectos,
+	# filtros, vectorizar y tipografía están en las pestañas del lateral.
+	for spec in [
+		["Panel_PREVIEW", "res://icon/UI/eye.svg", "Vista previa", "BtnPreview"],
+	]:
+		var fb := ProUIStyle.action_button("", String(spec[1]), tr(String(spec[2])))
+		fb.custom_minimum_size = Vector2(24, 22)
+		fb.name = String(spec[3])
+		var pname := String(spec[0])
+		fb.pressed.connect(func() -> void:
+			var ge := get_node_or_null("/root/GlobalEvents")
+			if ge and ge.has_signal("request_floating_panel"):
+				ge.emit_safe("request_floating_panel", pname))
+		_row.add_child(fb)
+	var btn_export := ProUIStyle.action_button("", "res://icon/UI/Export.svg", tr("Exportar"))
+	btn_export.custom_minimum_size = Vector2(24, 22)
+	btn_export.name = "BtnExport"
+	btn_export.pressed.connect(func() -> void:
+		var ge := get_node_or_null("/root/GlobalEvents")
+		if ge and ge.has_signal("request_export_dialog"):
+			ge.emit_safe("request_export_dialog"))
+	_row.add_child(btn_export)
+	_row.add_child(ProUIStyle.vsep())
+
 	var btn_settings := ProUIStyle.action_button("", "res://icon/UI/settings.svg", tr("Configuración"))
 	btn_settings.custom_minimum_size = Vector2(24, 22)
 	btn_settings.pressed.connect(func():

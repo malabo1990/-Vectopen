@@ -26,8 +26,11 @@ func test_modern_bottom_toolbar_components_and_tools() -> void:
 	# Herramientas registradas
 	assert_that(tb._buttons.has("select")).is_true()
 	assert_that(tb._buttons.has("artboard")).is_true()
-	assert_that(tb._buttons.has("rectangle")).is_true()
-	assert_that(tb._buttons.has("ellipse")).is_true()
+	# Un solo botón de figuras (como Smart) + selección de nodos e imagen.
+	assert_that(tb._buttons.has("shapes")).is_true()
+	assert_that(tb._buttons.has("rectangle")).is_false()
+	assert_that(tb._buttons.has("nodeselection")).is_true()
+	assert_that(tb._buttons.has("image")).is_true()
 	assert_that(tb._buttons.has("bezier")).is_true()   # la pluma es ahora la herramienta Bézier
 	assert_that(tb._buttons.has("text")).is_true()
 

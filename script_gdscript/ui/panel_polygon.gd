@@ -49,7 +49,7 @@ class ShapeIcon extends Control:
 signal shape_created(shape: Node)
 signal closed
 
-enum Kind { POLYGON, STAR, RECTANGLE, ELLIPSE, DROP }
+enum Kind { POLYGON, STAR, RECTANGLE, ELLIPSE, DROP, CUSTOM }
 
 ## Contornos de los iconos de pestaña y preajustes.
 static func _normalized(points: PackedVector2Array) -> PackedVector2Array:
@@ -93,7 +93,70 @@ static func kind_icon(k: int) -> PackedVector2Array:
 		Kind.RECTANGLE: return CornerRound.round(PackedVector2Array([Vector2(-48, -34), Vector2(48, -34), Vector2(48, 34), Vector2(-48, 34)]), PackedFloat32Array([10.0]))
 		Kind.ELLIPSE: return poly_points(48)
 		Kind.DROP: return WaterDropTool.drop_points(40.0, 0.0, 0.5)
+		Kind.CUSTOM: return custom_points("heart")
 	return PackedVector2Array()
+
+## Formas sueltas (corazón, flecha, nube…): contorno en ±1, listo para
+## escalar. Curvas muestreadas como la gota, para que se puedan editar con
+## nodos, combinar (booleanas) y exportar como cualquier polígono.
+const CUSTOM_PRESETS := [
+	["Corazón", "heart"], ["Flecha", "arrow"], ["Flecha doble", "arrow2"], ["Cruz", "cross"],
+	["Luna", "moon"], ["Rayo", "bolt"], ["Bocadillo", "bubble"], ["Nube", "cloud"],
+]
+
+static func _circle_pts(c: Vector2, r: float, n: int = 48) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in n:
+		out.append(c + Vector2.from_angle(TAU * i / n) * r)
+	return out
+
+## De varios contornos (resultado de unir/recortar), el de mayor área.
+static func _largest(polys: Array) -> PackedVector2Array:
+	var best := PackedVector2Array()
+	var best_area := -1.0
+	for pp in polys:
+		var poly: PackedVector2Array = pp
+		var area := 0.0
+		for i in poly.size():
+			area += poly[i].cross(poly[(i + 1) % poly.size()])
+		if absf(area) > best_area:
+			best_area = absf(area)
+			best = poly
+	return best
+
+static func custom_points(id: String) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	match id:
+		"heart":
+			for i in 96:
+				var t := TAU * i / 96.0
+				pts.append(Vector2(16.0 * pow(sin(t), 3),
+					-(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))))
+		"arrow":
+			pts = PackedVector2Array([Vector2(-50, -14), Vector2(8, -14), Vector2(8, -36), Vector2(50, 0),
+				Vector2(8, 36), Vector2(8, 14), Vector2(-50, 14)])
+		"arrow2":
+			pts = PackedVector2Array([Vector2(-50, 0), Vector2(-18, -32), Vector2(-18, -12), Vector2(18, -12),
+				Vector2(18, -32), Vector2(50, 0), Vector2(18, 32), Vector2(18, 12), Vector2(-18, 12), Vector2(-18, 32)])
+		"cross":
+			var w := 16.0
+			pts = PackedVector2Array([Vector2(-w, -50), Vector2(w, -50), Vector2(w, -w), Vector2(50, -w),
+				Vector2(50, w), Vector2(w, w), Vector2(w, 50), Vector2(-w, 50), Vector2(-w, w),
+				Vector2(-50, w), Vector2(-50, -w), Vector2(-w, -w)])
+		"moon":
+			pts = _largest(Geometry2D.clip_polygons(_circle_pts(Vector2.ZERO, 50.0, 96), _circle_pts(Vector2(24, -12), 42.0, 96)))
+		"bolt":
+			pts = PackedVector2Array([Vector2(10, -50), Vector2(-28, 8), Vector2(-4, 8), Vector2(-14, 50),
+				Vector2(30, -10), Vector2(5, -10), Vector2(22, -50)])
+		"bubble":
+			var box := CornerRound.round(PackedVector2Array([Vector2(-50, -38), Vector2(50, -38), Vector2(50, 22), Vector2(-50, 22)]), PackedFloat32Array([14.0]))
+			var tail := PackedVector2Array([Vector2(-28, 10), Vector2(-4, 10), Vector2(-34, 46)])
+			pts = _largest(Geometry2D.merge_polygons(box, tail))
+		"cloud":
+			pts = PackedVector2Array([Vector2(-30, 4), Vector2(30, 4), Vector2(30, 28), Vector2(-30, 28)])
+			for c in [[Vector2(-28, 8), 20.0], [Vector2(-8, -8), 24.0], [Vector2(16, -2), 20.0], [Vector2(32, 12), 16.0]]:
+				pts = _largest(Geometry2D.merge_polygons(pts, _circle_pts(c[0], c[1])))
+	return _normalized(pts)
 
 const KIND_INFO := {
 	Kind.POLYGON: {"label": "Polígono", "tip": "Polígono regular: de 3 lados a ∞"},
@@ -101,6 +164,7 @@ const KIND_INFO := {
 	Kind.RECTANGLE: {"label": "Rectángulo", "tip": "Rectángulo / cuadrado con esquinas redondeadas"},
 	Kind.ELLIPSE: {"label": "Elipse", "tip": "Elipse, anillo, tarta o arco"},
 	Kind.DROP: {"label": "Gota", "tip": "Gota / lágrima"},
+	Kind.CUSTOM: {"label": "Formas", "tip": "Corazón, flecha, cruz, luna, rayo, bocadillo, nube…"},
 }
 
 ## Preajustes de polígono: [nombre, lados, giro°, proporción]
@@ -123,7 +187,7 @@ var values := {
 	"points_count": 5, "inner_radius_ratio": 0.382, "star_radius": 0.0, "inner_corner_radius": -1.0, "star_angle": 0.0,
 	"rect_radius": 0.0, "independent": false, "corner_tl": 0.0, "corner_tr": 0.0, "corner_br": 0.0, "corner_bl": 0.0,
 	"shape_mode": "whole", "ring_ratio": 0.5, "start_angle_deg": 0.0, "end_angle_deg": 360.0,
-	"drop_curvature": 0.5,
+	"drop_curvature": 0.5, "custom_shape": "heart",
 }
 
 ## Valores del último panel abierto: las herramientas de dibujo (arrastrar
@@ -135,7 +199,16 @@ static func setting(key: String, def: Variant) -> Variant:
 
 ## Herramienta de dibujo de cada pestaña.
 const KIND_TOOL := {Kind.POLYGON: "pentagon", Kind.STAR: "star", Kind.RECTANGLE: "rectangle",
-	Kind.ELLIPSE: "ellipse", Kind.DROP: "waterdrop"}
+	Kind.ELLIPSE: "ellipse", Kind.DROP: "waterdrop", Kind.CUSTOM: ""}
+
+## Herramienta de dibujo de la figura elegida. La barra inferior de Modern
+## tiene UN botón de figuras (como Smart) y activa esta.
+static var current_tool: String = "pentagon"
+
+## Herramientas que dibujan figuras de este panel -> su pestaña.
+const TOOL_KIND := {"pentagon": Kind.POLYGON, "triangle": Kind.POLYGON, "star": Kind.STAR,
+	"star4": Kind.STAR, "star5": Kind.STAR, "rectangle": Kind.RECTANGLE,
+	"ellipse": Kind.ELLIPSE, "waterdrop": Kind.DROP}
 
 var _title: Label = null
 var _tabs: Dictionary = {}          # Kind -> Button
@@ -152,7 +225,16 @@ func _init() -> void:
 	shared = values
 
 func _ready() -> void:
+	ToolPanelDock.normalize_fonts(self)
 	_build()
+	# Atajos (R, O, S…) o la barra de Modern: la pestaña sigue a la herramienta.
+	var ge := get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_signal("data_tool_changed"):
+		ge.data_tool_changed.connect(func(t: String) -> void:
+			var tl := String(t).to_lower()
+			if TOOL_KIND.has(tl):
+				current_tool = tl
+				set_kind(TOOL_KIND[tl]))
 	var ic := get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_signal("changed"):
 		ic.changed.connect(_on_inspector_changed)
@@ -249,7 +331,8 @@ func _build() -> void:
 func _on_tab(k: Kind) -> void:
 	set_kind(k)
 	var ce = get_tree().get_first_node_in_group("_vectopen_canvas") if is_inside_tree() else null
-	if ce and ce.has_method("switch_tool"):
+	# Formas sueltas: sin herramienta de arrastre, se crean con un clic.
+	if ce and ce.has_method("switch_tool") and String(KIND_TOOL[k]) != "":
 		ce.switch_tool(String(KIND_TOOL[k]))
 
 ## Cambia de figura. Solo aquí (y al cambiar de tipo de selección) se
@@ -259,6 +342,8 @@ func set_kind(k: Kind) -> void:
 		return
 	_commit_live()
 	kind = k
+	if KIND_TOOL[k] != "" and KIND_TOOL[k] != current_tool and TOOL_KIND.get(current_tool, -1) != k:
+		current_tool = KIND_TOOL[k]
 	_build_params()
 	_apply_theme()
 	_refresh_status()
@@ -323,6 +408,12 @@ func _build_params() -> void:
 		Kind.DROP:
 			_field("drop_curvature", "Curvatura", 0, 100, 1, "%", "◠", 100.0)
 			_hint("0 % = lados rectos · 50 % = gota clásica · 100 % = muy redonda")
+		Kind.CUSTOM:
+			_presets(CUSTOM_PRESETS, func(p: Array) -> PackedVector2Array:
+				return custom_points(String(p[1])), func(p: Array) -> void:
+				values["custom_shape"] = String(p[1])
+				create_in_center())
+			_hint("Clic en una forma para crearla en el centro de la mesa de trabajo.")
 	_sync_fields()
 
 func _row(text: String) -> HBoxContainer:
@@ -412,7 +503,10 @@ static func kind_of(s: Node) -> int:
 	if s is VectorCircle:
 		return Kind.ELLIPSE
 	if s is VectorPolygon:
-		return Kind.DROP if String(s.get_meta("shape_kind", "")) == "drop" else Kind.POLYGON
+		var sk := String(s.get_meta("shape_kind", ""))
+		if sk.begins_with("custom_"):
+			return -1   # forma suelta: se edita con nodos, no con este panel
+		return Kind.DROP if sk == "drop" else Kind.POLYGON
 	return -1
 
 ## Aplica varios valores con UN paso de deshacer (y los guarda para crear).
@@ -542,6 +636,8 @@ func _sync_fields() -> void:
 func _refresh_status() -> void:
 	if not is_instance_valid(_status):
 		return
+	# Formas sueltas: no hay edición en vivo, el aviso sobraba.
+	_status.visible = kind != Kind.CUSTOM
 	var n := targets().size()
 	var label: String = String(KIND_INFO[kind]["label"]).to_lower()
 	_status.text = ("Editando en vivo: %d %s%s" % [n, label, "s" if n != 1 else ""]) if n > 0 \
@@ -598,6 +694,21 @@ func create_in_center() -> Node:
 			c.start_angle_deg = float(values["start_angle_deg"])
 			c.end_angle_deg = float(values["end_angle_deg"])
 			node = c
+		Kind.CUSTOM:
+			var cid := String(values["custom_shape"])
+			var cs := VectorPolygon.new()
+			var cname := "Forma"
+			for cp in CUSTOM_PRESETS:
+				if cp[1] == cid:
+					cname = String(cp[0])
+			cs.name = NameUtils.unique_child_name(artboard, cname)
+			cs.set_doc_position(DVec2.from_v2(center))
+			cs.set_meta("shape_kind", "custom_" + cid)
+			var verts := PackedVector2Array()
+			for v in custom_points(cid):
+				verts.append(v * 70.0)
+			cs.set_doc_vertices(DVec2.array_from_v2(verts))
+			node = cs
 		Kind.DROP:
 			var d := VectorPolygon.new()
 			d.name = NameUtils.unique_child_name(artboard, "Gota")

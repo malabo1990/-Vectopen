@@ -97,7 +97,10 @@ func handle_input(event: InputEvent) -> bool:
 	var gm: Vector2 = canvas.get_canvas_transform().affine_inverse() * event.position if (is_instance_valid(canvas) and ("position" in event)) else (canvas.get_global_mouse_position() if is_instance_valid(canvas) else Vector2.ZERO)
 
 	var gui := _get_autoload("GlobalUI")
-	if is_instance_valid(gui) and "is_mouse_over_ui" in gui and gui.is_mouse_over_ui:
+	# Solo el RATÓN sobre un panel se ignora. El teclado no depende de dónde
+	# esté el puntero: antes, con el ratón quieto sobre el inspector, Esc no
+	# salía de la edición y los atajos de texto no hacían nada.
+	if event is InputEventMouse and is_instance_valid(gui) and "is_mouse_over_ui" in gui and gui.is_mouse_over_ui:
 		var hit_ab := _artboard_for_point(gm)
 		if not is_instance_valid(hit_ab):
 			return false

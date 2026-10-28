@@ -71,8 +71,10 @@ func test_alta_de_figuras_es_incremental_no_rebuild_por_figura() -> void:
 	var _orig_pending := system._pending_changes.size()
 
 	# añadir 8 figuras seguidas dentro del artboard
+	# Figuras reales: un Node2D vacío no es una capa (la reconstrucción
+	# completa ya lo ignoraba; ahora el alta incremental también).
 	for i in 8:
-		var s: Node2D = auto_free(Node2D.new())
+		var s: Node2D = auto_free(VectorRectangle.new())
 		s.name = "Fig_%d" % i
 		s.position = Vector2(100 + i, 100 + i)
 		artboard.add_child(s)

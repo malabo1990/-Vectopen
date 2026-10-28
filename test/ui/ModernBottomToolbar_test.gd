@@ -33,7 +33,7 @@ func test_boton_de_herramienta_usa_el_icono_blanqueado() -> void:
 	add_child(toolbar)
 	await get_tree().process_frame
 
-	var btn: Button = toolbar._buttons.get("rectangle")
+	var btn: Button = toolbar._buttons.get("shapes")
 	assert_object(btn).is_not_null()
 	assert_object(btn.icon).is_not_null()
 

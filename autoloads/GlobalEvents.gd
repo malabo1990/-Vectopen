@@ -107,6 +107,12 @@ signal request_settings_dialog
 signal request_export_dialog
 signal request_bezier_panel
 signal request_brush_panel
+## Modern/Pro: muestra SOLO el panel de herramienta `panel_name` en el
+## lateral ("polygon", "text", "bezier", "brush", "Selector"); "" los oculta.
+signal request_tool_panel(panel_name: String)
+## Abre / cierra un panel flotante de Smart desde Modern o Pro
+## ("Panel_PREVIEW", …). Colocado según el modo (ver AdaptiveUIManager).
+signal request_floating_panel(panel_name: String)
 
 # ==========================================
 # MÉTODO DE UTILIDAD PARA EMISIÓN SEGURA

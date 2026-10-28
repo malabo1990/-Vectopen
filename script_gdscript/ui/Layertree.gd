@@ -399,7 +399,8 @@ func _colapsar_recursivo(item: TreeItem, estado: bool) -> void:
 	if item == null:
 		return
 	var tipo : String = item.get_metadata(COL_VIS) as String
-	if tipo == "group" or tipo == "artboard":
+	# También una figura con figuras dentro (ya no se marca como "group").
+	if tipo == "group" or tipo == "artboard" or item.get_child_count() > 0:
 		item.collapsed = estado
 	var hijo : TreeItem = item.get_first_child()
 	while hijo:

@@ -374,7 +374,9 @@ func _emit_gradient() -> void:
 			p = cc.make_reflected(g, Vector2(0.5, 0.5), gradient_angle, gradient_p0, gradient_p1)
 		else:
 			p = cc.make_linear(g, gradient_angle, gradient_p0, gradient_p1)
-		cc.set_paint(p, "fill")
+		# Al objetivo activo (relleno o trazo): antes siempre iba al relleno y
+		# el trazo no podía tener degradado.
+		cc.set_paint(p, "")
 
 const PRESETS: Dictionary = {
 	"Sunset": [Color(0.98, 0.35, 0.2), Color(0.95, 0.15, 0.5), Color(0.35, 0.1, 0.6)],

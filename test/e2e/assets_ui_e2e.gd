@@ -79,6 +79,14 @@ func center_of(c: Control) -> Vector2:
 
 var _kept := {}
 
+## Botón que ve el usuario para mostrar/ocultar Capas: la carpeta de la
+## columna (Smart/Pro) o, en Modern (sin columna), el de la barra superior.
+func layers_toggle(col_btn: Control) -> Control:
+	if col_btn and col_btn.is_visible_in_tree():
+		return col_btn
+	var top := root.find_child("BtnLayersToggle", true, false) as Control
+	return top if top else col_btn
+
 func _run() -> void:
 	for k in ["user://vectopen_layers_ui.cfg", "user://vectopen_assets_ui.cfg"]:
 		if FileAccess.file_exists(k):
@@ -90,6 +98,7 @@ func _run() -> void:
 	Lib._root_override = dir.path_join("lib")
 	# Pruebas con ventana en la 2.ª pantalla (Huion), no en la principal.
 	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)  # pantalla Huion completa
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
 	# Arranque por fases (StartupPhases): esperar a que estén todos los paneles.
 	for _w in 600:
@@ -255,12 +264,12 @@ func _run() -> void:
 	if btn:
 		var frame_c: Control = root.find_child("Layout", true, false).get_node("PanelContainer")
 		var w_before: float = frame_c.size.x
-		await click(center_of(btn))
+		await click(center_of(layers_toggle(btn)))
 		await frames(6)
 		var hidden_now: bool = not panel.is_visible_in_tree()
 		check("al ocultar, el panel se encoge (no queda una caja vacía)", frame_c.size.x < 100.0, "%d → %d px" % [w_before, frame_c.size.x])
-		check("…y el botón sigue visible para volver a abrirlo", btn.is_visible_in_tree())
-		await click(center_of(btn))
+		check("…y el botón sigue visible para volver a abrirlo", layers_toggle(btn).is_visible_in_tree())
+		await click(center_of(layers_toggle(btn)))
 		await frames(4)
 		check("botón carpeta oculta y vuelve a mostrar el panel (Recursos)", was and hidden_now and panel.is_visible_in_tree(), "%s %s %s" % [was, hidden_now, panel.is_visible_in_tree()])
 		await frames(4)
@@ -274,18 +283,18 @@ func _run() -> void:
 			gui.set_ui_mode(mode)
 			await frames(20)
 			var rx0: float = rv.get_global_rect().position.x
-			await click(center_of(btn))
+			await click(center_of(layers_toggle(btn)))
 			await frames(10)
 			check("%s: al ocultar, barra y regla se encogen" % mode, frame_c.get_global_rect().size.x < 100.0 and rv.get_global_rect().position.x < 100.0, "panel %d, regla %d→%d" % [frame_c.get_global_rect().size.x, rx0, rv.get_global_rect().position.x])
-			await click(center_of(btn))
+			await click(center_of(layers_toggle(btn)))
 			await frames(10)
 			check("%s: al mostrar vuelve todo" % mode, absf(rv.get_global_rect().position.x - rx0) < 1.0, "regla %d" % rv.get_global_rect().position.x)
-		await click(center_of(btn))
+		await click(center_of(layers_toggle(btn)))
 		await frames(6)
 		gui.set_ui_mode("modern")
 		await frames(25)
 		check("cambiar de modo con el panel oculto: sigue encogido", frame_c.get_global_rect().size.x < 100.0, "%d" % frame_c.get_global_rect().size.x)
-		await click(center_of(btn))
+		await click(center_of(layers_toggle(btn)))
 		await frames(6)
 		gui.set_ui_mode(prev_mode)
 		await frames(20)

@@ -45,6 +45,7 @@ const STYLES_INFO := [
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(310, 0)
+	ToolPanelDock.normalize_fonts(self)
 	_build_ui()
 	_connect_events()
 	_connect_theme()
@@ -470,8 +471,10 @@ func _update_active_style_button(active_id: String) -> void:
 func _apply_theme() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
 	var is_dark := true
-	if tm and tm.has_method("is_dark_theme"):
-		is_dark = tm.is_dark_theme()
+	# El método es is_dark() (antes se preguntaba por is_dark_theme(), que no
+	# existe: siempre «oscuro» y texto blanco con el tema claro).
+	if tm and tm.has_method("is_dark"):
+		is_dark = tm.is_dark()
 	elif tm and tm.has_method("get_current_mode"):
 		is_dark = (tm.get_current_mode() == "dark")
 

@@ -13,9 +13,39 @@ const PANEL_LIST := [
 	["PanelContainer2", "Panel numérico"],
 ]
 
+var _note: Label = null
+
 func _ready() -> void:
 	_load_checks()
 	_connect()
+	# Estos paneles flotantes son de Smart: en Modern y Pro todo está en el
+	# panel derecho, así que aquí no se ofrecen (antes se podía encender el
+	# selector de color de Smart en Pro y salía tapado por la regla).
+	var gui := get_node_or_null("/root/GlobalUI")
+	if gui and gui.has_signal("ui_mode_changed"):
+		gui.ui_mode_changed.connect(func(_m: String) -> void: _sync_mode())
+	visibility_changed.connect(_sync_mode)
+	_sync_mode()
+
+func _sync_mode() -> void:
+	var gui := get_node_or_null("/root/GlobalUI")
+	var smart: bool = gui == null or not gui.has_method("get_ui_mode") or gui.get_ui_mode() == "smart"
+	for i in get_child_count():
+		var row := get_child(i) as Control
+		if row and row != _note and i < PANEL_LIST.size():
+			row.visible = smart
+	if not smart and _note == null:
+		_note = Label.new()
+		_note.name = "OnlySmartNote"
+		_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_note.add_theme_font_size_override("font_size", 11)
+		add_child(_note)
+	if _note:
+		_note.text = tr("Estos paneles flotantes son del modo Smart. En Modern y Pro todo está en el panel derecho.")
+		_note.visible = not smart
+		_note.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+	if smart:
+		_scan_panels()
 
 func _load_checks() -> void:
 	for i in get_child_count():

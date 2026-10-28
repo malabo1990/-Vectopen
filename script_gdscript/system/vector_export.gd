@@ -100,7 +100,7 @@ static func _scale_of(xf: Transform2D) -> float:
 ## Primitiva de contorno. `subs`: [{ops: [...], closed}]
 static func _item(subs: Array, fill: Variant, stroke: Variant, width: float, op: float, cap: int, evenodd: bool) -> Dictionary:
 	return {"t": "path", "subs": subs, "fill": fill, "stroke": stroke, "width": width,
-		"opacity": op, "cap": cap, "evenodd": evenodd, "grad": null, "shadow": null}
+		"opacity": op, "cap": cap, "evenodd": evenodd, "grad": null, "sgrad": null, "shadow": null}
 
 static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) -> void:
 	var subs: Array = []
@@ -123,6 +123,7 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 			stops.append([g.get_offset(i), g.get_color(i)])
 		it["grad"] = {"type": s.fill_gradient_type, "angle": s.fill_gradient_angle, "stops": stops}
 		it["fill"] = g.get_color(0)
+	_add_stroke_grad(it, s)
 	# TODAS las sombras proyectadas (antes solo quedaba la última)
 	var shadows: Array = []
 	for fx in s.effects:
@@ -149,7 +150,21 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 	var cap: int = int(p.get("stroke_cap_end")) if "stroke_cap_end" in p else 0
 	var fill: Variant = fc if (closed and fc.a > 0.0) else null
 	var stroke: Variant = sc if (sw > 0.0 and sc.a > 0.0) else null
-	out["items"].append(_item(subs, fill, stroke, sw * _scale_of(xf), op, cap, evenodd))
+	var pit := _item(subs, fill, stroke, sw * _scale_of(xf), op, cap, evenodd)
+	_add_stroke_grad(pit, p)
+	out["items"].append(pit)
+
+## Degradado del trazo: "sgrad" para SVG; el resto de formatos usa el primer
+## color como trazo plano.
+static func _add_stroke_grad(it: Dictionary, n: Node) -> void:
+	if it["stroke"] == null or not n.has_method("has_gradient_stroke") or not n.has_gradient_stroke():
+		return
+	var g: Gradient = n.stroke_gradient
+	var stops: Array = []
+	for i in g.get_point_count():
+		stops.append([g.get_offset(i), g.get_color(i)])
+	it["sgrad"] = {"type": int(n.stroke_gradient_type), "angle": float(n.stroke_gradient_angle), "stops": stops}
+	it["stroke"] = g.get_color(0)
 
 static func _sprite(sp: Sprite2D, xf: Transform2D, op: float, out: Dictionary) -> void:
 	if sp.texture == null:
@@ -574,7 +589,12 @@ static func to_svg(data: Dictionary) -> String:
 					extra += ' fill="url(#g%d)"' % gid
 				else:
 					extra += _paint("fill", it["fill"])
-				if it["stroke"] != null:
+				if it["stroke"] != null and it.get("sgrad") != null:
+					gid += 1
+					defs.append(_svg_stroke_gradient("g%d" % gid, it["sgrad"], _subs_bounds(it["subs"])))
+					extra += ' stroke="url(#g%d)" stroke-width="%s" stroke-linejoin="round"' % [gid, _n(it["width"])]
+					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
+				elif it["stroke"] != null:
 					extra += _paint("stroke", it["stroke"]) + ' stroke-width="%s" stroke-linejoin="round"' % _n(it["width"])
 					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
 				if it["evenodd"]:
@@ -635,6 +655,43 @@ static func _svg_d(subs: Array) -> String:
 		if sub["closed"]:
 			parts.append("Z")
 	return " ".join(parts)
+
+static func _subs_bounds(subs: Array) -> Rect2:
+	var have := false
+	var bb := Rect2()
+	for sub in subs:
+		for o in sub["ops"]:
+			for k in range(1, o.size()):
+				var pt: Vector2 = o[k]
+				if not have:
+					bb = Rect2(pt, Vector2.ZERO)
+					have = true
+				else:
+					bb = bb.expand(pt)
+	return bb
+
+## Degradado de trazo en coordenadas de usuario: con objectBoundingBox una
+## línea recta (caja de alto 0) no se pintaba en los visores SVG.
+static func _svg_stroke_gradient(id: String, g: Dictionary, bb: Rect2) -> String:
+	var stops := ""
+	for st in g["stops"]:
+		var c: Color = st[1]
+		stops += '<stop offset="%s" stop-color="%s"%s/>' % [_n(st[0]), _hex(c), (' stop-opacity="%s"' % _n(c.a)) if c.a < 0.999 else ""]
+	var ctr := bb.get_center()
+	if int(g["type"]) == 1:
+		return '<radialGradient id="%s" gradientUnits="userSpaceOnUse" cx="%s" cy="%s" r="%s">%s</radialGradient>' % [
+			id, _n(ctr.x), _n(ctr.y), _n(maxf(bb.size.length() * 0.5, 0.001)), stops]
+	var dir := Vector2.from_angle(float(g["angle"]))
+	var lo := INF
+	var hi := -INF
+	for k in [bb.position, bb.end, Vector2(bb.position.x, bb.end.y), Vector2(bb.end.x, bb.position.y)]:
+		var d: float = (k - ctr).dot(dir)
+		lo = minf(lo, d)
+		hi = maxf(hi, d)
+	var a := ctr + dir * lo
+	var b := ctr + dir * hi
+	return '<linearGradient id="%s" gradientUnits="userSpaceOnUse" x1="%s" y1="%s" x2="%s" y2="%s">%s</linearGradient>' % [
+		id, _n(a.x), _n(a.y), _n(b.x), _n(b.y), stops]
 
 static func _svg_gradient(id: String, g: Dictionary) -> String:
 	var stops := ""
