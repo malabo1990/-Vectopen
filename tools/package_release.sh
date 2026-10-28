@@ -15,6 +15,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION="${1:-$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)}"
 NUM="${VERSION%%-*}"                 # 0.2.0
+# Autor y avisos legales (MIT): se copian LICENSE y THIRD_PARTY_NOTICES.txt en
+# todos los paquetes, como exige la licencia MIT y las de terceros.
+AUTHOR="$(sed -n 's/^Copyright (c) [0-9-]* //p' LICENSE | head -1)"
+EMAIL="malabo1990@gmail.com"
+HOMEPAGE="https://malabo1990.github.io/vectopen-web/"
+LEGAL=(LICENSE THIRD_PARTY_NOTICES.txt)
 PRE="${VERSION#"$NUM"}"; PRE="${PRE#-}"   # alpha
 DIST="dist/$VERSION"
 WORK="$(mktemp -d)"
@@ -37,7 +43,7 @@ PY
 # ── WINDOWS ──────────────────────────────────────────────────────────────────
 W="$WORK/Vectopen-$VERSION-windows-x64"
 mkdir -p "$W"
-cp build/windows/Vectopen.exe build/windows/*.dll "$W"/
+cp build/windows/Vectopen.exe build/windows/*.dll "${LEGAL[@]}" "$W"/
 cat > "$W/LEEME.txt" <<EOF
 Vectopen $VERSION (versión ALFA) — Windows 10/11 de 64 bits
 
@@ -54,6 +60,8 @@ M="$WORK/mac"
 mkdir -p "$M/dmg"
 cp build/macos/Vectopen.zip "$DIST/Vectopen-$VERSION-macos-universal.zip"
 (cd "$M/dmg" && unzip -q "$OLDPWD/build/macos/Vectopen.zip")
+cp "${LEGAL[@]}" "$M/dmg/"
+zip -qj "$DIST/Vectopen-$VERSION-macos-universal.zip" "${LEGAL[@]}"
 ln -s /Applications "$M/dmg/Aplicaciones"
 cat > "$M/dmg/LEEME.txt" <<EOF
 Vectopen $VERSION (versión ALFA) — macOS 10.15+ (Intel y Apple Silicon)
@@ -72,7 +80,9 @@ echo "  ✓ macOS dmg + zip"
 # ── LINUX: árbol común (/opt/vectopen) ───────────────────────────────────────
 L="$WORK/linuxroot"
 mkdir -p "$L/opt/vectopen" "$L/usr/bin" "$L/usr/share/applications" "$L/usr/share/icons/hicolor/256x256/apps"
-cp build/linux/vectopen.x86_64 build/linux/*.so "$L/opt/vectopen/"
+cp build/linux/vectopen.x86_64 build/linux/*.so "${LEGAL[@]}" "$L/opt/vectopen/"
+mkdir -p "$L/usr/share/doc/vectopen"
+{ echo "Vectopen — $HOMEPAGE"; echo "Copyright: $AUTHOR"; echo "License: MIT"; echo; cat LICENSE; echo; cat THIRD_PARTY_NOTICES.txt; } > "$L/usr/share/doc/vectopen/copyright"
 chmod 755 "$L/opt/vectopen/vectopen.x86_64"
 ln -s /opt/vectopen/vectopen.x86_64 "$L/usr/bin/vectopen"
 cp "$WORK/vectopen.png" "$L/usr/share/icons/hicolor/256x256/apps/vectopen.png"
@@ -92,7 +102,7 @@ SIZE_KB=$(du -sk "$L" | cut -f1)
 # .tar.gz portátil
 T="$WORK/Vectopen-$VERSION-linux-x86_64"
 mkdir -p "$T"
-cp build/linux/vectopen.x86_64 build/linux/*.so "$WORK/vectopen.png" "$T"/
+cp build/linux/vectopen.x86_64 build/linux/*.so "$WORK/vectopen.png" "${LEGAL[@]}" "$T"/
 echo "$DESKTOP" | sed "s|^Exec=.*|Exec=./vectopen.x86_64|" > "$T/vectopen.desktop"
 (cd "$WORK" && tar -czf "$OLDPWD/$DIST/Vectopen-$VERSION-linux-x86_64.tar.gz" "$(basename "$T")")
 echo "  ✓ Linux tar.gz"
@@ -108,7 +118,8 @@ Section: graphics
 Priority: optional
 Architecture: amd64
 Installed-Size: $SIZE_KB
-Maintainer: Vectopen <malabo1990@gmail.com>
+Maintainer: $AUTHOR <$EMAIL>
+Homepage: $HOMEPAGE
 Description: Editor de gráficos vectoriales (versión alfa)
  Vectopen: editor vectorial con modos Smart, Modern y Pro.
 EOF
@@ -127,8 +138,9 @@ Name:           vectopen
 Version:        $NUM
 Release:        0.1${PRE:+.$PRE}
 Summary:        Editor de graficos vectoriales (version alfa)
-License:        Proprietary
-URL:            https://github.com/
+License:        MIT
+URL:            $HOMEPAGE
+Packager:       $AUTHOR <$EMAIL>
 AutoReqProv:    no
 %description
 Vectopen: editor vectorial con modos Smart, Modern y Pro.
@@ -140,6 +152,7 @@ cp -a $L/. %{buildroot}/
 /usr/bin/vectopen
 /usr/share/applications/vectopen.desktop
 /usr/share/icons/hicolor/256x256/apps/vectopen.png
+/usr/share/doc/vectopen
 EOF
 rpmbuild --quiet --define "_topdir $R" --define "_build_id_links none" -bb "$R/SPECS/vectopen.spec" >/dev/null 2>&1
 cp "$R"/RPMS/x86_64/*.rpm "$DIST"/

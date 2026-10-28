@@ -13,10 +13,47 @@ This file consolidates the planning that until now lived only inside
 | Zoom-limit comparison vs other editors | [`docs/es/reports/COMPARATIVA_ZOOM_EDITORES.md`](docs/es/reports/COMPARATIVA_ZOOM_EDITORES.md) |
 | UI systems / theming | [`docs/es/guides/MEJORAS_UI_Y_SISTEMAS_2026.md`](docs/es/guides/MEJORAS_UI_Y_SISTEMAS_2026.md) |
 
+**Status (2026-10-28):** **0.2.0-alpha** is released — the first downloadable
+build for Windows, macOS and Linux
+([release](https://github.com/malabo1990/-Vectopen/releases/tag/v0.2.0-alpha) ·
+[user manual](https://malabo1990.github.io/vectopen-web/docs/)). Sections 0 and 0b
+summarise what shipped and what comes next; the sections below keep the detailed history.
+
 **Legend:** ✅ done · 🟡 partial · ⬜ planned, not started · ❌ evaluated and
 deliberately dropped
 
 ---
+
+## 0. Released — 0.2.0-alpha (2026-10-28)
+
+- ✅ **Downloadable builds** — Windows x64 (.zip), macOS universal Intel + Apple Silicon (.dmg / .zip, ad-hoc signed), Linux x86_64 (.deb, .rpm, portable .tar.gz). Rust GDExtensions cross-compiled with `cargo-zigbuild`. Packaging: `tools/package_release.sh`.
+- ✅ **Three interfaces** — Smart, Modern (single right-hand inspector, bottom toolbar) and Pro (docked studio panels). Each interface owns its panels; switching closes the previous one's floating panels.
+- ✅ **Full inspector in Modern and Pro** — the real Smart panels (full typography, effects, filters, vectorize) are embedded instead of re-implemented.
+- ✅ **Gradients on strokes** — per-vertex colours along the path, saved in `.vtc`, exported to SVG as a user-space gradient.
+- ✅ **Shape library** — polygon, star, rectangle, ellipse (ring/pie/arc), drop and custom shapes (heart, arrows, cross, moon, bolt, speech bubble, cloud). Every shape resizes by dragging (star resize bug fixed, with a test).
+- ✅ **Layers** — sub-layers at any depth, type icons, thumbnails (supersampled), compact view, resizable panel per interface, translucent rename field.
+- ✅ **Vectorize with offline AI** — VTracer tracing (Bézier / polygon / pixel); AI background removal (U²-Net-p) and ×4 upscaling (Real-ESRGAN General x4v3) via ONNX Runtime, models embedded. *Linux build only in this alpha.*
+- ✅ **Effects, filters, shaders, scripts & add-ons** — effect stack, 8 image filters, live shader editor with templates and library, GDScript console with the Vectopen API, Blender-style add-on manager.
+- ✅ **Node editing** (add / delete / convert points, Alt-drag handles, G grab with X/Y lock), **group / ungroup** with real hierarchy, **align / distribute**.
+- ✅ **SVG import with real Bézier curves** (full path grammar, groups, transforms, CSS, `<use>`, text, embedded images, gradient fills on simple shapes).
+- ✅ **Export** — SVG, PDF, EPS, PNG, JPEG, WEBP, Godot scenes, VOP.
+- ✅ **Tests** — 754 gdUnit4 unit tests plus interface tests that click the real UI in all three interfaces; test runs snapshot and restore the user's settings.
+- ✅ **Website & manual** — direct downloads, 10 languages with auto-detection, user manual in English and Spanish.
+
+## 0b. Next — 0.2.1-alpha
+
+| # | Item | State |
+|---|---|---|
+| N-1 | Changing light/dark theme repainted the selected object with the colour picker's default (lost gradients) | ✅ fixed, test `theme_keeps_fill_e2e` — not yet released |
+| N-2 | Internal nodes of text effects listed as layers; layer counter counted them | ✅ fixed, same test — not yet released |
+| N-3 | **Safe save**: write to a temporary file and replace the `.vtc` only when complete | ⬜ |
+| N-4 | Warn when a page of a `.vtc` is damaged instead of opening it empty (and never overwrite it on save) | ⬜ |
+| N-5 | Keyboard panel lists defaults that don't match the real shortcuts (e.g. O/G vs E/D) and actions that aren't wired | ⬜ |
+| N-6 | Shader and Script tabs in the Modern and Pro right panel | ⬜ |
+| N-7 | Exported build tries to save `project.godot` on start ("Couldn't save project.godot") | ⬜ |
+| N-8 | Ship the tiled app icon (the current one is invisible on dark docks); include LICENSE and third-party notices in every package; RPM declared `Proprietary` instead of MIT | 🟡 packaging script fixed |
+| N-9 | Vectorize + AI tools on Windows and macOS (ONNX Runtime builds for those targets) | ⬜ |
+| N-10 | Signed installers (Windows code signing, Apple notarisation) · AppImage · test on a real Mac | ⬜ |
 
 ## 1. Done
 
@@ -387,11 +424,11 @@ From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
 
 | # | Item | Priority |
 |---|---|---|
-| I-1 | Group / ungroup with real hierarchy + undo | 🔵 P3 |
+| I-1 | Group / ungroup with real hierarchy + undo | ✅ done (0.2.0-alpha) |
 | I-2 | Visual transform controls (rotate/scale/skew handles) — incl. resizing an already-rotated shape in its *local* axes (`MoveTool._apply_resize` known limitation) | 🔵 P3 |
 | I-3 | Align / distribute | ✅ done (`InspectorCore` + `TOOLS ALINEACION` 4×4 grid & bars) |
 | I-4 | Snapping, smart guides, grid, rulers — wired to real geometry | 🔵 P3 |
-| I-5 | Node editing (path point add/remove/convert) | 🔵 P3 |
+| I-5 | Node editing (path point add/remove/convert) | ✅ done (`NodeSelectionTool`) |
 | I-6 | Centralized command system (replace the ad-hoc `HistoryManager.add_do/add_undo` calls scattered across tools) | 🔵 P3 |
 | I-7 | Extend Phase 1 clipboard/keyboard shortcuts beyond `MoveTool` to all tools | 🟢 P2 |
 | I-8 | Residual "shortcuts have no effect in long sessions" — investigated, not a logic bug, paused. Suspect it's a test-method artifact (synthetic events). | 🟢 P3 |
@@ -402,10 +439,10 @@ From `VECTOPEN_TECHNICAL_REPORT.md` §1.14 / §11. Backed by a ~60-section spec
 
 | # | Item | Priority | Notes |
 |---|---|---|---|
-| F-1 | Real bidirectional SVG (bezier curves, not just polyline approximation) | 🔵 P3 | Current `import_svg` handles M/L/Z only. |
-| F-2 | PDF shape export | 🔵 P3 | Enum entry only today. |
-| F-3 | WEBP export | 🟢 P2 | Declared, not implemented. |
-| F-4 | Real image tracing ("Image Trace") | 🔵 P3 | `vectorize_image` currently just imports the raster and warns. |
+| F-1 | Real bidirectional SVG (bezier curves, not just polyline approximation) | ✅ | `system/svg_import.gd`: full path grammar → real Bézier. Gradients only on simple closed shapes; no clipPath/mask/pattern yet. |
+| F-2 | PDF shape export | ✅ | `VectorExport.to_pdf` — gradients flattened to their first colour; text as curves. |
+| F-3 | WEBP export | ✅ | Quality + transparency. |
+| F-4 | Real image tracing ("Image Trace") | ✅ | VTracer + AI background removal / ×4 upscale (Linux only for now). |
 | F-5 | `.vop` vector interchange format — define it | 🔵 P3 | Reserved but unspecified. |
 
 ---

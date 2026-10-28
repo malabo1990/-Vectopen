@@ -106,9 +106,21 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 - **Telegram:** [t.me/vectopen](https://t.me/vectopen)
 - **GitHub Issues:** [github.com/malabo1990/-Vectopen/issues](https://github.com/malabo1990/-Vectopen/issues)
 
+## Author
+
+**Vectopen** is created and maintained by **Casimiro Ondo Obiang** ([@malabo1990](https://github.com/malabo1990)).
+
+- 💬 Telegram: [t.me/vectopen](https://t.me/vectopen)
+- 🐛 Issues: [github.com/malabo1990/-Vectopen/issues](https://github.com/malabo1990/-Vectopen/issues)
+- ❤️ Support the project: [GitHub Sponsors](https://github.com/sponsors/malabo1990)
+
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+**MIT License** — Copyright © 2025-2026 Casimiro Ondo Obiang (Malabo1990). See [LICENSE](LICENSE).
+
+You may use, copy, modify, merge, publish, distribute, sublicense and sell copies of Vectopen, provided the copyright notice and the license text are kept in all copies or substantial portions of the software.
+
+Vectopen includes third-party software (Godot Engine, godot-rust, VTracer, ONNX Runtime, the U²-Net and Real-ESRGAN models, the Inter font and Rust libraries), each under its own permissive license — see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt). Every release package includes both files.
 
 ## Acknowledgments
 
