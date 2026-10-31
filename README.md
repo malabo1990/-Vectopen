@@ -92,6 +92,14 @@ docs/es/            # Spanish documentation
 | Testing | gdUnit4 (750+ unit tests) + interface tests that click the real UI |
 | Format | `.vtc` (paged, compressed document container) — [specification](https://malabo1990.github.io/vectopen-web/docs/files/project-format/#technical-details) |
 
+## Project status & roadmap
+
+- **[ROADMAP.md](ROADMAP.md)** — released, next (0.2.1-alpha), in progress and planned work.
+- **[PENDIENTE.md](PENDIENTE.md)** — session notes and items still to verify.
+- **Issues** — the next milestone is tracked as
+  [0.2.1-alpha](https://github.com/malabo1990/-Vectopen/milestone/1);
+  issues labelled `good first issue` are safe entry points.
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
