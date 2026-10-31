@@ -1,0 +1,44 @@
+name: Estadísticas de descargas
+
+# GitHub solo da el contador ACUMULADO por archivo (sin histórico). Este
+# workflow lo fotografía cada día y lo versiona en stats/descargas.csv.
+on:
+  schedule:
+    - cron: "0 6 * * *"      # 06:00 UTC = 07:00 en Malabo (WAT)
+  workflow_dispatch:          # permite lanzarlo a mano desde la UI
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stats-descargas
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tomar snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/stats_descargas.py --repo "$GITHUB_REPOSITORY"
+
+      - name: Commit si hay cambios
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats/descargas.csv
+          if git diff --staged --quiet; then
+            echo "Sin cambios en las descargas; nada que commitear."
+            exit 0
+          fi
+          git commit -m "chore(stats): descargas $(date -u +%F)"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
