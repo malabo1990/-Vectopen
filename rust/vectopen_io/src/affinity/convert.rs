@@ -9,7 +9,7 @@ use super::container::Archive;
 use super::stream::{Doc as Tree, Obj, Val};
 use crate::model::*;
 
-pub fn convert(t: &Tree, archive: &Archive) -> Result<Doc, String> {
+pub fn convert(t: &Tree, archive: &Archive, level: usize) -> Result<Doc, String> {
     let docn = t.obj(&t.root, "DocR").ok_or("el documento no tiene contenido")?;
     let size = match docn.get("DfSz") {
         Some(Val::Nums(n)) if n.len() >= 2 && n[0] > 0.0 && n[1] > 0.0 => [n[0] as f32, n[1] as f32],
@@ -19,7 +19,7 @@ pub fn convert(t: &Tree, archive: &Archive) -> Result<Doc, String> {
     let spreads: Vec<&Obj> = children(t, docn).into_iter().filter(|o| o.is("Sprd")).collect();
     let mut pages: Vec<Page> = Vec::new();
     {
-        let mut c = Conv { t, archive, doc: &mut doc, stories: Default::default(), origins: Vec::new(), depth: 0 };
+        let mut c = Conv { t, archive, level, doc: &mut doc, stories: Default::default(), missing_fonts: Default::default(), origins: Vec::new(), depth: 0 };
         for (si, sp) in spreads.iter().enumerate() {
             let kids = children(t, sp);
             let is_ab = |k: &&Obj| k.is("ShpN") && matches!(k.get("ABEn"), Some(Val::Bool(true)));
@@ -73,6 +73,10 @@ pub fn convert(t: &Tree, archive: &Archive) -> Result<Doc, String> {
                 pages.push(Page { name: format!("Página {}", si + 1), origin: [x, 0.0], size, bg, items });
             }
         }
+        if !c.missing_fonts.is_empty() {
+            let list: Vec<String> = std::mem::take(&mut c.missing_fonts).into_iter().collect();
+            c.doc.warn(&format!("fuentes no instaladas: {} (se usa otra parecida)", list.join(", ")));
+        }
     }
     if let Some(p0) = pages.first() {
         doc.size = p0.size;
@@ -86,11 +90,15 @@ pub fn convert(t: &Tree, archive: &Archive) -> Result<Doc, String> {
 
 struct Conv<'a> {
     t: &'a Tree,
+    /// Nivel de anidamiento (documentos incrustados).
+    level: usize,
     archive: &'a Archive<'a>,
     doc: &'a mut Doc,
     /// Historias ya colocadas: un texto enlazado entre varios marcos se
     /// importa una sola vez (en el primero).
     stories: std::collections::HashSet<usize>,
+    /// Fuentes del documento que no están instaladas (se avisa una vez).
+    missing_fonts: std::collections::BTreeSet<String>,
     /// Esquina de cada artboard ya creado (para recolocar objetos sueltos).
     origins: Vec<V2>,
     /// Profundidad actual: un archivo manipulado podría enlazar un hijo con su
@@ -285,8 +293,15 @@ impl<'a> Conv<'a> {
             }
             "TxtA" | "TxtF" => self.text(o, parent, op),
             "ImgN" | "Rstr" => self.bitmap(o, xf, op),
-            "MPIN" => self.doc.warn("capas de píxeles especiales"),
-            "EmbN" => self.doc.warn("documentos incrustados"),
+            "EmbN" => self.embedded(o, xf, op),
+            "MPIN" => {
+                // Instancia de página maestra: se dibuja el contenido de la maestra.
+                if let Some(master) = t.obj(o, "GLnk") {
+                    for ch in children(t, master) {
+                        self.node(ch, xf, op);
+                    }
+                }
+            }
             "Grup" | "Scop" | "Sprd" | "LogN" => {}
             c if c.ends_with("RA") => self.doc.warn("capas de ajuste"),
             other => self.doc.warn(&format!("capas {other}")),
@@ -299,11 +314,7 @@ impl<'a> Conv<'a> {
         if !clip_shape && matches!(class.as_str(), "PCrv" | "ShpN" | "ImgN" | "TxtA" | "TxtF") && !kids.is_empty() {
             self.doc.warn("recortes por imagen o texto (sin recortar)");
         }
-        if let Some(Val::List(fx)) = o.get("FiEf") {
-            if fx.iter().filter_map(|e| t.deref(e)).any(|e| matches!(e.get("Enab"), Some(Val::Bool(true)))) {
-                self.doc.warn("efectos");
-            }
-        }
+        let group_fx = if matches!(class.as_str(), "Grup" | "Scop") { self.effects(o) } else { Vec::new() };
         self.depth += 1;
         if clip_shape {
             let Some(Item::Path(mask)) = self.doc.items.pop() else { unreachable!() };
@@ -319,10 +330,17 @@ impl<'a> Conv<'a> {
             // La opacidad de la forma afecta a todo el conjunto.
             let inner = inner.into_iter().map(|it| with_opacity(it, mop)).collect();
             mask.opacity = mop;
-            self.doc.items.push(Item::Clip(Box::new(mask), inner));
+            self.doc.items.push(Item::Clip(Box::new(mask), inner, true));
         } else {
+            let start = self.doc.items.len();
             for ch in kids.drain(..) {
                 self.node(ch, xf, op);
+            }
+            // Efectos del grupo: los hereda cada elemento (los grupos se aplanan).
+            if !group_fx.is_empty() {
+                for it in &mut self.doc.items[start..] {
+                    add_effects(it, &group_fx);
+                }
             }
         }
         self.depth -= 1;
@@ -349,6 +367,7 @@ impl<'a> Conv<'a> {
             Some(Val::Str(s)) if !s.is_empty() => s.clone(),
             _ => if o.is("ShpN") { "Forma".to_string() } else { "Trazado".to_string() },
         };
+        let effects = self.effects(o);
         self.doc.items.push(Item::Path(PathItem {
             subs,
             fill,
@@ -360,6 +379,7 @@ impl<'a> Conv<'a> {
             evenodd: false,
             opacity: op,
             name,
+            effects,
         }));
     }
 
@@ -382,50 +402,103 @@ impl<'a> Conv<'a> {
                 bl.cubic_to(p(cx + rx * K, cy - ry), p(cx + rx, cy - ry * K), p(cx + rx, cy));
                 bl.close();
             }
-            c => {
-                if c != "ShNR" {
-                    self.doc.warn("formas especiales (como su caja)");
-                }
-                // Radios de esquina: fracción del lado menor/2 (o absolutos si AbSz).
-                let half = ((x1 - x0).abs().min((y1 - y0).abs())) / 2.0;
+            "ShNR" => {
+                // Esquinas: sin CTyp = rectas; con CTyp, 0 = redondeada (otros
+                // tipos se aproximan redondeados). Radio = ShCR × lado menor
+                // (o absoluto si AbSz); con Lock, las cuatro usan el primero.
+                let minside = (x1 - x0).abs().min((y1 - y0).abs());
                 let abs = matches!(sh.get("AbSz"), Some(Val::Bool(true)));
+                let lock = matches!(sh.get("Lock"), Some(Val::Bool(true)));
                 let mut r = match sh.get("ShCR") {
-                    Some(Val::Nums(n)) if n.len() == 4 && c == "ShNR" => [n[0], n[1], n[2], n[3]].map(|v| {
-                        let v = v as f32;
-                        (if abs { v } else { v * half }).clamp(0.0, half)
-                    }),
+                    Some(Val::Nums(n)) if n.len() == 4 => [n[0], n[1], n[2], n[3]].map(|v| v as f32),
                     _ => [0.0; 4],
                 };
-                // Tipo de cada esquina (CTyp): 0 = recta; otros = redondeada
-                // (biselada, cóncava… se aproximan como redondeadas).
-                let types: Vec<u16> = match sh.get("CTyp") {
-                    Some(Val::List(l)) => l.iter().map(|v| if let Val::Enum(e) = v { *e } else { 0 }).collect(),
-                    _ => vec![0; 4],
-                };
-                for (i, ri) in r.iter_mut().enumerate() {
-                    match types.get(i).copied().unwrap_or(0) {
-                        0 => *ri = 0.0,
-                        1 => {}
-                        _ => self.doc.warn("esquinas especiales (como redondeadas)"),
+                if lock {
+                    r = [r[0]; 4];
+                }
+                let r = r.map(|v| (if abs { v } else { v * minside }).clamp(0.0, minside / 2.0));
+                let r = match sh.get("CTyp") {
+                    Some(Val::List(l)) => {
+                        let mut out = r;
+                        for (i, v) in l.iter().enumerate().take(4) {
+                            if let Val::Enum(e) = v {
+                                if *e != 0 && out[i] > 0.0 {
+                                    self.doc.warn("esquinas especiales (como redondeadas)");
+                                }
+                            }
+                        }
+                        if lock { out = [out[0]; 4]; }
+                        out
                     }
+                    _ => [0.0; 4],
+                };
+                round_rect(&mut bl, &p, x0, y0, x1, y1, r);
+            }
+            "ShpT" => {
+                // Triángulo: vértice superior en Pos (fracción del ancho).
+                let pos = num(sh, "Pos ").unwrap_or(0.5) as f32;
+                bl.move_to(p(x0 + (x1 - x0) * pos, y0));
+                bl.line_to(p(x1, y1));
+                bl.line_to(p(x0, y1));
+                bl.close();
+            }
+            "ShPi" => {
+                // Sector / donut: de AngS a AngE (radianes), radio interior IRad.
+                let a0 = num(sh, "AngS").unwrap_or(0.0) as f32;
+                let mut a1 = num(sh, "AngE").unwrap_or(0.0) as f32;
+                while a1 <= a0 {
+                    a1 += std::f32::consts::TAU;
                 }
-                let [tl, tr, br, blr] = r;
-                bl.move_to(p(x0 + tl, y0));
-                bl.line_to(p(x1 - tr, y0));
-                if tr > 0.0 {
-                    bl.cubic_to(p(x1 - tr + tr * K, y0), p(x1, y0 + tr - tr * K), p(x1, y0 + tr));
+                let ir = num(sh, "IRad").unwrap_or(0.0).clamp(0.0, 0.999) as f32;
+                let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+                let full = a1 - a0 >= std::f32::consts::TAU - 1e-4;
+                arc(&mut bl, &p, cx, cy, rx, ry, a0, a1, true);
+                if ir > 0.0 {
+                    if full {
+                        bl.close();
+                        arc(&mut bl, &p, cx, cy, rx * ir, ry * ir, a1, a0, true);
+                    } else {
+                        arc(&mut bl, &p, cx, cy, rx * ir, ry * ir, a1, a0, false);
+                    }
+                } else if !full {
+                    bl.line_to(p(cx, cy));
                 }
-                bl.line_to(p(x1, y1 - br));
-                if br > 0.0 {
-                    bl.cubic_to(p(x1, y1 - br + br * K), p(x1 - br + br * K, y1), p(x1 - br, y1));
+                bl.close();
+            }
+            "ShSt" => {
+                // Estrella: Pnts puntas, radio interior IRad (fracción). Las
+                // curvaturas (CrcO/CrcI) se ignoran: puntas rectas.
+                let n = num(sh, "Pnts").unwrap_or(5.0).clamp(3.0, 200.0) as usize;
+                let ir = sh.all("IRad").filter_map(|v| if let Val::Float(f) = v { Some(*f) } else { None }).last().unwrap_or(0.5) as f32;
+                star(&mut bl, &p, x0, y0, x1, y1, n, ir);
+            }
+            "ShCg" => {
+                // Engranaje: Teth dientes; TtSz = altura del diente (fracción).
+                let n = num(sh, "Teth").unwrap_or(12.0).clamp(3.0, 400.0) as usize;
+                let tt = num(sh, "TtSz").unwrap_or(0.5).clamp(0.05, 0.95) as f32;
+                let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+                let inner = 1.0 - 0.25 * tt;
+                for i in 0..n * 4 {
+                    let a = -std::f32::consts::FRAC_PI_2 + i as f32 / (n * 4) as f32 * std::f32::consts::TAU;
+                    let k = if (i % 4) == 1 || (i % 4) == 2 { 1.0 } else { inner };
+                    let q = p(cx + rx * k * a.cos(), cy + ry * k * a.sin());
+                    if i == 0 { bl.move_to(q) } else { bl.line_to(q) }
                 }
-                bl.line_to(p(x0 + blr, y1));
-                if blr > 0.0 {
-                    bl.cubic_to(p(x0 + blr - blr * K, y1), p(x0, y1 - blr + blr * K), p(x0, y1 - blr));
+                bl.close();
+                let hole = num(sh, "Hole").unwrap_or(0.0) as f32;
+                if hole > 0.01 {
+                    arc(&mut bl, &p, cx, cy, rx * hole * 0.5, ry * hole * 0.5, 0.0, std::f32::consts::TAU, true);
+                    bl.close();
                 }
-                bl.line_to(p(x0, y0 + tl));
-                if tl > 0.0 {
-                    bl.cubic_to(p(x0, y0 + tl - tl * K), p(x0 + tl - tl * K, y0), p(x0 + tl, y0));
+            }
+            c => {
+                // Otras (lágrima, flecha, nube…): su caja o elipse aproximada.
+                self.doc.warn("formas especiales (aproximadas)");
+                if c == "ShTr" {
+                    let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+                    arc(&mut bl, &p, cx, cy, rx, ry, 0.0, std::f32::consts::TAU, true);
+                } else {
+                    round_rect(&mut bl, &p, x0, y0, x1, y1, [0.0; 4]);
                 }
                 bl.close();
             }
@@ -610,6 +683,9 @@ impl<'a> Conv<'a> {
             return;
         }
         let (size, family, weight, italic) = first_style.unwrap_or((12.0, String::new(), 400, false));
+        if !crate::svg::font_installed(&family) {
+            self.missing_fonts.insert(family.clone());
+        }
         // Caja: FrmB del marco (TxtH), en el espacio del nodo.
         let frame = t.obj(o, "TxtH");
         let paragraph = frame.map(|f| !f.is("ArFr")).unwrap_or(false);
@@ -633,6 +709,7 @@ impl<'a> Conv<'a> {
             (((b[0] - a[0]).hypot(b[1] - a[1])) / k, ((c[0] - a[0]).hypot(c[1] - a[1])) / k)
         };
         let color = runs.first().map(|r| r.color);
+        let effects = self.effects(o);
         self.doc.items.push(Item::Text(TextItem {
             text,
             xf,
@@ -641,6 +718,7 @@ impl<'a> Conv<'a> {
             family,
             bold: weight >= 600,
             opacity: op,
+            effects,
             rich: Some(RichText { paragraph, width: w, height: h, align: align.into(), weight, italic, runs }),
         }));
         if matches!(o.get("TxtH"), Some(_)) && frame.map(|f| f.is("PaFr") || f.is("PthT")).unwrap_or(false) {
@@ -670,7 +748,8 @@ impl<'a> Conv<'a> {
             }) {
                 let (bw, bh) = (num(bm, "BmpW").unwrap_or(im.width as f64) as f32, num(bm, "BmpH").unwrap_or(im.height as f64) as f32);
                 let s = Xf { a: bw / im.width as f32, d: bh / im.height as f32, ..Xf::IDENTITY };
-                self.doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: mul(xf, s), opacity: op }));
+                let fx = self.effects(o);
+                self.doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: mul(xf, s), opacity: op, effects: fx }));
                 return;
             }
         }
@@ -680,7 +759,8 @@ impl<'a> Conv<'a> {
                     return; // capa vacía
                 }
                 let s = Xf { a: k, d: k, ..Xf::IDENTITY };
-                self.doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: mul(xf, s), opacity: op }));
+                let fx = self.effects(o);
+                self.doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: mul(xf, s), opacity: op, effects: fx }));
             }
             Err(e) => self.doc.warn(&format!("imágenes ({e})")),
         }
@@ -704,7 +784,7 @@ fn with_opacity(it: Item, k: f32) -> Item {
             i.opacity *= k;
             Item::Image(i)
         }
-        Item::Clip(m, kids) => Item::Clip(m, kids.into_iter().map(|c| with_opacity(c, k)).collect()),
+        Item::Clip(m, kids, d) => Item::Clip(m, kids.into_iter().map(|c| with_opacity(c, k)).collect(), d),
     }
 }
 
@@ -736,7 +816,20 @@ impl<'a> Conv<'a> {
             self.node(ch, to_page, op);
         }
         let items = std::mem::replace(&mut self.doc.items, saved);
-        Some(Page { name, origin: [x0, y0], size: [x1 - x0, y1 - y0], bg: bg.filter(|c| c[3] > 0.0), items })
+        // El artboard recorta lo que se sale (como en Affinity).
+        let (w, h) = (x1 - x0, y1 - y0);
+        let mut bl = Builder::default();
+        bl.move_to([0.0, 0.0]);
+        bl.line_to([w, 0.0]);
+        bl.line_to([w, h]);
+        bl.line_to([0.0, h]);
+        bl.close();
+        let edge = PathItem {
+            subs: bl.finish(), fill: Some([1.0, 1.0, 1.0, 1.0]), stroke: None, grad: None, dash: None, width: 0.0,
+            cap: 0, evenodd: false, opacity: 1.0, name: "Recorte del artboard".into(), effects: Vec::new(),
+        };
+        let items = if items.is_empty() { items } else { vec![Item::Clip(Box::new(edge), items, false)] };
+        Some(Page { name, origin: [x0, y0], size: [w, h], bg: bg.filter(|c| c[3] > 0.0), items })
     }
 }
 
@@ -748,5 +841,154 @@ impl<'a> Conv<'a> {
             self.node(k, m, 1.0);
         }
         std::mem::replace(&mut self.doc.items, saved)
+    }
+}
+
+fn round_rect(bl: &mut Builder, p: &dyn Fn(f32, f32) -> V2, x0: f32, y0: f32, x1: f32, y1: f32, r: [f32; 4]) {
+    const K: f32 = 0.552_284_8;
+    let [tl, tr, br, blr] = r;
+    bl.move_to(p(x0 + tl, y0));
+    bl.line_to(p(x1 - tr, y0));
+    if tr > 0.0 {
+        bl.cubic_to(p(x1 - tr + tr * K, y0), p(x1, y0 + tr - tr * K), p(x1, y0 + tr));
+    }
+    bl.line_to(p(x1, y1 - br));
+    if br > 0.0 {
+        bl.cubic_to(p(x1, y1 - br + br * K), p(x1 - br + br * K, y1), p(x1 - br, y1));
+    }
+    bl.line_to(p(x0 + blr, y1));
+    if blr > 0.0 {
+        bl.cubic_to(p(x0 + blr - blr * K, y1), p(x0, y1 - blr + blr * K), p(x0, y1 - blr));
+    }
+    bl.line_to(p(x0, y0 + tl));
+    if tl > 0.0 {
+        bl.cubic_to(p(x0, y0 + tl - tl * K), p(x0 + tl - tl * K, y0), p(x0 + tl, y0));
+    }
+    bl.close();
+}
+
+/// Arco elíptico de a0 a a1 (radianes, y hacia abajo) con Béziers. `start`:
+/// empieza subtrazado nuevo; si no, continúa con una línea hasta el inicio.
+#[allow(clippy::too_many_arguments)]
+fn arc(bl: &mut Builder, p: &dyn Fn(f32, f32) -> V2, cx: f32, cy: f32, rx: f32, ry: f32, a0: f32, a1: f32, start: bool) {
+    let segs = ((a1 - a0).abs() / std::f32::consts::FRAC_PI_2).ceil().max(1.0) as usize;
+    let step = (a1 - a0) / segs as f32;
+    let k = 4.0 / 3.0 * (step / 4.0).tan();
+    let pt = |a: f32| (cx + rx * a.cos(), cy + ry * a.sin());
+    let (sx, sy) = pt(a0);
+    if start { bl.move_to(p(sx, sy)) } else { bl.line_to(p(sx, sy)) }
+    let mut a = a0;
+    for _ in 0..segs {
+        let b = a + step;
+        let (ax, ay) = pt(a);
+        let (bx, by) = pt(b);
+        let c1 = p(ax - k * rx * a.sin(), ay + k * ry * a.cos());
+        let c2 = p(bx + k * rx * b.sin(), by - k * ry * b.cos());
+        bl.cubic_to(c1, c2, p(bx, by));
+        a = b;
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn star(bl: &mut Builder, p: &dyn Fn(f32, f32) -> V2, x0: f32, y0: f32, x1: f32, y1: f32, n: usize, ir: f32) {
+    let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+    for i in 0..n * 2 {
+        let a = -std::f32::consts::FRAC_PI_2 + i as f32 * std::f32::consts::PI / n as f32;
+        let k = if i % 2 == 0 { 1.0 } else { ir };
+        let q = p(cx + rx * k * a.cos(), cy + ry * k * a.sin());
+        if i == 0 { bl.move_to(q) } else { bl.line_to(q) }
+    }
+    bl.close();
+}
+
+impl<'a> Conv<'a> {
+    /// Efectos de capa activos (FiEf) → efectos de Vectopen.
+    fn effects(&mut self, o: &Obj) -> Vec<Effect> {
+        let t = self.t;
+        let mut out = Vec::new();
+        for e in list(t, o.get("FiEf")) {
+            if !matches!(e.get("Enab"), Some(Val::Bool(true))) {
+                continue;
+            }
+            let op = num(e, "Opac").unwrap_or(1.0) as f32;
+            let radius = num(e, "Radi").unwrap_or(0.0) as f32;
+            let col = |c: &mut Self, f: &str| {
+                let mut k = t.obj(e, f).and_then(|x| c.color(x)).unwrap_or([0.0, 0.0, 0.0, 1.0]);
+                k[3] *= op;
+                k
+            };
+            let offset = {
+                let (d, a) = (num(e, "Offs").unwrap_or(0.0) as f32, num(e, "Angl").unwrap_or(0.0) as f32);
+                [d * a.cos(), d * a.sin()]
+            };
+            let fx = match e.class().as_str() {
+                "Gaus" => Effect { kind: "Blur".into(), offset: [0.0; 2], blur: radius, width: 0.0, color: [0.0, 0.0, 0.0, 1.0] },
+                "Shad" => Effect { kind: "Drop Shadow".into(), offset, blur: radius, width: 0.0, color: col(self, "Colr") },
+                "InnS" => Effect { kind: "Inner Shadow".into(), offset, blur: radius, width: 0.0, color: col(self, "Colr") },
+                "OutG" => Effect { kind: "Outer Glow".into(), offset: [0.0; 2], blur: radius, width: 0.0, color: col(self, "Colr") },
+                "InnG" => Effect { kind: "Inner Glow".into(), offset: [0.0; 2], blur: radius, width: 0.0, color: col(self, "Colr") },
+                "Strk" => {
+                    let (c, _) = self.fill(t.obj(e, "GrFl"), Xf::IDENTITY);
+                    let mut c = c.unwrap_or([0.0, 0.0, 0.0, 1.0]);
+                    c[3] *= op;
+                    Effect { kind: "Outline".into(), offset: [0.0; 2], blur: 0.0, width: radius, color: c }
+                }
+                other => {
+                    self.doc.warn(&format!("efecto {other}"));
+                    continue;
+                }
+            };
+            out.push(fx);
+        }
+        out
+    }
+}
+
+fn add_effects(it: &mut Item, fx: &[Effect]) {
+    match it {
+        Item::Path(p) => p.effects.extend_from_slice(fx),
+        Item::Text(t) => t.effects.extend_from_slice(fx),
+        Item::Image(i) => i.effects.extend_from_slice(fx),
+        Item::Clip(m, _, _) => m.effects.extend_from_slice(fx),
+    }
+}
+
+impl<'a> Conv<'a> {
+    /// Documento incrustado (SVG, PDF, otro Affinity…): Affinity lo guarda
+    /// convertido en un documento de Affinity anidado («edc/N» = "EmDc" + 4
+    /// bytes + documento). Se importa y se coloca con la matriz del nodo.
+    fn embedded(&mut self, o: &'a Obj, xf: Xf, op: f32) {
+        let t = self.t;
+        let name = t.obj(o, "Bitm").and_then(|r| t.obj(r, "EmCn")).and_then(|c| match c.get("EmbC") {
+            Some(Val::Str(n)) if !n.is_empty() => Some(n.clone()),
+            _ => None,
+        });
+        let Some(name) = name else {
+            self.doc.warn("documentos incrustados sin datos");
+            return;
+        };
+        let data = match self.archive.read(&name) {
+            Ok(d) => d,
+            Err(e) => {
+                self.doc.warn(&format!("documentos incrustados ({e})"));
+                return;
+            }
+        };
+        let start = data.windows(4).take(64).position(|w| w == super::container::MAGIC).unwrap_or(0);
+        match super::import_nested(&data[start..], self.level + 1) {
+            Ok(inner) => {
+                let items = if inner.pages.is_empty() { inner.items } else { inner.pages[0].items.clone() };
+                for it in items {
+                    let it = crate::svg::transform_item_pub(it, xf);
+                    self.doc.items.push(with_opacity(it, op));
+                }
+                for w in inner.warnings {
+                    if !w.starts_with("solo la vista previa") {
+                        self.doc.warnings.insert(w);
+                    }
+                }
+            }
+            Err(e) => self.doc.warn(&format!("documentos incrustados ({e})")),
+        }
     }
 }

@@ -73,11 +73,13 @@ pub fn to_svg(doc: &Doc) -> String {
 
 fn write_items(s: &mut String, items: &[Item], gid: &mut usize) {
     for it in items {
-        if let Item::Clip(mask, kids) = it {
+        if let Item::Clip(mask, kids, draw) = it {
             *gid += 1;
             let id = *gid;
             let _ = writeln!(*s, r#"<clipPath id="c{id}"><path d="{}"/></clipPath>"#, d(&mask.subs));
-            write_items(s, &[Item::Path((**mask).clone())], gid);
+            if *draw {
+                write_items(s, &[Item::Path((**mask).clone())], gid);
+            }
             let _ = writeln!(*s, r#"<g clip-path="url(#c{id})">"#);
             write_items(s, kids, gid);
             s.push_str("</g>\n");

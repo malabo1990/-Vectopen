@@ -62,11 +62,20 @@ pub const EXTS: &[&str] = &["af", "afdesign", "afphoto", "afpub", "aftemplate"];
 /// Importa un documento de Affinity. Si no se puede interpretar (o no tiene
 /// nada convertible), se usa su vista previa incrustada.
 pub fn import(data: &[u8]) -> Result<Doc, String> {
+    import_nested(data, 0)
+}
+
+/// Documentos incrustados (EmbN) son a su vez documentos de Affinity: se
+/// importan con un límite de anidamiento.
+pub(crate) fn import_nested(data: &[u8], level: usize) -> Result<Doc, String> {
+    if level > 4 {
+        return Err("documentos incrustados demasiado anidados".into());
+    }
     let a = container::Archive::open(data)?;
     if a.class != "Prsn" {
         return Err("es una biblioteca de recursos de Affinity, no un documento".into());
     }
-    let parsed = a.read("doc.dat").and_then(|dd| stream::parse(&dd)).and_then(|t| convert::convert(&t, &a));
+    let parsed = a.read("doc.dat").and_then(|dd| stream::parse(&dd)).and_then(|t| convert::convert(&t, &a, level));
     let mut doc = match parsed {
         Ok(d) => d,
         Err(e) => {
@@ -79,7 +88,7 @@ pub fn import(data: &[u8]) -> Result<Doc, String> {
         if let Some(png) = a.thumbnail() {
             if let Ok(im) = crate::raster::decode(png) {
                 let s = Xf { a: doc.size[0] / im.width as f32, d: doc.size[1] / im.height as f32, ..Xf::IDENTITY };
-                doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: s, opacity: 1.0 }));
+                doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: s, opacity: 1.0, effects: Vec::new() }));
                 doc.warn("solo la vista previa (imagen)");
             }
         }
@@ -166,6 +175,12 @@ mod dybm_debug {
                     }
                 }).collect();
                 println!("DYBM {}", tags.join(" "));
+                for ch in ["Sta1", "Sta2", "Sta3", "Sta4"] {
+                    if let Some(super::stream::Val::List(l)) = o.get(ch) {
+                        let v: Vec<String> = l.iter().map(|x| match x { super::stream::Val::Int(i) => i.to_string(), _ => "?".into() }).collect();
+                        println!("  {ch} {}", v.join(","));
+                    }
+                }
                 println!("ERR {:?}", super::bitmap::decode(&a, &t, o).err());
             }
         }
@@ -180,9 +195,9 @@ mod bckg_debug {
         let Ok(p) = std::env::var("AFFINITY_FILE") else { return };
         let data = std::fs::read(p).unwrap();
         let a = super::container::Archive::open(&data).unwrap();
-        for n in a.names().into_iter().filter(|n| n.starts_with("c/")) {
+        for n in a.names().into_iter().filter(|n| n.starts_with("c/") || n.starts_with("edc/")) {
             let b = a.read(n).unwrap_or_default();
-            println!("BCKG {n} len={}", b.len());
+            println!("BCKG {n} len={} head={:02x?}", b.len(), &b[..b.len().min(16)]);
             match super::stream::parse(&b) {
                 Ok(t) => {
                     fn show(o: &super::stream::Obj, d: usize) {
@@ -219,10 +234,10 @@ mod items_debug {
         for it in items {
             let pad = "  ".repeat(d);
             match it {
-                Item::Path(p) => println!("{pad}PATH {} bb={:?} fill={:?} grad={} op={}", p.name, bb(&p.subs), p.fill.map(|c| c.map(|v| (v * 100.0) as i32)), p.grad.is_some(), p.opacity),
+                Item::Path(p) => println!("{pad}PATH {} bb={:?} fill={:?} grad={} op={} fx={:?}", p.name, bb(&p.subs), p.fill.map(|c| c.map(|v| (v * 100.0) as i32)), p.grad.is_some(), p.opacity, p.effects.iter().map(|e| (e.kind.clone(), e.blur as i32)).collect::<Vec<_>>()),
                 Item::Text(t) => println!("{pad}TEXT {:?} at=({:.0},{:.0}) size={}", t.text.chars().take(20).collect::<String>(), t.xf.e, t.xf.f, t.size),
                 Item::Image(i) => println!("{pad}IMG {}x{} at=({:.0},{:.0})", i.width, i.height, i.xf.e, i.xf.f),
-                Item::Clip(m, k) => { println!("{pad}CLIP mask={} bb={:?} fill={:?}", m.name, bb(&m.subs), m.fill.map(|c| c.map(|v| (v * 100.0) as i32))); show(k, d + 1); }
+                Item::Clip(m, k, _) => { println!("{pad}CLIP mask={} bb={:?} fill={:?}", m.name, bb(&m.subs), m.fill.map(|c| c.map(|v| (v * 100.0) as i32))); show(k, d + 1); }
             }
         }
     }
@@ -232,6 +247,12 @@ mod items_debug {
         let Ok(p) = std::env::var("AFFINITY_FILE") else { return };
         let doc = super::import(&std::fs::read(p).unwrap()).unwrap();
         println!("SIZE {:?} warn={:?}", doc.size, doc.warnings);
-        show(&doc.items, 0);
+        if doc.pages.is_empty() {
+            show(&doc.items, 0);
+        }
+        for pg in &doc.pages {
+            println!("PAGE {} {:?}", pg.name, pg.size);
+            show(&pg.items, 1);
+        }
     }
 }

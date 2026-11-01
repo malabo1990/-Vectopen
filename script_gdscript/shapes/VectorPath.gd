@@ -165,7 +165,7 @@ func _draw() -> void:
 		return
 	# Puntos PRECISOS (subdivisión adaptativa por ángulo) en vez de los
 	# horneados cada 5 px: curvas lisas y uniones exactas a cualquier zoom.
-	var pts := StrokeGeom.curve_points(curve)
+	var pts := closed_points(curve) if closed else StrokeGeom.curve_points(curve)
 	if pts.size() < 2:
 		return
 
@@ -183,7 +183,7 @@ func _draw() -> void:
 			var rings: Array = [pts]
 			for c in subpaths:
 				if c and c.point_count >= 2:
-					rings.append(StrokeGeom.curve_points(c))
+					rings.append(closed_points(c))
 			if fill_color.a > 0.0:
 				for poly in StrokeGeom.evenodd_fill(rings):
 					draw_colored_polygon(poly, fill_color)
@@ -196,6 +196,26 @@ func _draw() -> void:
 		# estilo doble las dos líneas mueren dentro de la flecha).
 		_draw_stroke_mesh(_trim_for_pointers(pts), false)
 		_draw_pointers(pts)
+
+## Puntos de una curva CERRADA incluyendo el tramo de cierre (último → primero)
+## con sus asas. Curve2D no tiene ese tramo: antes se cerraba con una recta y
+## a los círculos y formas curvas les faltaba un trozo (to_svg sí lo curvaba).
+static func closed_points(c: Curve2D) -> PackedVector2Array:
+	var pts := StrokeGeom.curve_points(c)
+	var n := c.point_count
+	if n < 2:
+		return pts
+	var o := c.get_point_out(n - 1)
+	var i := c.get_point_in(0)
+	if o.is_zero_approx() and i.is_zero_approx():
+		return pts
+	var seg := Curve2D.new()
+	seg.add_point(c.get_point_position(n - 1), Vector2.ZERO, o)
+	seg.add_point(c.get_point_position(0), i, Vector2.ZERO)
+	var extra := StrokeGeom.curve_points(seg)
+	if extra.size() > 2:
+		pts.append_array(extra.slice(1, extra.size() - 1))
+	return pts
 
 ## Grosor y color efectivos: por debajo de 1 px se dibuja a 1 px atenuado
 ## (si no, las líneas finas se ven punteadas o desaparecen).

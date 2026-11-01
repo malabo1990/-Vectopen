@@ -162,6 +162,7 @@ pub fn import_path(path: &str) -> Result<Doc, String> {
                 rgba: im.data,
                 xf: Xf::IDENTITY,
                 opacity: 1.0,
+                effects: Vec::new(),
             }));
             Ok(doc)
         }
@@ -194,6 +195,23 @@ fn xform(m: Xf) -> Transform2D {
 
 fn packed(v: &[V2]) -> PackedVector2Array {
     v.iter().map(|p| v2(*p)).collect()
+}
+
+fn effects_to_godot(list: &[Effect]) -> VarArray {
+    let mut a = VarArray::new();
+    for e in list {
+        let mut d = VarDictionary::new();
+        d.set("type", e.kind.as_str());
+        d.set("enabled", true);
+        d.set("offset_x", e.offset[0]);
+        d.set("offset_y", e.offset[1]);
+        d.set("blur", e.blur);
+        d.set("radius", e.blur); // el desenfoque de Vectopen lee «radius»
+        d.set("width", e.width);
+        d.set("color", &col(Some(e.color)));
+        a.push(&d.to_variant());
+    }
+    a
 }
 
 fn item_to_godot(it: &Item) -> Option<VarDictionary> {
@@ -244,6 +262,7 @@ fn item_to_godot(it: &Item) -> Option<VarDictionary> {
             d.set("evenodd", p.evenodd);
             d.set("opacity", p.opacity);
             d.set("name", p.name.as_str());
+            d.set("effects", &effects_to_godot(&p.effects));
         }
         Item::Text(t) => {
             d.set("t", "text");
@@ -254,6 +273,7 @@ fn item_to_godot(it: &Item) -> Option<VarDictionary> {
             d.set("family", t.family.as_str());
             d.set("bold", t.bold);
             d.set("opacity", t.opacity);
+            d.set("effects", &effects_to_godot(&t.effects));
             if let Some(r) = &t.rich {
                 d.set("kind", if r.paragraph { "text_paragraph" } else { "text_title" });
                 d.set("width", r.width);
@@ -280,8 +300,9 @@ fn item_to_godot(it: &Item) -> Option<VarDictionary> {
                 d.set("runs", &runs);
             }
         }
-        Item::Clip(mask, kids) => {
+        Item::Clip(mask, kids, draw) => {
             d.set("t", "clip");
+            d.set("draw_mask", *draw);
             let m = item_to_godot(&Item::Path((**mask).clone()))?;
             d.set("mask", &m);
             let mut arr = VarArray::new();
@@ -304,6 +325,7 @@ fn item_to_godot(it: &Item) -> Option<VarDictionary> {
             d.set("image", &img);
             d.set("xf", xform(im.xf));
             d.set("opacity", im.opacity);
+            d.set("effects", &effects_to_godot(&im.effects));
         }
     }
     Some(d)

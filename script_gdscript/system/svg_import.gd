@@ -696,13 +696,71 @@ static func _item_node(it: Dictionary) -> Node2D:
 			n = _clip_node(it)
 	if n and float(it.get("opacity", 1.0)) < 0.999:
 		n.modulate.a = float(it["opacity"])
+	if n and (it.get("effects", []) as Array).size() > 0:
+		_apply_effects(n, it["effects"])
 	return n
+
+## Efectos importados (sombra, resplandor, desenfoque, contorno) con el mismo
+## formato que el panel Efectos.
+static func _apply_effects(n: Node2D, fx: Array) -> void:
+	var list: Array = []
+	for e in fx:
+		list.append((e as Dictionary).duplicate())
+	if "effects" in n:
+		n.set("effects", list)
+		# El desenfoque se dibuja aparte y no hereda la opacidad de la capa:
+		# se pasa al color.
+		var blurred := list.any(func(e): return String(e.get("type", "")).to_lower() == "blur")
+		if blurred and n.modulate.a < 0.999 and "fill_color" in n:
+			var k := n.modulate.a
+			n.fill_color.a *= k
+			if "stroke_color" in n:
+				n.stroke_color.a *= k
+			n.modulate.a = 1.0
+		if n.has_method("queue_redraw"):
+			n.queue_redraw()
+	elif n.has_meta("shape_type") and String(n.get_meta("shape_type")).begins_with("text_"):
+		n.set_meta("effects", list)
+		load("res://script_gdscript/text/text_fx.gd").sync(n)
+	elif n is Sprite2D or String(n.get_meta("shape_type", "")) == "group":
+		# Imágenes y grupos: sombras con LayerFx (lo mismo que el panel Efectos).
+		n.set_meta("effects", list)
+		load("res://script_gdscript/shapes/layer_fx.gd").sync(n)
 
 ## Forma que RECORTA su contenido (y se dibuja): el contenido va como hijo
 ## de la forma con clip_children, igual que la máscara del panel de capas.
 static func _clip_node(it: Dictionary) -> Node2D:
-	var m := _item_node(it["mask"])
-	if m == null:
+	var md: Dictionary = it["mask"]
+	var draw := bool(it.get("draw_mask", true))
+	var fill: Variant = md.get("fill")
+	var opaque: bool = (md.get("grad") is Dictionary) or (fill is Color and (fill as Color).a >= 0.999)
+	# Godot recorta con lo que DIBUJA el padre: una forma opaca vale tal cual;
+	# si es transparente (solo contorno) o no debe verse, recorta una copia
+	# opaca e invisible y la forma visible va aparte.
+	var clipper: Node2D
+	var holder: Node2D = null
+	if draw and opaque:
+		clipper = _item_node(md)
+	else:
+		var solid := md.duplicate()
+		solid["fill"] = Color.WHITE
+		solid["grad"] = null
+		solid["stroke"] = null
+		solid["effects"] = []
+		solid["opacity"] = 1.0
+		solid["name"] = "Máscara"
+		clipper = _item_node(solid)
+		if clipper == null:
+			return null
+		holder = Node2D.new()
+		holder.name = String(md.get("name", "Grupo"))
+		holder.set_meta("shape_type", "group")
+		if draw:
+			var visible_shape := _item_node(md)
+			if visible_shape:
+				holder.add_child(visible_shape)
+		holder.add_child(clipper)
+	if clipper == null:
 		return null
 	var taken := {}
 	for k in it.get("items", []):
@@ -710,13 +768,13 @@ static func _clip_node(it: Dictionary) -> Node2D:
 		if c == null:
 			continue
 		# Los hijos vienen en coordenadas del documento: pasarlos a las de la forma.
-		c.transform = m.transform.affine_inverse() * c.transform
+		c.transform = clipper.transform.affine_inverse() * c.transform
 		c.name = NameUtils.unique_name_in(taken, String(c.name))
-		m.add_child(c)
-	if m.get_child_count() > 0 and "clip_children" in m:
-		m.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
-		m.set_meta("clip_mask", true)
-	return m
+		clipper.add_child(c)
+	if clipper.get_child_count() > 0 and "clip_children" in clipper:
+		clipper.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW if holder == null else CanvasItem.CLIP_CHILDREN_ONLY
+		clipper.set_meta("clip_mask", true)
+	return holder if holder else clipper
 
 ## Texto con formato (tramos, caja, alineación): se construye con el MISMO
 ## código que al abrir un .vtp, así queda igual que un texto hecho a mano.

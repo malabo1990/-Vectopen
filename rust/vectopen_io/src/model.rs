@@ -47,6 +47,17 @@ pub struct Grad {
     pub stops: Vec<(f32, Rgba)>,
 }
 
+/// Efecto de capa, con los nombres de Vectopen ("Drop Shadow", "Inner Shadow",
+/// "Outer Glow", "Inner Glow", "Blur", "Outline").
+#[derive(Clone, Debug, PartialEq)]
+pub struct Effect {
+    pub kind: String,
+    pub offset: V2,
+    pub blur: f32,
+    pub width: f32,
+    pub color: Rgba,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathItem {
     pub subs: Vec<Sub>,
@@ -61,6 +72,7 @@ pub struct PathItem {
     pub evenodd: bool,
     pub opacity: f32,
     pub name: String,
+    pub effects: Vec<Effect>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -73,6 +85,7 @@ pub struct TextItem {
     pub family: String,
     pub bold: bool,
     pub opacity: f32,
+    pub effects: Vec<Effect>,
     /// Formato enriquecido (vacío = todo con el estilo de arriba).
     pub rich: Option<RichText>,
 }
@@ -113,6 +126,7 @@ pub struct ImageItem {
     /// Píxel (0,0)-(w,h) → documento.
     pub xf: Xf,
     pub opacity: f32,
+    pub effects: Vec<Effect>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -122,7 +136,8 @@ pub enum Item {
     Image(ImageItem),
     /// Forma que RECORTA su contenido (y se dibuja también), como el «contenido
     /// dentro de una forma» de Affinity o los clipPath de SVG.
-    Clip(Box<PathItem>, Vec<Item>),
+    /// `draw` = false: la forma solo recorta, no se ve (p. ej. el borde de un artboard).
+    Clip(Box<PathItem>, Vec<Item>, bool),
 }
 
 /// Página o artboard de un documento con varios (Affinity, PDF de varias páginas…).
@@ -171,7 +186,7 @@ impl Doc {
                     }
                 }
                 Item::Text(t) => add([t.xf.e, t.xf.f]),
-                Item::Clip(m, _) => m.subs.iter().flat_map(|s| s.anchors.iter()).for_each(|a| add(*a)),
+                Item::Clip(m, _, _) => m.subs.iter().flat_map(|s| s.anchors.iter()).for_each(|a| add(*a)),
             }
         }
         (b[0] <= b[2]).then_some(b)

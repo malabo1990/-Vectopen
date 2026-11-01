@@ -19,6 +19,15 @@ fn fontdb() -> Arc<usvg::fontdb::Database> {
     .clone()
 }
 
+/// ¿Está instalada en el sistema una fuente con esta familia?
+pub fn font_installed(family: &str) -> bool {
+    let f = family.trim().to_lowercase();
+    if f.is_empty() {
+        return true;
+    }
+    fontdb().faces().any(|face| face.families.iter().any(|(n, _)| n.to_lowercase() == f))
+}
+
 pub fn parse(bytes: &[u8]) -> Result<Doc, String> {
     let mut opt = usvg::Options::default();
     opt.fontdb = fontdb();
@@ -150,7 +159,7 @@ fn path(p: &usvg::Path, op: f32, doc: &mut Doc) {
         }
     }
     let name = if p.id().is_empty() { "Trazado".to_string() } else { p.id().to_string() };
-    doc.items.push(Item::Path(PathItem { subs, fill, stroke, grad, dash, width, cap, evenodd, opacity: op, name }));
+    doc.items.push(Item::Path(PathItem { subs, fill, stroke, grad, dash, width, cap, evenodd, opacity: op, name, effects: Vec::new() }));
 }
 
 fn image(i: &usvg::Image, op: f32, doc: &mut Doc) {
@@ -176,7 +185,7 @@ fn image(i: &usvg::Image, op: f32, doc: &mut Doc) {
             let sz = i.size();
             let s = Xf { a: sz.width() / im.width as f32, b: 0.0, c: 0.0, d: sz.height() / im.height as f32, e: 0.0, f: 0.0 };
             let t = mul(xf(i.abs_transform()), s);
-            doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: t, opacity: op }));
+            doc.items.push(Item::Image(ImageItem { width: im.width, height: im.height, rgba: im.data, xf: t, opacity: op, effects: Vec::new() }));
         }
         Err(_) => doc.warn("imágenes dañadas"),
     }
@@ -224,6 +233,7 @@ fn text(t: &usvg::Text, op: f32, doc: &mut Doc) {
             family: fam,
             bold: span.font().weight() >= 600,
             opacity: op,
+            effects: Vec::new(),
             rich: None,
         }));
     }
@@ -270,9 +280,9 @@ fn transform_item(it: Item, m: Xf) -> Item {
             im.xf = mul(m, im.xf);
             Item::Image(im)
         }
-        Item::Clip(mask, kids) => {
+        Item::Clip(mask, kids, draw) => {
             let Item::Path(pm) = transform_item(Item::Path(*mask), m) else { unreachable!() };
-            Item::Clip(Box::new(pm), kids.into_iter().map(|k| transform_item(k, m)).collect())
+            Item::Clip(Box::new(pm), kids.into_iter().map(|k| transform_item(k, m)).collect(), draw)
         }
     }
 }
