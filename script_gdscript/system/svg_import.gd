@@ -671,25 +671,81 @@ static func build(data: Dictionary, group_name: String = "SVG") -> Node2D:
 	g.set_meta("shape_type", "group")
 	var taken := {}   # nombres ya usados en el grupo (O(1) por figura)
 	for it in data["items"]:
-		var n: Node2D = null
-		match it["t"]:
-			"path":
-				n = _vector_path(it)
-			"text":
-				n = _text_node(it)
-			"image":
-				var sp := Sprite2D.new()
-				sp.name = "Imagen"
-				sp.texture = ImageTexture.create_from_image(it["image"])
-				sp.centered = false
-				sp.transform = it["xf"]
-				n = sp
+		var n := _item_node(it)
 		if n:
-			if float(it.get("opacity", 1.0)) < 0.999:
-				n.modulate.a = float(it["opacity"])
 			n.name = NameUtils.unique_name_in(taken, String(n.name))
 			g.add_child(n)
 	return g
+
+## Un elemento importado → nodo de Vectopen (null si no se puede crear).
+static func _item_node(it: Dictionary) -> Node2D:
+	var n: Node2D = null
+	match it.get("t", ""):
+		"path":
+			n = _vector_path(it)
+		"text":
+			n = _rich_text_node(it) if it.has("runs") else _text_node(it)
+		"image":
+			var sp := Sprite2D.new()
+			sp.name = "Imagen"
+			sp.texture = ImageTexture.create_from_image(it["image"])
+			sp.centered = false
+			sp.transform = it["xf"]
+			n = sp
+		"clip":
+			n = _clip_node(it)
+	if n and float(it.get("opacity", 1.0)) < 0.999:
+		n.modulate.a = float(it["opacity"])
+	return n
+
+## Forma que RECORTA su contenido (y se dibuja): el contenido va como hijo
+## de la forma con clip_children, igual que la máscara del panel de capas.
+static func _clip_node(it: Dictionary) -> Node2D:
+	var m := _item_node(it["mask"])
+	if m == null:
+		return null
+	var taken := {}
+	for k in it.get("items", []):
+		var c := _item_node(k)
+		if c == null:
+			continue
+		# Los hijos vienen en coordenadas del documento: pasarlos a las de la forma.
+		c.transform = m.transform.affine_inverse() * c.transform
+		c.name = NameUtils.unique_name_in(taken, String(c.name))
+		m.add_child(c)
+	if m.get_child_count() > 0 and "clip_children" in m:
+		m.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		m.set_meta("clip_mask", true)
+	return m
+
+## Texto con formato (tramos, caja, alineación): se construye con el MISMO
+## código que al abrir un .vtp, así queda igual que un texto hecho a mano.
+static func _rich_text_node(it: Dictionary) -> Node2D:
+	var runs: Array = []
+	for r in it["runs"]:
+		var rd: Dictionary = (r as Dictionary).duplicate()
+		runs.append(rd)
+	var d := {
+		"name": "Párrafo" if String(it.get("kind", "")) == "text_paragraph" else "Texto",
+		"text_kind": String(it.get("kind", "text_title")),
+		"text": String(it["text"]),
+		"font_size": int(round(float(it["size"]))),
+		"text_color": it["color"] if it["color"] != null else Color.BLACK,
+		"text_align": String(it.get("align", "left")),
+		"runs": runs,
+	}
+	if String(it.get("family", "")) != "":
+		d["font_family"] = String(it["family"])
+	if int(it.get("weight", 400)) != 400:
+		d["font_weight"] = int(it["weight"])
+	if bool(it.get("italic", false)):
+		d["font_italic"] = true
+	if d["text_kind"] == "text_paragraph" and float(it.get("width", 0.0)) > 1.0:
+		d["width"] = float(it["width"])
+		d["height"] = maxf(float(it.get("height", 0.0)), float(it["size"]) * 1.4)
+	var n: Node2D = load("res://scripts/canvas/canvas_serializer.gd")._text_from(d)
+	n.transform = it["xf"]
+	return n
 
 static func _vector_path(it: Dictionary) -> Node2D:
 	var subs: Array = it["subs"]

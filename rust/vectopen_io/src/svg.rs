@@ -224,6 +224,7 @@ fn text(t: &usvg::Text, op: f32, doc: &mut Doc) {
             family: fam,
             bold: span.font().weight() >= 600,
             opacity: op,
+            rich: None,
         }));
     }
 }
@@ -237,6 +238,11 @@ fn mul(p: Xf, q: Xf) -> Xf {
         e: p.a * q.e + p.c * q.f + p.e,
         f: p.b * q.e + p.d * q.f + p.f,
     }
+}
+
+/// Aplica una transformación a un elemento ya convertido.
+pub fn transform_item_pub(it: Item, m: Xf) -> Item {
+    transform_item(it, m)
 }
 
 fn transform_item(it: Item, m: Xf) -> Item {
@@ -263,6 +269,10 @@ fn transform_item(it: Item, m: Xf) -> Item {
         Item::Image(mut im) => {
             im.xf = mul(m, im.xf);
             Item::Image(im)
+        }
+        Item::Clip(mask, kids) => {
+            let Item::Path(pm) = transform_item(Item::Path(*mask), m) else { unreachable!() };
+            Item::Clip(Box::new(pm), kids.into_iter().map(|k| transform_item(k, m)).collect())
         }
     }
 }

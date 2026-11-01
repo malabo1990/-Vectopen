@@ -500,7 +500,7 @@ func _export_done(fmt: String, path: String, err: Error, chk: Dictionary) -> voi
 ## Formatos que el panel ofrece (JPEG XL no: Godot no sabe escribirlo).
 const EXPORT_FORMATS := ["SVG", "PDF", "EPS", "PNG", "JPEG", "WEBP", "VOP", "TSCN", "SCN"]
 const RASTER_FORMATS := ["PNG", "JPEG", "WEBP"]
-const IMPORT_EXTS := ["svg", "eps", "ai", "pdf", "ps", "png", "jpg", "jpeg", "webp", "vop", "tscn", "scn", "glb", "gltf", "vtp", "vtc", "vectopen"]
+const IMPORT_EXTS := ["svg", "af", "afdesign", "afphoto", "afpub", "aftemplate", "eps", "ai", "pdf", "ps", "png", "jpg", "jpeg", "webp", "vop", "tscn", "scn", "glb", "gltf", "vtp", "vtc", "vectopen"]
 
 ## Exporta solo `nodes` (hijos directos de `artboard`), recortado a su caja.
 ## Sin nodos = el artboard entero. Usar con await.
@@ -599,10 +599,18 @@ func import_any(path: String, artboard: Node2D, at: Vector2 = Vector2.INF) -> Di
 			node = SvgImport.build(data, path.get_file().get_basename())
 			node.position = center - Vector2(data["size"]) / 2.0
 			node = api.add(node, artboard)
-		"eps", "ai", "pdf", "ps":
+		"eps", "ai", "pdf", "ps", "af", "afdesign", "afphoto", "afpub", "aftemplate":
 			# EPS / AI (antiguo = PostScript, moderno = PDF) / PDF → trazados editables.
 			var pdata := NativeIO.parse_file(path)
 			var warns: Array = pdata.get("warnings", [])
+			# Varias páginas o artboards (Affinity, PDF…): un artboard de Vectopen por cada uno.
+			if (pdata.get("pages", []) as Array).size() > 1:
+				return _import_pages(path, pdata, api)
+			# Un documento de Affinity es un documento entero: su propio artboard.
+			if ext in ["af", "afdesign", "afphoto", "afpub", "aftemplate"] and not (pdata["items"] as Array).is_empty():
+				var one := pdata.duplicate()
+				one["pages"] = [{"name": path.get_file().get_basename(), "size": pdata["size"], "origin": Vector2.ZERO, "bg": null, "items": pdata["items"]}]
+				return _import_pages(path, one, api)
 			if (pdata["items"] as Array).is_empty():
 				return {"ok": false, "error": "No se encontraron trazados que importar en «%s»%s" % [path.get_file(), (" (" + ", ".join(PackedStringArray(warns)) + ")") if not warns.is_empty() else ""]}
 			node = SvgImport.build(pdata, path.get_file().get_basename())
@@ -657,6 +665,44 @@ func import_any(path: String, artboard: Node2D, at: Vector2 = Vector2.INF) -> Di
 	GlobalEvents.import_finished.emit(path)
 	return {"ok": true, "error": "", "node": node}
 
+## Documento con varias páginas/artboards → un artboard nuevo por cada uno,
+## con su nombre, tamaño, fondo y la MISMA colocación relativa que en el
+## original (a la derecha de los artboards que ya hay).
+func _import_pages(path: String, pdata: Dictionary, api) -> Dictionary:
+	var pages: Array = pdata["pages"]
+	var base := Vector2.ZERO
+	for a in api.artboards():
+		base.x = maxf(base.x, a.global_position.x + a.artboard_size.x + 200.0)
+	var o0 := Vector2(INF, INF)
+	for pg in pages:
+		o0 = o0.min(Vector2(pg.get("origin", Vector2.ZERO)))
+	var first: Node2D = null
+	var created := 0
+	for pg in pages:
+		var ab: Node2D = api.add_artboard(Vector2(pg["size"]), String(pg.get("name", "Artboard")))
+		if ab == null:
+			continue
+		ab.global_position = base + Vector2(pg.get("origin", Vector2.ZERO)) - o0
+		if pg.get("bg") is Color:
+			ab.fill_color = pg["bg"]
+		if not (pg["items"] as Array).is_empty():
+			var g := SvgImport.build({"items": pg["items"]}, String(pg.get("name", path.get_file().get_basename())))
+			api.add(g, ab)
+		created += 1
+		if first == null:
+			first = ab
+	if created == 0:
+		return {"ok": false, "error": "No se pudo crear ningún artboard para «%s»" % path.get_file()}
+	if first:
+		api.set_active_artboard(first)
+	var warns: Array = pdata.get("warnings", [])
+	var msg := "Importado «%s»: %d artboards." % [path.get_file(), created]
+	if not warns.is_empty():
+		msg += " No se importó: %s." % ", ".join(PackedStringArray(warns))
+	GlobalEvents.emit_safe("user_notice", "warning" if not warns.is_empty() else "info", msg)
+	GlobalEvents.import_finished.emit(path)
+	return {"ok": true, "error": "", "node": first}
+
 ## Convierte un archivo a `format` sin tocar el documento: lo carga en un
 ## artboard temporal invisible y lo exporta junto al original (o en
 ## `out_dir`). Una imagen a formato vectorial se VECTORIZA. Usar con await.
@@ -688,7 +734,7 @@ func convert_file(src: String, format: String, out_dir: String = "", settings: D
 				g.remove_child(c)
 				tmp.add_child(c)
 			g.free()
-		"eps", "ai", "pdf", "ps":
+		"eps", "ai", "pdf", "ps", "af", "afdesign", "afphoto", "afpub", "aftemplate":
 			var pdata := NativeIO.parse_file(src)
 			if (pdata["items"] as Array).is_empty():
 				error = "No se encontraron trazados en «%s»" % src.get_file()

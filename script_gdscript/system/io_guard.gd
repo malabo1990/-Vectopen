@@ -49,6 +49,8 @@ static func check_import(path: String) -> Dictionary:
 		"svg": ["svg"], "pdf": ["pdf"], "eps": ["ps", "eps_dos"], "ps": ["ps", "eps_dos"],
 		"ai": ["pdf", "ps", "eps_dos"], "png": ["png"], "jpg": ["jpg"], "jpeg": ["jpg"],
 		"webp": ["webp"], "vop": ["json"], "gltf": ["json"], "glb": ["glb"],
+		"af": ["affinity"], "afdesign": ["affinity"], "afphoto": ["affinity"], "afpub": ["affinity"],
+		"aftemplate": ["affinity"],
 		"vtp": ["vtc"], "vtc": ["vtc"], "vectopen": ["vtc", "json"],
 	}.get(ext, [])
 	if not expected.is_empty() and not (kind in expected):
@@ -63,6 +65,8 @@ static func check_import(path: String) -> Dictionary:
 ## json, glb, vtc o "" si no se reconoce.
 static func sniff(head: PackedByteArray) -> String:
 	var n := head.size()
+	if n >= 4 and head[0] == 0x00 and head[1] == 0xFF and head[2] == 0x4B and head[3] == 0x41:
+		return "affinity"
 	if n >= 4 and head[0] == 0xC5 and head[1] == 0xD0 and head[2] == 0xD3 and head[3] == 0xC6:
 		return "eps_dos"
 	if n >= 8 and head.slice(0, 8) == PackedByteArray([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]):

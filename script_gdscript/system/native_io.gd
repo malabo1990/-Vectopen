@@ -49,12 +49,25 @@ static func parse_file(path: String) -> Dictionary:
 			d = SvgImport.parse(FileAccess.get_file_as_string(path))
 		"eps", "ai", "pdf", "ps":
 			d = PsImport.parse_file(path)
+		"af", "afdesign", "afphoto", "afpub", "aftemplate":
+			# Affinity solo tiene lector nativo (formato cerrado).
+			d = {"size": Vector2(800, 600), "items": [], "warnings": []}
+			if native_error == "":
+				native_error = "para abrir archivos de Affinity hace falta la extensión nativa vectopen_io"
 		_:
 			d = {"size": Vector2(800, 600), "items": [], "warnings": []}
 	d["engine"] = "gdscript"
 	if native_error != "" and (d.get("items", []) as Array).is_empty():
 		d["error"] = native_error
 	return d
+
+## Convierte cualquier formato que el importador nativo lea (p. ej. Affinity)
+## a SVG estándar. Devuelve "" si salió bien o el mensaje de error.
+static func convert_to_svg(src: String, dst: String) -> String:
+	var io := native()
+	if io == null:
+		return "falta la extensión nativa vectopen_io"
+	return String(io.convert_to_svg(ProjectSettings.globalize_path(src), ProjectSettings.globalize_path(dst)))
 
 ## Imagen que Godot no sabe leer (p. ej. JPEG CMYK) → Image, o null.
 static func load_image(path: String) -> Image:

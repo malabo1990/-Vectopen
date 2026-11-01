@@ -27,7 +27,7 @@ var _dir_cache: Dictionary = {}
 
 const THUMB_EXTS := ["png", "jpg", "jpeg", "webp", "svg", "vop"]
 const DEFAULT_EXPORT_FORMATS := ["SVG", "PNG", "PDF", "JPEG"]
-const SUPPORTED_FILTERS := ["*.vtp, *.vtc, *.svg, *.eps, *.ai, *.pdf, *.png, *.jpg, *.jpeg, *.webp, *.vop, *.glb, *.gltf ; Archivos soportados"]
+const SUPPORTED_FILTERS := ["*.vtp, *.vtc, *.svg, *.eps, *.ai, *.pdf, *.af, *.afdesign, *.afphoto, *.afpub, *.png, *.jpg, *.jpeg, *.webp, *.vop, *.glb, *.gltf ; Archivos soportados"]
 const EMPTY_MSG := "No documents exist"
 const FIRST_BATCH := 12
 const CHUNK_SIZE := 30

@@ -73,6 +73,35 @@ pub struct TextItem {
     pub family: String,
     pub bold: bool,
     pub opacity: f32,
+    /// Formato enriquecido (vacío = todo con el estilo de arriba).
+    pub rich: Option<RichText>,
+}
+
+/// Texto con tramos de formato, párrafo con caja y alineación (como los
+/// textos de Vectopen: meta «runs», «text_paragraph», «width», «text_align»).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RichText {
+    /// Párrafo con caja (ajusta líneas al ancho) o texto artístico (una línea por párrafo).
+    pub paragraph: bool,
+    pub width: f32,
+    pub height: f32,
+    /// "left" | "center" | "right" | "fill".
+    pub align: String,
+    pub weight: i32,
+    pub italic: bool,
+    pub runs: Vec<Run>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Run {
+    /// Caracteres (puntos de código, como String.length() de Godot).
+    pub length: usize,
+    pub color: Rgba,
+    pub size: f32,
+    pub weight: i32,
+    pub italic: bool,
+    pub underline: bool,
+    pub stroke: Option<(Rgba, f32)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -91,19 +120,61 @@ pub enum Item {
     Path(PathItem),
     Text(TextItem),
     Image(ImageItem),
+    /// Forma que RECORTA su contenido (y se dibuja también), como el «contenido
+    /// dentro de una forma» de Affinity o los clipPath de SVG.
+    Clip(Box<PathItem>, Vec<Item>),
+}
+
+/// Página o artboard de un documento con varios (Affinity, PDF de varias páginas…).
+#[derive(Clone, Debug, Default)]
+pub struct Page {
+    pub name: String,
+    /// Posición en el lienzo (para colocar los artboards como en el original).
+    pub origin: V2,
+    pub size: V2,
+    /// Color de fondo (None = transparente).
+    pub bg: Option<Rgba>,
+    /// En coordenadas de la página (0,0 = esquina superior izquierda).
+    pub items: Vec<Item>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Doc {
     pub size: V2,
+    /// Contenido de la PRIMERA página (o del documento si solo hay una).
     pub items: Vec<Item>,
+    /// Todas las páginas/artboards si hay más de una (vacío si solo una).
+    pub pages: Vec<Page>,
     /// Lo que no se pudo importar («texto», «recortes»…), sin repetir.
     pub warnings: BTreeSet<String>,
 }
 
 impl Doc {
     pub fn new(size: V2) -> Doc {
-        Doc { size, items: Vec::new(), warnings: BTreeSet::new() }
+        Doc { size, items: Vec::new(), pages: Vec::new(), warnings: BTreeSet::new() }
+    }
+    /// Caja que ocupa todo el contenido (x0, y0, x1, y1), o None si está vacío.
+    pub fn bounds(&self) -> Option<[f32; 4]> {
+        let mut b = [f32::MAX, f32::MAX, f32::MIN, f32::MIN];
+        let mut add = |p: V2| {
+            b[0] = b[0].min(p[0]);
+            b[1] = b[1].min(p[1]);
+            b[2] = b[2].max(p[0]);
+            b[3] = b[3].max(p[1]);
+        };
+        for it in &self.items {
+            match it {
+                Item::Path(p) => p.subs.iter().flat_map(|s| s.anchors.iter()).for_each(|a| add(*a)),
+                Item::Image(im) => {
+                    for c in [[0.0, 0.0], [im.width as f32, 0.0], [0.0, im.height as f32], [im.width as f32, im.height as f32]] {
+                        add(im.xf.apply(c));
+                    }
+                }
+                Item::Text(t) => add([t.xf.e, t.xf.f]),
+                Item::Clip(m, _) => m.subs.iter().flat_map(|s| s.anchors.iter()).for_each(|a| add(*a)),
+            }
+        }
+        (b[0] <= b[2]).then_some(b)
     }
     pub fn warn(&mut self, w: &str) {
         self.warnings.insert(w.to_string());
@@ -153,6 +224,10 @@ impl Builder {
             self.cur.outs.pop();
         }
         self.flush(true);
+    }
+    /// Último punto del subtrazado en curso.
+    pub fn last(&self) -> Option<V2> {
+        self.cur.anchors.last().copied()
     }
     pub fn finish(mut self) -> Vec<Sub> {
         self.flush(false);

@@ -5,10 +5,12 @@
 //! `VectopenIO` (`ClassDB.instantiate("VectopenIO")`). Si esta librería no
 //! carga en un sistema, Vectopen usa los importadores GDScript de siempre.
 
+pub mod affinity;
 pub mod guard;
 pub mod model;
 pub mod raster;
 pub mod svg;
+pub mod svg_write;
 
 use godot::classes::image::Format;
 use godot::classes::{Image, RefCounted};
@@ -22,7 +24,10 @@ struct VectopenIoExtension;
 unsafe impl ExtensionLibrary for VectopenIoExtension {}
 
 /// Extensiones que el importador nativo ya lee. El resto → GDScript.
-pub const IMPORT_EXTS: &[&str] = &["svg", "svgz", "png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"];
+pub const IMPORT_EXTS: &[&str] = &[
+    "svg", "svgz", "png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff",
+    "af", "afdesign", "afphoto", "afpub", "aftemplate",
+];
 
 #[derive(GodotClass)]
 #[class(init, base=RefCounted)]
@@ -62,6 +67,23 @@ impl VectopenIO {
                     }
                 }
                 d.set("items", &items);
+                let mut pages = VarArray::new();
+                for pg in &doc.pages {
+                    let mut pd = VarDictionary::new();
+                    pd.set("name", pg.name.as_str());
+                    pd.set("size", v2(pg.size));
+                    pd.set("origin", v2(pg.origin));
+                    pd.set("bg", &col(pg.bg));
+                    let mut its = VarArray::new();
+                    for it in &pg.items {
+                        if let Some(v) = item_to_godot(it) {
+                            its.push(&v.to_variant());
+                        }
+                    }
+                    pd.set("items", &its);
+                    pages.push(&pd.to_variant());
+                }
+                d.set("pages", &pages);
                 let mut w = VarArray::new();
                 for s in &doc.warnings {
                     w.push(&GString::from(s.as_str()).to_variant());
@@ -77,6 +99,21 @@ impl VectopenIO {
             }
         }
         d
+    }
+
+    /// Convierte cualquier archivo que sepa importar a SVG (p. ej. Affinity →
+    /// SVG). Devuelve "" si salió bien o el mensaje de error.
+    #[func]
+    fn convert_to_svg(&self, src: GString, dst: GString) -> GString {
+        let (s, d) = (src.to_string(), dst.to_string());
+        let r = guard::run_isolated(move || {
+            let doc = import_path(&s)?;
+            std::fs::write(&d, svg_write::to_svg(&doc)).map_err(|e| format!("no se pudo escribir «{}» ({e})", guard::file_name(&d)))
+        });
+        match r {
+            Ok(()) => GString::new(),
+            Err(e) => GString::from(e.as_str()),
+        }
     }
 
     /// Cualquier imagen (también JPEG CMYK) → PNG. Vacío si no se pudo leer.
@@ -104,6 +141,12 @@ pub fn import_path(path: &str) -> Result<Doc, String> {
     let bytes = guard::read_file(path)?;
     let kind = guard::sniff(&bytes);
     match ext.as_str() {
+        e if affinity::EXTS.contains(&e) => {
+            if kind != "affinity" {
+                return Err(format!("«{name}» no es un archivo de Affinity válido{} o está dañado", seems(kind)));
+            }
+            affinity::import(&bytes)
+        }
         "svg" | "svgz" => {
             if kind != "svg" && kind != "gzip" {
                 return Err(format!("«{name}» no es un SVG válido{} o está dañado", seems(kind)));
@@ -211,6 +254,43 @@ fn item_to_godot(it: &Item) -> Option<VarDictionary> {
             d.set("family", t.family.as_str());
             d.set("bold", t.bold);
             d.set("opacity", t.opacity);
+            if let Some(r) = &t.rich {
+                d.set("kind", if r.paragraph { "text_paragraph" } else { "text_title" });
+                d.set("width", r.width);
+                d.set("height", r.height);
+                d.set("align", r.align.as_str());
+                d.set("weight", r.weight);
+                d.set("italic", r.italic);
+                let mut runs = VarArray::new();
+                for run in &r.runs {
+                    let mut rd = VarDictionary::new();
+                    rd.set("length", run.length as i64);
+                    rd.set("color", &col(Some(run.color)));
+                    rd.set("size", run.size);
+                    rd.set("weight", run.weight);
+                    rd.set("bold", run.weight >= 600);
+                    rd.set("italic", run.italic);
+                    rd.set("underline", run.underline);
+                    if let Some((c, w)) = run.stroke {
+                        rd.set("stroke_color", &col(Some(c)));
+                        rd.set("stroke_width", w);
+                    }
+                    runs.push(&rd.to_variant());
+                }
+                d.set("runs", &runs);
+            }
+        }
+        Item::Clip(mask, kids) => {
+            d.set("t", "clip");
+            let m = item_to_godot(&Item::Path((**mask).clone()))?;
+            d.set("mask", &m);
+            let mut arr = VarArray::new();
+            for k in kids {
+                if let Some(v) = item_to_godot(k) {
+                    arr.push(&v.to_variant());
+                }
+            }
+            d.set("items", &arr);
         }
         Item::Image(im) => {
             let img = Image::create_from_data(

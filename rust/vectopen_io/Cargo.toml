@@ -11,6 +11,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 godot = { version = "0.5", features = ["api-4-7"] }
 usvg = "0.45"
+# Affinity: descompresores en Rust puro (sin C → compila igual en los 3 sistemas).
+ruzstd = "0.7"
+miniz_oxide = "0.8"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff"] }
 
 [profile.release]

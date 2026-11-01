@@ -76,6 +76,9 @@ pub fn file_name(path: &str) -> String {
 
 /// Tipo real por los primeros bytes (como IoGuard.sniff).
 pub fn sniff(b: &[u8]) -> &'static str {
+    if b.starts_with(&[0x00, 0xFF, 0x4B, 0x41]) {
+        return "affinity";
+    }
     if b.starts_with(&[0xC5, 0xD0, 0xD3, 0xC6]) {
         return "eps_dos";
     }
