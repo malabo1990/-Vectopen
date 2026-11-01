@@ -219,7 +219,7 @@ func _on_open_pressed() -> void:
 	var file_dialog = FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	file_dialog.filters = PackedStringArray(["*.vtc"])
+	file_dialog.filters = PackedStringArray(["*.vtp, *.vtc ; Vectopen"])
 	
 	var main_view = get_tree().root.get_main_scene()
 	if main_view:
@@ -239,8 +239,8 @@ func _get_save_path() -> String:
 	var file_dialog = FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	file_dialog.filters = PackedStringArray(["*.vtc"])
-	file_dialog.current_file = "vectopen_project.vtc"
+	file_dialog.filters = PackedStringArray(["*.vtp, *.vtc ; Vectopen"])
+	file_dialog.current_file = "vectopen_project.vtp"
 	
 	var main_view = get_tree().root.get_main_scene()
 	if main_view:
@@ -358,8 +358,12 @@ func _on_element_dropped_internally(element: Variant, position: Vector2) -> void
 func _on_export_requested(element: Node, format: String, destination: String) -> void:
 	# Exportar el elemento al formato y destino especificados
 	if import_export_manager and import_export_manager.has_method("export_artboard"):
-		import_export_manager.export_artboard(element, _get_export_format(format), destination, {})
-		self.export_finished.emit(format, destination)
+		# Antes avisaba «terminado» aunque la exportación fallara.
+		var err: Error = await import_export_manager.export_artboard(element, _get_export_format(format), destination, {})
+		if err == OK:
+			self.export_finished.emit(format, destination)
+		else:
+			self.export_error.emit(format, error_string(err))
 	else:
 		push_error("ImportExportManager not available")
 		self.export_error.emit(format, "ImportExportManager not available")
@@ -386,7 +390,7 @@ func _setup_autosave() -> void:
 
 
 func _on_autosave_timeout() -> void:
-	var autosave_path = "user://autosave.vtc"
+	var autosave_path = "user://autosave.vtp"
 	var project_data = {
 		"artboards": _get_all_artboards_data(),
 		"metadata": {
@@ -407,7 +411,7 @@ func _on_autosave_timeout() -> void:
 
 
 func _check_autosave() -> void:
-	var autosave_path = "user://autosave.vtc"
+	var autosave_path = "user://autosave.vtp"
 	if FileAccess.file_exists(autosave_path) and GlobalUI:
 		GlobalUI.show_confirmation_dialog(
 			"Auto-save found. Do you want to restore?",
@@ -417,7 +421,7 @@ func _check_autosave() -> void:
 
 
 func _on_restore_autosave() -> void:
-	_load_project("user://autosave.vtc")
+	_load_project("user://autosave.vtp")
 
 
 # TODO: async function placeholder

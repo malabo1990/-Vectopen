@@ -179,7 +179,7 @@ func _b() -> Vector2:
 
 var fill_gradient: Gradient:
 	get:
-		return line.get_meta("brush_grad", null) if is_instance_valid(line) else null
+		return line.get_meta("brush_grad") if is_instance_valid(line) and line.has_meta("brush_grad") else null
 	set(v):
 		if not is_instance_valid(line):
 			return

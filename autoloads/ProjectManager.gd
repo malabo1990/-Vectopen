@@ -27,7 +27,29 @@ var GlobalEvents: Node = null  # Se asigna en _ready()
 ## Extensión del documento de Vectopen. .vtc = contenedor plano direccionable
 ## (VTC2): manifest gzip + un chunk gzip por artboard → carga/guardado perezosos.
 ## El .json queda como respaldo legible sin comprimir.
-const DOC_EXT := ".vtc"
+const DOC_EXT := ".vtp"
+## Extensiones anteriores que se siguen abriendo (al guardar pasan a .vtp).
+const LEGACY_DOC_EXTS := [".vtc"]
+
+## Ruta final de guardado: un .vtc antiguo pasa a .vtp junto a él (el original
+## se conserva); sin extensión → .vtp; .json se respeta (copia legible).
+static func normalized_doc_path(p: String) -> String:
+	for e in LEGACY_DOC_EXTS:
+		if p.to_lower().ends_with(e):
+			return p.substr(0, p.length() - e.length()) + DOC_EXT
+	if p.ends_with(DOC_EXT) or p.ends_with(".json"):
+		return p
+	return p + DOC_EXT
+
+## ¿Es un documento de Vectopen (.vtp o el antiguo .vtc)?
+static func is_doc_path(p: String) -> bool:
+	var l := p.to_lower()
+	if l.ends_with(DOC_EXT):
+		return true
+	for e in LEGACY_DOC_EXTS:
+		if l.ends_with(e):
+			return true
+	return false
 
 
 # ==========================================
@@ -229,7 +251,13 @@ func save_project(path: String = "") -> String:
 		push_error("ProjectManager: No se especificó ruta para guardar")
 		return ""
 
+	var asked: String = save_path
+	save_path = normalized_doc_path(save_path)
 	var success = _save_to_path(save_path)
+	if success and asked.to_lower().ends_with(".vtc"):
+		var ge := get_node_or_null("/root/GlobalEvents")
+		if ge and ge.has_signal("user_notice"):
+			ge.user_notice.emit("info", "Guardado como «%s» (formato nuevo .vtp). El archivo «%s» original se conserva." % [save_path.get_file(), asked.get_file()])
 
 	if success:
 		project.file_path = save_path
@@ -249,8 +277,7 @@ func _save_to_path(path: String) -> bool:
 		return false
 
 	# Asegurar extensión
-	if not path.ends_with(DOC_EXT) and not path.ends_with(".json"):
-		path += DOC_EXT
+	path = normalized_doc_path(path)
 
 	var header := {
 		"version": 3,
@@ -294,14 +321,14 @@ func load_project(path: String) -> bool:
 	# 1) .vtc como contenedor ZIP: lee solo el manifest, artboards dormidos.
 	var data = null
 	var vtc_manifest := {}
-	if path.ends_with(DOC_EXT):
+	if is_doc_path(path):
 		vtc_manifest = _CanvasSerializer.read_vtc_manifest(path)
 	if not vtc_manifest.is_empty():
 		data = vtc_manifest   # trae project/session/version en la cabecera
 	else:
 		# 2) fallback: gzip (formato .vtc previo) o texto plano (.json)
 		var content := ""
-		if path.ends_with(DOC_EXT):
+		if is_doc_path(path):
 			var cf := FileAccess.open_compressed(path, FileAccess.READ, FileAccess.COMPRESSION_GZIP)
 			if cf:
 				content = cf.get_as_text()
@@ -1092,7 +1119,7 @@ class LayerData:
 		is_locked = data.get("locked", is_locked)
 		opacity = data.get("opacity", opacity)
 		blend_mode = data.get("blend_mode", blend_mode)
-		shape_ids = data.get("shape_ids", [])
+		shape_ids.assign(data.get("shape_ids", []))   # assign: el JSON trae Array sin tipo
 
 		shapes.clear()
 		var shapes_data = data.get("shapes", [])

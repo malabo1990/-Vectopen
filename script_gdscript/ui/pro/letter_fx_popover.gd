@@ -539,7 +539,7 @@ func _input(event: InputEvent) -> void:
 		var mp: Vector2 = event.global_position
 		if get_global_rect().has_point(mp):
 			return
-		var btn := _anchor.get_meta("letter_fx_button", null) as Control if is_instance_valid(_anchor) else null
+		var btn := _anchor.get_meta("letter_fx_button") as Control if is_instance_valid(_anchor) and _anchor.has_meta("letter_fx_button") else null
 		if btn and btn.get_global_rect().has_point(mp):
 			return
 		# El selector de color u otros popovers propios no cierran este panel

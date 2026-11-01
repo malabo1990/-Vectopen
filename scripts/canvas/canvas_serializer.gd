@@ -349,7 +349,7 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		if _lfx is Array and not (_lfx as Array).is_empty():
 			base["fx"] = _enc_deep(_lfx)
 		# Degradado 2D del trazo de pincel (tecla G): stops + sus dos puntos.
-		if node.get_meta("brush_grad", null) is Gradient:
+		if node.has_meta("brush_grad") and node.get_meta("brush_grad") is Gradient:
 			base["brush_grad"] = _grad_to_dict(node.get_meta("brush_grad"), int(node.get_meta("brush_grad_type", 0)), 0.0)
 			base["brush_grad_a"] = [float(node.get_meta("brush_grad_a", Vector2.ZERO).x), float(node.get_meta("brush_grad_a", Vector2.ZERO).y)]
 			base["brush_grad_b"] = [float(node.get_meta("brush_grad_b", Vector2.ZERO).x), float(node.get_meta("brush_grad_b", Vector2.ZERO).y)]
@@ -442,7 +442,9 @@ static func _grad_from_dict(gd: Dictionary) -> Gradient:
 ## artboard, concatenados. Al abrir solo se lee el manifest; cada página se
 ## trae con un seek directo. Guardar copia byte a byte los chunks (ya
 ## comprimidos) de las páginas que nunca se tocaron → O(páginas cambiadas).
-static func write_vtc(path: String, container: Node, header_extra: Dictionary = {}) -> bool:
+## `rebase_lazy` = false para copias (recuperación): las páginas sin cargar
+## siguen leyendo del documento original.
+static func write_vtc(path: String, container: Node, header_extra: Dictionary = {}, rebase_lazy := true) -> bool:
 	if not is_instance_valid(container):
 		return false
 	# PASO 1: reunir los bytes COMPRIMIDOS de cada chunk (todavía sin tocar el
@@ -450,10 +452,16 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 	var arts: Array = []          # {name,pos,size} por artboard
 	var comp_chunks: Array = []   # PackedByteArray comprimido, en orden
 	var raw_lens: Array = []      # tamaño sin comprimir de cada chunk
+	var lazy_abs: Array = []      # artboard → seguirá perezoso tras guardar
 	var loose: Array = []
 	for child in container.get_children():
 		if child is ArtboardEditor:
-			var pair := _artboard_chunk_compressed(child)   # [comp_bytes, raw_len]
+			var pair := _artboard_chunk_compressed(child)   # [comp_bytes, raw_len] o []
+			if pair.is_empty():
+				# No se pudo leer la página del archivo original: NO guardar
+				# (guardar la escribiría vacía y se perdería para siempre).
+				_notice("error", "No se pudo guardar: la página «%s» no se puede leer del archivo original. El documento no se ha modificado." % child.name)
+				return false
 			arts.append({
 				"name": String(child.name),
 				"pos": [child.position.x, child.position.y],
@@ -461,11 +469,12 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 			})
 			comp_chunks.append(pair[0])
 			raw_lens.append(pair[1])
+			lazy_abs.append(child if (child.is_dormant and not child.get_lazy_source().is_empty()) else null)
 		elif child is Node2D:
 			var e := _serialize_element(child)
 			if not e.is_empty():
 				loose.append(e)
-	close_reader_cache()   # soltar el handle de lectura antes de truncar
+	close_reader_cache()   # soltar el handle de lectura antes de reemplazar
 
 	# Manifest con los offsets ya calculados (dentro de la región de datos).
 	var manifest := header_extra.duplicate(true)
@@ -482,28 +491,104 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 		off += comp_chunks[i].size()
 	manifest["artboards"] = headers
 
+	# PASO 2: guardado ATÓMICO. Se escribe un temporal junto al destino, se
+	# comprueba, y solo entonces reemplaza al archivo. Si algo falla (disco
+	# lleno, corte de luz, cuelgue) el documento anterior sigue intacto.
 	var mbytes := JSON.stringify(manifest).to_utf8_buffer().compress(_COMP)
-	var f := FileAccess.open(path, FileAccess.WRITE)
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
+		_notice("error", "No se pudo guardar en «%s» (%s)." % [path.get_file(), error_string(FileAccess.get_open_error())])
 		return false
 	f.store_buffer(_MAGIC.to_ascii_buffer())
 	f.store_32(mbytes.size())
 	f.store_buffer(mbytes)
 	for c in comp_chunks:
 		f.store_buffer(c)
+	f.flush()
+	var write_err := f.get_error()
 	f.close()
+	var expected := 8 + mbytes.size() + off
+	if write_err != OK or not _vtc_file_ok(tmp, expected, headers.size()):
+		DirAccess.remove_absolute(tmp)
+		_notice("error", "No se pudo guardar «%s»: la escritura no se completó (¿disco lleno?). El documento anterior no se ha modificado." % path.get_file())
+		return false
+	if _replace_file(tmp, path) != OK:
+		DirAccess.remove_absolute(tmp)
+		_notice("error", "No se pudo reemplazar «%s». El documento anterior no se ha modificado." % path.get_file())
+		return false
+
+	# PASO 3: las páginas que siguen sin cargar apuntan ahora al archivo NUEVO
+	# (sus posiciones han cambiado). Antes se quedaban con las viejas y al
+	# despertarlas o volver a guardar salían vacías.
+	for i in (lazy_abs.size() if rebase_lazy else 0):
+		var ab = lazy_abs[i]
+		if ab != null and is_instance_valid(ab):
+			ab.set_lazy_source(path, headers[i])
+	close_reader_cache()
 	return true
+
+
+## ¿El .vtc/.vtp recién escrito tiene el tamaño esperado y un manifest legible?
+static func _vtc_file_ok(path: String, expected_size: int, n_pages: int) -> bool:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return false
+	var size_ok := f.get_length() == expected_size
+	f.close()
+	if not size_ok:
+		return false
+	var m := read_vtc_manifest(path)
+	return not m.is_empty() and (m.get("artboards", []) as Array).size() == n_pages
+
+
+## Reemplaza `dst` por `src`. En Windows rename no sobrescribe: se aparta el
+## destino un momento y se borra al final.
+static func _replace_file(src: String, dst: String) -> Error:
+	var a := ProjectSettings.globalize_path(src)
+	var b := ProjectSettings.globalize_path(dst)
+	var err := DirAccess.rename_absolute(a, b)
+	if err == OK:
+		return OK
+	if not FileAccess.file_exists(b):
+		return err
+	var old := b + ".old"
+	if DirAccess.rename_absolute(b, old) != OK:
+		return err
+	err = DirAccess.rename_absolute(a, b)
+	if err != OK:
+		DirAccess.rename_absolute(old, b)   # devolver el original
+		return err
+	DirAccess.remove_absolute(old)
+	return OK
+
+
+static func _notice(level: String, msg: String) -> void:
+	if level == "error":
+		push_error(msg)
+	else:
+		push_warning(msg)
+	var ml := Engine.get_main_loop()
+	if ml is SceneTree:
+		var ge = (ml as SceneTree).root.get_node_or_null("GlobalEvents")
+		if ge and ge.has_signal("user_notice"):
+			ge.user_notice.emit(level, msg)
 
 
 ## [bytes comprimidos, tamaño sin comprimir] del chunk de un artboard.
 ## Página intacta y perezosa → se copia el chunk comprimido tal cual (O(1)).
 static func _artboard_chunk_compressed(ab: ArtboardEditor) -> Array:
+	# Página dañada al abrir y sin contenido nuevo: se conservan SUS bytes
+	# originales tal cual (no se sustituye por una página vacía).
+	if ab.is_damaged() and ab.damaged_raw().size() > 0 and serialize_elements(ab).is_empty():
+		return [ab.damaged_raw(), ab.damaged_rlen()]
 	if ab.is_dormant and ab.has_method("get_lazy_source"):
 		var src: Dictionary = ab.get_lazy_source()
 		if not src.is_empty() and src.get("len", 0) > 0:
 			var comp := read_vtc_chunk_compressed(src.get("vtc", ""), src.get("off", 0), src.get("len", 0))
 			if comp.size() == int(src.get("len", 0)):
 				return [comp, int(src.get("rlen", 0))]   # copia cruda
+			return []   # no se puede leer del original → no guardar (ver write_vtc)
 	var elements: Array
 	if ab.is_dormant:
 		elements = ab.dormant_content()

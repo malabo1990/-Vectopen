@@ -189,7 +189,7 @@ func test_guardar_tras_carga_perezosa_no_pierde_paginas_dormidas() -> void:
 			c.position = Vector2(20 + i * 3, 30)
 	await get_tree().process_frame
 
-	var path_a := "user://__lazy_integridad_a.vtc"
+	var path_a := "user://__lazy_integridad_a.vtp"
 	DataRepository.save_project(path_a)
 
 	# 2) cargar diferido (.vtc ZIP) → páginas dormidas con fuente perezosa
@@ -203,7 +203,7 @@ func test_guardar_tras_carga_perezosa_no_pierde_paginas_dormidas() -> void:
 	assert_int(dormidas).is_greater(0)   # confirmamos que SÍ hay dormidas
 
 	# 3) guardar OTRA VEZ (con páginas dormidas / lazy) → NO puede perder nada
-	var path_b := "user://__lazy_integridad_b.vtc"
+	var path_b := "user://__lazy_integridad_b.vtp"
 	DataRepository.save_project(path_b)
 
 	# leer todos los chunks del .vtc b y contar las figuras

@@ -23,7 +23,7 @@ run/main_scene="uid://dq780ohbvwe87"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(1, 1, 1, 1)
 boot_splash/image="uid://da0xph4mywp4d"
-config/icon="uid://boh0e23xvob1c"
+config/icon="res://icon/app/vectopen_app_icon.png"
 vectopen/locale="es"
 
 [autoload]
@@ -50,6 +50,7 @@ PluginManager="*res://autoloads/PluginManager.gd"
 DrawPreferences="*res://autoloads/DrawPreferences.gd"
 HistoryManager="*res://autoloads/HistoryManager.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
+UserNotices="*res://autoloads/UserNotices.gd"
 RecentFilesManager="*res://autoloads/RecentFilesManager.gd"
 InspectorCore="*res://autoloads/InspectorCore.gd"
 FontCore="*res://autoloads/FontCore.gd"

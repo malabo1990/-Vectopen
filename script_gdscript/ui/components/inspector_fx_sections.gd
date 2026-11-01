@@ -14,9 +14,18 @@ extends VBoxContainer
 
 const FILTERS := "filters"
 const VECTORIZE := "vectorize"
+const SHADER := "shader"
+const SCRIPT := "script"
+## Panel que muestra cada sección (los mismos de la ventana Efectos de Smart).
+const CONTENT := {
+	FILTERS: ["filters_panel", "FiltersContent"],
+	VECTORIZE: ["vectorize_panel", "VectorizeContent"],
+	SHADER: ["shader_panel", "ShaderContent"],
+	SCRIPT: ["script_panel", "ScriptContent"],
+}
 
 ## Plegado / desplegado por sección (compartido entre Modern y Pro).
-static var _open := {FILTERS: false, VECTORIZE: true}
+static var _open := {FILTERS: false, VECTORIZE: true, SHADER: false, SCRIPT: false}
 
 var kind := FILTERS
 var _btn: Button
@@ -58,7 +67,11 @@ func _ready() -> void:
 	_sync_visibility()
 
 func title() -> String:
-	return tr("FILTERS_SECTION") if kind == FILTERS else tr("VECTORIZE_SECTION")
+	match kind:
+		FILTERS: return tr("FILTERS_SECTION")
+		VECTORIZE: return tr("VECTORIZE_SECTION")
+		SHADER: return "SHADER"
+		_: return "SCRIPT"
 
 func is_open() -> bool:
 	return bool(_open.get(kind, false))
@@ -80,11 +93,13 @@ func _refresh_header() -> void:
 func _ensure_content() -> void:
 	if is_instance_valid(_content):
 		return
-	var path := "res://script_gdscript/ui/panels/effects/%s.gd" % ("filters_panel" if kind == FILTERS else "vectorize_panel")
-	_content = load(path).new()
-	_content.name = "FiltersContent" if kind == FILTERS else "VectorizeContent"
+	var spec: Array = CONTENT[kind]
+	_content = load("res://script_gdscript/ui/panels/effects/%s.gd" % spec[0]).new()
+	_content.name = spec[1]
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_body.add_child(_content)
+	if _content.has_method("set_compact"):
+		_content.set_compact(true)   # código arriba, biblioteca debajo
 	# Su título («Filtros») sobra: la cabecera plegable ya lo dice.
 	var t = _content.get("_title")
 	if t is CanvasItem:
@@ -94,7 +109,9 @@ func _ensure_content() -> void:
 func _sync_visibility() -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	var sel: Array = ic.selection() if ic and ic.has_method("selection") else []
-	if kind == FILTERS:
+	if kind == SCRIPT:
+		visible = true          # los scripts trabajan con todo el documento
+	elif kind == FILTERS or kind == SHADER:
 		visible = not sel.is_empty()
 	else:
 		var has_img := false

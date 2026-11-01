@@ -409,7 +409,9 @@ func _on_btn_export_pressed() -> void:
 	elif not settings.has("scale"):
 		settings["scale"] = 1.0
 
-	export_artboard(artboard, fmt_enum, full_path, settings)
+	# Si falla, el panel sigue abierto (con el aviso) para corregir nombre/carpeta.
+	if await export_artboard(artboard, fmt_enum, full_path, settings) != OK:
+		return
 
 	var obj: Object = self
 	if obj is Control:
@@ -424,8 +426,17 @@ func _on_format_selected_changed(format: String, config: Dictionary) -> void:
 ## el error; emite export_finished / export_error. Usar con await.
 func export_artboard(artboard: Node, format: ExportFormat, path: String, settings: Dictionary = {}) -> Error:
 	var format_name: String = ExportFormat.keys()[format]
-	GlobalEvents.export_started.emit(format_name, path)
+	if not is_instance_valid(artboard):
+		GlobalEvents.emit_safe("export_error", format_name, "no hay ninguna mesa de trabajo que exportar")
+		return ERR_INVALID_PARAMETER
 	var scale := float(settings.get("scale", 1.0))
+	var px := Vector2.ZERO
+	if format in [ExportFormat.PNG, ExportFormat.JPEG, ExportFormat.WEBP] and "artboard_size" in artboard:
+		px = Vector2(artboard.artboard_size) * scale
+	var chk := _preflight_export(format_name, path, px)
+	if not chk["ok"]:
+		return ERR_CANT_CREATE
+	GlobalEvents.export_started.emit(format_name, path)
 	var quality := float(settings.get("quality", 90.0))
 	var transparent := bool(settings.get("transparent", false))
 	var err: Error = OK
@@ -451,19 +462,45 @@ func export_artboard(artboard: Node, format: ExportFormat, path: String, setting
 			err = _write_text(path, JSON.stringify(vop_data(artboard), "\t"))
 		_:
 			err = ERR_UNAVAILABLE
-	if err == OK:
-		GlobalEvents.export_finished.emit(format_name, path)
-	else:
-		var msg := "No se pudo exportar %s (%s)" % [format_name, "formato no soportado" if err == ERR_UNAVAILABLE else error_string(err)]
-		push_error(msg)
-		GlobalEvents.emit_safe("export_error", format_name, msg)
+	_export_done(format_name, path, err, chk)
 	return err
+
+# ── comprobaciones previas y avisos ─────────────────────────────────────────
+func _open_document() -> String:
+	var sm := get_node_or_null("/root/SaveManager")
+	return String(sm.current_path) if sm else ""
+
+func _notify(level: String, msg: String) -> void:
+	GlobalEvents.emit_safe("user_notice", level, msg)
+
+func _notify_warnings(warns: Array) -> void:
+	for w in warns:
+		_notify("warning", String(w)[0].to_upper() + String(w).substr(1) + ".")
+
+## Comprueba destino/tamaño antes de exportar. "" = adelante; si no, el error
+## ya se ha avisado (export_error) y no se ha tocado ningún archivo.
+func _preflight_export(fmt: String, path: String, pixel_size: Vector2) -> Dictionary:
+	var chk := IoGuard.check_export(path, fmt, pixel_size, _open_document())
+	if not chk["ok"]:
+		push_warning("[Export] " + String(chk["error"]))
+		GlobalEvents.emit_safe("export_error", fmt, String(chk["error"]))
+	return chk
+
+func _export_done(fmt: String, path: String, err: Error, chk: Dictionary) -> void:
+	if err == OK:
+		GlobalEvents.export_finished.emit(fmt, path)
+		_notify_warnings(chk.get("warnings", []))
+		_notify("success", "Exportado «%s»." % path.get_file())
+	else:
+		var msg := "formato no soportado" if err == ERR_UNAVAILABLE else error_string(err)
+		push_error("No se pudo exportar %s (%s)" % [fmt, msg])
+		GlobalEvents.emit_safe("export_error", fmt, msg)
 
 # ── exportar elementos sueltos, importar, convertir ─────────────────────────
 ## Formatos que el panel ofrece (JPEG XL no: Godot no sabe escribirlo).
 const EXPORT_FORMATS := ["SVG", "PDF", "EPS", "PNG", "JPEG", "WEBP", "VOP", "TSCN", "SCN"]
 const RASTER_FORMATS := ["PNG", "JPEG", "WEBP"]
-const IMPORT_EXTS := ["svg", "png", "jpg", "jpeg", "webp", "vop", "tscn", "scn", "glb", "gltf", "vectopen"]
+const IMPORT_EXTS := ["svg", "eps", "ai", "pdf", "ps", "png", "jpg", "jpeg", "webp", "vop", "tscn", "scn", "glb", "gltf", "vtp", "vtc", "vectopen"]
 
 ## Exporta solo `nodes` (hijos directos de `artboard`), recortado a su caja.
 ## Sin nodos = el artboard entero. Usar con await.
@@ -473,12 +510,16 @@ func export_nodes(artboard: Node, nodes: Array, format: String, path: String, se
 		return ERR_UNAVAILABLE
 	if nodes.is_empty():
 		return await export_artboard(artboard, ExportFormat[fmt], path, settings)
-	GlobalEvents.export_started.emit(fmt, path)
 	var transparent := bool(settings.get("transparent", true))
 	var data := VectorExport.collect(artboard, true, nodes)
 	var box := VectorExport.bounds(data)
 	if not box.has_area():
+		GlobalEvents.emit_safe("export_error", fmt, "la selección no tiene nada visible que exportar")
 		return ERR_INVALID_DATA
+	var chk := _preflight_export(fmt, path, box.size * float(settings.get("scale", 1.0)) if fmt in RASTER_FORMATS else Vector2.ZERO)
+	if not chk["ok"]:
+		return ERR_CANT_CREATE
+	GlobalEvents.export_started.emit(fmt, path)
 	var err: Error = OK
 	match fmt:
 		"SVG", "PDF", "EPS":
@@ -505,10 +546,7 @@ func export_nodes(artboard: Node, nodes: Array, format: String, path: String, se
 		"TSCN", "SCN":
 			var d2 := VectorExport.offset(data, -box.position, box.size)
 			err = _save_scene(VectorExport.to_godot_scene(d2, path.get_file().get_basename()), path)
-	if err == OK:
-		GlobalEvents.export_finished.emit(fmt, path)
-	else:
-		GlobalEvents.emit_safe("export_error", fmt, error_string(err))
+	_export_done(fmt, path, err, chk)
 	return err
 
 ## Ruta libre: "nombre.ext", "nombre (2).ext"… (nunca sobrescribe).
@@ -531,9 +569,18 @@ static func extension_for(format: String) -> String:
 func import_any(path: String, artboard: Node2D, at: Vector2 = Vector2.INF) -> Dictionary:
 	var ext := path.get_extension().to_lower()
 	var api: VectopenAPI = get_node("/root/PluginManager").api if has_node("/root/PluginManager") else null
-	if not FileAccess.file_exists(path):
-		return {"ok": false, "error": "No existe: " + path}
-	if ext == "vectopen" or ext == "vtc":
+	if not (ext in IMPORT_EXTS):
+		return {"ok": false, "error": "Formato no soportado para importar: .%s" % ext}
+	var chk := IoGuard.check_import(path)
+	if not chk["ok"]:
+		return {"ok": false, "error": String(chk["error"])}
+	_notify_warnings(chk["warnings"])
+	# Copia de seguridad si hay cambios sin guardar: abrir otro documento o un
+	# archivo raro no debe poder costar el trabajo.
+	var snap := IoGuard.snapshot_if_unsaved(get_tree(), "abrir" if ext in ["vtp", "vtc", "vectopen"] else "importar", ext in ["vtp", "vtc", "vectopen"])
+	if snap != "":
+		_notify("info", "Había cambios sin guardar: copia guardada en Recuperar.")
+	if ext in ["vtp", "vtc", "vectopen"]:
 		if SaveManager:
 			SaveManager.open(path)
 		return {"ok": true, "error": ""}
@@ -546,12 +593,23 @@ func import_any(path: String, artboard: Node2D, at: Vector2 = Vector2.INF) -> Di
 	var node: Node2D = null
 	match ext:
 		"svg":
-			var data := SvgImport.parse(FileAccess.get_file_as_string(path))
+			var data := NativeIO.parse_file(path)
 			if (data["items"] as Array).is_empty():
-				return {"ok": false, "error": "El SVG no tiene nada que importar"}
+				return {"ok": false, "error": String(data.get("error", "")) if data.has("error") else "El SVG no tiene nada que importar"}
 			node = SvgImport.build(data, path.get_file().get_basename())
 			node.position = center - Vector2(data["size"]) / 2.0
 			node = api.add(node, artboard)
+		"eps", "ai", "pdf", "ps":
+			# EPS / AI (antiguo = PostScript, moderno = PDF) / PDF → trazados editables.
+			var pdata := NativeIO.parse_file(path)
+			var warns: Array = pdata.get("warnings", [])
+			if (pdata["items"] as Array).is_empty():
+				return {"ok": false, "error": "No se encontraron trazados que importar en «%s»%s" % [path.get_file(), (" (" + ", ".join(PackedStringArray(warns)) + ")") if not warns.is_empty() else ""]}
+			node = SvgImport.build(pdata, path.get_file().get_basename())
+			node.position = center - Vector2(pdata["size"]) / 2.0
+			node = api.add(node, artboard)
+			if not warns.is_empty():
+				GlobalEvents.emit_safe("user_notice", "warning", "Importado «%s». No se importó: %s." % [path.get_file(), ", ".join(PackedStringArray(warns))])
 		"png", "jpg", "jpeg", "webp":
 			node = api.add_image(path, center)
 		"vop":
@@ -609,6 +667,9 @@ func convert_file(src: String, format: String, out_dir: String = "", settings: D
 	var dir := out_dir if out_dir != "" else src.get_base_dir()
 	if not (fmt in EXPORT_FORMATS):
 		return {"ok": false, "path": "", "error": "Formato de salida no soportado"}
+	var chk := IoGuard.check_import(src)
+	if not chk["ok"]:
+		return {"ok": false, "path": "", "error": String(chk["error"])}
 	var tmp: Node2D = Node2D.new()
 	tmp.set_script(load("res://scripts/canvas/artboard.gd"))
 	tmp.name = "_ConvertTmp"
@@ -619,7 +680,7 @@ func convert_file(src: String, format: String, out_dir: String = "", settings: D
 	var error := ""
 	match ext:
 		"svg":
-			var data := SvgImport.parse(FileAccess.get_file_as_string(src))
+			var data := NativeIO.parse_file(src)
 			tmp.artboard_size = data["size"]
 			tmp.fill_color = Color(1, 1, 1, 0)
 			var g := SvgImport.build(data)
@@ -627,6 +688,18 @@ func convert_file(src: String, format: String, out_dir: String = "", settings: D
 				g.remove_child(c)
 				tmp.add_child(c)
 			g.free()
+		"eps", "ai", "pdf", "ps":
+			var pdata := NativeIO.parse_file(src)
+			if (pdata["items"] as Array).is_empty():
+				error = "No se encontraron trazados en «%s»" % src.get_file()
+			else:
+				tmp.artboard_size = pdata["size"]
+				tmp.fill_color = Color(1, 1, 1, 0)
+				var g3 := SvgImport.build(pdata)
+				for c in g3.get_children():
+					g3.remove_child(c)
+					tmp.add_child(c)
+				g3.free()
 		"png", "jpg", "jpeg", "webp":
 			var img := Image.load_from_file(src)
 			if img == null:
@@ -695,20 +768,27 @@ func vector_warnings(artboard: Node) -> PackedStringArray:
 	return VectorExport.collect(artboard)["warnings"]
 
 static func _write_text(path: String, text: String) -> Error:
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f == null:
-		return FileAccess.get_open_error()
-	f.store_string(text)
-	f.close()
-	return OK
+	return _write_bytes(path, text.to_utf8_buffer())
 
+## Escritura SEGURA: temporal + comprobación + reemplazo. Si falla a medias
+## (disco lleno, sin permiso), el archivo que ya existía no se toca y no queda
+## un archivo cortado con el nombre final.
 static func _write_bytes(path: String, data: PackedByteArray) -> Error:
-	var f := FileAccess.open(path, FileAccess.WRITE)
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
 	f.store_buffer(data)
+	f.flush()
+	var err := f.get_error()
 	f.close()
-	return OK
+	if err != OK or FileAccess.get_file_as_bytes(tmp).size() != data.size():
+		DirAccess.remove_absolute(tmp)
+		return err if err != OK else ERR_FILE_CANT_WRITE
+	err = _CS._replace_file(tmp, path)
+	if err != OK:
+		DirAccess.remove_absolute(tmp)
+	return err
 
 ## Escena de Godot PORTABLE (.tscn texto / .scn binario): solo nodos nativos
 ## (Polygon2D, Line2D, Label, Sprite2D), sin scripts de Vectopen, así se ve
@@ -759,6 +839,15 @@ func vop_data(artboard: Node, nodes: Array = []) -> Dictionary:
 		"elements": elements}
 
 func import_file(file_path: String, format: ImportFormat, target_artboard: Node) -> void:
+	var chk := IoGuard.check_import(file_path)
+	if not chk["ok"]:
+		GlobalEvents.emit_safe("import_error", file_path.get_extension().to_upper(), String(chk["error"]))
+		return
+	if not is_instance_valid(target_artboard):
+		GlobalEvents.emit_safe("import_error", file_path.get_extension().to_upper(), "no hay ninguna mesa de trabajo de destino")
+		return
+	_notify_warnings(chk["warnings"])
+	IoGuard.snapshot_if_unsaved(get_tree(), "importar")
 	GlobalEvents.import_started.emit(file_path)
 
 	match format:
@@ -880,6 +969,7 @@ func _import_vop(file_path: String, target_artboard: Node):
 	var file = FileAccess.open(file_path, FileAccess.READ)
 	if not file:
 		push_error("Cannot open VOP file: %s" % file_path)
+		GlobalEvents.emit_safe("import_error", "VOP", "no se puede abrir «%s»" % file_path.get_file())
 		return
 	
 	var content = file.get_as_text()
@@ -889,8 +979,9 @@ func _import_vop(file_path: String, target_artboard: Node):
 	json.parse(content)
 	var vop_data = json.data
 	
-	if not vop_data:
+	if not (vop_data is Dictionary):
 		push_error("Invalid VOP file: %s" % file_path)
+		GlobalEvents.emit_safe("import_error", "VOP", "«%s» no es un VOP válido o está dañado" % file_path.get_file())
 		return
 	
 	# VOP v2: elementos completos (mismo serializador que .vectopen).
@@ -954,5 +1045,9 @@ func export_to_svg_string(artboard: Node) -> String:
 	return VectorExport.to_svg(VectorExport.collect(artboard))
 
 const VectorExport = preload("res://script_gdscript/system/vector_export.gd")
+const _CS = preload("res://scripts/canvas/canvas_serializer.gd")
+const PsImport = preload("res://script_gdscript/system/ps_import.gd")
+const NativeIO = preload("res://script_gdscript/system/native_io.gd")
+const IoGuard = preload("res://script_gdscript/system/io_guard.gd")
 const SvgImport = preload("res://script_gdscript/system/svg_import.gd")
 const CanvasSerializer = preload("res://scripts/canvas/canvas_serializer.gd")

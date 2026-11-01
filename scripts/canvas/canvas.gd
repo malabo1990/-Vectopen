@@ -524,8 +524,11 @@ func _handle_keyboard(event: InputEventKey) -> void:
 	# canvas.gd to one specific tool.
 	if not event.shift_pressed and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
 		var in_modal_transform: bool = current_tool and "current_key_mode" in current_tool and current_tool.current_key_mode != 0
-		if not in_modal_transform and TOOL_SWITCH_KEYS.has(event.keycode):
-			switch_tool(TOOL_SWITCH_KEYS[event.keycode])
+		# Las teclas salen de VectopenInput (panel de teclado): si el usuario
+		# cambia una, cambia de verdad.
+		var tool_id: String = VectopenInput.tool_for_event(event) if not in_modal_transform else ""
+		if tool_id != "":
+			switch_tool(tool_id)
 			get_viewport().set_input_as_handled()
 			return
 

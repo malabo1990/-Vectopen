@@ -410,3 +410,135 @@ func _bounds_subs(subs: Array) -> Rect2:
 		for p in sub["anchors"]:
 			r = r.expand(p)
 	return r
+
+
+## Ida y vuelta de lo que faltaba cubrir: degradado en el TRAZO, discontinuo,
+## opacidad y grupos girados — en SVG (otros programas) y en VOP (sin pérdidas).
+func test_ida_y_vuelta_trazo_degradado_discontinuo_opacidad_y_giro() -> void:
+	var c := Curve2D.new()
+	c.add_point(Vector2(50, 300)); c.add_point(Vector2(350, 300), Vector2(-100, -80), Vector2.ZERO)
+	var wave := _api.add_curve(c, false, "Onda")
+	_api.set_stroke(wave, Color.RED, 6.0)
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color("#00aaff"), Color("#ff0066")])
+	wave.stroke_gradient = g
+	var dashed := _api.add_rect(Vector2(500, 120), Vector2(100, 60))
+	_api.set_stroke(dashed, Color.BLACK, 3.0)
+	_api.set_props(dashed, {"stroke_style": 1, "stroke_dash_len": 10.0, "stroke_dash_gap": 5.0, "opacity": 0.5})
+	var inner := _api.add_ellipse(Vector2(200, 120), Vector2(80, 50))
+	_api.set_fill(inner, Color("#30a46c"))
+	var grp := _api.group([inner], "Girado")
+	_api.set_rotation(grp, 30.0)
+
+	# SVG: el degradado del trazo, el discontinuo y la opacidad viajan.
+	var svg := VX.to_svg(VX.collect(_ab, false))
+	assert_str(svg).contains("<linearGradient")
+	assert_str(svg).contains("stroke-dasharray")
+	assert_str(svg).contains("opacity=\"0.5\"")
+	var back: Dictionary = load("res://script_gdscript/system/svg_import.gd").parse(svg)
+	var items: Array = back["items"]
+	var has_dash := false
+	var green_rotated := false
+	for it in items:
+		if it["t"] != "path":
+			continue
+		if it.get("dash") != null:
+			has_dash = true
+		if it["fill"] is Color and (it["fill"] as Color).is_equal_approx(Color("#30a46c")):
+			# girado 30°: el eje que une dos anclas opuestas ya no es horizontal/vertical
+			var an: Array = it["subs"][0]["anchors"]
+			if an.size() >= 3:
+				var ang := fposmod(rad_to_deg((an[2] - an[0]).angle()), 90.0)
+				green_rotated = ang > 5.0 and ang < 85.0
+	assert_bool(has_dash).override_failure_message("SVG: se perdió el discontinuo").is_true()
+	assert_bool(green_rotated).override_failure_message("SVG: se perdió el giro del grupo").is_true()
+
+	# VOP: sin pérdidas (degradado del trazo incluido).
+	var path := _dir.path_join("roundtrip.vop")
+	assert_bool(await _api.export(path)).is_true()
+	var ab2 := _api.add_artboard(Vector2(800, 600), "Destino2")
+	ImportExportManager.import_file(path, ImportExportManager.ImportFormat.VOP, ab2)
+	var wave2: Node = null
+	for s in _api.shapes(ab2, true):
+		if String(s.name).begins_with("Onda"):
+			wave2 = s
+	assert_object(wave2).override_failure_message("VOP: falta la onda").is_not_null()
+	assert_bool(wave2.has_gradient_stroke()).override_failure_message("VOP: se perdió el degradado del trazo").is_true()
+	assert_bool(FileAccess.file_exists(path + ".tmp")).is_false()
+
+## Punteado: SVG lo escribe como trazos de largo 0 con remate redondo y vuelve como punteado.
+func test_punteado_ida_y_vuelta_svg() -> void:
+	var r := _api.add_rect(Vector2(300, 300), Vector2(120, 80))
+	_api.set_stroke(r, Color.BLACK, 4.0)
+	_api.set_props(r, {"stroke_style": 2, "stroke_dash_gap": 6.0})
+	var svg := VX.to_svg(VX.collect(_ab, false))
+	assert_str(svg).contains('stroke-dasharray="0 10"')
+	assert_str(svg).contains('stroke-linecap="round"')
+	var SI = load("res://script_gdscript/system/svg_import.gd")
+	var back: Dictionary = SI.parse(svg)
+	var found := false
+	for it in back["items"]:
+		if it["t"] == "path" and it.get("dash") is Array:
+			found = true
+			assert_float(float(it["dash"][0])).is_equal(0.0)
+	assert_bool(found).override_failure_message("SVG: se perdió el punteado").is_true()
+
+## Antes de importar: un archivo que no es lo que dice se rechaza con un
+## mensaje claro y no se añade nada al documento.
+func test_importar_archivo_falso_se_rechaza_sin_tocar_el_documento() -> void:
+	var p := _dir.path_join("falso.pdf")
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_buffer(PackedByteArray([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3]))
+	f.close()
+	var before := _ab.get_child_count()
+	var res: Dictionary = ImportExportManager.import_any(p, _ab)
+	assert_bool(res["ok"]).is_false()
+	assert_str(String(res["error"])).contains("no es un archivo .pdf válido")
+	assert_int(_ab.get_child_count()).is_equal(before)
+
+## Antes de exportar: una imagen demasiado grande falla al momento, con aviso,
+## sin intentar renderizar y sin dejar archivos.
+func test_exportar_imagen_enorme_falla_antes_de_renderizar() -> void:
+	var p := _dir.path_join("enorme.png")
+	var errors: Array = []
+	var cb := func(_f, m): errors.append(String(m))
+	GlobalEvents.export_error.connect(cb)
+	var err: Error = await ImportExportManager.export_artboard(_ab, ImportExportManager.ExportFormat.PNG, p, {"scale": 100.0})
+	GlobalEvents.export_error.disconnect(cb)
+	assert_int(err).is_not_equal(OK)
+	assert_bool(FileAccess.file_exists(p)).is_false()
+	assert_bool(errors.size() > 0 and String(errors[0]).contains("máximo")).override_failure_message(str(errors)).is_true()
+
+## Exportar SVG/PDF/EPS de una página sin cambios va bien y avisa con éxito.
+func test_exportar_avisa_exito() -> void:
+	_api.add_rect(Vector2(100, 100), Vector2(50, 50))
+	var shown: Array = []
+	var cb := func(level, m): shown.append([level, m])
+	GlobalEvents.user_notice.connect(cb)
+	for fmt in ["SVG", "PDF", "EPS"]:
+		var p := _dir.path_join("ok." + fmt.to_lower())
+		var err: Error = await ImportExportManager.export_artboard(_ab, ImportExportManager.ExportFormat[fmt], p, {})
+		assert_int(err).is_equal(OK)
+	GlobalEvents.user_notice.disconnect(cb)
+	assert_int(shown.filter(func(x): return x[0] == "success").size()).is_equal(3)
+
+## Copia de seguridad con cambios sin guardar: se escribe en Recuperar, se
+## puede leer, y las páginas sin cargar NO pasan a apuntar a la copia.
+func test_copia_de_seguridad_antes_de_operar() -> void:
+	_api.add_rect(Vector2(10, 10), Vector2(30, 30))
+	var was: bool = SaveManager.is_modified
+	SaveManager.is_modified = false
+	assert_str(IoGuard.snapshot_if_unsaved(get_tree(), "prueba", true)).is_empty()
+	SaveManager.is_modified = true
+	var snap := IoGuard.snapshot_if_unsaved(get_tree(), "prueba", true)
+	SaveManager.is_modified = was
+	assert_str(snap).is_not_empty()
+	assert_bool(FileAccess.file_exists(snap)).is_true()
+	var m: Dictionary = load("res://scripts/canvas/canvas_serializer.gd").read_vtc_manifest(snap)
+	assert_bool((m.get("artboards", []) as Array).size() >= 1).is_true()
+	for ab in get_tree().get_nodes_in_group("artboards"):
+		if ab.has_method("get_lazy_source"):
+			assert_str(str(ab.get_lazy_source())).not_contains("recovery")
+	DirAccess.remove_absolute(snap)
+
+const IoGuard = preload("res://script_gdscript/system/io_guard.gd")

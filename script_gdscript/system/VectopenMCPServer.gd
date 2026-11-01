@@ -30,6 +30,8 @@ extends Node
 ##  4. Tope de conexiones concurrentes (429 si se excede) + timeout por
 ##     conexión ya existente — mitiga agotamiento de recursos.
 
+const TextCore = preload("res://script_gdscript/text/text_core.gd")
+
 const CONFIG_PATH := "user://vectopen_mcp.cfg"
 const DEFAULT_PORT := 6520
 const MAX_BODY_BYTES := 4 * 1024 * 1024
@@ -437,6 +439,23 @@ func _build_tools() -> void:
 			},
 			"handler": Callable(self, "_tool_create_shape"),
 		},
+		"create_text": {
+			"description": "Crea un texto (título de una línea o párrafo con ancho fijo) en un artboard. x,y = esquina superior-izquierda en coordenadas LOCALES del artboard.",
+			"input_schema": {
+				"type": "object",
+				"properties": {
+					"type": {"type": "string", "enum": ["title", "paragraph"]},
+					"text": {"type": "string"},
+					"x": {"type": "number"}, "y": {"type": "number"},
+					"font_size": {"type": "number"},
+					"color": {"type": "string", "description": "hex, p.ej. #111111"},
+					"width": {"type": "number", "description": "Ancho del marco (solo paragraph)"},
+					"artboard_index": {"type": "integer"},
+				},
+				"required": ["type", "text", "x", "y"],
+			},
+			"handler": Callable(self, "_tool_create_text"),
+		},
 		"delete_selected": {
 			"description": "Borra (con deshacer) la selección actual, o las figuras en `paths` si se indica.",
 			"input_schema": {"type": "object", "properties": {"paths": {"type": "array", "items": {"type": "string"}}}},
@@ -627,6 +646,145 @@ func _tool_create_shape(args: Dictionary) -> Dictionary:
 	if sm:
 		sm.select(new_shape)
 	return {"name": String(new_shape.name), "path": String(get_tree().root.get_path_to(new_shape))}
+
+func _tool_create_text(args: Dictionary) -> Dictionary:
+	var kind: String = String(args.get("type", "title"))
+	if not (kind in ["title", "paragraph"]):
+		return _err("type debe ser 'title' o 'paragraph'.")
+	var txt: String = String(args.get("text", ""))
+	if txt.is_empty():
+		return _err("text no puede estar vacío.")
+	var idx := int(args.get("artboard_index", -1))
+	var ab := _active_artboard(idx)
+	if not ab:
+		return _err("No hay artboard activo donde crear el texto.")
+	var is_para := kind == "paragraph"
+	var fs: int = maxi(1, int(args.get("font_size", 24)))
+	var col: Color = Color(String(args["color"])) if args.has("color") else Color(0, 0, 0, 1)
+	var frame_w: float = maxf(24.0, float(args.get("width", 350.0)))
+	var pos := Vector2(float(args.get("x", 0.0)), float(args.get("y", 0.0)))
+
+	var shape := Node2D.new()
+	shape.name = NameUtils.unique_child_name(ab, "Párrafo" if is_para else "Texto")
+	shape.set_meta("shape_type", "text_paragraph" if is_para else "text_title")
+	shape.set_meta("text", txt)
+	shape.set_meta("font_size", fs)
+	shape.set_meta("text_color", col)
+
+	var label := WorldTextLabel.new()
+	label.name = "DisplayLabel"
+	label.base_font_size = fs
+	label.text = txt
+	label.add_theme_color_override("font_color", col)
+	label.add_theme_font_size_override("font_size", fs)
+	if is_para:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	var edit := TextEdit.new()
+	edit.name = "MultiLineEdit" if is_para else "TitleEdit"
+	edit.visible = false
+	edit.text = txt
+	edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY if is_para else TextEdit.LINE_WRAPPING_NONE
+	edit.add_theme_color_override("font_color", col)
+	edit.add_theme_font_size_override("font_size", fs)
+	if is_para:
+		edit.custom_minimum_size = Vector2(frame_w, 100)
+		edit.size = Vector2(frame_w, 100)
+
+	shape.add_child(label)
+	shape.add_child(edit)
+
+	if ClassDB.class_exists("VectorRichText"):
+		var vrt = ClassDB.instantiate("VectorRichText")
+		vrt.name = "VectorRichText"
+		vrt.set_is_paragraph(is_para)
+		TextCore.apply_vrt_fonts(vrt, shape)
+		vrt.set_text_color(col)
+		vrt.set_font_size(float(fs))
+		if is_para:
+			vrt.set_frame_size(Vector2(frame_w, 100))
+		vrt.set_text(txt)
+		shape.add_child(vrt)
+		label.visible = not is_para
+		if is_para:
+			label.self_modulate = Color(1, 1, 1, 0)
+
+	var parent := ab
+	var do_fn := func() -> void:
+		if not shape.is_inside_tree():
+			parent.add_child(shape)
+			shape.owner = parent
+			shape.position = pos
+			_refit_new_text(shape, is_para, frame_w)
+	var undo_fn := func() -> void:
+		if is_instance_valid(shape) and shape.is_inside_tree():
+			shape.get_parent().remove_child(shape)
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm:
+		hm.register_action("MCP · Crear texto")
+		hm.add_do(do_fn)
+		hm.add_undo(undo_fn)
+		hm.commit()
+	do_fn.call()
+
+	var sm := _selection_manager()
+	if sm:
+		sm.select(shape)
+	return {
+		"name": String(shape.name),
+		"path": String(get_tree().root.get_path_to(shape)),
+		"size": {"w": float(shape.get_meta("width", 0.0)), "h": float(shape.get_meta("height", 0.0))},
+	}
+
+## Ajusta width/height del texto recién creado al contenido renderizado
+## (misma medición que TextTool/ParagraphTool e InspectorCore._refit_text_shape).
+func _refit_new_text(shape: Node2D, is_para: bool, frame_w: float) -> void:
+	var vrt = shape.get_node_or_null("VectorRichText")
+	var label: Control = shape.get_node_or_null("DisplayLabel")
+	var edit: Control = shape.get_node_or_null("MultiLineEdit")
+	if is_para:
+		var w: float = frame_w
+		var h: float = 100.0
+		if vrt and vrt.has_method("get_content_size"):
+			vrt.set_frame_size(Vector2(w, 100000.0))
+			h = maxf(40.0, vrt.get_content_size().y)
+			vrt.set_frame_size(Vector2(w, h))
+			vrt.custom_minimum_size = Vector2(w, h)
+			vrt.size = Vector2(w, h)
+		shape.set_meta("width", w)
+		shape.set_meta("height", h)
+		if label:
+			if label is WorldTextLabel:
+				label.set_world_size(Vector2(w, h))
+			else:
+				label.custom_minimum_size = Vector2(w, h)
+				label.size = Vector2(w, h)
+		if edit:
+			edit.custom_minimum_size = Vector2(w, h)
+			edit.size = Vector2(w, h)
+		return
+	var real := Vector2(120, 36)
+	if vrt and vrt.has_method("get_content_size"):
+		real = vrt.get_content_size()
+	elif label is WorldTextLabel:
+		real = label.get_world_minimum_size(String(shape.get_meta("text", "")))
+	elif label:
+		real = label.get_combined_minimum_size()
+	var safe := Vector2(maxf(real.x + 24.0, 120.0), maxf(real.y + 6.0, 36.0))
+	shape.set_meta("width", safe.x)
+	shape.set_meta("height", safe.y)
+	if label:
+		if label is WorldTextLabel:
+			label.set_world_size(safe)
+		else:
+			label.custom_minimum_size = safe
+			label.size = safe
+	if edit:
+		edit.custom_minimum_size = safe
+		edit.size = safe
+	if vrt:
+		vrt.custom_minimum_size = safe
+		vrt.size = safe
 
 func _tool_delete_selected(args: Dictionary) -> Dictionary:
 	_select_if_paths(args)

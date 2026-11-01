@@ -27,5 +27,9 @@ build() {
 	)
 }
 
-build vectopen_text
-build vectopen_vectorizer "-C link-arg=$STDCXX"
+# Sin argumentos: todas. Con argumentos: solo esas (p. ej. `build_linux.sh vectopen_io`).
+want() { [ $# -eq 0 ] || [[ " $* " == *" $CRATE "* ]]; }
+CRATE=vectopen_text;       want "$@" && build vectopen_text
+CRATE=vectopen_io;         want "$@" && build vectopen_io
+CRATE=vectopen_vectorizer; want "$@" && build vectopen_vectorizer "-C link-arg=$STDCXX"
+true

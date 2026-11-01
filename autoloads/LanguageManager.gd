@@ -22,8 +22,20 @@ var available_locales: Dictionary = {
 
 func _ready() -> void:
 	_load_translation_file()
-	var saved = ProjectSettings.get_setting(SETTINGS_KEY, "en")
-	set_locale(saved)
+	set_locale(_initial_locale(), false)
+
+## Idioma al arrancar: el que eligió el usuario (user://) → el idioma del
+## sistema si Vectopen lo tiene → inglés.
+func _initial_locale() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(CONFIG_PATH) == OK:
+		var saved := String(cfg.get_value("ui", "locale", ""))
+		if saved in available_locales:
+			return saved
+	var sys := OS.get_locale_language()
+	if sys in available_locales:
+		return sys
+	return "en"
 
 func _load_translation_file() -> void:
 	# Bug real encontrado en vivo ("Copyiar" al pasar de es→en en el menú
@@ -71,13 +83,19 @@ func _load_csv_translations() -> void:
 	for col in translations_by_col:
 		TranslationServer.add_translation(translations_by_col[col])
 
-func set_locale(locale: String) -> void:
+func set_locale(locale: String, remember: bool = true) -> void:
 	if not locale in available_locales:
 		return
 	current_locale = locale
 	TranslationServer.set_locale(locale)
-	ProjectSettings.set_setting(SETTINGS_KEY, locale)
-	ProjectSettings.save()
+	# Se recuerda en la carpeta del usuario. Antes se guardaba en project.godot:
+	# en la app instalada no se puede escribir («Couldn't save project.godot»)
+	# y el idioma elegido se perdía al reiniciar.
+	if remember:
+		var cfg := ConfigFile.new()
+		cfg.load(CONFIG_PATH)
+		cfg.set_value("ui", "locale", locale)
+		cfg.save(CONFIG_PATH)
 	language_changed.emit(locale)
 	if get_tree():
 		get_tree().root.propagate_notification(NOTIFICATION_TRANSLATION_CHANGED)

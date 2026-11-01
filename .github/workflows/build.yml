@@ -28,20 +28,21 @@ jobs:
         run: |
           ./Godot_v4.7-stable_linux.x86_64 --headless --path . --editor --quit 2>&1 || true
 
-  # Extensión nativa de texto (VectorRichText): una librería por sistema.
-  # Sin ella el texto sigue funcionando (modo GDScript), pero estas son las
-  # rutas que espera vectopen_text.gdextension en cada plataforma.
-  native-text:
-    name: vectopen_text (${{ matrix.os }})
+  # Extensiones nativas: texto (VectorRichText) e importar/exportar (VectopenIO).
+  # Una librería por sistema, en las rutas que esperan sus .gdextension. Sin
+  # ellas Vectopen sigue funcionando (texto e importadores en GDScript).
+  native:
+    name: ${{ matrix.crate }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        crate: [vectopen_text, vectopen_io]
     defaults:
       run:
         shell: bash
-        working-directory: rust/vectopen_text
+        working-directory: rust/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,19 +70,19 @@ jobs:
             cargo build --locked $flag --target aarch64-apple-darwin
             mkdir -p target/$profile
             lipo -create \
-              target/x86_64-apple-darwin/$profile/libvectopen_text.dylib \
-              target/aarch64-apple-darwin/$profile/libvectopen_text.dylib \
-              -output target/$profile/libvectopen_text.dylib
+              target/x86_64-apple-darwin/$profile/lib${{ matrix.crate }}.dylib \
+              target/aarch64-apple-darwin/$profile/lib${{ matrix.crate }}.dylib \
+              -output target/$profile/lib${{ matrix.crate }}.dylib
           done
 
       - uses: actions/upload-artifact@v4
         with:
-          name: vectopen_text-${{ runner.os }}
+          name: ${{ matrix.crate }}-${{ runner.os }}
           path: |
-            rust/vectopen_text/target/debug/*vectopen_text.dll
-            rust/vectopen_text/target/release/*vectopen_text.dll
-            rust/vectopen_text/target/debug/libvectopen_text.so
-            rust/vectopen_text/target/release/libvectopen_text.so
-            rust/vectopen_text/target/debug/libvectopen_text.dylib
-            rust/vectopen_text/target/release/libvectopen_text.dylib
+            rust/${{ matrix.crate }}/target/debug/*${{ matrix.crate }}.dll
+            rust/${{ matrix.crate }}/target/release/*${{ matrix.crate }}.dll
+            rust/${{ matrix.crate }}/target/debug/lib${{ matrix.crate }}.so
+            rust/${{ matrix.crate }}/target/release/lib${{ matrix.crate }}.so
+            rust/${{ matrix.crate }}/target/debug/lib${{ matrix.crate }}.dylib
+            rust/${{ matrix.crate }}/target/release/lib${{ matrix.crate }}.dylib
           if-no-files-found: error

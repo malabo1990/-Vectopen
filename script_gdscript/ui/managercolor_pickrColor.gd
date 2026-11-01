@@ -30,6 +30,9 @@ class_name GestorColor
 signal color_actualizado(nuevo_color: Color)
 
 var _from_core: bool = false
+## true mientras solo se MUESTRA un color (abrir / reconstruir el panel):
+## no se emite nada ni se aplica a la selección.
+var _solo_mostrar: bool = false
 var current_tab: String = "solid"
 
 # ── Eyedropper: pick any color visible in the window ──
@@ -43,8 +46,8 @@ func _ready() -> void:
 		_brillo_slider.value_changed.connect(_on_brillo_changed)
 		_on_brillo_changed(_brillo_slider.value)
 	
-	if is_instance_valid(nodo_color_rect):
-		_notificar_cambio_color(nodo_color_rect.color)
+	# Al crearse NO se notifica su color: el panel se reconstruye al cambiar
+	# de tema y eso pintaba la selección (borrando su degradado).
 	
 	if GlobalEvents.has_signal("gradient_changed") and not GlobalEvents.gradient_changed.is_connected(_on_global_gradient_changed):
 		GlobalEvents.gradient_changed.connect(_on_global_gradient_changed)
@@ -547,6 +550,15 @@ func _on_colorcore_changed(fill: Color, stroke: Color, target: String) -> void:
 		# el color sin fin (desbordamiento de pila al pasar a «trazo»).
 
 # 3. Función SET profesional (Modifica el color y lo comunica a todo tu motor)
+## Muestra `c` en el selector sin aplicarlo a nada (sin señales ni deshacer).
+## Para inicializar el panel al abrirlo o al reconstruirlo por cambio de tema:
+## antes se usaba establecer_color() y eso pintaba la selección con el color
+## del panel (p. ej. el azul por defecto) y borraba su degradado.
+func mostrar_color(c: Color) -> void:
+	_solo_mostrar = true
+	establecer_color(c, true)
+	_solo_mostrar = false
+
 func establecer_color(nuevo_color: Color, force: bool = false) -> void:
 	if not is_instance_valid(nodo_color_rect):
 		return
@@ -557,6 +569,8 @@ func establecer_color(nuevo_color: Color, force: bool = false) -> void:
 			_sync_gradient_guard = true
 			picker_panel.set_color(nuevo_color)
 			_sync_gradient_guard = false
+		if _solo_mostrar:
+			return
 		_notificar_cambio_color(nuevo_color)
 		# Puente al sistema core (aplica a la selección con undo).
 		if not _from_core:

@@ -26,7 +26,7 @@ DIST="dist/$VERSION"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 rm -rf "$DIST"; mkdir -p "$DIST"
-ICON_SRC="icon/logo/logo_vectopen.png"
+ICON_SRC="icon/app/vectopen_app_icon.png"   # baldosa clara: se ve en docks claros y oscuros
 echo "Vectopen $VERSION → $DIST"
 
 # Icono cuadrado 256 px para Linux (el logo no es cuadrado).

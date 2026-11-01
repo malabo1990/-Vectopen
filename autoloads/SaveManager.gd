@@ -36,7 +36,7 @@ func save_as() -> void:
 	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.title = "Guardar proyecto"
-	fd.add_filter("*.vtc", "Vectopen Project")
+	fd.add_filter("*.vtp", "Vectopen Project")
 	fd.add_filter("*.json", "JSON Backup")
 	fd.file_selected.connect(func(path: String):
 		_on_save_as_selected(path)
@@ -58,7 +58,15 @@ func _save_to_path(path: String) -> void:
 	if not DataRepository:
 		push_error("SaveManager: DataRepository no disponible")
 		return
-	DataRepository.save_project(path)
+	# Si el guardado falla (disco lleno, sin permiso, página ilegible…) el
+	# documento NO se marca como guardado: antes decía «Guardado» igualmente.
+	var saved: String = DataRepository.save_project(path)
+	if saved.is_empty():
+		var ge := get_node_or_null("/root/GlobalEvents")
+		if ge and ge.has_signal("user_notice"):
+			ge.user_notice.emit("error", "No se pudo guardar «%s». El documento sigue con cambios sin guardar." % path.get_file())
+		return
+	current_path = saved
 	is_modified = false
 	save_state_changed.emit(false)
 	project_saved.emit(path)
@@ -68,7 +76,11 @@ func open(path: String) -> void:
 	if not DataRepository:
 		push_error("SaveManager: DataRepository no disponible")
 		return
-	DataRepository.load_project(path)
+	if not DataRepository.load_project(path):
+		var ge := get_node_or_null("/root/GlobalEvents")
+		if ge and ge.has_signal("user_notice"):
+			ge.user_notice.emit("error", "No se pudo abrir «%s»: el archivo no existe o está dañado." % path.get_file())
+		return
 	current_path = path
 	is_modified = false
 	save_state_changed.emit(false)

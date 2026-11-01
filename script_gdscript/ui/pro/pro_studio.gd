@@ -272,6 +272,8 @@ func _build_ui() -> void:
 	_embed_full(_sec_effects, "res://scenes/ui/panels/effects/effects.tscn", "FullEffects")
 	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.FILTERS, "SecFilters"))
 	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.VECTORIZE, "SecVectorize"))
+	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.SHADER, "SecShader"))
+	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.SCRIPT, "SecScript"))
 	_pages_b = [_sec_transform, _sec_typography, _sec_effects]
 	_vbox.add_child(_tab_group(["Transformar", "Texto", "Efectos"], _pages_b, _tabs_b, _tab_b, _select_tab_b))
 
@@ -491,8 +493,8 @@ func _build_color_page() -> void:
 					_apply_selected_color(c)
 			)
 		var cur_col: Color = _swatch_fill.color if _active_color_target == "fill" else _swatch_stroke.color
-		if _pickr_instance and _pickr_instance.has_method("establecer_color"):
-			_pickr_instance.establecer_color(cur_col, false)
+		if _pickr_instance and _pickr_instance.has_method("mostrar_color"):
+			_pickr_instance.mostrar_color(cur_col)
 
 	_update_swatches_ui(_active_color_target)
 
@@ -1495,8 +1497,8 @@ func _open_color_popover(target: String, anchor: Control) -> void:
 	var cc := get_node_or_null("/root/ColorCore")
 	if cc and cc.has_method("set_target"):
 		cc.set_target(target)
-	if is_instance_valid(_pickr_instance) and _pickr_instance.has_method("establecer_color"):
-		_pickr_instance.establecer_color(cur_col, false)
+	if is_instance_valid(_pickr_instance) and _pickr_instance.has_method("mostrar_color"):
+		_pickr_instance.mostrar_color(cur_col)
 	_color_popover.visible = true
 	_color_popover.reset_size()
 	var pop_w: float = _color_popover.size.x if _color_popover.size.x > 0 else 240.0

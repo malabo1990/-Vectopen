@@ -163,6 +163,8 @@ func _ensure_layer(nm: String, front: bool) -> Node2D:
 		n = Node2D.new()
 		n.name = nm
 		shape.add_child(n)
+	# Nodo interno de render: no es una capa del usuario (Capas lo oculta).
+	n.set_meta(&"_vectopen_internal", true)
 	# Un Line2D se dibuja ANTES que sus hijos: la capa trasera necesita
 	# show_behind_parent para quedar debajo del trazo.
 	n.show_behind_parent = (not front) and shape is Line2D

@@ -5,4 +5,5 @@ func test_main_panel_keyboard_lista_no_vacia() -> void:
 	add_child(scene)
 	var ac: VBoxContainer = scene.get_node("keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard/MarginContainer/BoxContainer/ScrollContainer/MarginContainer/ActionContainer")
 	print("DEBUG ac children: ", ac.get_child_count())
-	assert_int(ac.get_child_count()).is_greater_equal(50)
+	# Solo las acciones que la app ejecuta de verdad (VectopenInput.DEFAULTS).
+	assert_int(ac.get_child_count()).is_equal(VectopenInput.DEFAULTS.size())

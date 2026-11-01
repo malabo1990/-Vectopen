@@ -226,12 +226,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_volcar_diagnostico()
 		get_viewport().set_input_as_handled()
 		return
-	if kc != KEY_G or not (event.ctrl_pressed or event.meta_pressed):
+	# Agrupar / desagrupar: teclas del panel de teclado (Ctrl+G / Ctrl+Shift+G).
+	var is_ungroup: bool = VectopenInput.is_action_exact(event, "ungroup")
+	var is_group: bool = not is_ungroup and VectopenInput.is_action_exact(event, "group")
+	if not (is_group or is_ungroup):
 		return
 	var fo = get_viewport().gui_get_focus_owner()
 	if fo is LineEdit or fo is TextEdit:
 		return
-	if event.shift_pressed:
+	if is_ungroup:
 		_desagrupar_seleccion()
 	else:
 		_agrupar_seleccion()
@@ -1226,8 +1229,20 @@ func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboar
 
 ## ¿Este Node2D es una CAPA de usuario (figura / grupo / artboard) y no un
 ## nodo interno de render de una herramienta?
+## Nodos internos de render (sombra / 3D / contorno del texto…): ni ellos ni
+## lo que cuelga de ellos son capas.
+const INTERNAL_NAMES := ["Contorno_Stroke", "Render_Visual", "TextFxBack", "TextFxFront"]
+
+func _es_interno(n: Node) -> bool:
+	var p := n
+	while p != null and p != artboard_container:
+		if p.has_meta(&"_vectopen_internal") or String(p.name) in INTERNAL_NAMES:
+			return true
+		p = p.get_parent()
+	return false
+
 func _es_capa(n: Node) -> bool:
-	if n.name == "Contorno_Stroke" or n.name == "Render_Visual":
+	if n.has_meta(&"_vectopen_internal") or String(n.name) in INTERNAL_NAMES:
 		return false
 	if n is VectorShape or n is Line2D or n is Polygon2D or n is Sprite2D or n is Path2D:
 		return true
@@ -2181,9 +2196,9 @@ func _es_subcapa_profunda(nodo: Node) -> bool:
 	var p := nodo.get_parent()
 	if p == null or p == artboard_container or _es_artboard(p):
 		return false
-	if nodo.name == "Contorno_Stroke" or nodo.name == "Render_Visual":
+	if not artboard_container.is_ancestor_of(nodo):
 		return false
-	return artboard_container.is_ancestor_of(nodo)
+	return not _es_interno(nodo)
 
 func _on_any_node_added(nodo: Node) -> void:
 	if _es_subcapa_profunda(nodo):
@@ -2254,6 +2269,10 @@ func _process_pending_changes() -> void:
 		var nodo = change["node"]
 		var action = change["action"]
 		if not is_instance_valid(nodo):
+			# Borrado y ya liberado antes del lote (abrir otro documento,
+			# queue_free): su fila seguía en el panel. Reconstruir una vez.
+			if action == "removed":
+				necesita_full = true
 			continue
 
 		if action == "added":
@@ -2405,7 +2424,8 @@ func _actualizar_contador() -> void:
 func _contar_descendientes(nodo: Node) -> int:
 	var n := 0
 	for hijo in nodo.get_children():
-		if hijo is Node2D and hijo.name != "Contorno_Stroke":
+		# Las mismas reglas que el árbol: sin nodos internos de render.
+		if hijo is Node2D and _es_capa(hijo):
 			n += 1
 			n += _contar_descendientes(hijo)
 	return n

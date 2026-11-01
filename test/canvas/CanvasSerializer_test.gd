@@ -144,7 +144,7 @@ func test_save_project_ahora_incluye_las_figuras() -> void:
 	_poblar(cont.get_child(0))
 	await get_tree().process_frame
 
-	var path := "user://__test_cs_roundtrip.vtc"
+	var path := "user://__test_cs_roundtrip.vtp"
 	DataRepository.save_project(path)
 
 	# .vtc = contenedor plano VTC2: manifest + un chunk por artboard

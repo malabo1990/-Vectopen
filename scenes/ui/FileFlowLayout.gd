@@ -27,7 +27,7 @@ var _dir_cache: Dictionary = {}
 
 const THUMB_EXTS := ["png", "jpg", "jpeg", "webp", "svg", "vop"]
 const DEFAULT_EXPORT_FORMATS := ["SVG", "PNG", "PDF", "JPEG"]
-const SUPPORTED_FILTERS := ["*.svg, *.png, *.jpg, *.jpeg, *.pdf, *.glb, *.gltf ; Archivos soportados"]
+const SUPPORTED_FILTERS := ["*.vtp, *.vtc, *.svg, *.eps, *.ai, *.pdf, *.png, *.jpg, *.jpeg, *.webp, *.vop, *.glb, *.gltf ; Archivos soportados"]
 const EMPTY_MSG := "No documents exist"
 const FIRST_BATCH := 12
 const CHUNK_SIZE := 30
@@ -809,8 +809,10 @@ func _build_files_view(filter_text: String) -> void:
 
 func _get_recoverable_files() -> PackedStringArray:
 	var paths := PackedStringArray()
-	if FileAccess.file_exists("user://autosave.vtc"):
-		paths.append("user://autosave.vtc")
+	for ap in ["user://autosave.vtp", "user://autosave.vtc"]:
+		if FileAccess.file_exists(ap):
+			paths.append(ap)
+			break
 	for dir_path in ["user://recovery", "user://backups"]:
 		var dir := DirAccess.open(dir_path)
 		if not dir:

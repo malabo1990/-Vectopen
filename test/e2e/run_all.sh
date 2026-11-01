@@ -25,6 +25,8 @@ TESTS=(
 	mode_switch_panels_e2e
 	layers_view_e2e
 	panel_resize_e2e
+	theme_keeps_fill_e2e
+	shader_script_sections_e2e
 )
 # --all: todos los *_e2e.gd del proyecto (no solo la lista de arriba).
 if [ "${1:-}" = "--all" ]; then

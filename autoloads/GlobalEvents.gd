@@ -50,6 +50,9 @@ signal export_error
 signal import_started
 signal import_finished
 signal import_error
+## Aviso para el usuario (se muestra como un aviso emergente en pantalla).
+## level: "info" | "warning" | "error".
+signal user_notice(level: String, message: String)
 signal performance_warning
 signal renderer_changed
 signal memory_pressure_high

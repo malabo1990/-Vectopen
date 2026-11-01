@@ -124,6 +124,7 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 		it["grad"] = {"type": s.fill_gradient_type, "angle": s.fill_gradient_angle, "stops": stops}
 		it["fill"] = g.get_color(0)
 	_add_stroke_grad(it, s)
+	_add_dash(it, s, _scale_of(xf))
 	# TODAS las sombras proyectadas (antes solo quedaba la última)
 	var shadows: Array = []
 	for fx in s.effects:
@@ -152,7 +153,21 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 	var stroke: Variant = sc if (sw > 0.0 and sc.a > 0.0) else null
 	var pit := _item(subs, fill, stroke, sw * _scale_of(xf), op, cap, evenodd)
 	_add_stroke_grad(pit, p)
+	_add_dash(pit, p, _scale_of(xf))
 	out["items"].append(pit)
+
+## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
+## El punteado se exporta como trazos de largo 0 con remate redondo.
+static func _add_dash(it: Dictionary, n: Node, k: float) -> void:
+	if it["stroke"] == null or not ("stroke_style" in n):
+		return
+	var style := int(n.get("stroke_style"))
+	var w := float(n.get("stroke_width"))
+	if style == 1:
+		it["dash"] = [maxf(float(n.get("stroke_dash_len")), 2.0) * k, maxf(float(n.get("stroke_dash_gap")), 2.0) * k]
+	elif style == 2:
+		it["dash"] = [0.0, maxf(float(n.get("stroke_dash_gap")) + w, w * 2.5) * k]
+		it["cap"] = 1
 
 ## Degradado del trazo: "sgrad" para SVG; el resto de formatos usa el primer
 ## color como trazo plano.
@@ -597,6 +612,8 @@ static func to_svg(data: Dictionary) -> String:
 				elif it["stroke"] != null:
 					extra += _paint("stroke", it["stroke"]) + ' stroke-width="%s" stroke-linejoin="round"' % _n(it["width"])
 					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
+				if it["stroke"] != null and it.get("dash") is Array:
+					extra += ' stroke-dasharray="%s %s"' % [_n(it["dash"][0]), _n(it["dash"][1])]
 				if it["evenodd"]:
 					extra += ' fill-rule="evenodd"'
 				if it["opacity"] < 0.999:
@@ -767,6 +784,8 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 					s += _pdf_col(fill, false) + " "
 				if stroke != null:
 					s += _pdf_col(stroke, true) + " %s w %d J 1 j " % [_n(it["width"]), clampi(int(it["cap"]), 0, 2)]
+					if it.get("dash") is Array:
+						s += "[%s %s] 0 d " % [_n(it["dash"][0]), _n(it["dash"][1])]
 				s += _pdf_path(it["subs"], false)
 				var star := "*" if it["evenodd"] else ""
 				s += (" B" + star) if (fill != null and stroke != null) else ((" f" + star) if fill != null else (" S" if stroke != null else " n"))
@@ -920,7 +939,8 @@ static func to_eps(data_in: Dictionary) -> String:
 					o.append("gsave %s %s %s %s setrgbcolor %s grestore" % [path, _n(f.r), _n(f.g), _n(f.b), fill_op])
 				if it["stroke"] != null:
 					var s: Color = it["stroke"]
-					o.append("gsave %s %s %s %s setrgbcolor %s setlinewidth %d setlinecap stroke grestore" % [path, _n(s.r), _n(s.g), _n(s.b), _n(it["width"]), clampi(int(it["cap"]), 0, 2)])
+					o.append("gsave %s %s %s %s setrgbcolor %s setlinewidth %d setlinecap %s stroke grestore" % [path, _n(s.r), _n(s.g), _n(s.b), _n(it["width"]), clampi(int(it["cap"]), 0, 2),
+						("[%s %s] 0 setdash" % [_n(it["dash"][0]), _n(it["dash"][1])]) if it.get("dash") is Array else ""])
 			"text":
 				var c: Color = it["color"]
 				var size_t: float = it["size"]

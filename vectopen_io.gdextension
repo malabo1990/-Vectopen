@@ -1,0 +1,16 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.1
+reloadable = true
+
+[libraries]
+windows.debug.x86_64 =   "res://rust/vectopen_io/target/debug/vectopen_io.dll"
+windows.release.x86_64 = "res://rust/vectopen_io/target/release/vectopen_io.dll"
+linux.debug.x86_64 =     "res://rust/vectopen_io/target/debug/libvectopen_io.so"
+linux.release.x86_64 =   "res://rust/vectopen_io/target/release/libvectopen_io.so"
+macos.debug =             "res://rust/vectopen_io/target/debug/libvectopen_io.dylib"
+macos.release =           "res://rust/vectopen_io/target/release/libvectopen_io.dylib"
+macos.debug.arm64 =       "res://rust/vectopen_io/target/debug/libvectopen_io.dylib"
+macos.release.arm64 =     "res://rust/vectopen_io/target/release/libvectopen_io.dylib"
+ios.debug =               "res://rust/vectopen_io/target/aarch64-apple-ios/debug/libvectopen_io.dylib"
+ios.release =             "res://rust/vectopen_io/target/aarch64-apple-ios/release/libvectopen_io.dylib"

@@ -115,6 +115,21 @@ func set_lazy_source(vtc_path: String, loc: Dictionary) -> void:
 	_dormant = []
 	is_dormant = true
 
+## La página no se pudo leer del archivo (bloque dañado). Ver _resolve_lazy.
+## Se guardan sus bytes originales para no perderlos al guardar.
+var _damaged_raw := PackedByteArray()
+var _damaged_rlen := 0
+var _damaged := false
+
+func is_damaged() -> bool:
+	return _damaged
+
+func damaged_raw() -> PackedByteArray:
+	return _damaged_raw
+
+func damaged_rlen() -> int:
+	return _damaged_rlen
+
 ## Fuente perezosa actual ({} si ya se resolvió o nunca la hubo). CanvasSerializer
 ## la usa para copiar el chunk byte a byte al guardar si la página nunca despertó.
 func get_lazy_source() -> Dictionary:
@@ -125,12 +140,23 @@ func get_lazy_source() -> Dictionary:
 func _resolve_lazy() -> void:
 	if _lazy_src.is_empty():
 		return
-	var raw := _CS.read_vtc_chunk_raw(_lazy_src.get("vtc", ""), _lazy_src.get("off", 0),
-		_lazy_src.get("len", 0), _lazy_src.get("rlen", 0))
+	var path: String = _lazy_src.get("vtc", "")
+	var off := int(_lazy_src.get("off", 0))
+	var clen := int(_lazy_src.get("len", 0))
+	var rlen := int(_lazy_src.get("rlen", 0))
+	var raw := _CS.read_vtc_chunk_raw(path, off, clen, rlen)
+	var parsed = null
 	if not raw.is_empty():
-		var parsed = JSON.parse_string(raw.get_string_from_utf8())
-		if parsed is Array:
-			_dormant = parsed
+		parsed = JSON.parse_string(raw.get_string_from_utf8())
+	if parsed is Array:
+		_dormant = parsed
+	elif clen > 0:
+		# Bloque ilegible: NO dejar la página vacía en silencio. Se guardan sus
+		# bytes tal cual (al guardar se conservan) y se avisa al usuario.
+		_damaged = true
+		_damaged_raw = _CS.read_vtc_chunk_compressed(path, off, clen)
+		_damaged_rlen = rlen
+		_CS._notice("error", "La página «%s» de «%s» está dañada y no se puede mostrar. Se conservará tal cual al guardar; usa «Guardar como» con otro nombre y envía el archivo original para intentar recuperarla." % [name, path.get_file()])
 	_lazy_src = {}
 
 func mark_edited() -> void:
@@ -487,18 +513,18 @@ func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Ar
 
 func export_to_png(path: String, png_scale: float = 1.0, transparent: bool = false) -> Error:
 	var image: Image = await render_to_image(png_scale, transparent)
-	return image.save_png(path) if image else FAILED
+	return _save_image_safely(image, path, "png") if image else FAILED
 
 func export_to_jpeg(path: String, scale_val: float = 1.0, quality: float = 90.0) -> Error:
 	var image: Image = await render_to_image(scale_val, false)
-	return image.save_jpg(path, clampf(quality / 100.0, 0.1, 1.0)) if image else FAILED
+	return _save_image_safely(image, path, "jpg", clampf(quality / 100.0, 0.1, 1.0)) if image else FAILED
 
 func export_to_webp(path: String, scale_val: float = 1.0, quality: float = 90.0, transparent: bool = false) -> Error:
 	var image: Image = await render_to_image(scale_val, transparent)
 	if image == null:
 		return FAILED
 	# calidad 100 = sin pérdida
-	return image.save_webp(path, quality < 100.0, clampf(quality / 100.0, 0.1, 1.0))
+	return _save_image_safely(image, path, "webp", clampf(quality / 100.0, 0.1, 1.0), quality < 100.0)
 
 func export_to_svg_string() -> String:
 	return export_to_svg("")
@@ -846,3 +872,21 @@ func _verificar_y_crear_titulo() -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_STOP
 	if not label.gui_input.is_connected(_on_title_gui_input):
 		label.gui_input.connect(_on_title_gui_input)
+
+
+## Guarda la imagen en un temporal y reemplaza el destino solo si salió bien
+## (no deja un PNG/JPEG/WEBP cortado si algo falla a medias).
+static func _save_image_safely(image: Image, path: String, fmt: String, q: float = 0.9, lossy: bool = true) -> Error:
+	var tmp := path + ".tmp." + fmt
+	var err: Error
+	match fmt:
+		"png": err = image.save_png(tmp)
+		"jpg": err = image.save_jpg(tmp, q)
+		_: err = image.save_webp(tmp, lossy, q)
+	if err != OK or not FileAccess.file_exists(tmp):
+		DirAccess.remove_absolute(tmp)
+		return err if err != OK else ERR_FILE_CANT_WRITE
+	err = _CS._replace_file(tmp, path)
+	if err != OK:
+		DirAccess.remove_absolute(tmp)
+	return err

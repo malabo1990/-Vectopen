@@ -408,6 +408,8 @@ func _build_ui() -> void:
 	# Filtros y Vectorizar también aquí (antes solo en la ventana de Smart).
 	content_container.add_child(InspectorFxSections.create(InspectorFxSections.FILTERS, "SecFilters"))
 	content_container.add_child(InspectorFxSections.create(InspectorFxSections.VECTORIZE, "SecVectorize"))
+	content_container.add_child(InspectorFxSections.create(InspectorFxSections.SHADER, "SecShader"))
+	content_container.add_child(InspectorFxSections.create(InspectorFxSections.SCRIPT, "SecScript"))
 
 	# ── SECCION H: EXPORTAR (SOLO CUANDO HAY ELEMENTO SELECCIONADO) ──
 	_build_export_section()
@@ -2229,8 +2231,8 @@ func _open_color_popover(target: String, anchor: Control) -> void:
 	if cc and cc.has_method("set_target"):
 		cc.set_target(target)
 
-	if is_instance_valid(_pickr_instance) and _pickr_instance.has_method("establecer_color"):
-		_pickr_instance.establecer_color(cur_col, false)
+	if is_instance_valid(_pickr_instance) and _pickr_instance.has_method("mostrar_color"):
+		_pickr_instance.mostrar_color(cur_col)
 
 	_color_popover.visible = true
 	_color_popover.reset_size()

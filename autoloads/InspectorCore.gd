@@ -522,9 +522,10 @@ func _editing_text_range() -> Array:
 	var _ed_flag = t.get("is_editing") if t != null else null
 	if t == null or _ed_flag == null or not bool(_ed_flag):
 		return []
-	var shape: Node2D = t.get("current_editing_shape")
-	if not is_instance_valid(shape):
+	var raw: Variant = t.get("current_editing_shape")
+	if not is_instance_valid(raw) or not (raw is Node2D):
 		return []
+	var shape: Node2D = raw
 	var ed: TextEdit = shape.get_node_or_null("TitleEdit")
 	if ed == null:
 		ed = shape.get_node_or_null("MultiLineEdit")

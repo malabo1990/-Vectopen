@@ -72,9 +72,11 @@ static func normalize_fonts(panel: Control) -> void:
 		tm = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ThemeManager")
 	if tm and tm.has_signal("theme_changed") and not panel.has_meta("_tpd_theme_hooked"):
 		panel.set_meta("_tpd_theme_hooked", true)
-		tm.theme_changed.connect(func(_m) -> void:
-			if is_instance_valid(panel):
-				apply_theme_colors(panel))
+		var hook := Node.new()
+		hook.name = "_TpdThemeHook"
+		hook.set_script(preload("res://script_gdscript/ui/components/theme_hook.gd"))
+		panel.add_child(hook, false, Node.INTERNAL_MODE_BACK)
+		tm.theme_changed.connect(hook._on_theme_changed)
 
 ## Colores del TEMA ACTUAL para textos, casillas y botones sin estilo propio.
 ## Antes heredaban el blanco por defecto de Godot: flotando sobre su fondo

@@ -74,7 +74,7 @@ func _measure_save_load() -> void:
 	# GUARDAR (ruta real: DataRepository → .vtc comprimido gzip)
 	var data := _CS.serialize_container(_container)
 	var elems_guardados := _contar_elems_en_data(data)
-	var path := "user://__book_bench.vtc"
+	var path := "user://__book_bench.vtp"
 	var t0 := Time.get_ticks_msec()
 	DataRepository.save_project(path)   # .vtc = ZIP (manifest + chunk/artboard)
 	_results["guardar_ms"] = Time.get_ticks_msec() - t0
@@ -134,7 +134,7 @@ func _measure_save_load() -> void:
 	# Ruta REAL de guardado (write_vtc): las páginas que siguen 100 % perezosas
 	# se copian byte a byte desde el .vtc de origen (O(1)/página), el resto se
 	# re-serializa. Medimos el guardado de disco completo, no solo el dict.
-	var path2 := "user://__book_bench_lazy.vtc"
+	var path2 := "user://__book_bench_lazy.vtp"
 	t0 = Time.get_ticks_msec()
 	DataRepository.save_project(path2)
 	_results["guardar_tras_lazy_ms"] = Time.get_ticks_msec() - t0

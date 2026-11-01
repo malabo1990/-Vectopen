@@ -2,37 +2,28 @@ extends Node
 
 const CONFIG_PATH := "user://vectopen_inputmap.cfg"
 
+## Atajos por defecto. SOLO acciones que la app ejecuta de verdad: el panel de
+## teclado las lista, y cambiar una aquí cambia lo que hace la tecla. (Antes se
+## listaban 64 acciones y solo 13 estaban conectadas; las teclas de herramienta
+## mostraban O/G cuando las reales eran E/D.)
 const DEFAULTS: Dictionary = {
-	# --- Herramientas (14.1 Letra única) ---
-	"tool_select": [{"key": KEY_V}, {"key": KEY_Q}],
-	"tool_move": [{"key": KEY_V}],
+	# --- Herramientas (una letra, sin modificadores; ver canvas.gd) ---
+	"tool_select": [{"key": KEY_V}],
+	"tool_rectangle": [{"key": KEY_R}],
+	"tool_ellipse": [{"key": KEY_E}],
+	"tool_star": [{"key": KEY_S}],
+	"tool_bezier": [{"key": KEY_D}],
 	"tool_brush": [{"key": KEY_B}],
-	"tool_rectangle": [{"key": KEY_R}, {"key": KEY_M}],
-	"tool_ellipse": [{"key": KEY_O}, {"key": KEY_E}],
-	"tool_pen": [{"key": KEY_P}],
-	"tool_bezier": [{"key": KEY_G}],
 	"tool_text": [{"key": KEY_T}],
-	"tool_hand": [{"key": KEY_H}],
-	"tool_artboard": [{"key": KEY_F}, {"key": KEY_A}],
-	"tool_zoom": [{"key": KEY_Z}],
-	"tool_eyedropper": [{"key": KEY_I}],
-	# --- Comandos y Atajos Universales (14.2) ---
-	"command_palette": [{"key": KEY_SLASH, "ctrl": true}, {"key": KEY_K, "ctrl": true}],
-	"artboard_from_selection": [{"key": KEY_G, "ctrl": true, "alt": true}],
+	"tool_paragraph": [{"key": KEY_P}],
+	"tool_artboard": [{"key": KEY_A}],
+	"tool_hand": [{"key": KEY_W}],
 	# --- Canvas / Vista ---
 	"canvas_zoom_in": [{"key": KEY_EQUAL, "ctrl": true}],
 	"canvas_zoom_out": [{"key": KEY_MINUS, "ctrl": true}],
 	"canvas_reset_zoom": [{"key": KEY_5}],
-	"canvas_zoom_fit": [{"key": KEY_F}],
-	"canvas_zoom_100": [{"key": KEY_1}],
-	"canvas_pan": [{"button": MOUSE_BUTTON_MIDDLE}],
-	"canvas_pan_key": [{"key": KEY_SPACE}],
-	"view_toggle_grid": [{"key": KEY_G, "shift": true}],
-	"view_toggle_rulers": [{"key": KEY_R, "ctrl": true}],
 	# --- Archivo ---
 	"save": [{"key": KEY_S, "ctrl": true}],
-	"save_as": [{"key": KEY_S, "shift": true, "ctrl": true}],
-	"open": [{"key": KEY_O, "ctrl": true}],
 	"new_project": [{"key": KEY_N, "ctrl": true}],
 	# --- Edición ---
 	"undo": [{"key": KEY_Z, "ctrl": true}],
@@ -43,40 +34,24 @@ const DEFAULTS: Dictionary = {
 	"select_all": [{"key": KEY_A, "ctrl": true}],
 	"duplicate": [{"key": KEY_D, "ctrl": true}],
 	"delete": [{"key": KEY_DELETE}, {"key": KEY_BACKSPACE}, {"key": KEY_X}],
-	"deselect": [{"key": KEY_ESCAPE}],
 	# --- Objeto ---
 	"group": [{"key": KEY_G, "ctrl": true}],
 	"ungroup": [{"key": KEY_G, "shift": true, "ctrl": true}],
-	"bring_forward": [{"key": KEY_BRACKETRIGHT, "ctrl": true}],
-	"send_backward": [{"key": KEY_BRACKETLEFT, "ctrl": true}],
-	"bring_to_front": [{"key": KEY_BRACKETRIGHT, "shift": true, "ctrl": true}],
-	"send_to_back": [{"key": KEY_BRACKETLEFT, "shift": true, "ctrl": true}],
-	"flip_horizontal": [{"key": KEY_H, "shift": true}],
-	"flip_vertical": [{"key": KEY_V, "shift": true}],
-	"rotate_left": [{"key": KEY_BRACKETLEFT}],
-	"rotate_right": [{"key": KEY_BRACKETRIGHT}],
-	# --- Alineación ---
-	"align_left": [{"key": KEY_L, "shift": true}],
-	"align_center_h": [{"key": KEY_C, "shift": true}],
-	"align_right": [{"key": KEY_R, "shift": true}],
-	"align_top": [{"key": KEY_T, "shift": true}],
-	"align_middle_v": [{"key": KEY_M, "shift": true}],
-	"align_bottom": [{"key": KEY_B, "shift": true}],
-	# --- Capas ---
-	"layer_new": [{"key": KEY_N, "shift": true, "ctrl": true}],
-	"layer_duplicate": [{"key": KEY_J, "ctrl": true}],
-	"layer_delete": [{"key": KEY_DELETE, "shift": true, "ctrl": true}],
-	"layer_up": [{"key": KEY_PAGEUP}],
-	"layer_down": [{"key": KEY_PAGEDOWN}],
-	"layer_top": [{"key": KEY_HOME}],
-	"layer_bottom": [{"key": KEY_END}],
-	# --- Texto ---
-	"text_bold": [{"key": KEY_B, "ctrl": true}],
-	"text_italic": [{"key": KEY_I, "ctrl": true}],
-	"text_underline": [{"key": KEY_U, "ctrl": true}],
-	# --- Ayuda ---
-	"help_shortcuts": [{"key": KEY_F1}],
 }
+
+## Acción de herramienta → id de herramienta del canvas.
+const TOOL_ACTIONS := {
+	"tool_select": "select", "tool_rectangle": "rectangle", "tool_ellipse": "ellipse",
+	"tool_star": "star", "tool_bezier": "bezier", "tool_brush": "brush", "tool_text": "text",
+	"tool_paragraph": "paragraph", "tool_artboard": "artboard", "tool_hand": "hand",
+}
+
+## Herramienta para esta tecla (sin modificadores), o "" si no es de herramienta.
+func tool_for_event(event: InputEvent) -> String:
+	for action in TOOL_ACTIONS:
+		if is_action_exact(event, action):
+			return TOOL_ACTIONS[action]
+	return ""
 
 const PenScrub = preload("res://script_gdscript/ui/pen_scrub.gd")
 
@@ -192,3 +167,15 @@ func is_action_triggered(event: InputEvent, action: String) -> bool:
 	if not InputMap.has_action(action):
 		return false
 	return InputMap.event_is_action(event, action)
+
+## Como is_action_triggered pero con los modificadores EXACTOS (Ctrl+G no es
+## Ctrl+Shift+G). En macOS, Cmd cuenta como Ctrl.
+func is_action_exact(event: InputEvent, action: String) -> bool:
+	if not InputMap.has_action(action) or not (event is InputEventKey):
+		return false
+	var ev := event as InputEventKey
+	if ev.meta_pressed and not ev.ctrl_pressed:
+		ev = ev.duplicate() as InputEventKey
+		ev.meta_pressed = false
+		ev.ctrl_pressed = true
+	return InputMap.event_is_action(ev, action, true)

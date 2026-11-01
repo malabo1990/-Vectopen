@@ -389,8 +389,11 @@ static func _path_item(subs: Array, xf: Transform2D, st: Dictionary, op: float, 
 	var k := sqrt(absf(xf.determinant()))
 	var dash: Variant = null
 	var da := String(st.get("stroke-dasharray", "none")).replace(",", " ").split(" ", false)
-	if da.size() >= 1 and da[0] != "none" and float(da[0]) > 0.0:
-		dash = [float(da[0]) * k, (float(da[1]) if da.size() > 1 else float(da[0])) * k]
+	if da.size() >= 1 and da[0] != "none":
+		var d0 := float(da[0])
+		var d1 := float(da[1]) if da.size() > 1 else d0
+		if d0 > 0.0 or d1 > 0.0:   # [0 hueco] = punteado
+			dash = [d0 * k, d1 * k]
 	return {"t": "path", "subs": baked, "fill": _paint(st, "fill", grads), "stroke": _paint(st, "stroke", grads),
 		"grad": _fill_gradient(st, grads), "dash": dash,
 		"width": _len(st.get("stroke-width", "1"), 1.0) * k,
@@ -666,6 +669,7 @@ static func build(data: Dictionary, group_name: String = "SVG") -> Node2D:
 	var g := Node2D.new()
 	g.name = group_name
 	g.set_meta("shape_type", "group")
+	var taken := {}   # nombres ya usados en el grupo (O(1) por figura)
 	for it in data["items"]:
 		var n: Node2D = null
 		match it["t"]:
@@ -683,7 +687,7 @@ static func build(data: Dictionary, group_name: String = "SVG") -> Node2D:
 		if n:
 			if float(it.get("opacity", 1.0)) < 0.999:
 				n.modulate.a = float(it["opacity"])
-			n.name = NameUtils.unique_child_name(g, String(n.name))
+			n.name = NameUtils.unique_name_in(taken, String(n.name))
 			g.add_child(n)
 	return g
 
@@ -713,9 +717,13 @@ static func _vector_path(it: Dictionary) -> Node2D:
 	p.stroke_cap_start = int(it["cap"])
 	p.stroke_cap_end = int(it["cap"])
 	if it.get("dash") is Array:
-		p.stroke_style = 1   # discontinuo
-		p.stroke_dash_len = float(it["dash"][0])
-		p.stroke_dash_gap = float(it["dash"][1])
+		if float(it["dash"][0]) <= 0.01:
+			p.stroke_style = 2   # punteado: hueco = paso − grosor
+			p.stroke_dash_gap = maxf(float(it["dash"][1]) - p.stroke_width, 1.0)
+		else:
+			p.stroke_style = 1   # discontinuo
+			p.stroke_dash_len = float(it["dash"][0])
+			p.stroke_dash_gap = float(it["dash"][1])
 	return p
 
 static func _gradient_polygon(it: Dictionary, sub: Dictionary) -> Node2D:

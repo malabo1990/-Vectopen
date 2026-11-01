@@ -131,8 +131,8 @@ func toggle_for(cp: ColorPickerButton) -> void:
 	_target = cp
 	_title.text = tr(String(cp.get_meta("text_color_popover", "Color")))
 	_opening = true
-	if _pickr.has_method("establecer_color"):
-		_pickr.establecer_color(cp.color, true)
+	if _pickr.has_method("mostrar_color"):
+		_pickr.mostrar_color(cp.color)
 	_opening = false
 	visible = true
 	reset_size()

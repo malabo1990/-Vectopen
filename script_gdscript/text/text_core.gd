@@ -58,9 +58,12 @@ static func editing_range(tree: SceneTree) -> Array:
 	var flag = t.get("is_editing") if t != null else null
 	if flag == null or not bool(flag):
 		return []
-	var shape: Node2D = t.get("current_editing_shape")
-	if not is_instance_valid(shape):
+	# Comprobar ANTES de asignar a una variable tipada: si el texto en edición
+	# ya se liberó, asignarlo daba «previously freed instance» cada frame.
+	var raw: Variant = t.get("current_editing_shape")
+	if not is_instance_valid(raw) or not (raw is Node2D):
 		return []
+	var shape: Node2D = raw
 	var ed: TextEdit = shape.get_node_or_null("TitleEdit")
 	if ed == null:
 		ed = shape.get_node_or_null("MultiLineEdit")
@@ -83,9 +86,12 @@ static func editing_context(tree: SceneTree) -> Array:
 	var flag = t.get("is_editing") if t != null else null
 	if flag == null or not bool(flag):
 		return []
-	var shape: Node2D = t.get("current_editing_shape")
-	if not is_instance_valid(shape):
+	# Comprobar ANTES de asignar a una variable tipada: si el texto en edición
+	# ya se liberó, asignarlo daba «previously freed instance» cada frame.
+	var raw: Variant = t.get("current_editing_shape")
+	if not is_instance_valid(raw) or not (raw is Node2D):
 		return []
+	var shape: Node2D = raw
 	var vrt = shape.get_node_or_null("VectorRichText")
 	if vrt and vrt.has_method("is_editing") and vrt.is_editing():
 		return [shape, vrt]
@@ -215,8 +221,8 @@ static func capture_text_state(shape: Node2D) -> Dictionary:
 		"text": String(shape.get_meta("text", "")),
 		"runs": (shape.get_meta("runs", []) as Array).duplicate(true),
 		"font_size": int(shape.get_meta("font_size", 24)),
-		"width": shape.get_meta("width", null),
-		"height": shape.get_meta("height", null),
+		"width": shape.get_meta("width") if shape.has_meta("width") else null,
+		"height": shape.get_meta("height") if shape.has_meta("height") else null,
 	}
 	if shape.has_meta("next_paragraph") or shape.has_meta("prev_paragraph"):
 		var head := ParagraphThreading.get_chain_head(shape)

@@ -836,8 +836,11 @@ func add_image(source: Variant, center: Vector2, name: String = "Imagen") -> Nod
 	if img == null:
 		img = Image.new()
 		if img.load(String(source)) != OK:
-			error("add_image: no se pudo cargar «%s»" % source)
-			return null
+			# Lo que Godot no lee (p. ej. JPEG en CMYK) → lector nativo.
+			img = load("res://script_gdscript/system/native_io.gd").load_image(String(source))
+			if img == null:
+				error("add_image: no se pudo cargar «%s»" % source)
+				return null
 		if name == "Imagen":
 			name = "Foto_" + String(source).get_file().get_basename()
 	var sp := Sprite2D.new()

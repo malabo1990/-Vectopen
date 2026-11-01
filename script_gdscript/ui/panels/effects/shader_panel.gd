@@ -72,8 +72,9 @@ func _init() -> void:
 	var margin_box := self
 
 	# ── barra: nombre + acciones ──
-	var bar := HBoxContainer.new()
-	bar.add_theme_constant_override("separation", 6)
+	var bar := HFlowContainer.new()   # se parte en dos filas si no cabe (inspector estrecho)
+	bar.add_theme_constant_override("h_separation", 6)
+	bar.add_theme_constant_override("v_separation", 6)
 	margin_box.add_child(bar)
 	_name = LineEdit.new()
 	_name.placeholder_text = "Nombre del shader"
@@ -98,10 +99,13 @@ func _init() -> void:
 	bar.add_child(_chk_live)
 
 	# ── cuerpo: código | biblioteca ──
-	var split := HSplitContainer.new()
+	var split := SplitContainer.new()   # genérico: puede pasar a vertical (set_compact)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split.split_offset = -10
 	margin_box.add_child(split)
+	# En un panel estrecho (inspector de Modern / Pro) la biblioteca va DEBAJO
+	# del código; a lo ancho (ventana de Smart) al lado.
+	_split = split
 
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -580,3 +584,26 @@ func _fit_window() -> void:
 	# _apply_tab_size): aquí solo se ensanchaba y nunca volvía a encoger.
 	return
 
+
+
+var _split: SplitContainer = null
+
+## Modo compacto (inspector de Modern / Pro, que es estrecho): la biblioteca va
+## DEBAJO del código en vez de al lado. En la ventana de Smart queda al lado.
+func set_compact(on: bool) -> void:
+	if not is_instance_valid(_split):
+		return
+	_split.vertical = on
+	_split.split_offset = 0
+	_split.custom_minimum_size.y = 560.0 if on else 0.0
+	for c in _split.get_children():
+		if c is Control:
+			(c as Control).custom_minimum_size.x = 0.0
+	# El editor de código pedía 320 px de ancho mínimo: más que el inspector.
+	for ce in find_children("*", "CodeEdit", true, false):
+		(ce as Control).custom_minimum_size.x = 0.0 if on else 320.0
+	# La barra (nombre + botones) no debe ensanchar el panel más que el inspector.
+	if "_name" in self and get("_name") is Control:
+		(get("_name") as Control).custom_minimum_size.x = 50.0 if on else 120.0
+	if "_addon_filter" in self and get("_addon_filter") is Control:
+		(get("_addon_filter") as Control).custom_minimum_size.x = 50.0 if on else 120.0
