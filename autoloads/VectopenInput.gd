@@ -37,6 +37,7 @@ const DEFAULTS: Dictionary = {
 	# --- Objeto ---
 	"group": [{"key": KEY_G, "ctrl": true}],
 	"ungroup": [{"key": KEY_G, "shift": true, "ctrl": true}],
+	"text_to_curves": [{"key": KEY_O, "shift": true, "ctrl": true}],
 }
 
 ## Acción de herramienta → id de herramienta del canvas.

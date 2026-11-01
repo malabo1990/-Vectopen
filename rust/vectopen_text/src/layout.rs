@@ -645,3 +645,174 @@ impl LayoutEngine {
         used_vector
     }
 }
+
+/// Contorno de una letra en curvas Bézier (coordenadas locales del texto).
+pub struct GlyphOutline {
+    pub char_index: usize,
+    pub fill: Color,
+    pub stroke: Color,
+    pub stroke_width: f32,
+    /// Subtrazados: (anclas, asas de entrada, asas de salida) relativas, cerrados.
+    pub subs: Vec<(Vec<Vector2>, Vec<Vector2>, Vec<Vector2>)>,
+}
+
+/// Contornos TrueType/CFF (z = 1 en curva, 0 control cuadrático, 2 cúbico)
+/// → subtrazados cúbicos con asas relativas (como Curve2D).
+pub fn contours_to_cubics(pts: &[godot::builtin::Vector3], ends: &[i32], scale: f32, origin: Vector2) -> Vec<(Vec<Vector2>, Vec<Vector2>, Vec<Vector2>)> {
+    let mut out = Vec::new();
+    let mut start = 0usize;
+    for &end in ends {
+        let end = end as usize;
+        if end < start || end >= pts.len() {
+            break;
+        }
+        let c = &pts[start..=end];
+        start = end + 1;
+        if c.len() < 2 {
+            continue;
+        }
+        let n = c.len();
+        let p = |i: usize| {
+            let v = c[i % n];
+            Vector2::new(v.x, v.y) * scale + origin
+        };
+        let tag = |i: usize| c[i % n].z.round() as i32;
+        let first_on = (0..n).find(|&i| tag(i) == 1);
+        let (o, first) = match first_on {
+            Some(i) => (p(i), i),
+            None => ((p(0) + p(1)) * 0.5, 0),
+        };
+        let mut anchors = vec![o];
+        let mut ins = vec![Vector2::ZERO];
+        let mut outs = vec![Vector2::ZERO];
+        let cubic_to = |c1: Vector2, c2: Vector2, e: Vector2, anchors: &mut Vec<Vector2>, ins: &mut Vec<Vector2>, outs: &mut Vec<Vector2>| {
+            let last = anchors.len() - 1;
+            outs[last] = c1 - anchors[last];
+            anchors.push(e);
+            ins.push(c2 - e);
+            outs.push(Vector2::ZERO);
+        };
+        let mut conic: Option<Vector2> = None;
+        let mut cub: Vec<Vector2> = Vec::new();
+        let steps = if first_on.is_some() { n } else { n + 1 };
+        for k in 1..=steps {
+            let i = first + k;
+            let closing = k == steps;
+            let (pt, t) = if closing { (o, 1) } else { (p(i), tag(i)) };
+            let cur = *anchors.last().unwrap();
+            match t {
+                1 => {
+                    if let Some(cp) = conic.take() {
+                        // Cuadrática → cúbica.
+                        cubic_to(cur + (cp - cur) * (2.0 / 3.0), pt + (cp - pt) * (2.0 / 3.0), pt, &mut anchors, &mut ins, &mut outs);
+                    } else if cub.len() >= 2 {
+                        cubic_to(cub[0], cub[1], pt, &mut anchors, &mut ins, &mut outs);
+                        cub.clear();
+                    } else {
+                        anchors.push(pt);
+                        ins.push(Vector2::ZERO);
+                        outs.push(Vector2::ZERO);
+                    }
+                }
+                0 => {
+                    if let Some(cp) = conic {
+                        let mid = (cp + pt) * 0.5;
+                        cubic_to(cur + (cp - cur) * (2.0 / 3.0), mid + (cp - mid) * (2.0 / 3.0), mid, &mut anchors, &mut ins, &mut outs);
+                    }
+                    conic = Some(pt);
+                }
+                _ => cub.push(pt),
+            }
+        }
+        // El último punto repite el primero: se funde (cierre limpio).
+        let m = anchors.len();
+        if m >= 2 && (anchors[m - 1] - anchors[0]).length() < 1e-4 {
+            ins[0] = ins[m - 1];
+            anchors.pop();
+            ins.pop();
+            outs.pop();
+        }
+        if anchors.len() >= 2 {
+            out.push((anchors, ins, outs));
+        }
+    }
+    out
+}
+
+impl LayoutEngine {
+    /// Contorno de cada letra tal como se DIBUJA (mismas líneas, tramos,
+    /// colores y desplazamientos de línea base que `draw`). Para «Convertir
+    /// a curvas»: el resultado coincide con lo que se ve en pantalla.
+    pub fn glyph_outlines(&self, doc: &TextDocument) -> Vec<GlyphOutline> {
+        const REF: i64 = 2048;
+        let mut out = Vec::new();
+        if doc.runs.is_empty() {
+            return out;
+        }
+        let Some(ts) = TextServerManager::singleton().get_primary_interface() else { return out };
+        let mut run_ends: Vec<usize> = Vec::with_capacity(doc.runs.len());
+        let mut acc = 0usize;
+        for r in &doc.runs {
+            acc += r.length;
+            run_ends.push(acc);
+        }
+        let style_at = |char_idx: usize| -> &TextStyle {
+            let i = run_ends.partition_point(|&end| end <= char_idx).min(doc.runs.len() - 1);
+            &doc.runs[i].style
+        };
+        for tp in &self.paragraphs {
+            for l in 0..tp.get_line_count() {
+                let l_idx = l as usize;
+                if l_idx >= self.lines.len() {
+                    break;
+                }
+                let line = &self.lines[l_idx];
+                let baseline = line.rect.position + Vector2::new(0.0, line.ascent);
+                let mut x = 0.0f32;
+                for g in ts.shaped_text_get_glyphs(tp.get_line_rid(l)).iter_shared() {
+                    let advance = g.get("advance").and_then(|v| v.try_to::<f32>().ok()).unwrap_or(0.0);
+                    let repeat = g.get("repeat").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(1).max(1);
+                    let start = g.get("start").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(0).max(0) as usize;
+                    let index = g.get("index").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(0);
+                    let font_rid = g.get("font_rid").and_then(|v| v.try_to::<Rid>().ok());
+                    let font_size = g.get("font_size").and_then(|v| v.try_to::<i64>().ok()).unwrap_or(16);
+                    let offset = g.get("offset").and_then(|v| v.try_to::<Vector2>().ok()).unwrap_or(Vector2::ZERO);
+                    let st = style_at(start);
+                    for _ in 0..repeat {
+                        if let Some(fr) = font_rid {
+                            if index != 0 && fr.is_valid() {
+                                let gp = baseline + Vector2::new(x, -st.baseline_shift) + offset;
+                                let data = ts.font_get_glyph_contours(fr, REF, index);
+                                let pts: Option<PackedVector3Array> = data.get("points").and_then(|v| v.try_to().ok());
+                                let ends: Option<PackedInt32Array> = data.get("contours").and_then(|v| v.try_to().ok());
+                                if let (Some(pts), Some(ends)) = (pts, ends) {
+                                    let subs = contours_to_cubics(pts.as_slice(), ends.as_slice(), font_size as f32 / REF as f32, gp);
+                                    if !subs.is_empty() {
+                                        let mut fill = st.fill_color;
+                                        fill.a *= st.opacity;
+                                        let mut stroke = st.stroke_color;
+                                        stroke.a *= st.opacity;
+                                        out.push(GlyphOutline { char_index: start, fill, stroke, stroke_width: st.stroke_width, subs });
+                                    }
+                                }
+                            }
+                        }
+                        x += advance;
+                    }
+                }
+            }
+        }
+        // En párrafos el dibujo se desplaza por el relleno del marco.
+        if self.is_paragraph {
+            let d = Vector2::new(self.frame.padding_left, self.frame.padding_top + self.vert_offset);
+            for g in &mut out {
+                for (a, _, _) in &mut g.subs {
+                    for p in a.iter_mut() {
+                        *p += d;
+                    }
+                }
+            }
+        }
+        out
+    }
+}

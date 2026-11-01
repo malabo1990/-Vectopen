@@ -69,6 +69,7 @@ const REFERENCE := [
 	["Organizar", "delete(objeto_o_lista)", "Borra"],
 	["Organizar", "duplicate(objeto, desplazamiento = (20,20)) -> Node2D", "Copia"],
 	["Organizar", "group(lista, nombre = \"Grupo\") -> Node2D", "Agrupa"],
+	["Texto", "text_to_curves(texto) -> Node2D", "Convierte un texto en curvas: un grupo con una forma por letra (Ctrl+Mayús+O)"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
 	["Organizar", "align(lista, modo)", "left, center_h, right, top, middle, bottom ([] = selección)"],
 	["Organizar", "distribute(lista, eje)", "Reparte 3+ objetos: \"h\" o \"v\""],
@@ -597,6 +598,84 @@ func group(nodes: Array, name: String = "Grupo") -> Node2D:
 			parent.remove_child(g)
 	do_fn.call()
 	_record("Agrupar", do_fn, undo_fn, false)
+	return g
+
+## «Convertir a curvas» (Ctrl+Mayús+O): el texto pasa a un GRUPO con una
+## forma por letra (con su color, contorno y posición exactos, tal como se ve
+## en pantalla). Con deshacer. Devuelve el grupo o null si no es un texto.
+func text_to_curves(node: Node2D) -> Node2D:
+	if not is_instance_valid(node) or node.get_parent() == null:
+		return null
+	if not String(node.get_meta("shape_type", "")).begins_with("text_"):
+		return null
+	# El editor que YA tiene el texto conserva su formato (colores por tramo);
+	# crear uno nuevo lo reiniciaría.
+	var vrt = node.get_node_or_null("VectorRichText")
+	if vrt == null:
+		vrt = TextCore.ensure_vrt(node)
+	if vrt == null or not vrt.has_method("get_glyph_outlines"):
+		error("text_to_curves: falta el motor de texto nativo")
+		return null
+	var outlines: Array = vrt.get_glyph_outlines()
+	if outlines.is_empty():
+		return null
+	var parent := node.get_parent()
+	var idx := node.get_index()
+	var g := Node2D.new()
+	g.name = NameUtils.unique_child_name(parent, String(node.name) + " (curvas)")
+	g.set_meta("shape_type", "group")
+	g.transform = node.transform
+	g.modulate = node.modulate
+	# Coordenadas locales del editor nativo → coordenadas del texto.
+	var to_node: Transform2D = (vrt as CanvasItem).get_transform() if vrt is CanvasItem else Transform2D.IDENTITY
+	var text := String(node.get_meta("text", ""))
+	var taken := {}
+	for o in outlines:
+		var subs: Array = o["subs"]
+		if subs.is_empty():
+			continue
+		var p := Path2D.new()
+		p.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
+		var ch := String(o.get("char", ""))
+		p.name = NameUtils.unique_name_in(taken, ch if ch.strip_edges() != "" else "Letra")
+		var curves: Array[Curve2D] = []
+		for sd in subs:
+			var c := Curve2D.new()
+			var an: PackedVector2Array = sd["anchors"]
+			for i in an.size():
+				c.add_point(to_node * an[i], to_node.basis_xform(sd["ins"][i]), to_node.basis_xform(sd["outs"][i]))
+			curves.append(c)
+		p.curve = curves[0]
+		p.closed = true
+		if curves.size() > 1:
+			p.subpaths = curves.slice(1)
+		p.fill_color = o["fill"]
+		var sw := float(o.get("stroke_width", 0.0))
+		p.stroke_width = sw if sw > 0.001 else 0.0
+		p.stroke_color = o["stroke_color"] if sw > 0.001 else Color(0, 0, 0, 0)
+		g.add_child(p)
+	if g.get_child_count() == 0:
+		g.free()
+		return null
+	g.set_meta("source_text", text)
+	var do_fn := func() -> void:
+		if node.get_parent() == parent:
+			parent.remove_child(node)
+		if g.get_parent() == null:
+			parent.add_child(g)
+			parent.move_child(g, mini(idx, parent.get_child_count() - 1))
+			g.owner = parent if "artboard_size" in parent else parent.owner
+	var undo_fn := func() -> void:
+		if g.get_parent() == parent:
+			parent.remove_child(g)
+		if node.get_parent() == null:
+			parent.add_child(node)
+			parent.move_child(node, mini(idx, parent.get_child_count() - 1))
+	do_fn.call()
+	_record("Convertir a curvas", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and sm.has_method("select"):
+		sm.select(g)
 	return g
 
 # ── orden (capas) ────────────────────────────────────────────────────────────

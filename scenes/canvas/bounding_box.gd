@@ -980,6 +980,17 @@ func _get_macro_rect_cloned(selected_shapes_array: Array[Node2D]) -> Rect2:
 
 func _global_rect_cloned(node: Node2D) -> Rect2:
 	if not is_instance_valid(node): return Rect2()
+	# Grupo: la unión de sus capas (antes caía al recuadro fijo de 40×40).
+	if String(node.get_meta("shape_type", "")) == "group":
+		var gr := Rect2()
+		var has := false
+		for c in node.get_children():
+			if c is Node2D and (c as Node2D).visible and (c.has_meta("shape_type") or c is Path2D or c is Sprite2D or c is Polygon2D or c is Line2D or "size" in c):
+				var cr := _global_rect_cloned(c)
+				gr = cr if not has else gr.merge(cr)
+				has = true
+		if has:
+			return gr
 	if node.has_meta("shape_type") and (node.get_meta("shape_type") in ["text_paragraph", "text_title"]):
 		var w: float = node.get_meta("width") if node.has_meta("width") else 350.0
 		var h: float = node.get_meta("height") if node.has_meta("height") else 65.0
@@ -1104,6 +1115,23 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 ## rect, el resultado queda pegado exactamente a su geometría real, ya rotada o no.
 func _local_rect_cloned(node: Node2D) -> Rect2:
 	if not is_instance_valid(node): return Rect2()
+	# Grupo: la unión de sus capas en el espacio del grupo (antes, 40×40 fijo).
+	if String(node.get_meta("shape_type", "")) == "group":
+		var inv := node.get_global_transform().affine_inverse()
+		var gr := Rect2()
+		var has := false
+		for c in node.get_children():
+			if c is Node2D and (c as Node2D).visible and (c.has_meta("shape_type") or c is Path2D or c is Sprite2D or c is Polygon2D or c is Line2D or "size" in c):
+				var cr := _global_rect_cloned(c)
+				for corner in [cr.position, Vector2(cr.end.x, cr.position.y), cr.end, Vector2(cr.position.x, cr.end.y)]:
+					var lp: Vector2 = inv * corner
+					if not has:
+						gr = Rect2(lp, Vector2.ZERO)
+						has = true
+					else:
+						gr = gr.expand(lp)
+		if has:
+			return gr
 	if node.has_meta("shape_type") and (node.get_meta("shape_type") in ["text_paragraph", "text_title"]):
 		var w: float = float(node.get_meta("width", 350.0))
 		var h: float = float(node.get_meta("height", 65.0))

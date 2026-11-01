@@ -334,7 +334,7 @@ func test_multi_click_and_word_paragraph_selection() -> void:
 	# Test word navigation
 	v.set_caret_index(0)
 	v.move_by_word(true, false)
-	assert_int(v.get_caret_index()).is_equal(6) # end of "Primer"
+	assert_int(v.get_caret_index()).is_equal(7) # como Office: inicio de "párrafo"
 	
 	# Test hit_test
 	var char_at_origin: int = v.hit_test(Vector2(5, 5))

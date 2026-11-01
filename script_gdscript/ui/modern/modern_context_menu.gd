@@ -202,6 +202,7 @@ func _build_level_2_contextual_items(kind: String) -> void:
 			_add_menu_item("align_text_left", "Alinear texto izquierda", "")
 			_add_menu_item("align_text_center", "Centrar texto", "")
 			_add_menu_item("align_text_right", "Alinear texto derecha", "")
+			_add_menu_item("text_to_curves", "Convertir a curvas", "Ctrl+Shift+O")
 			_add_separator()
 		"group":
 			_add_menu_item("ungroup_all", "Desagrupar todo", "Ctrl+Shift+G")

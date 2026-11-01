@@ -538,6 +538,11 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	if VectopenInput.is_action_triggered(event, "text_to_curves"):
+		ContextMenuActions.text_to_curves(self)
+		get_viewport().set_input_as_handled()
+		return
+
 	# ── Fase 1 del informe de interacción avanzada (19/08/2026) ────────────
 	# Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/mover con flechas.
 	var kc_del: int = event.keycode if event.keycode != 0 else event.physical_keycode

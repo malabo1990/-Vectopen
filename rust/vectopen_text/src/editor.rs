@@ -102,39 +102,23 @@ impl EditorState {
         self.move_caret(new_pos, extend_selection, total_chars);
     }
 
+    /// Salto por palabras como Office/Word en Windows: hacia delante, al
+    /// INICIO de la siguiente palabra (salta la palabra y los espacios);
+    /// hacia atrás, al inicio de la palabra actual o de la anterior. La
+    /// puntuación cuenta como palabra propia; los saltos de línea paran.
     pub fn move_by_word(&mut self, forward: bool, extend_selection: bool, text: &str) {
-        let total_chars = text.chars().count();
-        if total_chars == 0 {
-            self.move_caret(0, extend_selection, 0);
-            return;
-        }
+        let chars: Vec<char> = text.chars().collect();
+        let n = chars.len();
+        let target = if forward { next_word_start(&chars, self.caret_index) } else { prev_word_start(&chars, self.caret_index) };
+        self.move_caret(target.min(n), extend_selection, n);
+    }
 
-        let mut boundaries: Vec<usize> = Vec::new();
-        for (byte_offset, _) in text.split_word_bound_indices() {
-            boundaries.push(text[..byte_offset].chars().count());
-        }
-        boundaries.push(total_chars);
-        boundaries.dedup();
-
-        if forward {
-            let mut target = total_chars;
-            for &b in &boundaries {
-                if b > self.caret_index {
-                    target = b;
-                    break;
-                }
-            }
-            self.move_caret(target, extend_selection, total_chars);
-        } else {
-            let mut target = 0;
-            for &b in boundaries.iter().rev() {
-                if b < self.caret_index {
-                    target = b;
-                    break;
-                }
-            }
-            self.move_caret(target, extend_selection, total_chars);
-        }
+    /// Sin Shift y con selección: ←/→ van al borde de la selección y la quitan.
+    /// Devuelve true si lo hizo.
+    pub fn collapse_selection(&mut self, to_end: bool, total_chars: usize) -> bool {
+        let Some((s, e)) = self.selected_range() else { return false };
+        self.move_caret(if to_end { e } else { s }, false, total_chars);
+        true
     }
 
     /// Selecciona la palabra completa que contiene `char_idx`
@@ -288,9 +272,7 @@ mod tests {
         let mut editor = EditorState::default();
         editor.move_caret(0, false, 10);
 
-        editor.move_by_word(true, false, text);
-        assert_eq!(editor.caret_index, 4);
-
+        // Como Office: Ctrl+→ va al INICIO de la palabra siguiente.
         editor.move_by_word(true, false, text);
         assert_eq!(editor.caret_index, 5);
 
@@ -299,5 +281,113 @@ mod tests {
 
         editor.move_by_word(false, false, text);
         assert_eq!(editor.caret_index, 5);
+
+        editor.move_by_word(false, false, text);
+        assert_eq!(editor.caret_index, 0);
+    }
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum CharKind {
+    Space,
+    Newline,
+    Word,
+    Punct,
+}
+
+fn kind(c: char) -> CharKind {
+    if c == '\n' || c == '\u{2029}' || c == '\u{2028}' {
+        CharKind::Newline
+    } else if c.is_whitespace() {
+        CharKind::Space
+    } else if c.is_alphanumeric() || c == '_' || c == '\'' || c == '’' {
+        CharKind::Word
+    } else {
+        CharKind::Punct
+    }
+}
+
+/// Inicio de la siguiente palabra (o el salto de línea / final).
+pub fn next_word_start(chars: &[char], from: usize) -> usize {
+    let n = chars.len();
+    let mut i = from.min(n);
+    if i >= n {
+        return n;
+    }
+    let k = kind(chars[i]);
+    if k == CharKind::Newline {
+        return i + 1;
+    }
+    if k != CharKind::Space {
+        while i < n && kind(chars[i]) == k {
+            i += 1;
+        }
+    }
+    while i < n && kind(chars[i]) == CharKind::Space {
+        i += 1;
+    }
+    i
+}
+
+/// Inicio de la palabra actual o de la anterior.
+pub fn prev_word_start(chars: &[char], from: usize) -> usize {
+    let mut i = from.min(chars.len());
+    if i == 0 {
+        return 0;
+    }
+    while i > 0 && kind(chars[i - 1]) == CharKind::Space {
+        i -= 1;
+    }
+    if i > 0 && kind(chars[i - 1]) == CharKind::Newline {
+        return i - 1;
+    }
+    if i == 0 {
+        return 0;
+    }
+    let k = kind(chars[i - 1]);
+    while i > 0 && kind(chars[i - 1]) == k {
+        i -= 1;
+    }
+    i
+}
+
+/// Inicio del párrafo que contiene `from`.
+pub fn paragraph_start(chars: &[char], from: usize) -> usize {
+    let mut i = from.min(chars.len());
+    while i > 0 && kind(chars[i - 1]) != CharKind::Newline {
+        i -= 1;
+    }
+    i
+}
+
+/// Inicio del párrafo siguiente (o el final del texto).
+pub fn next_paragraph_start(chars: &[char], from: usize) -> usize {
+    let n = chars.len();
+    let mut i = from.min(n);
+    while i < n && kind(chars[i]) != CharKind::Newline {
+        i += 1;
+    }
+    (i + 1).min(n)
+}
+
+#[cfg(test)]
+mod word_tests {
+    use super::*;
+    fn c(s: &str) -> Vec<char> {
+        s.chars().collect()
+    }
+    #[test]
+    fn saltos_como_office() {
+        let t = c("Uno dos, tres\ncuatro");
+        assert_eq!(next_word_start(&t, 0), 4); // Uno| → dos
+        assert_eq!(next_word_start(&t, 4), 7); // dos → ,
+        assert_eq!(next_word_start(&t, 7), 9); // , → tres
+        assert_eq!(next_word_start(&t, 9), 13); // tres → \n
+        assert_eq!(next_word_start(&t, 13), 14); // \n → cuatro
+        assert_eq!(prev_word_start(&t, 6), 4);
+        assert_eq!(prev_word_start(&t, 4), 0);
+        assert_eq!(prev_word_start(&t, 14), 13);
+        assert_eq!(paragraph_start(&t, 16), 14);
+        assert_eq!(next_paragraph_start(&t, 2), 14);
     }
 }

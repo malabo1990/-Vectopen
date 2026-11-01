@@ -275,63 +275,39 @@ impl VectorRichText {
         let mut modified_text = false;
 
         match code {
-            Key::LEFT => {
-                if ctrl {
-                    self.editor.move_by_word(false, shift, &self.doc.text);
+            // ←/→: con Ctrl (Windows) o Alt (Mac) salta palabras; sin Shift y
+            // con selección, va a su borde y la quita (como Office).
+            Key::LEFT | Key::RIGHT => {
+                let fwd = code == Key::RIGHT;
+                let word = ctrl || key.is_alt_pressed();
+                if !shift && !word && self.editor.collapse_selection(fwd, total) {
+                } else if word {
+                    self.editor.move_by_word(fwd, shift, &self.doc.text);
                 } else {
-                    self.editor.move_by_char(-1, shift, total);
+                    self.editor.move_by_char(if fwd { 1 } else { -1 }, shift, total);
                 }
                 self.notify_selection_changed();
             }
-            Key::RIGHT => {
-                if ctrl {
-                    self.editor.move_by_word(true, shift, &self.doc.text);
+            // ↑/↓: línea a línea manteniendo la columna; con Ctrl, de párrafo
+            // en párrafo. AvPág/RePág: una «página» de líneas.
+            Key::UP | Key::DOWN | Key::PAGEUP | Key::PAGEDOWN => {
+                let down = code == Key::DOWN || code == Key::PAGEDOWN;
+                let chars: Vec<char> = self.doc.text.chars().collect();
+                let cur = self.editor.caret_index;
+                if ctrl && (code == Key::UP || code == Key::DOWN) {
+                    let target = if down {
+                        editor::next_paragraph_start(&chars, cur)
+                    } else {
+                        let ps = editor::paragraph_start(&chars, cur);
+                        if ps < cur || ps == 0 { ps } else { editor::paragraph_start(&chars, ps - 1) }
+                    };
+                    self.editor.move_caret(target, shift, total);
                 } else {
-                    self.editor.move_by_char(1, shift, total);
+                    let step = if code == Key::PAGEUP || code == Key::PAGEDOWN { self.lines_per_page() } else { 1 };
+                    let target = self.caret_after_lines(if down { step as i64 } else { -(step as i64) });
+                    self.editor.move_caret(target, shift, total);
                 }
                 self.notify_selection_changed();
-            }
-            Key::UP => {
-                if !self.layout.lines.is_empty() {
-                    let cur_idx = self.editor.caret_index;
-                    let caret_x = self.layout.caret_rect(cur_idx).position.x;
-                    let cur_line_idx = self
-                        .layout
-                        .lines
-                        .iter()
-                        .position(|l| cur_idx >= l.char_start && cur_idx <= l.char_end)
-                        .unwrap_or(0);
-                    if cur_line_idx > 0 {
-                        let prev_line = &self.layout.lines[cur_line_idx - 1];
-                        let target_y = prev_line.rect.position.y + prev_line.rect.size.y * 0.5;
-                        let target_char = self.layout.hit_test(Vector2::new(caret_x, target_y));
-                        self.editor.move_caret(target_char, shift, total);
-                    } else {
-                        self.editor.move_caret(0, shift, total);
-                    }
-                    self.notify_selection_changed();
-                }
-            }
-            Key::DOWN => {
-                if !self.layout.lines.is_empty() {
-                    let cur_idx = self.editor.caret_index;
-                    let caret_x = self.layout.caret_rect(cur_idx).position.x;
-                    let cur_line_idx = self
-                        .layout
-                        .lines
-                        .iter()
-                        .position(|l| cur_idx >= l.char_start && cur_idx <= l.char_end)
-                        .unwrap_or(0);
-                    if cur_line_idx + 1 < self.layout.lines.len() {
-                        let next_line = &self.layout.lines[cur_line_idx + 1];
-                        let target_y = next_line.rect.position.y + next_line.rect.size.y * 0.5;
-                        let target_char = self.layout.hit_test(Vector2::new(caret_x, target_y));
-                        self.editor.move_caret(target_char, shift, total);
-                    } else {
-                        self.editor.move_caret(total, shift, total);
-                    }
-                    self.notify_selection_changed();
-                }
             }
             Key::HOME => {
                 let target = if ctrl { 0 } else { self.line_start_for_caret() };
@@ -479,6 +455,39 @@ impl VectorRichText {
         let ins_chars = text.chars().count();
         self.editor.move_caret(pos + ins_chars, false, self.doc.char_count());
         self.notify_selection_changed();
+    }
+
+    /// Índice del carácter `delta` líneas más abajo (o arriba) en la MISMA
+    /// columna visual; en la primera/última línea va al principio/final.
+    pub fn caret_after_lines(&self, delta: i64) -> usize {
+        let total = self.doc.char_count();
+        if self.layout.lines.is_empty() {
+            return if delta < 0 { 0 } else { total };
+        }
+        let cur = self.editor.caret_index;
+        let x = self.layout.caret_rect(cur).position.x;
+        let li = self.layout.lines.iter().position(|l| cur >= l.char_start && cur <= l.char_end).unwrap_or(0) as i64;
+        let target = li + delta;
+        if target < 0 {
+            return 0;
+        }
+        if target >= self.layout.lines.len() as i64 {
+            return total;
+        }
+        let l = &self.layout.lines[target as usize];
+        let y = l.rect.position.y + l.rect.size.y * 0.5;
+        self.layout.hit_test(Vector2::new(x, y))
+    }
+
+    /// Líneas que caben en el marco (mínimo 1), para AvPág/RePág.
+    pub fn lines_per_page(&self) -> usize {
+        let h = self.layout.lines.first().map(|l| l.rect.size.y).unwrap_or(0.0);
+        let frame = self.layout.frame_size.y;
+        if h > 0.0 && frame > h {
+            ((frame / h).floor() as usize).max(1)
+        } else {
+            10
+        }
     }
 
     pub fn line_start_for_caret(&self) -> usize {
@@ -781,6 +790,35 @@ impl VectorRichText {
             TextInteractionState::Idle
         };
         GString::from(state.to_str())
+    }
+
+    /// «Convertir a curvas»: el contorno de cada letra tal como se ve, en
+    /// coordenadas locales de este nodo. Cada elemento: {char_index, char,
+    /// fill, stroke_color, stroke_width, subs: [{anchors, ins, outs, closed}]}.
+    #[func]
+    fn get_glyph_outlines(&self) -> VarArray {
+        let chars: Vec<char> = self.doc.text.chars().collect();
+        let mut arr = VarArray::new();
+        for g in self.layout.glyph_outlines(&self.doc) {
+            let mut d = VarDictionary::new();
+            d.set("char_index", g.char_index as i64);
+            d.set("char", chars.get(g.char_index).map(|c| c.to_string()).unwrap_or_default().as_str());
+            d.set("fill", g.fill);
+            d.set("stroke_color", g.stroke);
+            d.set("stroke_width", g.stroke_width);
+            let mut subs = VarArray::new();
+            for (a, i, o) in &g.subs {
+                let mut sd = VarDictionary::new();
+                sd.set("anchors", &PackedVector2Array::from(a.as_slice()));
+                sd.set("ins", &PackedVector2Array::from(i.as_slice()));
+                sd.set("outs", &PackedVector2Array::from(o.as_slice()));
+                sd.set("closed", true);
+                subs.push(&sd.to_variant());
+            }
+            d.set("subs", &subs);
+            arr.push(&d.to_variant());
+        }
+        arr
     }
 
     #[func]

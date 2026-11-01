@@ -16,7 +16,7 @@ const NEEDS_SELECTION: Array[String] = [
 	"toggle_visibility", "toggle_lock", "invert_fill_stroke",
 	"align_left", "align_center_h", "align_right", "align_top", "align_middle", "align_bottom",
 	"align_text_left", "align_text_center", "align_text_right",
-	"boolean_flatten", "boolean_release",
+	"boolean_flatten", "boolean_release", "text_to_curves",
 ]
 ## Actions that need two or more selected shapes.
 const NEEDS_MULTI: Array[String] = [
@@ -60,6 +60,8 @@ static func execute(id: String, host: Node) -> void:
 				ls._desagrupar_seleccion()
 		"rename":
 			rename_active_item(host)
+		"text_to_curves":
+			text_to_curves(host)
 		"toggle_visibility":
 			if ic:
 				var p: Dictionary = ic.current_props()
@@ -343,3 +345,19 @@ static func layers_system(host: Node):
 	if ls == null and tree.current_scene:
 		ls = tree.current_scene.find_child("LayersSystem", true, false)
 	return ls
+
+## «Convertir a curvas» de los textos seleccionados (cada uno, un grupo de letras).
+static func text_to_curves(host: Node) -> void:
+	var pm := host.get_node_or_null("/root/PluginManager")
+	var api = pm.api if pm else null
+	if api == null:
+		return
+	var groups: Array = []
+	for n in selection(host):
+		if n is Node2D and String(n.get_meta("shape_type", "")).begins_with("text_"):
+			var g = api.text_to_curves(n)
+			if g:
+				groups.append(g)
+	var sm := host.get_node_or_null("/root/SelectionManager")
+	if sm and not groups.is_empty() and sm.has_method("select"):
+		sm.select(groups[0])
