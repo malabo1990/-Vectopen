@@ -2330,7 +2330,7 @@ func _input(event: InputEvent) -> void:
 			# con lápiz o eventos sintéticos puede no coincidir y cerraba el
 			# popover al pulsar dentro, p. ej. en «Lineal»).
 			var mp: Vector2 = (event as InputEventMouseButton).position
-			if not _color_popover.get_global_rect().has_point(mp):
+			if not ProUIStyle.hit_deep(_color_popover, mp):
 				var on_swatch: bool = false
 				for b in [picker_fill, picker_stroke, picker_canvas_bg]:
 					if is_instance_valid(b) and b.get_global_rect().has_point(mp):

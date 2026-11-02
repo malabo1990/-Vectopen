@@ -597,6 +597,7 @@ se vea mal aunque no se haya pedido se registra como UX-nn nueva.
 | UX-21 | Pro | Con «Efectos» flotando, los iconos Shader/Script/Vectorizar no la traen a la vista | Baja | `inspector_action_icons_e2e.gd` |
 | UX-22 | Página | Ventana «Tamaño de Elemento / Página» ilegible y poco profesional (texto gris claro sobre blanco, botones grises, buscador negro) | Alta | `size_popup_style_e2e.gd` |
 | UX-23 | Color | Iconos de degradado del selector negros en vez de en color (regresión de UX-15) | Media | `palette_modes_e2e.gd` |
+| UX-24 | Smart | El menú del clic derecho queda en parte bajo la regla superior | Media | `no_godot_colorpicker_e2e.gd` |
 
 ---
 
@@ -705,12 +706,13 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-17 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | Todo ColorPickerButton de la app abre el selector de Vectopen (enganche global en ThemeManager); 53 comprobaciones, cabe en pantalla |
 | UX-18 | 0 | Abierta | `stroke_panel_parity_e2e.gd` | Más paramétricos de trazo |
 | UX-19 | 1 | Verde | `fx_sections_hidden_e2e.gd` | SHADER solo con shader asignado; SCRIPT solo desde su icono; pulsar otra vez la oculta (22) |
-| UX-20 | 0 | Abierta | `palette_modes_e2e.gd` | Panel de paleta del selector no se muestra / no interactivo |
+| UX-20 | 1 | Verde | `palette_modes_e2e.gd` | 5 causas: en Modern el selector se CERRABA al pulsar su paleta (clic «fuera»); la muestra iba siempre al relleno; pulsarla deseleccionaba el objeto; el color del trazo se filtraba al relleno (señal global); la paleta solo flotaba si la recortaban. Ahora flota siempre dentro de la pantalla, compacta y en español (55) |
+| UX-24 | 0 | Abierta | `no_godot_colorpicker_e2e.gd` | Smart: el menú del clic derecho queda en parte bajo la regla superior (tapa la muestra de color del Trazo) |
 | UX-21 | 0 | Abierta | `inspector_action_icons_e2e.gd` | Iconos no traen la pestaña flotante de Efectos |
 | UX-22 | 0 | Abierta | `size_popup_style_e2e.gd` | «Tamaño de Elemento / Página»: texto gris claro sobre blanco, botones grises, buscador negro: rediseño profesional (captura del usuario) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |
 
-**Resumen Fase A:** 16 / 23 en verde (abiertas: UX-16, UX-18, UX-20, UX-21, UX-22)
+**Resumen Fase A:** 17 / 24 en verde (abiertas: UX-16, UX-18, UX-21, UX-22, UX-24)
 
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no

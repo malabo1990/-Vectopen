@@ -83,6 +83,16 @@ func visible_picker() -> Control:
 			return n
 	return null
 
+## El selector compartido de la ventana de color (uno para toda la app) no
+## cuenta como selector de un modo.
+func _in_text_popover(n: Node) -> bool:
+	var p := n.get_parent()
+	while p:
+		if String(p.name) == "TextColorPopover":
+			return true
+		p = p.get_parent()
+	return false
+
 ## Paneles de paleta visibles ahora mismo (en todos los selectores).
 func visible_palettes() -> Array:
 	var out: Array = []
@@ -156,7 +166,89 @@ func probe(mode: String) -> void:
 			await motion(inner.get_center())
 			var hit := root.gui_get_hovered_control()
 			check("%s: la paleta recibe el ratón" % mode, hit == pal or (hit != null and pal.is_ancestor_of(hit)), str(hit))
+		await use_palette(mode, pal, pk)
 	await shot("%s_paleta" % mode)
+
+## UX-20: la paleta se USA: el deslizador cambia el número de colores y una
+## muestra pulsada va al objeto (lo que edita el selector) y al selector.
+func use_palette(mode: String, pal: Control, pk: Control) -> void:
+	var slider := pal.find_child("HSlider", true, false) as HSlider
+	var flow := pal.find_child("FlowContainer", true, false) as Container
+	check("%s: deslizador de la paleta visible" % mode, slider != null and slider.is_visible_in_tree())
+	if slider == null or flow == null:
+		return
+	var r := slider.get_global_rect()
+	var from := r.position + Vector2(4.0, r.size.y * 0.5)
+	var to := r.position + Vector2(r.size.x - 4.0, r.size.y * 0.5)
+	await motion(from)
+	var hit := root.gui_get_hovered_control()
+	check("%s: el deslizador recibe el ratón" % mode, hit == slider, str(hit))
+	# Arrastre real: pulsar a la izquierda y llevarlo al extremo derecho.
+	await button(from, true)
+	for k in 8:
+		var mm := InputEventMouseMotion.new()
+		mm.position = from.lerp(to, float(k + 1) / 8.0)
+		mm.global_position = mm.position
+		mm.relative = (to - from) / 8.0
+		mm.button_mask = MOUSE_BUTTON_MASK_LEFT
+		root.push_input(mm)
+		await process_frame
+	await button(to, false)
+	await frames(6)
+	var n := flow.get_children().filter(func(c): return not c.is_queued_for_deletion()).size()
+	check("%s: arrastrar el deslizador da más colores" % mode, int(slider.value) == int(slider.max_value) and n == int(slider.max_value), "valor %d, %d muestras" % [int(slider.value), n])
+	var cells := flow.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	if cells.size() < 3:
+		return
+	var cell: Control = cells[1]
+	var want: Color = (cell.get_child(0) as ColorRect).color
+	var cc := cell.get_global_rect().get_center()
+	await motion(cc)
+	await button(cc, true)
+	await button(cc, false)
+	await frames(6)
+	var rect = root.get_node("SelectionManager").get_selection()[0] if root.get_node("SelectionManager").has_method("get_selection") else null
+	if rect == null:
+		rect = get_first_node_in_group("_vectopen_canvas").get_node("manager_script").get_active_artboard().get_node_or_null("Rect paleta")
+	check("%s: la muestra pulsada va al relleno del objeto" % mode, rect != null and (rect.fill_color as Color).is_equal_approx(want), "%s ≠ %s" % [rect.fill_color if rect else "-", want])
+	var shown: Color = pk.nodo_color_rect.color if "nodo_color_rect" in pk and pk.nodo_color_rect else Color.MAGENTA
+	check("%s: el selector muestra ese color" % mode, shown.is_equal_approx(want), str(shown))
+	check("%s: pulsar la paleta no deselecciona el objeto" % mode, root.get_node("InspectorCore").selection().size() == 1)
+	if mode == "modern" and rect:
+		# Con el selector del TRAZO, la muestra va al trazo (no al relleno).
+		var di := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "DockedInspector"))
+		rect.stroke_width = 4.0
+		var fill_before: Color = rect.fill_color
+		var full := di[0].find_child("FullStroke", true, false) as Control
+		var vis_cp := full.find_children("*", "ColorPickerButton", true, false).filter(func(n): return (n as Control).is_visible_in_tree())
+		var scp := (vis_cp[0] if vis_cp.size() > 0 else full.find_children("*", "ColorPickerButton", true, false)[0]) as Control
+		var sc := scp.get_parent()
+		while sc and not (sc is ScrollContainer):
+			sc = sc.get_parent()
+		if sc:
+			(sc as ScrollContainer).ensure_control_visible(scp)
+			await frames(4)
+		await click(scp, "modern: muestra de trazo")
+		await frames(6)
+		var pop := root.find_child("TextColorPopover", true, false) as Control
+		check("modern: el trazo abre el selector de Vectopen", pop != null and pop.visible)
+		var pals := visible_palettes()
+		if pals.is_empty() and pop:
+			var b2 := pop.find_child("Button_palleteColor", true, false) as Button
+			await click(b2, "modern: abrir paleta del trazo")
+			pals = visible_palettes()
+		check("modern: paleta abierta con el selector del trazo", pals.size() == 1)
+		if pals.size() == 1:
+			var cells2 := (pals[0] as Control).find_child("FlowContainer", true, false).get_children().filter(func(c): return not c.is_queued_for_deletion())
+			var c2: Control = cells2[cells2.size() - 2]
+			var want2: Color = (c2.get_child(0) as ColorRect).color
+			var at2 := c2.get_global_rect().get_center()
+			await motion(at2)
+			await button(at2, true)
+			await button(at2, false)
+			await frames(6)
+			check("modern: la muestra va al TRAZO", (rect.stroke_color as Color).is_equal_approx(want2), "%s ≠ %s" % [rect.stroke_color, want2])
+			check("modern: el relleno no cambia", (rect.fill_color as Color).is_equal_approx(fill_before))
 
 func _run() -> void:
 	var ui_backup := FileAccess.get_file_as_string(UI_CFG) if FileAccess.file_exists(UI_CFG) else ""
@@ -184,7 +276,7 @@ func _run() -> void:
 		root.get_node("SelectionManager").set_selection([rect])
 		await frames(8)
 		await open_picker(mode)
-	var pickers_before := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "GestorColor")).size()
+	var pickers_before := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "GestorColor") and not _in_text_popover(n)).size()
 	for mode in ["smart", "modern", "professional"]:
 		gui.set_ui_mode(mode)
 		await frames(30)
@@ -200,7 +292,7 @@ func _run() -> void:
 	var pk := await open_picker("modern")
 	check("la paleta abierta sigue abierta al cambiar de modo", open_now == 0 or visible_palettes().size() == 1,
 		"antes %d, ahora %d" % [open_now, visible_palettes().size()])
-	var pickers_after := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "GestorColor")).size()
+	var pickers_after := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "GestorColor") and not _in_text_popover(n)).size()
 	check("cambiar de modo no duplica selectores", pickers_after == pickers_before, "%d → %d" % [pickers_before, pickers_after])
 	rect.queue_free()
 	await frames(4)

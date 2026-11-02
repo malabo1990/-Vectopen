@@ -83,26 +83,42 @@ func _on_palette_visibility() -> void:
 	if pal and pal.visible:
 		_place_palette.call_deferred(pal)
 
+## UX-20: la paleta SIEMPRE flota junto al selector, entera dentro de la
+## ventana y por debajo de la regla superior / a la derecha de la lateral
+## (antes solo flotaba si el lateral la recortaba: en Smart la tapaba la regla
+## y en Modern quedaba recortada al cambiar el alto del Inspector).
+const _RULER_SAFE := 28.0
+
 func _place_palette(pal: Control) -> void:
 	if not is_instance_valid(pal) or not pal.is_visible_in_tree():
 		return
 	var panel := pal.get_node_or_null("Panel_ multicolor") as Control
 	if panel == null:
 		return
-	if not pal.top_level and _visible_fraction(panel) > 0.95:
-		return          # se ve bien donde está (Smart, Modern)
 	pal.top_level = true
+	pal.z_index = 20
+	# El contenedor es invisible: no debe quedarse con los clics de lo que
+	# tenga debajo (tapaba la muestra de trazo del Inspector). Solo el panel.
+	pal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not item_rect_changed.is_connected(_on_picker_moved):
+		item_rect_changed.connect(_on_picker_moved)
 	var vr := get_viewport_rect()
+	var safe := Rect2(vr.position + Vector2(_RULER_SAFE, _RULER_SAFE), vr.size - Vector2(_RULER_SAFE + 8.0, _RULER_SAFE + 8.0))
 	var me := get_global_rect()
 	var off := panel.position                     # desplazamiento del panel en su contenedor
 	var sz := panel.size
 	var gap := 8.0
 	var x := me.position.x - gap - sz.x           # a la izquierda del selector
-	if x < vr.position.x:
+	if x < safe.position.x:
 		x = me.end.x + gap                        # si no cabe, a la derecha
-	x = clampf(x, vr.position.x, maxf(vr.position.x, vr.end.x - sz.x))
-	var y := clampf(me.position.y, vr.position.y, maxf(vr.position.y, vr.end.y - sz.y))
+	x = clampf(x, safe.position.x, maxf(safe.position.x, safe.end.x - sz.x))
+	var y := clampf(me.position.y, safe.position.y, maxf(safe.position.y, safe.end.y - sz.y))
 	pal.global_position = Vector2(x, y) - off
+
+func _on_picker_moved() -> void:
+	var pal := get_node_or_null("palleteColor") as Control
+	if pal and pal.is_visible_in_tree():
+		_place_palette.call_deferred(pal)
 
 ## Fracción de `c` que se ve: dentro de la ventana y de cada antepasado que
 ## recorta su contenido.

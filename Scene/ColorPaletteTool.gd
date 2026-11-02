@@ -76,8 +76,10 @@ func _notification(what: int) -> void:
 func _connect_color_signals() -> void:
 	# Conectar señales para actualizar la paleta cuando el color cambia
 	if GlobalEvents:
-		if GlobalEvents.has_signal("color_changed") and not GlobalEvents.color_changed.is_connected(_on_color_changed):
-			GlobalEvents.color_changed.connect(_on_color_changed)
+		# UX-20: SIN escuchar GlobalEvents.color_changed: cada paleta sigue solo
+		# a SU selector (lo vigila _process). Con la señal global, el color
+		# elegido para el trazo se escribía en la muestra del selector del
+		# relleno y acababa también en el relleno.
 		if GlobalEvents.has_signal("gradient_changed") and not GlobalEvents.gradient_changed.is_connected(_on_gradient_changed):
 			GlobalEvents.gradient_changed.connect(_on_gradient_changed)
 
@@ -100,10 +102,55 @@ func _verificar_referencias() -> void:
 	assert(container_samples, "ERROR: Falta asignar 'container_samples' en el Inspector.")
 	assert(nodo_color_rect, "ERROR: Falta asignar 'nodo_color_rect' en el Inspector.")
 
+## UX-20: panel compacto (antes 460×458 casi vacío), textos en español y el
+## contador con el valor real (decía «2» con 3 colores).
+const PANEL_W := 300.0
+const PAD := 14
+
 func _configurar_componentes() -> void:
 	slider_palette_size.min_value = 3 # Mínimo 3: [Blanco] [Color] [Negro]
 	slider_palette_size.max_value = 11
 	slider_palette_size.step = 1
+	slider_palette_size.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if label_palette_count:
+		label_palette_count.text = str(int(slider_palette_size.value))
+		label_palette_count.custom_minimum_size.x = 18
+	var title := find_child("Titulo_Colorpallete", true, false) as Label
+	if title:
+		title.text = tr("Tonos del color")
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var count_lbl := find_child("Numero palette", true, false) as Label
+	if count_lbl:
+		count_lbl.text = tr("Colores")
+	# La fila «Color:» no mostraba nada.
+	var lone := find_child("Color", true, false) as Label
+	if lone and lone.get_parent() is Control:
+		(lone.get_parent() as Control).visible = false
+	var margin := get_node_or_null("MarginContainer") as MarginContainer
+	if margin:
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			margin.add_theme_constant_override(side, PAD)
+		var box := margin.get_node_or_null("BoxContainer") as BoxContainer
+		if box:
+			box.alignment = BoxContainer.ALIGNMENT_BEGIN
+			box.add_theme_constant_override("separation", 10)
+	var holder := container_samples.get_parent() as Control
+	if holder:
+		holder.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+
+## Ajusta el panel a su contenido (ancho fijo, alto según las filas).
+func _fit_size() -> void:
+	var margin := get_node_or_null("MarginContainer") as Control
+	if margin == null:
+		return
+	size = Vector2(PANEL_W, size.y)
+	var h := margin.get_combined_minimum_size().y
+	custom_minimum_size = Vector2(PANEL_W, h)
+	size = Vector2(PANEL_W, h)
+	# Con el tamaño nuevo, el selector la vuelve a colocar dentro de la pantalla.
+	var g := _gestor()
+	if g and g.has_method("_on_picker_moved"):
+		g._on_picker_moved()
 	if not slider_palette_size.value_changed.is_connected(_on_slider_value_changed):
 		slider_palette_size.value_changed.connect(_on_slider_value_changed)
 
@@ -120,6 +167,7 @@ func _actualizar_paleta_interfaz(cantidad: int) -> void:
 	
 	# 1. Limpieza absoluta e inmediata de los hijos del FlowContainer
 	for child in container_samples.get_children():
+		container_samples.remove_child(child)   # fuera ya: no cuenta en el tamaño
 		child.queue_free()
 		
 	var color_base = nodo_color_rect.color
@@ -185,15 +233,37 @@ func _actualizar_paleta_interfaz(cantidad: int) -> void:
 		cell.gui_input.connect(func(event): _on_cell_clicked(event, color_box.color))
 		
 		container_samples.add_child(cell)
+	_fit_size.call_deferred()
 
 func _on_cell_clicked(event: InputEvent, color_seleccionado: Color) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	accept_event()   # el clic es de la paleta: nunca llega al lienzo
+	# UX-20: se aplica al SOLTAR. Aplicarlo al pulsar regeneraba la paleta a
+	# mitad del clic: la muestra desaparecía, el «soltar» caía en el lienzo y
+	# el objeto se deseleccionaba.
+	if not event.pressed:
 		if is_instance_valid(nodo_color_rect):
 			nodo_color_rect.color = color_seleccionado
 			_color_anterior_referencia = color_seleccionado
 		
+		# UX-20: el color va a lo que se esté editando con el selector (relleno o
+		# trazo, con su deshacer), y el selector lo muestra. Antes siempre iba
+		# al relleno y el selector seguía con el color anterior.
+		var gestor := _gestor()
+		if gestor and gestor.has_method("establecer_color"):
+			gestor.establecer_color(color_seleccionado, true)
+			return
 		var cc := (get_tree().root.get_node_or_null("ColorCore") if is_inside_tree() else null) if get_tree() else get_node_or_null("/root/ColorCore")
 		if cc and cc.has_method("set_color"):
-			cc.set_color(color_seleccionado, "fill")
+			cc.set_color(color_seleccionado)
 		elif "object_style_changed" in GlobalEvents:
 			GlobalEvents.object_style_changed.emit()
+
+func _gestor() -> Node:
+	var n: Node = get_parent()
+	while n:
+		if n.get_script() and n.get_script().get_global_name() == "GestorColor":
+			return n
+		n = n.get_parent()
+	return null

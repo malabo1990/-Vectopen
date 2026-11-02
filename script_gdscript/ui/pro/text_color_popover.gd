@@ -183,7 +183,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed:
 		var mp: Vector2 = event.global_position if "global_position" in event else get_global_mouse_position()
-		if get_global_rect().has_point(mp):
+		if ProUIStyle.hit_deep(self, mp):
 			return
 		if is_instance_valid(_target) and _target.get_global_rect().has_point(mp):
 			return

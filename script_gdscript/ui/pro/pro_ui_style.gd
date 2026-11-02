@@ -281,3 +281,24 @@ static func hline() -> Control:
 	s.custom_minimum_size = Vector2(0, 1)
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return s
+
+
+## ¿El punto cae en `c` o en algo que flota desde él (hijos «top_level» como
+## la paleta del selector de color)? Para cerrar popovers al pulsar FUERA sin
+## cerrarlos al usar sus partes flotantes (UX-20).
+static func hit_deep(c: Control, p: Vector2) -> bool:
+	if not is_instance_valid(c) or not c.is_visible_in_tree():
+		return false
+	if c.get_global_rect().has_point(p):
+		return true
+	for n in c.find_children("*", "Control", true, false):
+		var k := n as Control
+		if not (k.top_level and k.is_visible_in_tree()):
+			continue
+		# Solo las partes que reciben el ratón (el contenedor invisible de la
+		# paleta es grande y deja pasar los clics: no cuenta).
+		for q in [k] + k.find_children("*", "Control", true, false):
+			var qc := q as Control
+			if qc.mouse_filter != Control.MOUSE_FILTER_IGNORE and qc.is_visible_in_tree() and qc.get_global_rect().has_point(p):
+				return true
+	return false
