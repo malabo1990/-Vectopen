@@ -335,7 +335,7 @@ func _read(shape, prop):
 			if shape is Line2D or shape.has_meta("stroke_profile"):
 				# Normalizado cacheado por trazo (se recalcula si cambia el perfil).
 				var src: PackedVector2Array = shape.get_meta("stroke_profile", PackedVector2Array())
-				var cache = shape.get_meta("_vo_profile_norm", null)
+				var cache = shape.get_meta("_vo_profile_norm") if shape.has_meta("_vo_profile_norm") else null
 				if cache is Array and (cache as Array).size() == 2 and cache[0] == src:
 					return cache[1]
 				var norm: PackedVector2Array = StrokeProfile.normalize(src)

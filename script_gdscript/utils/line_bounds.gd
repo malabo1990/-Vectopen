@@ -18,7 +18,7 @@ static func local_rect(line: Line2D) -> Rect2:
 	if n == 0:
 		return Rect2()
 	var sig := [n, pts[0], pts[n / 2], pts[n - 1]]
-	var cached = line.get_meta(META, null)
+	var cached = line.get_meta(META) if line.has_meta(META) else null
 	if cached is Array and (cached as Array).size() == 2 and cached[0] == sig:
 		return cached[1]
 	var mn := pts[0]

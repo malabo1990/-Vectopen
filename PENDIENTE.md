@@ -734,7 +734,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | REG-01 | 1 | Verde | `stroke_paint_e2e.gd` | La muestra del Trazo de Modern abre el selector COMPLETO del Inspector con destino trazo (degradados), no el sencillo (43) |
 | REG-02 | 1 | Verde | `inspector_resize_e2e.gd` | No es de la app: en la suite la ventana aún se maximizaba al empezar. La prueba espera a que el tamaño se estabilice (37, 4 de 4) |
 | REG-03 | 1 | Verde | `shader_script_sections_e2e.gd`, `panels_script_plugins_e2e.gd` | Actualizadas a UX-19: empiezan ocultas y se abren con su icono (PASS; 30) |
-| DBG-01 | 0 | Abierta | — | Metas sin valor por defecto |
+| DBG-01 | 1 | Verde | `DebuggerHygiene_test.gd` | `get_meta(k, null)` no es valor por defecto en Godot 4: 3 lecturas protegidas con has_meta; de 85 errores a 0; la prueba revisa todo el código |
 | DBG-02 | 0 | Abierta | — | Instancia liberada en editing_context |
 | DBG-03 | 0 | Abierta | — | Expression sin instancia en NumericField |
 | DBG-04 | 0 | Abierta | — | move_child en text_fx |

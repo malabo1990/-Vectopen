@@ -271,7 +271,7 @@ func get_prop(node: Node, prop: String) -> Variant:
 	var ic := _n("InspectorCore")
 	if ic and prop in ic.PROPS:
 		return ic._read(node, prop)
-	return node.get(prop) if prop in node else node.get_meta(prop, null)
+	return node.get(prop) if prop in node else (node.get_meta(prop) if node.has_meta(prop) else null)
 
 ## Cambia una propiedad (con deshacer). Devuelve false si no existe.
 func set_prop(node: Node, prop: String, value: Variant) -> bool:
