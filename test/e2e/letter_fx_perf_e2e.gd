@@ -180,4 +180,5 @@ func _run() -> void:
 			dl.invalidate_layout()
 			dl._get_outline()
 		_perf("· overlay 512: solo contorno", (Time.get_ticks_usec() - tt) / 5000.0)
+	print("RESULT: DONE")   # medición: termina sin aserciones
 	quit(0)

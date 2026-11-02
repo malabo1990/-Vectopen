@@ -102,6 +102,7 @@ func _run() -> void:
 				if l: l.visible = false
 		_perf("  diag: reposo SIN capas visibles", await _frame_ms(120))
 		_perf("  diag: zoom SIN capas ni _process", await _frame_ms(60, func(i): if cam: cam.zoom = Vector2(0.8, 0.8) * (1.0 + 0.4 * sin(i * 0.2))))
+		print("RESULT: DONE")   # medición: termina sin aserciones
 		quit(0)
 		return
 	var z0: Vector2 = cam.zoom if cam else Vector2.ONE
@@ -113,6 +114,7 @@ func _run() -> void:
 	await _frames(5)
 
 	if texts.is_empty():
+		print("RESULT: DONE")   # medición: termina sin aserciones
 		quit(0)
 		return
 	# Arrastre en vivo del desenfoque de la sombra de UN texto desde el panel
@@ -133,4 +135,5 @@ func _run() -> void:
 		ic.apply("text", "Cambio %d" % i)
 		await process_frame
 	_perf("frame cambiando el texto de uno con efectos", (Time.get_ticks_usec() - tt) / 20000.0)
+	print("RESULT: DONE")   # medición: termina sin aserciones
 	quit(0)

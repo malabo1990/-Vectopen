@@ -71,6 +71,10 @@ for t in "${TESTS[@]}"; do
 		fi
 	done
 	wait "$pipe" 2>/dev/null
+	# Que la ventana de esta prueba termine de cerrarse antes de la siguiente
+	# (si no, la siguiente empezaba mientras su ventana aún se maximizaba:
+	# fallos intermitentes de arrastre / «se puede coger el borde»).
+	sleep 2
 	restore_userdata
 	pass=$(grep -c '^PASS' "$log")
 	fail=$(grep -c '^FAIL' "$log")
