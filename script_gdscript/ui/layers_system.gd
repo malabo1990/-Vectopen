@@ -624,41 +624,9 @@ func _build_paginas_panel_content() -> void:
 	_pages_panel = PagesPanel.new()
 	_paginas_panel.add_child(_pages_panel)
 
-	# Sangrado
-	var bleed_row := HBoxContainer.new()
-	var lbl_bleed := Label.new()
-	lbl_bleed.text = tr("Bleed:")
-	lbl_bleed.set_meta("txt_key", "Bleed:")
-	lbl_bleed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl_bleed.add_theme_font_size_override("font_size", 10)
-	bleed_row.add_child(lbl_bleed)
-	var spin_bleed := SpinBox.new()
-	spin_bleed.min_value = 0.0
-	spin_bleed.max_value = 50.0
-	spin_bleed.step = 0.5
-	spin_bleed.value = 3.0
-	spin_bleed.suffix = "mm"
-	spin_bleed.custom_minimum_size = Vector2(70, 24)
-	bleed_row.add_child(spin_bleed)
-	_paginas_panel.add_child(bleed_row)
-
-	# Margen
-	var margin_row := HBoxContainer.new()
-	var lbl_margin := Label.new()
-	lbl_margin.text = tr("Margins:")
-	lbl_margin.set_meta("txt_key", "Margins:")
-	lbl_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl_margin.add_theme_font_size_override("font_size", 10)
-	margin_row.add_child(lbl_margin)
-	var spin_margin := SpinBox.new()
-	spin_margin.min_value = 0.0
-	spin_margin.max_value = 100.0
-	spin_margin.step = 1.0
-	spin_margin.value = 15.0
-	spin_margin.suffix = "mm"
-	spin_margin.custom_minimum_size = Vector2(70, 24)
-	margin_row.add_child(spin_margin)
-	_paginas_panel.add_child(margin_row)
+	# VAL-06: retícula de la página (antes «Sangrado» y «Márgenes» sueltos que
+	# no estaban conectados a nada).
+	_paginas_panel.add_child(PageLayoutSection.new())
 	_style_pages_extras()
 
 func _switch_left_tab(tab: String) -> void:

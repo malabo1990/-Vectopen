@@ -150,11 +150,34 @@ static func _serialize_artboard(ab: ArtboardEditor) -> Dictionary:
 		"pos": [ab.position.x, ab.position.y],
 		"size": [ab.artboard_size.x, ab.artboard_size.y],
 		"elements": elements,
-	}
+	}.merged(_page_props(ab))
 
 
 ## PÚBLICO: serializa todas las figuras dibujables hijas de `node` (ignora
 ## título/auxiliares). Usado por _serialize_artboard y por ArtboardEditor.sleep().
+## VAL-06 / VAL-07: color de la página y retícula (antes no se guardaban:
+## al reabrir la página volvía a blanco y sin márgenes).
+static func _page_props(ab: Node) -> Dictionary:
+	var p := {}
+	if "fill_color" in ab and not (ab.fill_color as Color).is_equal_approx(Color.WHITE):
+		p["fill"] = _col(ab.fill_color)
+	for k in ["layout_margin", "layout_columns", "layout_gutter", "bleed"]:
+		if k in ab:
+			var v = ab.get(k)
+			if (k == "layout_columns" and int(v) != 1) or (k != "layout_columns" and float(v) != 0.0):
+				p[k] = v
+	return {"page": p} if not p.is_empty() else {}
+
+static func _read_page_props(ab: Node, d: Dictionary) -> void:
+	var p = d.get("page", {})
+	if not (p is Dictionary):
+		return
+	if p.has("fill"):
+		ab.fill_color = _to_col(p["fill"])
+	for k in ["layout_margin", "layout_columns", "layout_gutter", "bleed"]:
+		if p.has(k) and k in ab:
+			ab.set(k, p[k])
+
 static func serialize_elements(node: Node) -> Array:
 	var out := []
 	for child in node.get_children():
@@ -483,6 +506,7 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 				"name": String(child.name),
 				"pos": [child.position.x, child.position.y],
 				"size": [child.artboard_size.x, child.artboard_size.y],
+				"page": _page_props(child).get("page", {}),
 			})
 			comp_chunks.append(pair[0])
 			raw_lens.append(pair[1])
@@ -659,6 +683,7 @@ static func rebuild_from_vtc(container: Node, path: String) -> Dictionary:
 		var ab := ArtboardEditor.new()
 		ab.name = ab_h.get("name", "Artboard")
 		ab.artboard_size = _arr_to_v2(ab_h.get("size", [794, 1123]))
+		_read_page_props(ab, ab_h)
 		container.add_child(ab)
 		ab.position = _arr_to_v2(ab_h.get("pos", [0, 0]))
 		ab.set_lazy_source(path, {
@@ -695,6 +720,7 @@ static func rebuild_container(container: Node, data: Dictionary, materialize_all
 		var ab := ArtboardEditor.new()
 		ab.name = ab_d.get("name", "Artboard")
 		ab.artboard_size = _arr_to_v2(ab_d.get("size", [794, 1123]))
+		_read_page_props(ab, ab_d)
 		container.add_child(ab)
 		ab.position = _arr_to_v2(ab_d.get("pos", [0, 0]))
 		var elements: Array = ab_d.get("elements", [])

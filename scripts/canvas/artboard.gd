@@ -38,6 +38,54 @@ var background_color: Color:
 	get: return fill_color
 	set(v): fill_color = v
 
+# ── Retícula de maquetación (VAL-06) ─────────────────────────────────────────
+## Guías que no se imprimen (como InDesign): márgenes, columnas con su
+## medianil y sangrado por fuera de la página. En px del documento.
+@export var layout_margin: float = 0.0:
+	set(v):
+		layout_margin = maxf(0.0, v)
+		queue_redraw()
+@export var layout_columns: int = 1:
+	set(v):
+		layout_columns = clampi(v, 1, 24)
+		queue_redraw()
+@export var layout_gutter: float = 0.0:
+	set(v):
+		layout_gutter = maxf(0.0, v)
+		queue_redraw()
+@export var bleed: float = 0.0:
+	set(v):
+		bleed = maxf(0.0, v)
+		queue_redraw()
+
+const COLOR_GUIDE_MARGIN := Color(0.85, 0.2, 0.75, 0.75)   # magenta (márgenes)
+const COLOR_GUIDE_COLUMN := Color(0.45, 0.35, 0.95, 0.6)   # violeta (columnas)
+const COLOR_GUIDE_BLEED := Color(0.9, 0.2, 0.2, 0.7)       # rojo (sangrado)
+
+## Áreas de las columnas dentro de los márgenes (para guías e imanes).
+func column_rects() -> Array:
+	var inner := Rect2(Vector2.ONE * layout_margin, artboard_size - Vector2.ONE * layout_margin * 2.0)
+	if inner.size.x <= 0.0 or inner.size.y <= 0.0:
+		return []
+	var n := maxi(1, layout_columns)
+	var w := (inner.size.x - layout_gutter * (n - 1)) / float(n)
+	var out: Array = []
+	for i in n:
+		out.append(Rect2(inner.position.x + i * (w + layout_gutter), inner.position.y, w, inner.size.y))
+	return out
+
+func _draw_layout_guides(lw: float) -> void:
+	if bleed > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, artboard_size).grow(bleed), COLOR_GUIDE_BLEED, false, lw)
+	if layout_margin <= 0.0 and layout_columns <= 1:
+		return
+	var inner := Rect2(Vector2.ONE * layout_margin, artboard_size - Vector2.ONE * layout_margin * 2.0)
+	if layout_margin > 0.0:
+		draw_rect(inner, COLOR_GUIDE_MARGIN, false, lw)
+	if layout_columns > 1:
+		for r in column_rects():
+			draw_rect(r, COLOR_GUIDE_COLUMN, false, lw)
+
 const BORDER_MARGIN := 12.0
 const HANDLE_SIZE   := 8.0
 
@@ -402,6 +450,7 @@ func _draw() -> void:
 
 	var lw: float = maxf(1.0 * inv, 0.5)
 	var hs: float = HANDLE_SIZE * inv
+	_draw_layout_guides(lw)
 
 	if is_selected and _is_selection_tool():
 		draw_rect(Rect2(Vector2.ZERO, artboard_size), COLOR_BORDER_ACTIVE, false, lw)
