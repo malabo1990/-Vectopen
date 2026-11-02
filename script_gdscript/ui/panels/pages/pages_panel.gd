@@ -259,7 +259,10 @@ func _restore_scroll(i: int) -> void:
 
 func _on_zoom(v: float) -> void:
 	if view_mode == ViewMode.GRID:
+		var changed := grid_cols != int(v)
 		grid_cols = int(v)
+		if changed:
+			_relayout_canvas()   # VAL-21: el lienzo sigue las columnas
 	else:
 		thumb_w = v
 	_cache.clear()          # nueva resolución
@@ -697,6 +700,9 @@ func _relayout_canvas() -> void:
 	if view_mode == ViewMode.SPREAD:
 		_relayout_canvas_spreads(ps, Vector2(x, y))
 		return
+	if view_mode == ViewMode.GRID:
+		_relayout_canvas_grid(ps, Vector2(x, y))
+		return
 	for ab in ps:
 		ab.global_position = Vector2(x, y)
 		var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
@@ -721,6 +727,17 @@ func _relayout_canvas_spreads(ps: Array, origin: Vector2) -> void:
 			ab.global_position = Vector2(origin.x + (w if right else w - sz.x), y)
 			row_h = maxf(row_h, sz.y)
 		y += row_h + GAP
+
+## VAL-21: en la vista Rejilla el LIENZO también se ordena en filas de
+## `grid_cols` páginas (12 fichas → 3 × 4), con la separación de siempre.
+func _relayout_canvas_grid(ps: Array, origin: Vector2) -> void:
+	var cols := maxi(1, grid_cols)
+	var cell := Vector2.ZERO
+	for ab in ps:
+		var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
+		cell = Vector2(maxf(cell.x, sz.x), maxf(cell.y, sz.y))
+	for i in ps.size():
+		ps[i].global_position = origin + Vector2(i % cols, floori(float(i) / cols)) * (cell + Vector2(GAP, GAP))
 
 func _selected_in_order() -> Array:
 	return pages().filter(func(ab) -> bool: return selected.has(ab))
