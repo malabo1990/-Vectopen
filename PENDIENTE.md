@@ -739,8 +739,8 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | DBG-03 | 1 | Verde | `DebuggerHygiene_test.gd`, `inspector_keyboard_focus_e2e.gd` | eval_math solo evalúa texto numérico (letras → valor anterior); de 24 errores a 0 |
 | DBG-04 | 1 | Verde | `shadow_fx_e2e.gd`, `effects_perf_e2e.gd` | El primer montaje de capas de efectos se hace en diferido (en _ready el padre aún montaba sus hijos): 0 errores (antes 12 y 1400 en effects_perf); de paso `text_advanced_e2e`, que fallaba desde la mañana, pasa |
 | DBG-05 | 0 | Abierta | — | Capas: referencias muertas / cola sin vaciar |
-| DBG-06 | 0 | Abierta | — | move_to_foreground obsoleto |
-| DBG-07 | 0 | Abierta | — | run_all.sh cuenta mal |
+| DBG-06 | 1 | Verde | `pro_float_effects_icons_e2e.gd` | Quitado move_to_foreground (ya se usa grab_focus): 0 avisos, 22 PASS |
+| DBG-07 | 1 | Verde | — | «RESULT 0 fallos» cuenta como éxito; los FAIL de verdad se siguen contando |
 | DBG-08 | 0 | Abierta | — | Leaked instance dependency |
 | UX-21 | 1 | Verde | `pro_float_effects_icons_e2e.gd` | Si la sección vive en una pestaña flotante, el icono muestra la ventana (aunque estuviera oculta o minimizada), la trae al frente, la mete en pantalla y desplaza la sección a la vista cuando la disposición se asienta (22) |
 | UX-22 | 1 | Verde | `size_popup_style_e2e.gd` | Rediseño: cuadrícula de 3 columnas con miniatura proporcional (hoja, monitor con pie, móvil, red social, icono), nombre y medida; pestañas con icono, buscador con lupa, «Girar 90°» y cada formato en su orientación natural; todo con colores del tema y legible en claro/oscuro; dentro de la pantalla (41) |

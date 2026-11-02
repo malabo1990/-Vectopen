@@ -132,7 +132,6 @@ func _reveal_window(sec: Control) -> void:
 	pos.x = clampf(pos.x, vp.position.x, maxf(vp.position.x, vp.end.x - sz.x))
 	pos.y = clampf(pos.y, vp.position.y + 28.0, maxf(vp.position.y + 28.0, vp.end.y - sz.y))
 	win.position = Vector2i(pos)
-	win.move_to_foreground()
 	win.grab_focus()
 
 func close(id: String) -> void:
