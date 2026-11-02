@@ -228,6 +228,7 @@ func _sync(cur: Dictionary) -> void:
 	var any := false
 	var mode := String(cur["shape_mode"]["value"]) if cur.has("shape_mode") else ""
 	for prop in _rows:
+		@warning_ignore("shadowed_variable_base_class")
 		var show := cur.has(prop)
 		if prop == "corner_radius":
 			show = show and not cur.has("corner_tl")   # el rectángulo usa las 4 esquinas

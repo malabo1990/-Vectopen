@@ -169,6 +169,7 @@ func _refresh_target() -> void:
 		var sz := sp.texture.get_size()
 		_set_status("%s · %d × %d px" % [sp.name, int(sz.x), int(sz.y)], false)
 
+@warning_ignore("shadowed_variable_base_class")
 func _apply_preset(name: String) -> void:
 	var p: Dictionary = PRESETS.get(name, {})
 	_sl_detail.value = float(p.get("filter_speckle", 4))
@@ -348,9 +349,9 @@ static func _cleanup(paths: Array) -> void:
 		var s := String(p)
 		if s == "":
 			continue
-		var abs := ProjectSettings.globalize_path(s) if s.begins_with("user://") else s
-		if FileAccess.file_exists(abs):
-			DirAccess.remove_absolute(abs)
+		var abs_path := ProjectSettings.globalize_path(s) if s.begins_with("user://") else s
+		if FileAccess.file_exists(abs_path):
+			DirAccess.remove_absolute(abs_path)
 
 func _set_busy(on: bool, msg: String) -> void:
 	_busy = on

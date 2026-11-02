@@ -145,6 +145,7 @@ func style_artboard_item(item: TreeItem, c_vis: int, c_name: int, c_mask: int) -
 	item.set_custom_bg_color(c_name, color_artboard_bg)
 	item.set_custom_bg_color(c_mask, color_artboard_bg)
 
+@warning_ignore("shadowed_variable_base_class")
 func style_visibility(item: TreeItem, c_name: int, is_visible: bool, is_artboard: bool) -> void:
 	if is_artboard:
 		item.set_custom_color(c_name, color_artboard_text if is_visible else color_artboard_dim)

@@ -40,6 +40,7 @@ class VectopenRect extends Node2D:
 			draw_rect(rect, border_color, false, 1.5)
 			
 			var handles = _get_handles_dict()
+			@warning_ignore("shadowed_variable_base_class")
 			for name in handles:
 				var h_pos = handles[name]
 				var h_rect = Rect2(h_pos - Vector2.ONE * (HANDLE_SIZE / 2), Vector2.ONE * HANDLE_SIZE)
@@ -62,6 +63,7 @@ class VectopenRect extends Node2D:
 
 	func get_handle_at_pos(local_mouse: Vector2) -> String:
 		var handles = _get_handles_dict()
+		@warning_ignore("shadowed_variable_base_class")
 		for name in handles:
 			if local_mouse.distance_to(handles[name]) < (HANDLE_SIZE / 2) + 4.0:
 				return name

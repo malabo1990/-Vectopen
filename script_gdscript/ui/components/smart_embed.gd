@@ -17,22 +17,22 @@ extends RefCounted
 static func embed(scene_path: String, parent: Control, node_name: String, hide_paths: Array = []) -> Control:
 	if not is_instance_valid(parent) or not ResourceLoader.exists(scene_path):
 		return null
-	var wrap := VBoxContainer.new()
-	wrap.name = node_name
-	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(wrap)
+	var holder := VBoxContainer.new()
+	holder.name = node_name
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(holder)
 	var inst := (load(scene_path) as PackedScene).instantiate() as Control
 	if inst == null:
-		return wrap
+		return holder
 	inst.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inst.custom_minimum_size.x = 0
-	wrap.add_child(inst)
+	holder.add_child(inst)
 	flatten(inst)
 	for hp in hide_paths:
 		var h := inst.get_node_or_null(NodePath(String(hp))) as CanvasItem
 		if h:
 			h.visible = false
-	return wrap
+	return holder
 
 ## Títulos propios de cada componente (sobran dentro de una sección).
 const TITLE_PATHS := {

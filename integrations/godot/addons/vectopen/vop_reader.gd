@@ -104,8 +104,8 @@ static func _path(it: Dictionary, detail: float, aa: bool) -> Node2D:
 			ln.default_color = _col(stroke)
 			ln.joint_mode = Line2D.LINE_JOINT_ROUND
 			var cap: int = {"round": Line2D.LINE_CAP_ROUND, "square": Line2D.LINE_CAP_BOX}.get(String(it.get("cap", "butt")), Line2D.LINE_CAP_NONE)
-			ln.begin_cap_mode = cap
-			ln.end_cap_mode = cap
+			ln.begin_cap_mode = cap as Line2D.LineCapMode
+			ln.end_cap_mode = cap as Line2D.LineCapMode
 			ln.antialiased = aa
 			g.add_child(ln, true)
 	if g.get_child_count() == 0:
@@ -176,6 +176,7 @@ static func _bridge(outer: PackedVector2Array, hole_in: PackedVector2Array) -> P
 	var bj := 0
 	var bd := INF
 	for a in outer.size():
+		@warning_ignore("integer_division")
 		for b in range(0, hole.size(), maxi(1, hole.size() / 64)):
 			var dd := outer[a].distance_squared_to(hole[b])
 			if dd < bd:

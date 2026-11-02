@@ -132,6 +132,7 @@ func _connect_theme() -> void:
 func _on_theme_changed(_mode: String) -> void:
 	_queue_theme()
 
+@warning_ignore("shadowed_variable")
 func _on_color_slot_changed(_slot: String, _color: Color) -> void:
 	_queue_theme()
 
@@ -200,6 +201,7 @@ func _theme_node(node: Node) -> void:
 			child.add_theme_constant_override("separation", 6)
 		_theme_node(child)
 
+@warning_ignore("shadowed_variable_base_class")
 func _slot(name: String) -> bool:
 	var tm := get_node_or_null("/root/ThemeManager")
 	return tm != null and tm.Slot.has(name)
@@ -1023,6 +1025,7 @@ func _import_vop(file_path: String, target_artboard: Node):
 	
 	var json = JSON.new()
 	json.parse(content)
+	@warning_ignore("shadowed_variable")
 	var vop_data = json.data
 	
 	if not (vop_data is Dictionary):

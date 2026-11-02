@@ -125,10 +125,12 @@ func _ic() -> Node:
 	return get_node_or_null("/root/InspectorCore")
 
 ## ¿La selección tiene esta propiedad?
+@warning_ignore("shadowed_variable_base_class")
 func _has(name: String) -> bool:
 	var ic := _ic()
 	return ic != null and ic.has_method("current_props") and (ic.current_props() as Dictionary).has(name)
 
+@warning_ignore("shadowed_variable_base_class")
 func _prop(name: String, def: Variant) -> Variant:
 	var ic := _ic()
 	if ic == null or not ic.has_method("current_props"):

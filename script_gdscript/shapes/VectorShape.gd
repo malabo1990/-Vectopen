@@ -661,7 +661,7 @@ func maybe_render_blur(points: PackedVector2Array) -> bool:
 	var mat := _get_blur_material()
 	material = mat
 
-	var shape_code: int = get_shape_type_code()
+	var _shape_code: int = get_shape_type_code()
 	set_fx_shape_uniforms(mat, points, 0.0)
 
 	mat.set_shader_parameter("u_blur_radius", radius)
@@ -903,6 +903,7 @@ func _render_3d_extrusion(points: PackedVector2Array, fx: Dictionary) -> void:
 	if points.size() < 3:
 		return
 	var base_col: Color = fill_color if fill_color.a > 0.05 else (stroke_color if stroke_color.a > 0.05 else Color(0.5, 0.5, 0.5, 1.0))
+	@warning_ignore("integer_division")
 	var key := var_to_str([fx, base_col, points.size(), points[0], points[points.size() / 2]])
 	if key != _extrude_key:
 		_extrude_key = key

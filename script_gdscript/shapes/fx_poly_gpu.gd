@@ -112,6 +112,7 @@ static func drop_shadow(node: CanvasItem, store: Dictionary, points: PackedVecto
 	if col.a <= 0.001 or points.size() < 3:
 		return
 	var off := Vector2(float(fx.get("offset_x", 4.0)), float(fx.get("offset_y", 4.0)))
+	@warning_ignore("shadowed_variable")
 	var blur := maxf(0.0, float(fx.get("blur", 6.0)))
 	var spread := float(fx.get("spread", 0.0))
 	var m := _mat(store, key, SHADOW)

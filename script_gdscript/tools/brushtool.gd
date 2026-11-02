@@ -67,6 +67,8 @@ var brush_style: String = "pen"
 var _last_stroke_end_pos: Vector2 = Vector2.INF
 var _last_stroke_artboard: Node2D = null
 
+const _ColorCoreScript = preload("res://autoloads/ColorCore.gd")
+
 func _get_brush_color() -> Color:
 	var col := BRUSH_STROKE_COLOR
 	var cc := get_node_or_null("/root/ColorCore")
@@ -78,7 +80,7 @@ func _get_brush_color() -> Color:
 	# UX-11: nunca un trazo invisible sobre la página (p. ej. blanco heredado
 	# de una figura con relleno blanco).
 	if is_instance_valid(target_artboard) and "fill_color" in target_artboard:
-		col = ColorCore.visible_on(col, target_artboard.fill_color)
+		col = _ColorCoreScript.visible_on(col, target_artboard.fill_color)
 	col.a = clampf(col.a * brush_opacity, 0.05, 1.0)
 	return col
 

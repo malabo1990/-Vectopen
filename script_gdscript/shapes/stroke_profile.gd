@@ -126,17 +126,17 @@ static func outline(pts: PackedVector2Array, width: float, profile: PackedVector
 	for i in n:
 		half[i] = width * 0.5 * sample(profile, cum[i] / total)
 	for i in n:
-		var tan: Vector2
+		var tang: Vector2
 		if i == 0:
-			tan = pts[1] - pts[0]
+			tang = pts[1] - pts[0]
 		elif i == n - 1:
-			tan = pts[n - 1] - pts[n - 2]
+			tang = pts[n - 1] - pts[n - 2]
 		else:
-			tan = (pts[i + 1] - pts[i]).normalized() + (pts[i] - pts[i - 1]).normalized()
-		if tan.length_squared() < 1e-12:
-			tan = Vector2.RIGHT
-		tan = tan.normalized()
-		var nrm := Vector2(-tan.y, tan.x)
+			tang = (pts[i + 1] - pts[i]).normalized() + (pts[i] - pts[i - 1]).normalized()
+		if tang.length_squared() < 1e-12:
+			tang = Vector2.RIGHT
+		tang = tang.normalized()
+		var nrm := Vector2(-tang.y, tang.x)
 		verts.append(pts[i] + nrm * half[i])
 		verts.append(pts[i] - nrm * half[i])
 	for i in n - 1:

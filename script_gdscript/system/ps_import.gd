@@ -118,8 +118,14 @@ class _Canvas:
 			var d1 := float(dash[1]) if (dash as Array).size() > 1 else d0
 			if d0 > 0.0 or d1 > 0.0:   # [0 hueco] = punteado
 				d = [d0 * k, d1 * k]
+		var fill_v: Variant = null
+		if do_fill:
+			fill_v = fill
+		var stroke_v: Variant = null
+		if do_stroke:
+			stroke_v = stroke
 		items.append({"t": "path", "subs": subs,
-			"fill": fill if do_fill else null, "stroke": stroke if do_stroke else null,
+			"fill": fill_v, "stroke": stroke_v,
 			"grad": grad if do_fill else null, "dash": d, "width": maxf(width * k, 0.0) if do_stroke else 0.0,
 			"cap": cap, "evenodd": evenodd, "opacity": 1.0,
 			"name": "Trazado"})

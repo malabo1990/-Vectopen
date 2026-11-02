@@ -176,7 +176,7 @@ func _generate_vertices_for_size(target_size: Vector2) -> PackedVector2Array:
 		return verts
 
 	var s_rad: float = deg_to_rad(start_angle_deg)
-	var e_rad: float = deg_to_rad(end_angle_deg)
+	var _e_rad: float = deg_to_rad(end_angle_deg)
 	var span: float = arc_span(start_angle_deg, end_angle_deg)
 
 	var steps: int = maxi(8, int(round((span / TAU) * CIRCLE_QUALITY)))

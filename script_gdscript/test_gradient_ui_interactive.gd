@@ -160,7 +160,7 @@ func _process(delta: float) -> void:
 		step = 6
 		timer = 0.0
 		# Apply Cyber Neon preset
-		var cc = get_node_or_null("/root/ColorCore")
+		var _cc = get_node_or_null("/root/ColorCore")
 		shape.fill_gradient_type = 1 # Radial
 		var g_neon := Gradient.new()
 		g_neon.set_color(0, Color(0.0, 0.95, 0.85))

@@ -24,24 +24,29 @@ var target_artboard: Node2D = null
 ## ~40 puntos de test y las herramientas de texto que lo asignan directamente.
 var selected_shapes: Array[Node2D] = []
 var _bounding_box: Node = null  # Referencia al bounding box del pool
+@warning_ignore("unused_private_class_variable")
 var _sel_conn: bool = false     # ¿conectado a SelectionManager.changed?
 var _pushing_selection: bool = false  # evita el eco al reflejar hacia el manager
 var is_gradient_mode: bool = false   # Modo herramienta de degradado (Atajo G / Affinity style)
 var active_3d_model: Node2D = null    # Modelo 3D actualmente en modo de edición orbital
 var _is_dragging_3d: bool = false     # Arrastre orbital activo en 3D
+@warning_ignore("unused_private_class_variable")
 var _last_3d_mouse: Vector2 = Vector2.ZERO
 var is_middle_dragging_3d: bool = false
 var _mmb_3d_target: Node2D = null
+@warning_ignore("unused_private_class_variable")
 var _last_mmb_3d_pos: Vector2 = Vector2.ZERO
 
 # ── Estado de arrastre de objetos ─────────────────────────────────────────────
 var is_dragging_shape: bool = false
+@warning_ignore("unused_private_class_variable")
 var _alt_drag_duplicated: bool = false
 var is_dragging_thread: bool = false
 var thread_source_frame: Node2D = null
 var thread_target_pos: Vector2 = Vector2.ZERO
 ## "" | "x" | "y" — cuando el usuario arrastra un handle de eje del bounding box,
 ## el movimiento se restringe a ese eje.
+@warning_ignore("unused_private_class_variable")
 var _axis_move: String = ""
 ## "" | "x" | "y" — eje de Shift+arrastrar sobre el CUERPO de la figura (no un
 ## handle), decidido UNA SOLA VEZ al detectar Shift y fijo el resto del gesto.
@@ -51,6 +56,7 @@ var _axis_move: String = ""
 ## titubeaba cerca de la diagonal, el eje "bloqueado" podía cambiar a mitad
 ## de arrastre, lo que se siente roto (Figma/Affinity deciden el eje una vez
 ## y no lo sueltan hasta soltar Shift).
+@warning_ignore("unused_private_class_variable")
 var _shift_drag_axis: String = ""
 ## Candidato a "Shift+clic sobre figura ya seleccionada = quitarla de la
 ## selección" (comportamiento estándar de multi-selección). BUG REAL
@@ -62,15 +68,18 @@ var _shift_drag_axis: String = ""
 ## — solo apunta aquí al candidato — y el release decide: si no hubo
 ## arrastre real, deselecciona (comportamiento de clic); si sí lo hubo, se
 ## queda seleccionada y el movimiento con eje ya aplicado se conserva.
+@warning_ignore("unused_private_class_variable")
 var _pending_shift_deselect: Node2D = null
 ## Unselected shape under the pointer, outlined as a hover preview (a text
 ## object additionally gets its baseline marked).
+@warning_ignore("unused_private_class_variable")
 var _hover_shape: Node2D = null
 const COLOR_HOVER: Color = Color(0.05, 0.55, 0.91, 1.0)
 
 # ── Estado de transformación avanzada ─────────────────────────────────────────
 var is_resizing: bool = false
 var is_rotating: bool = false
+@warning_ignore("unused_private_class_variable")
 var _is_stroke_adjusting: bool = false
 var resize_handle: String = ""
 ## Estado EN VIVO de la transformación en curso — lo lee el bounding box para
@@ -97,7 +106,9 @@ var artboard_drag_start_mouse: Vector2 = Vector2.ZERO
 var artboard_drag_start_pos: Vector2 = Vector2.ZERO
 
 # ── Imán inteligente (líneas guía mientras se arrastra) ────────────────────────
+@warning_ignore("unused_private_class_variable")
 var _snap_guides: Array = []
+@warning_ignore("unused_private_class_variable")
 var _snap_spacing: Array = []
 
 # ── Modos de transformación por teclado ────────────────────────────────────
@@ -112,8 +123,11 @@ var current_axis: AxisLock = AxisLock.NONE
 ## para entrar a editar texto; el resto de figuras sigue con event.double_click.
 const OWN_DBLCLICK_MS := 600
 const OWN_DBLCLICK_PX := 12.0
+@warning_ignore("unused_private_class_variable")
 var _last_press_time: int = 0
+@warning_ignore("unused_private_class_variable")
 var _last_press_pos := Vector2.ZERO
+@warning_ignore("unused_private_class_variable")
 var _last_press_shape: Node2D = null
 
 # ── Constantes visuales profesionales ─────────────────────────────────────────

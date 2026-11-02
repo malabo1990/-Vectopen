@@ -10,6 +10,7 @@ var _step: int = 0
 var _timer: float = 0.0
 var _picker_tool: Node
 var _test_rect: VectorRectangle
+@warning_ignore("unused_private_class_variable")
 var _annotator_active: bool = false
 var _bbox: Control
 

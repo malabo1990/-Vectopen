@@ -10,7 +10,7 @@ var artboards: Dictionary = {}
 var layers: Dictionary = {}
 
 func _init():
-	created_at = Time.get_unix_time_from_system()
+	created_at = int(Time.get_unix_time_from_system())
 
 func get_artboard(id: String) -> VectopenArtboard:
 	return artboards.get(id) as VectopenArtboard

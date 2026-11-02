@@ -81,6 +81,7 @@ func _draw() -> void:
 		# Dibuja la cruz en la posición (0, 0) del nodo Control
 		var origin_pos: Vector2 = Vector2(0, 0) # Origen local del nodo Control
 		var color: Color = Color(1, 0, 0, 0.8) # Rojo para el origen
+		@warning_ignore("shadowed_variable_base_class")
 		var size: float = 10.0
 		draw_line(origin_pos - Vector2(size, 0), origin_pos + Vector2(size, 0), color, 2.0)
 		draw_line(origin_pos - Vector2(0, size), origin_pos + Vector2(0, size), color, 2.0)

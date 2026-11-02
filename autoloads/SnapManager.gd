@@ -155,13 +155,13 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 
 	# Tramo de la guía: de la figura (ya en su sitio) al objeto de referencia,
 	# recalculado en cada paso (la figura se mueve).
-	var snapped := Rect2(moving.position + Vector2(best_dx if best_dx != INF else 0.0, best_dy if best_dy != INF else 0.0), moving.size)
+	var snapped_rect := Rect2(moving.position + Vector2(best_dx if best_dx != INF else 0.0, best_dy if best_dy != INF else 0.0), moving.size)
 	if best_dx != INF:
 		res["offset"].x = best_dx
 		line_x["axis"] = "x"
 		var mk_x: Array = line_x.get("marks", [])
-		line_x["a"] = minf(snapped.position.y, float(mk_x[0]) if mk_x.size() > 0 else snapped.position.y)
-		line_x["b"] = maxf(snapped.end.y, float(mk_x[1]) if mk_x.size() > 1 else snapped.end.y)
+		line_x["a"] = minf(snapped_rect.position.y, float(mk_x[0]) if mk_x.size() > 0 else snapped_rect.position.y)
+		line_x["b"] = maxf(snapped_rect.end.y, float(mk_x[1]) if mk_x.size() > 1 else snapped_rect.end.y)
 		res["guides"].append(line_x)
 		if _session:
 			_sticky["x"] = {"coord": float(line_x["coord"]), "line": line_x}
@@ -171,8 +171,8 @@ func smart_snap(moving: Rect2, candidates: Array, zoom: float) -> Dictionary:
 		res["offset"].y = best_dy
 		line_y["axis"] = "y"
 		var mk_y: Array = line_y.get("marks", [])
-		line_y["a"] = minf(snapped.position.x, float(mk_y[0]) if mk_y.size() > 0 else snapped.position.x)
-		line_y["b"] = maxf(snapped.end.x, float(mk_y[1]) if mk_y.size() > 1 else snapped.end.x)
+		line_y["a"] = minf(snapped_rect.position.x, float(mk_y[0]) if mk_y.size() > 0 else snapped_rect.position.x)
+		line_y["b"] = maxf(snapped_rect.end.x, float(mk_y[1]) if mk_y.size() > 1 else snapped_rect.end.x)
 		res["guides"].append(line_y)
 		if _session:
 			_sticky["y"] = {"coord": float(line_y["coord"]), "line": line_y}

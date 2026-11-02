@@ -2694,6 +2694,7 @@ func _on_panel_toggled(content: Control) -> void:
 		var tools := content.get_parent().get_node_or_null("Herramientas") as Control
 		var w := f.get_combined_minimum_size().x
 		if tools:
+			@warning_ignore("shadowed_variable_base_class")
 			var tr := tools.get_global_rect()
 			var margin := maxf(tr.position.x - f.get_global_rect().position.x, 4.0)
 			w = tr.size.x + margin * 2.0

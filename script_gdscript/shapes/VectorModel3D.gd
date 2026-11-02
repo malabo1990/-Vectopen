@@ -555,6 +555,7 @@ func zoom_camera(delta: float) -> void:
 const VIEWS := {"front": [0.0, 0.0], "back": [180.0, 0.0], "right": [90.0, 0.0], "left": [-90.0, 0.0],
 	"top": [0.0, 89.5], "bottom": [0.0, -89.5], "iso": [45.0, 30.0]}
 
+@warning_ignore("shadowed_variable_base_class")
 func set_view(name: String) -> void:
 	if not VIEWS.has(name):
 		return

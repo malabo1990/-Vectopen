@@ -32,13 +32,13 @@ func _ready() -> void:
 	s.change_tool(move_tool)
 
 	# 1. Crear Texto 1 (Left / Top) con tamaño 360x70
-	var txt1 := _create_text_node(artboard, "1. Izquierda / Arriba (Left-Top)", Vector2(100, 100), Vector2(360, 70), "left", "top")
+	var _txt1 := _create_text_node(artboard, "1. Izquierda / Arriba (Left-Top)", Vector2(100, 100), Vector2(360, 70), "left", "top")
 
 	# 2. Crear Texto 2 (Center / Middle) con tamaño 360x70
-	var txt2 := _create_text_node(artboard, "2. Centrado / Medio (Center-Middle)", Vector2(100, 220), Vector2(360, 70), "center", "middle")
+	var _txt2 := _create_text_node(artboard, "2. Centrado / Medio (Center-Middle)", Vector2(100, 220), Vector2(360, 70), "center", "middle")
 
 	# 3. Crear Texto 3 (Right / Bottom) con tamaño 360x70
-	var txt3 := _create_text_node(artboard, "3. Derecha / Abajo (Right-Bottom)", Vector2(100, 340), Vector2(360, 70), "right", "bottom")
+	var _txt3 := _create_text_node(artboard, "3. Derecha / Abajo (Right-Bottom)", Vector2(100, 340), Vector2(360, 70), "right", "bottom")
 
 	# 4. Crear Texto 4 (Título Corporativo con Center / Middle)
 	var txt4 := _create_text_node(artboard, "Título Corporativo", Vector2(100, 460), Vector2(320, 60), "center", "middle")

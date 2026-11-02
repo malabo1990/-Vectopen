@@ -32,6 +32,7 @@ var make_button: Callable
 var button_size := Vector2(28, 24)
 var _tick := 0
 
+@warning_ignore("shadowed_variable_base_class")
 static func create(factory: Callable = Callable(), size := Vector2(28, 24)) -> Control:
 	var s = load("res://script_gdscript/ui/components/fx_action_icons.gd").new()
 	s.name = "FxActionIcons"

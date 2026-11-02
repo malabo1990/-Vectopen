@@ -101,6 +101,7 @@ func _stop_editing_name() -> void:
 	name_edit.visible = false
 	name_label.visible = true
 
+@warning_ignore("shadowed_variable_base_class")
 func _on_visibility_toggled(is_visible: bool) -> void:
 	data.visible = is_visible
 

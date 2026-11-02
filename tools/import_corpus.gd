@@ -11,7 +11,7 @@ func _initialize() -> void:
 	create_timer(900).timeout.connect(func(): print("WATCHDOG"); quit(2))
 	await process_frame
 	var SI = load("res://script_gdscript/system/svg_import.gd")
-	var PI = load("res://script_gdscript/system/ps_import.gd")
+	var _PI = load("res://script_gdscript/system/ps_import.gd")
 	var IG = load("res://script_gdscript/system/io_guard.gd")
 	var NI = load("res://script_gdscript/system/native_io.gd")
 	print("MOTOR\t", "nativo " + NI.native().version() if NI.is_native() else "gdscript")
@@ -39,6 +39,7 @@ func _initialize() -> void:
 		var kinds := {}
 		for it in items:
 			kinds[it.get("t", "?")] = int(kinds.get(it.get("t", "?"), 0)) + 1
+		@warning_ignore("integer_division")
 		print("RES\t%s\t%s\tparse=%dms\tbuild=%dms\tsize=%s\titems=%d\tnodes=%d\t%s\twarn=%s\t%s" % [ext, "VACIO" if items.is_empty() else "OK",
 			(t1 - t0) / 1000, (t2 - t1) / 1000, data.get("size"), items.size(), nodes, kinds, data.get("warnings", []), data.get("engine", "")])
 	print("DONE")

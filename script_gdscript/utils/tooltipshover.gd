@@ -11,7 +11,7 @@ func _ready():
 	# Conectar señales de entrada de mouse
 	target_node.connect("gui_input", Callable(self, "_on_gui_input"))
 
-func _process(delta):
+func _process(_delta):
 	if tooltip.visible:
 		var mouse_position = get_global_mouse_position()
 		tooltip.rect_global_position = mouse_position + Vector2(10, 10) # Ajuste para que no esté justo debajo del mouse
@@ -23,6 +23,7 @@ func _on_gui_input(event):
 		else:
 			tooltip.visible = false
 
+@warning_ignore("shadowed_variable_base_class")
 func _show_tooltip(position):
 	# Configurar el texto del tooltip
 	tooltip_label.text = "Información del nodo"

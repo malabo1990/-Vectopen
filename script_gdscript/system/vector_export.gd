@@ -130,8 +130,12 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 		subs = _lines(xf, polys, true)
 	if subs.is_empty():
 		return
-	var fill: Variant = s.fill_color if s.fill_color.a > 0.0 else null
-	var stroke: Variant = s.stroke_color if (s.stroke_width > 0.0 and s.stroke_color.a > 0.0) else null
+	var fill: Variant = null
+	if s.fill_color.a > 0.0:
+		fill = s.fill_color
+	var stroke: Variant = null
+	if s.stroke_width > 0.0 and s.stroke_color.a > 0.0:
+		stroke = s.stroke_color
 	var it := _item(subs, fill, stroke, s.stroke_width * _scale_of(xf), op, 0, false)
 	if s.has_gradient_fill():
 		var g: Gradient = s.fill_gradient
@@ -167,8 +171,12 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 	var sc: Color = p.get("stroke_color") if "stroke_color" in p else Color.BLACK
 	var sw: float = float(p.get("stroke_width")) if "stroke_width" in p else 2.0
 	var cap: int = int(p.get("stroke_cap_end")) if "stroke_cap_end" in p else 0
-	var fill: Variant = fc if (closed and fc.a > 0.0) else null
-	var stroke: Variant = sc if (sw > 0.0 and sc.a > 0.0) else null
+	var fill: Variant = null
+	if closed and fc.a > 0.0:
+		fill = fc
+	var stroke: Variant = null
+	if sw > 0.0 and sc.a > 0.0:
+		stroke = sc
 	var pit := _item(subs, fill, stroke, sw * _scale_of(xf), op, cap, evenodd)
 	_add_stroke_grad(pit, p)
 	_add_dash(pit, p, _scale_of(xf))
@@ -292,6 +300,7 @@ static func _rect(xf: Transform2D, size: Vector2, radii: Vector4) -> Dictionary:
 	var h := size / 2.0
 	var lim := minf(h.x, h.y)
 	var tl := clampf(radii.x, 0.0, lim)
+	@warning_ignore("shadowed_variable_base_class")
 	var tr := clampf(radii.y, 0.0, lim)
 	var br := clampf(radii.z, 0.0, lim)
 	var bl := clampf(radii.w, 0.0, lim)
@@ -517,8 +526,8 @@ static func to_godot_scene(data: Dictionary, root_name: String) -> Node2D:
 						ln.default_color = it["stroke"]
 						ln.joint_mode = Line2D.LINE_JOINT_ROUND
 						var cap: int = [Line2D.LINE_CAP_NONE, Line2D.LINE_CAP_ROUND, Line2D.LINE_CAP_BOX][clampi(int(it["cap"]), 0, 2)]
-						ln.begin_cap_mode = cap
-						ln.end_cap_mode = cap
+						ln.begin_cap_mode = cap as Line2D.LineCapMode
+						ln.end_cap_mode = cap as Line2D.LineCapMode
 						ln.antialiased = true
 						g.add_child(ln, true)
 				if g.get_child_count() > 0:
@@ -621,7 +630,9 @@ static func _r(v: float) -> float:
 	return snappedf(v, 0.001)
 
 static func _jc(c: Variant) -> Variant:
-	return null if c == null else "#" + (c as Color).to_html(true)
+	if c == null:
+		return null
+	return "#" + (c as Color).to_html(true)
 
 static func _jx(xf: Transform2D) -> Array:
 	return [_r(xf.x.x), _r(xf.x.y), _r(xf.y.x), _r(xf.y.y), _r(xf.origin.x), _r(xf.origin.y)]
@@ -878,8 +889,11 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 		var alpha := PackedByteArray()
 		var px := img.get_data()
 		var has_alpha := false
+		@warning_ignore("integer_division")
 		rgb.resize(px.size() / 4 * 3)
+		@warning_ignore("integer_division")
 		alpha.resize(px.size() / 4)
+		@warning_ignore("integer_division")
 		for p in range(px.size() / 4):
 			rgb[p * 3] = px[p * 4]
 			rgb[p * 3 + 1] = px[p * 4 + 1]

@@ -113,6 +113,7 @@ func _uvs(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32
 	var tile := maxf(line.width * 2.0, 1.0)
 	var n := pts.size()
 	for i in verts.size():
+		@warning_ignore("integer_division")
 		var k := i / 2 if i < n * 2 else _nearest(pts, verts[i])
 		var u := cum[k] / total if stretch else cum[k] / tile
 		var v := 0.0 if i % 2 == 0 else 1.0
@@ -142,6 +143,7 @@ func _colors(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloa
 		var out2 := PackedColorArray()
 		out2.resize(verts.size())
 		for i in verts.size():
+			@warning_ignore("integer_division")
 			var k := mini(i / 2, pts.size() - 1) if i < pts.size() * 2 else _nearest(pts, verts[i])
 			out2[i] = line.gradient.sample(cum[k] / total)
 		return out2

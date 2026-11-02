@@ -727,7 +727,7 @@ func _input(event: InputEvent) -> void:
 		return
 	# Colocar el menú junto al cursor, sin salirse de la ventana.
 	var mp: Vector2 = get_global_mouse_position()
-	var vp: Vector2 = get_viewport_rect().size
+	var _vp: Vector2 = get_viewport_rect().size
 	var ctrl := target_node as Control
 	var w: float = 222.0
 	var h: float = 360.0

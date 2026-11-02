@@ -13,6 +13,7 @@ extends Resource
 var shapes: Array[VectopenShape] = []
 var shape_ids: Array[String] = []
 
+@warning_ignore("shadowed_variable")
 func get_shape(id: String) -> VectopenShape:
 	for s in shapes:
 		if s.id == id:
@@ -23,6 +24,7 @@ func add_shape(s: VectopenShape):
 	shapes.append(s)
 	shape_ids.append(s.id)
 
+@warning_ignore("shadowed_variable")
 func remove_shape(id: String):
 	for i in range(shapes.size()):
 		if shapes[i].id == id:

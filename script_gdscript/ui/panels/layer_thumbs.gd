@@ -90,6 +90,7 @@ func _render_batch(batch: Array) -> void:
 		var pad := PAD * SS
 		var inner := float(big) - pad * 2.0
 		var k := inner / maxf(maxf(b.size.x, b.size.y), 0.001)
+		@warning_ignore("integer_division")
 		var origin := Vector2((i % COLS) * big, (i / COLS) * big)
 		holder.scale = Vector2(k, k)
 		holder.position = origin + Vector2(pad, pad) + (Vector2(inner, inner) - b.size * k) / 2.0 - b.position * k
@@ -108,6 +109,7 @@ func _render_batch(batch: Array) -> void:
 		var n = batch[i]
 		if not is_instance_valid(n):
 			continue
+		@warning_ignore("integer_division")
 		var cut := img.get_region(Rect2i((i % COLS) * big, (i / COLS) * big, big, big))
 		cut.resize(cell, cell, Image.INTERPOLATE_LANCZOS)
 		var tex := ImageTexture.create_from_image(_on_card(cut))
@@ -121,9 +123,11 @@ func _on_card(cut: Image) -> Image:
 	var card := Image.create(cut.get_width(), cut.get_height(), false, Image.FORMAT_RGBA8)
 	var w := card.get_width()
 	var h := card.get_height()
+	@warning_ignore("integer_division")
 	var sq := maxi(3, w / 8)
 	for y in h:
 		for x in w:
+			@warning_ignore("integer_division")
 			var odd := ((x / sq) + (y / sq)) % 2 == 1
 			card.set_pixel(x, y, Color(0.84, 0.84, 0.86) if odd else Color(0.98, 0.98, 0.99))
 	var edge := Color(0.45, 0.45, 0.5)

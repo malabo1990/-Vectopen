@@ -283,6 +283,7 @@ func header_of(sub_id: String) -> Control:
 
 # ── acciones ─────────────────────────────────────────────────────────────────
 ## Guarda la selección actual como recurso en `sub_id` (o la sección activa).
+@warning_ignore("shadowed_variable_base_class")
 func add_selection(name: String = "", sub_id: String = "") -> Dictionary:
 	var api := _api()
 	if api == null or api.selection().is_empty():
@@ -493,7 +494,7 @@ func _confirm(text: String, done: Callable) -> void:
 
 func _pick_file(mode: int, file_name: String, done: Callable) -> void:
 	var fd := FileDialog.new()
-	fd.file_mode = mode
+	fd.file_mode = mode as FileDialog.FileMode
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.use_native_dialog = true
 	fd.filters = PackedStringArray(["*.vopassets ; Paquete de recursos de Vectopen"])

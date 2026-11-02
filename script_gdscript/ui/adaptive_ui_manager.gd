@@ -1831,10 +1831,12 @@ func _ensure_right_resizer() -> void:
 		_right_resizer.edge_left = true
 		host.add_child(_right_resizer)
 		_right_resizer.dragged.connect(func(dx: float) -> void:
+			@warning_ignore("confusable_local_declaration")
 			var p := _right_panel()
 			if p:
 				set_right_dock_width(p.size.x - dx))   # hacia la izquierda = más ancho
 		_right_resizer.released.connect(func() -> void:
+			@warning_ignore("confusable_local_declaration")
 			var p := _right_panel()
 			if p:
 				load("res://script_gdscript/ui/panels/layers_settings.gd").save_value("inspector_width_" + _ui_mode(), roundf(p.size.x)))

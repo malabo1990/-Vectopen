@@ -419,7 +419,6 @@ func _read(shape, prop):
 		"drop_curvature":
 			if shape.has_meta("drop_curvature"): return float(shape.get_meta("drop_curvature"))
 			return null
-			return null
 		"model_path":
 			if "model_path" in shape: return String(shape.model_path)
 			return null

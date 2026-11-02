@@ -1653,7 +1653,7 @@ func _setup_metric_rows() -> void:
 			_sliders[prop] = hs
 		else:
 			sl.get_parent().remove_child(sl)
-		sl.layout_mode = 2
+		sl.set("layout_mode", 2)   # contenedor (la propiedad no expone ese valor como enum)
 		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sl.custom_minimum_size = Vector2(40, 20)

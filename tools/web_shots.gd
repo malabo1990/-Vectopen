@@ -86,7 +86,7 @@ func build(api) -> Node2D:
 		api.set_fill(st, Color(1, 0.95, 0.8, 0.9))
 	# Texto
 	var t = api.add_text(Vector2(w * 0.1, S.y * 0.76), "Vectopen", int(S.x * 0.11), Color.WHITE)
-	var t2 = api.add_text(Vector2(w * 0.1, S.y * 0.76 + S.x * 0.14), "open-source vector editor", int(S.x * 0.035), Color(1, 1, 1, 0.75))
+	var _t2 = api.add_text(Vector2(w * 0.1, S.y * 0.76 + S.x * 0.14), "open-source vector editor", int(S.x * 0.035), Color(1, 1, 1, 0.75))
 	api.add_effect(t, "Drop Shadow", {})
 	api.group([back, front], "Paisaje")
 	return t

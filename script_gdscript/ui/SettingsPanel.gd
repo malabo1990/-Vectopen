@@ -130,7 +130,7 @@ func _build_language_tab(parent: VBoxContainer) -> void:
 	option.item_selected.connect(_on_lang_selected.bind(option, lm))
 	row.add_child(option)
 
-func _on_lang_selected(index: int, option: OptionButton, lm: Node) -> void:
+func _on_lang_selected(index: int, _option: OptionButton, lm: Node) -> void:
 	var locales = lm.get_locale_list()
 	if index >= 0 and index < locales.size():
 		lm.set_locale(locales[index])

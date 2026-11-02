@@ -30,6 +30,7 @@ signal element_dropped_internally(element: Variant, position: Vector2)
 # --- Estado interno ---
 var _current_artboard: Node = null
 var _artboards: Array[Node] = []
+@warning_ignore("unused_private_class_variable")
 var _export_in_progress: bool = false
 var name_edit: LineEdit = null
 var quantity_spin: Range = null
@@ -107,6 +108,7 @@ func _update_artboard_menu() -> void:
 	
 	for i in range(_artboards.size()):
 		var artboard = _artboards[i]
+		@warning_ignore("shadowed_variable_base_class")
 		var name = artboard.name if artboard else "Artboard %d" % (i + 1)
 		popup.add_item(name, i)
 
@@ -335,6 +337,7 @@ func _update_recent_files_menu() -> void:
 		popup.set_item_metadata(popup.get_item_count() - 1, file_path)
 
 
+@warning_ignore("shadowed_variable_base_class")
 func _on_element_dropped_internally(element: Variant, position: Vector2) -> void:
 	# Manejar elementos soltados en el canvas o en la biblioteca
 	if typeof(element) == TYPE_STRING:

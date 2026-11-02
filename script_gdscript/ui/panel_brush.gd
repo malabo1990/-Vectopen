@@ -10,6 +10,7 @@ signal closed
 
 # Referencias UI
 var _header_title: Label
+@warning_ignore("unused_private_class_variable")
 var _btn_close: Button
 var _spin_size: NumericField
 var _slider_size: HSlider

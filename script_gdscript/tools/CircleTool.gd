@@ -165,7 +165,7 @@ func draw_preview(c: Node2D) -> void:
 			vertices_preview.append(vertex)
 	else:
 		var s_rad: float = deg_to_rad(start_angle_deg)
-		var e_rad: float = deg_to_rad(end_angle_deg)
+		var _e_rad: float = deg_to_rad(end_angle_deg)
 		var span: float = VectorCircle.arc_span(start_angle_deg, end_angle_deg)
 		var steps: int = maxi(8, int(round((span / TAU) * CIRCLE_QUALITY)))
 

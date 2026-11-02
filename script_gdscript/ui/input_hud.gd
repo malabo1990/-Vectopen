@@ -250,7 +250,7 @@ func _apply_theme() -> void:
 		if path != "":
 			b.icon = ProUIStyle.icon(path, ProUIStyle.col("ICON_PRIMARY"), 16)
 		var active: bool = b.toggle_mode and b.button_pressed
-		b.add_theme_stylebox_override("normal", prs if active else StyleBoxEmpty.new())
+		b.add_theme_stylebox_override("normal", (prs as StyleBox) if active else (StyleBoxEmpty.new() as StyleBox))
 		b.add_theme_stylebox_override("hover", hov)
 		b.add_theme_stylebox_override("pressed", prs)
 		b.add_theme_stylebox_override("hover_pressed", prs)

@@ -251,7 +251,7 @@ func _capture_screenshot() -> void:
 	DirAccess.make_dir_recursive_absolute("D:/2025/Godot/vectopen/addons/godot_mcp/cache/screenshots")
 
 	var err1 := img.save_png(SCREENSHOT_PATH)
-	var err2 := img.save_png(RES_SCREENSHOT)
+	var _err2 := img.save_png(RES_SCREENSHOT)
 	_log("Captura guardada en: " + SCREENSHOT_PATH + " (código=" + str(err1) + ")")
 	print("[REALTIME-EFFECTS-DONE] Screenshot saved successfully!")
 	await get_tree().create_timer(0.4).timeout

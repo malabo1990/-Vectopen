@@ -251,7 +251,7 @@ func _drawer(parent: Node, kind: String, e: Dictionary, on: Node2D = null) -> No
 	d.draw.connect(_draw_kind.bind(d))
 	return d
 
-func _update_uniforms(fx: Array) -> void:
+func _update_uniforms(_fx: Array) -> void:
 	for layer in [_back, _front]:
 		if not is_instance_valid(layer):
 			continue
@@ -640,6 +640,7 @@ static func _bridge(outer: PackedVector2Array, hole: PackedVector2Array) -> Pack
 	var bj := 0
 	var bd := INF
 	for i in outer.size():
+		@warning_ignore("integer_division")
 		for j in range(0, hole.size(), maxi(1, hole.size() / 48)):
 			var dd := outer[i].distance_squared_to(hole[j])
 			if dd < bd:

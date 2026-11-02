@@ -26,9 +26,9 @@ static var _cache: Dictionary = {}
 static func key_for(n: Node) -> String:
 	if n is VectorRectangle:
 		var sz: Vector2 = n.size
-		var round := float(n.corner_radius) > 0.5 if "corner_radius" in n else false
+		var rounded := float(n.corner_radius) > 0.5 if "corner_radius" in n else false
 		var sq := absf(sz.x - sz.y) < maxf(sz.x, sz.y) * 0.08
-		return ("square" if sq else "rect") + ("_round" if round else "")
+		return ("square" if sq else "rect") + ("_round" if rounded else "")
 	if n is VectorCircle:
 		var mode := String(n.shape_mode) if "shape_mode" in n else "whole"
 		if mode == "donut":

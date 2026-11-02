@@ -342,6 +342,7 @@ func _build_rects() -> void:
 	if view_mode == ViewMode.SPREAD:
 		var y := 0.0
 		var pair_w := cs.x * 2.0
+		@warning_ignore("confusable_local_declaration")
 		var x0 := (w - pair_w) * 0.5
 		_rects.resize(n)
 		for sp in spreads(n):
@@ -359,6 +360,7 @@ func _build_rects() -> void:
 	var x0 := maxf(0.0, (w - cols * cs.x) * 0.5)
 	_rects.resize(n)
 	for i in n:
+		@warning_ignore("integer_division")
 		_rects[i] = Rect2(Vector2(x0 + (i % cols) * cs.x, (i / cols) * cs.y), cs)
 	_content_h = ceilf(float(n) / cols) * cs.y
 
@@ -478,6 +480,7 @@ func _draw_grid() -> void:
 		var box_w := _box_w()
 		var k := minf(box_w / sz.x, box_h / sz.y)
 		var tsz := sz * k
+		@warning_ignore("shadowed_variable_base_class")
 		var tr := Rect2(cell.position + Vector2(CELL_PAD + (box_w - tsz.x) * 0.5, CELL_PAD + (box_h - tsz.y) * 0.5), tsz)
 		if selected.has(ab):
 			grid.draw_rect(cell.grow(-2), Color(acc.r, acc.g, acc.b, 0.16), true)

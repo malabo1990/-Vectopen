@@ -205,6 +205,7 @@ static func _bez(b: Array, t: float) -> Vector2:
 ## [error² máximo, índice del punto peor]
 static func _max_error(p: PackedVector2Array, first: int, last: int, b: Array, u: PackedFloat32Array) -> Array:
 	var max_d := 0.0
+	@warning_ignore("integer_division")
 	var idx := (last - first + 1) / 2 + first
 	for i in range(first + 1, last):
 		var d := _bez(b, u[i - first]).distance_squared_to(p[i])
@@ -214,7 +215,7 @@ static func _max_error(p: PackedVector2Array, first: int, last: int, b: Array, u
 	return [max_d, idx]
 
 ## Newton–Raphson: acerca cada parámetro u al punto más cercano de la curva.
-static func _reparam(p: PackedVector2Array, first: int, last: int, u: PackedFloat32Array, b: Array) -> PackedFloat32Array:
+static func _reparam(p: PackedVector2Array, first: int, _last: int, u: PackedFloat32Array, b: Array) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(u.size())
 	var d1 := [(b[1] - b[0]) * 3.0, (b[2] - b[1]) * 3.0, (b[3] - b[2]) * 3.0]

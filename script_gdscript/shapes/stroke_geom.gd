@@ -142,7 +142,7 @@ static func _lines(m: Dictionary, pts: PackedVector2Array, closed: bool, spec: A
 
 ## Onda (seno) o zigzag que ocupa el grosor del trazo, con un número entero
 ## de ciclos (acaba en el eje).
-static func _wave(m: Dictionary, pts: PackedVector2Array, closed: bool, width: float,
+static func _wave(m: Dictionary, pts: PackedVector2Array, _closed: bool, width: float,
 		wavelength: float, zigzag: bool) -> void:
 	var cum := _cumulative(pts)
 	var total := cum[cum.size() - 1]
@@ -198,6 +198,7 @@ static func bridge(outer: PackedVector2Array, hole_in: PackedVector2Array) -> Pa
 	var bj := 0
 	var bd := INF
 	for i in outer.size():
+		@warning_ignore("integer_division")
 		for j in range(0, hole.size(), maxi(1, hole.size() / 64)):
 			var dd := outer[i].distance_squared_to(hole[j])
 			if dd < bd:
@@ -249,7 +250,7 @@ static func evenodd_fill(rings: Array) -> Array:
 ## en una esquina: la curva hace ahí un bucle diminuto que, al engordarlo,
 ## doblaba el trazo sobre sí mismo (manchas, cortes y líneas cruzadas).
 ## Todo lo que se quita queda por debajo del propio grosor del trazo.
-static func clean(pts: PackedVector2Array, tol: float, closed: bool) -> PackedVector2Array:
+static func clean(pts: PackedVector2Array, tol: float, _closed: bool) -> PackedVector2Array:
 	var n := pts.size()
 	if n < 3:
 		return pts
@@ -649,6 +650,7 @@ static func point_at(pts: PackedVector2Array, cum: PackedFloat32Array, d: float)
 	var lo := 0
 	var hi := n - 1
 	while hi - lo > 1:
+		@warning_ignore("integer_division")
 		var mid := (lo + hi) / 2
 		if cum[mid] <= d:
 			lo = mid

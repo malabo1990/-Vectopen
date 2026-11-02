@@ -441,6 +441,7 @@ func _hint(text: String) -> void:
 ## Campo con arrastre (ProNumField): en vivo al arrastrar, un deshacer al
 ## soltar; escribir un número aplica con un deshacer. `scale` = factor de
 ## visualización (proporciones en %).
+@warning_ignore("shadowed_variable_base_class")
 func _field(key: String, text: String, lo: float, hi: float, step: float, suffix: String, glyph: String, scale: float = 1.0) -> void:
 	var row := _row(text)
 	var f: Control = NumField.new("", glyph, text)

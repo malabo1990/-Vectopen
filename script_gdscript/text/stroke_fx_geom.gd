@@ -16,6 +16,7 @@ const TextFx = preload("res://script_gdscript/text/text_fx.gd")
 
 var line: Line2D = null
 ## TextFx escala los polígonos por font_size / _outline_fs: en un trazo, 1.
+@warning_ignore("unused_private_class_variable")
 var _outline_fs := 1
 
 var _key := ""

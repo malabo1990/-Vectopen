@@ -85,6 +85,7 @@ func _make_row(spec: Array) -> Control:
 	if key == "dial":
 		var holder := HBoxContainer.new()
 		holder.name = "Row_dial"
+		@warning_ignore("confusable_local_declaration")
 		var lb := Label.new()
 		lb.text = FxUI.t("Direction")
 		holder.add_child(lb)
@@ -114,7 +115,11 @@ func _make_row(spec: Array) -> Control:
 		ob.name = "Value"
 		for it in spec[3]:
 			ob.add_item(FxUI.t(String(it)))
-		ob.item_selected.connect(func(i: int) -> void: _set_val(key, (i == 0) if key == "up" else i))
+		ob.item_selected.connect(func(i: int) -> void:
+			var v: Variant = i
+			if key == "up":
+				v = i == 0
+			_set_val(key, v))
 		c = ob
 	else:
 		var nf: Control = NumField.new("", "", FxUI.t(String(spec[1])))

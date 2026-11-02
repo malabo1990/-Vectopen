@@ -12,7 +12,9 @@ var _panel_inicio: Control
 var _panel_align: Control
 var _panel_transform: Control
 var _panel_trazos: Control
+@warning_ignore("unused_private_class_variable")
 var _canvas_scene: Node2D
+@warning_ignore("unused_private_class_variable")
 var _artboard: Node2D
 var _status_label: Label
 var _log_label: Label
@@ -247,7 +249,7 @@ func _capture_screenshot() -> void:
 	DirAccess.make_dir_recursive_absolute("D:/2025/Godot/vectopen/addons/godot_mcp/cache/screenshots")
 
 	var err1 := img.save_png(SCREENSHOT_PATH)
-	var err2 := img.save_png(RES_SCREENSHOT)
+	var _err2 := img.save_png(RES_SCREENSHOT)
 	_log("Captura guardada en: " + SCREENSHOT_PATH + " (código=" + str(err1) + ")")
 	print("[REALTIME-TEST-DONE] Screenshot saved successfully!")
 	await get_tree().create_timer(0.3).timeout
