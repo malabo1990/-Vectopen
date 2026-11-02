@@ -122,6 +122,11 @@ jobs:
           T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$T" && unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d tpl && mv tpl/templates/* "$T"/
 
+      - name: Splash con la versión
+        run: |
+          sudo apt-get install -y -qq imagemagick
+          bash tools/make_splash.sh
+
       - name: Exportar Windows, macOS y Linux
         run: |
           mkdir -p build/windows build/macos build/linux
