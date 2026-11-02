@@ -769,7 +769,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
-**Resumen Fase B:** 2 / 30 proyectos aprobados.
+**Resumen Fase B:** 3 / 30 proyectos aprobados.
 
 **Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
 iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
@@ -877,6 +877,9 @@ convierte el encargo en defecto `VAL-nn`.
 | VAL-08 | 02 Revista | Pro | «Columnas» en un texto de punto | Solo en marcos de texto | Se ofrecía y no tenía efecto | Media | Corregido |
 | VAL-09 | 02 Revista | Script | Crear un marco de texto por script | `add_text_box` | La API solo creaba textos de punto | Media | Corregido (además: el marco se reajusta al cambiar columnas o ancho) |
 | VAL-10 | 02 Revista | Pro | Marco de varias columnas: editar y deshacer | Mismo alto | El alto medido cambia unos px (88 → 72) | Baja | Acumulado |
+| VAL-11 | 03 Cartel A1 | Smart | Panel de tamaños → Papel | Tarjetas A0, A1, A2 | Solo hasta A3 | Media | Corregido |
+| VAL-12 | 03 Cartel A1 | Smart | Exportar PDF/EPS | MediaBox en puntos (A1 = 1684 × 2384 pt) | Píxeles usados como puntos (un 33 % más grande) | Alta | Corregido |
+| VAL-13 | 03 Cartel A1 | Smart | Cambiar la página a A1 | La vista se reencuadra a la página | La vista sigue en el zoom anterior y el cartel queda cortado | Baja | Acumulado |
 
 ### 19.5. Automatización y materiales
 
@@ -907,7 +910,7 @@ convierte el encargo en defecto `VAL-nn`.
 |---|---|---|---|
 | 01 Libro 20 páginas | Aprobado | Pro | VAL-01, VAL-04 (corregidos); VAL-05 (baja) |
 | 02 Revista 8 páginas | Aprobado | Pro | VAL-06…VAL-09 (corregidos); VAL-10 (baja) |
-| 03 Cartel A1 | Pendiente | — | — |
+| 03 Cartel A1 | Aprobado | Smart | VAL-11, VAL-12 (corregidos); VAL-13 (baja) |
 | 04 Flyer redes | Pendiente | — | — |
 | 05 Logo vectorial | Pendiente | — | — |
 | 06 Isotipo anillo | Pendiente | — | — |
