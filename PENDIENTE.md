@@ -769,7 +769,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
-**Resumen Fase B:** 0 / 30 proyectos aprobados.
+**Resumen Fase B:** 1 / 30 proyectos aprobados.
 
 **Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
 iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
@@ -865,6 +865,14 @@ convierte el encargo en defecto `VAL-nn`.
   resuelven en un cierre dedicado.
 - Un encargo no se marca aprobado con defectos abiertos de severidad alta o media.
 
+| ID | Encargo | Modo | Pasos | Esperado | Obtenido | Sev. | Estado |
+|---|---|---|---|---|---|---|---|
+| VAL-01 | 01 Libro | Pro | Numerar 20 páginas | Número de página automático | No existía: había que escribirlo a mano y rehacerlo al mover páginas | Media | Corregido: `{pág}` / `{total}` en cualquier texto, se recalcula al añadir/borrar/reordenar/abrir y al exportar |
+| VAL-02 | (app instalada) | Todos | Abrir la app instalada | En español | Sin traducciones (inglés y español mezclados) | Alta | Corregido (`972b0a3`) |
+| VAL-03 | (app instalada) | Todos | Abrir la app instalada | Ventana dentro de la pantalla | Ventana desplazada: el lateral derecho fuera | Alta | Corregido (`972b0a3`) |
+| VAL-04 | 01 Libro | Pro | Vista Pliegos | Pliegos también en el lienzo (portada sola, luego 2-2) | Solo en el panel; el lienzo seguía en una fila | Media | Corregido |
+| VAL-05 | 01 Libro | Pro | Renombrar páginas | El rótulo sobre la página dice su nombre | Dice «Artboard» | Baja | Acumulado |
+
 ### 19.5. Automatización y materiales
 
 - Cada encargo se guarda como fixture: `test/fixtures/proyectos/<nn>-<nombre>.vtc`.
@@ -892,7 +900,7 @@ convierte el encargo en defecto `VAL-nn`.
 
 | Encargo | Estado | Modos verificados | Defectos |
 |---|---|---|---|
-| 01 Libro 20 páginas | Pendiente | — | — |
+| 01 Libro 20 páginas | Aprobado | Pro | VAL-01, VAL-04 (corregidos); VAL-05 (baja) |
 | 02 Revista 8 páginas | Pendiente | — | — |
 | 03 Cartel A1 | Pendiente | — | — |
 | 04 Flyer redes | Pendiente | — | — |
