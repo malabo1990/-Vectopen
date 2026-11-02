@@ -601,6 +601,29 @@ se vea mal aunque no se haya pedido se registra como UX-nn nueva.
 
 ---
 
+## 15 quater. Suite completa (2026-11-02) y fallos de los depuradores
+
+Suite completa de interfaz con ajustes de fábrica: regresiones de hoy y
+errores/avisos que muestran los depuradores (pestaña Depurador de Godot y la
+consola `[DBG]` de Vectopen). Petición del usuario: «después de completar el
+proyecto tienes que arreglar con los depuradores, hay fallos».
+
+| ID | Origen | Fallo | Veces | Prueba |
+|---|---|---|---:|---|
+| REG-01 | UX-08/UX-17 | Modern: el color del trazo abre el selector sencillo y se pierde el DEGRADADO en el trazo | — | `stroke_paint_e2e.gd` |
+| REG-02 | ? | Modern: el arrastre del borde del Inspector salta (730 px) y el borde lo tapa el árbol de Capas | — | `inspector_resize_e2e.gd` |
+| REG-03 | UX-19 | `panels_script_plugins_e2e` y `shader_script_sections_e2e` exigen Script/Shader siempre visibles: actualizar a la regla nueva | — | ambas |
+| DBG-01 | `InspectorCore.gd:73-74` | Falta la meta `_vo_local_bounds` / `_vo_profile_norm` (get_meta sin valor por defecto) | 85 | `layers_children_e2e.gd` |
+| DBG-02 | `text_core.gd:86` | «Trying to assign invalid previously freed instance» en `editing_context` | 41 | `letter_fx_e2e.gd` |
+| DBG-03 | `numeric_field.gd:329` | «self can't be used because instance is null» al evaluar el campo al soltar el foco | 24 | `inspector_keyboard_focus_e2e.gd` |
+| DBG-04 | `text_fx.gd:173-185` | `move_child()` mientras el padre monta sus hijos | 16 (1400 en effects_perf) | `shadow_fx_e2e.gd` |
+| DBG-05 | `layers_system.gd` | `[DBG:CAPAS]` referencias muertas en `_node_to_item_map` y `_pending_changes` que no se vacía | 18 | `layers_children_e2e.gd` |
+| DBG-06 | `fx_action_icons.gd` | `move_to_foreground()` obsoleto (UX-21) | 1 | `pro_float_effects_icons_e2e.gd` |
+| DBG-07 | `run_all.sh` | Cuenta como fallidas pruebas con «RESULT 0 fallos» / «RESULT PASS» | — | — |
+| DBG-08 | motor | «Leaked instance dependency» (recursos liberados con dependencias) | 35 | coverage |
+
+---
+
 ## 16. Protocolo de ejecución: corrección automática en bucle
 
 ```
@@ -708,6 +731,17 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-19 | 1 | Verde | `fx_sections_hidden_e2e.gd` | SHADER solo con shader asignado; SCRIPT solo desde su icono; pulsar otra vez la oculta (22) |
 | UX-20 | 1 | Verde | `palette_modes_e2e.gd` | 5 causas: en Modern el selector se CERRABA al pulsar su paleta (clic «fuera»); la muestra iba siempre al relleno; pulsarla deseleccionaba el objeto; el color del trazo se filtraba al relleno (señal global); la paleta solo flotaba si la recortaban. Ahora flota siempre dentro de la pantalla, compacta y en español (55) |
 | UX-24 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | El menú se colocaba una vez con un alto estimado: al cambiar a una pestaña alta se salía por abajo (645+443 > 1080) y cerca de arriba quedaba bajo la regla. Ahora zona segura y se recoloca al cambiar de tamaño (99) |
+| REG-01 | 1 | Verde | `stroke_paint_e2e.gd` | La muestra del Trazo de Modern abre el selector COMPLETO del Inspector con destino trazo (degradados), no el sencillo (43) |
+| REG-02 | 0 | Abierta | — | Arrastre del borde del Inspector en Modern |
+| REG-03 | 0 | Abierta | — | Pruebas antiguas vs UX-19 |
+| DBG-01 | 0 | Abierta | — | Metas sin valor por defecto |
+| DBG-02 | 0 | Abierta | — | Instancia liberada en editing_context |
+| DBG-03 | 0 | Abierta | — | Expression sin instancia en NumericField |
+| DBG-04 | 0 | Abierta | — | move_child en text_fx |
+| DBG-05 | 0 | Abierta | — | Capas: referencias muertas / cola sin vaciar |
+| DBG-06 | 0 | Abierta | — | move_to_foreground obsoleto |
+| DBG-07 | 0 | Abierta | — | run_all.sh cuenta mal |
+| DBG-08 | 0 | Abierta | — | Leaked instance dependency |
 | UX-21 | 1 | Verde | `pro_float_effects_icons_e2e.gd` | Si la sección vive en una pestaña flotante, el icono muestra la ventana (aunque estuviera oculta o minimizada), la trae al frente, la mete en pantalla y desplaza la sección a la vista cuando la disposición se asienta (22) |
 | UX-22 | 1 | Verde | `size_popup_style_e2e.gd` | Rediseño: cuadrícula de 3 columnas con miniatura proporcional (hoja, monitor con pie, móvil, red social, icono), nombre y medida; pestañas con icono, buscador con lupa, «Girar 90°» y cada formato en su orientación natural; todo con colores del tema y legible en claro/oscuro; dentro de la pantalla (41) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |

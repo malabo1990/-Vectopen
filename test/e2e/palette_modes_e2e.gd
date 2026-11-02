@@ -230,7 +230,7 @@ func use_palette(mode: String, pal: Control, pk: Control) -> void:
 			await frames(4)
 		await click(scp, "modern: muestra de trazo")
 		await frames(6)
-		var pop := root.find_child("TextColorPopover", true, false) as Control
+		var pop: Control = di[0].get("_color_popover")   # REG-01: el completo del Inspector
 		check("modern: el trazo abre el selector de Vectopen", pop != null and pop.visible)
 		var pals := visible_palettes()
 		if pals.is_empty() and pop:

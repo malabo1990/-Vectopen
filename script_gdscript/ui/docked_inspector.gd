@@ -431,6 +431,7 @@ func _build_ui() -> void:
 	# («Center/Inside/Outside» a 9 px, ojo y «−»).
 	_build_stroke_section()
 	_embed_full(sec_stroke, "res://scenes/ui/panel_trazos.tscn", "FullStroke")
+	_hook_full_stroke_color.call_deferred()
 
 	# ── SECCION G: EFECTOS (SHADOW - FILA COMPACTA) ──
 	_build_effects_section()
@@ -2264,6 +2265,30 @@ func _ensure_color_popover() -> void:
 
 	add_child(_color_popover)
 
+## REG-01: la muestra de color del panel de Trazo (el de Smart, incrustado)
+## abre el selector COMPLETO del Inspector con destino «trazo» (sólido y
+## degradados), no el sencillo de solo color plano.
+var _extra_swatches: Array = []
+
+func _hook_full_stroke_color() -> void:
+	var full := find_child("FullStroke", true, false)
+	if full == null:
+		return
+	for n in full.find_children("*", "ColorPickerButton", true, false):
+		var cp := n as ColorPickerButton
+		if cp.has_meta("inspector_stroke_hook"):
+			continue
+		cp.set_meta("inspector_stroke_hook", true)
+		_extra_swatches.append(cp)
+		cp.set_meta("text_color_popover", "inspector")   # que no lo enganche el sencillo
+		# Si el selector sencillo ya lo había enganchado, se suelta.
+		for c in cp.gui_input.get_connections():
+			cp.gui_input.disconnect(c["callable"])
+		cp.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
+				cp.accept_event()
+				_open_color_popover("stroke", cp))
+
 func _open_color_popover(target: String, anchor: Control) -> void:
 	_ensure_color_popover()
 	if not is_instance_valid(_color_popover):
@@ -2332,7 +2357,7 @@ func _input(event: InputEvent) -> void:
 			var mp: Vector2 = (event as InputEventMouseButton).position
 			if not ProUIStyle.hit_deep(_color_popover, mp):
 				var on_swatch: bool = false
-				for b in [picker_fill, picker_stroke, picker_canvas_bg]:
+				for b in [picker_fill, picker_stroke, picker_canvas_bg] + _extra_swatches:
 					if is_instance_valid(b) and b.get_global_rect().has_point(mp):
 						on_swatch = true
 						break

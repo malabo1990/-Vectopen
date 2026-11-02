@@ -158,7 +158,21 @@ func _run() -> void:
 	line = await new_line(450)
 	var di := root.find_children("*", "", true, false).filter(func(n): return is_cls(n, "DockedInspector"))
 	if di.size() > 0:
-		await click(di[0].picker_stroke, "modern: muestra de trazo")
+		# La muestra de color del panel de Trazo (completo) del Inspector.
+		var full := di[0].find_child("FullStroke", true, false) as Control
+		var scp: Control = null
+		if full:
+			for n in full.find_children("*", "ColorPickerButton", true, false):
+				if (n as Control).is_visible_in_tree():
+					scp = n
+		if scp:
+			var sc := scp.get_parent()
+			while sc and not (sc is ScrollContainer):
+				sc = sc.get_parent()
+			if sc:
+				(sc as ScrollContainer).ensure_control_visible(scp)
+				await frames(4)
+		await click(scp, "modern: muestra de trazo")
 		await flow("modern", line)
 		if is_instance_valid(di[0]._color_popover):
 			di[0]._color_popover.visible = false

@@ -67,7 +67,17 @@ func menu_inside(tag: String, tabs: Control) -> void:
 	check("%s: el menú cabe en la pantalla" % tag, vp.grow(1.0).encloses(r), "%s en %s" % [r, vp.size])
 	check("%s: el menú no queda bajo las reglas" % tag, r.position.y >= top - 1.0 and r.position.x >= left - 1.0, "%s · regla h hasta %.0f, v hasta %.0f" % [r.position, top, left])
 
+## El selector de Vectopen abierto: la ventana sencilla (TextColorPopover) o
+## la completa del Inspector de Modern (color del trazo con degradados, REG-01).
 func popover() -> Control:
+	for n in root.find_children("TextColorPopover", "", true, false):
+		if (n as Control).visible:
+			return n
+	for n in root.find_children("*", "", true, false):
+		if n.get_script() and n.get_script().get_global_name() == "DockedInspector":
+			var cp = n.get("_color_popover")
+			if cp is Control and (cp as Control).visible:
+				return cp
 	for n in root.find_children("TextColorPopover", "", true, false):
 		return n
 	return null
@@ -76,6 +86,8 @@ func close_popovers() -> void:
 	var pop := popover()
 	if pop and pop.visible and pop.has_method("hide_popover"):
 		pop.hide_popover()
+	elif pop and pop.visible:
+		pop.visible = false
 	await frames(2)
 
 func swatches() -> Array:
@@ -224,7 +236,14 @@ func _run() -> void:
 						var pop := popover()
 						var red := Color(0.9, 0.1, 0.1)
 						if pop and pop.visible:
-							pop._pickr.color_actualizado.emit(red)
+							var g = pop.get("_pickr")
+							if g == null:
+								for n in pop.find_children("*", "", true, false):
+									if n.get_script() and n.get_script().get_global_name() == "GestorColor":
+										g = n
+										break
+							if g and g.has_method("establecer_color"):
+								g.establecer_color(red, true)
 							await frames(4)
 						check("modern: el color elegido se aplica al trazo", rect.stroke_color.is_equal_approx(red), str(rect.stroke_color))
 						root.get_node("HistoryManager").undo()
