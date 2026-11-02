@@ -1,3 +1,4 @@
 fecha,total,delta,linux,macos,windows,otros,releases,detalle
 2026-10-31,114,114,49,40,25,0,1,"{""Vectopen-0.2.0-alpha-linux-x86_64.tar.gz"":16,""Vectopen-0.2.0-alpha-macos-universal.dmg"":23,""Vectopen-0.2.0-alpha-macos-universal.zip"":17,""Vectopen-0.2.0-alpha-windows-x64.zip"":25,""vectopen-0.2.0-0.1.alpha.x86_64.rpm"":16,""vectopen_0.2.0.alpha-1_amd64.deb"":17}"
 2026-11-01,124,10,53,42,29,0,1,"{""Vectopen-0.2.0-alpha-linux-x86_64.tar.gz"":17,""Vectopen-0.2.0-alpha-macos-universal.dmg"":24,""Vectopen-0.2.0-alpha-macos-universal.zip"":18,""Vectopen-0.2.0-alpha-windows-x64.zip"":29,""vectopen-0.2.0-0.1.alpha.x86_64.rpm"":18,""vectopen_0.2.0.alpha-1_amd64.deb"":18}"
+2026-11-02,154,30,68,52,34,0,1,"{""Vectopen-0.2.0-alpha-linux-x86_64.tar.gz"":23,""Vectopen-0.2.0-alpha-macos-universal.dmg"":29,""Vectopen-0.2.0-alpha-macos-universal.zip"":23,""Vectopen-0.2.0-alpha-windows-x64.zip"":34,""vectopen-0.2.0-0.1.alpha.x86_64.rpm"":22,""vectopen_0.2.0.alpha-1_amd64.deb"":23}"
