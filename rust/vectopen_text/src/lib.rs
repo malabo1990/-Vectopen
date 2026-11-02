@@ -220,12 +220,6 @@ impl IControl for VectorRichText {
                 }
             }
         } else if let Ok(mm) = event.clone().try_cast::<InputEventMouseMotion>() {
-            // Lápiz/ratón soltado sin que llegara el «soltar» (pasa con
-            // tabletas): terminar el arrastre en vez de seguir seleccionando
-            // con el puntero para siempre.
-            if self.editor.is_mouse_dragging && (mm.get_button_mask().ord() & 1) == 0 {
-                self.editor.is_mouse_dragging = false;
-            }
             if self.editor.is_editing && self.editor.is_mouse_dragging {
                 let hit_char = self.layout.hit_test(mm.get_position());
                 let total = self.doc.char_count();

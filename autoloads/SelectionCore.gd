@@ -113,9 +113,13 @@ func select(node: Node2D, mode: int = Mode.REPLACE) -> void:
 
 ## Selecciona un conjunto. REPLACE reemplaza; ADD suma; TOGGLE alterna cada uno.
 func select_many(nodes: Array, mode: int = Mode.REPLACE) -> void:
+	# Sin duplicados con un diccionario: «n not in clean» recorría la lista
+	# por cada nodo (cuadrático: ~0,5 M comparaciones con 1000 trazos).
 	var clean: Array[Node2D] = []
+	var seen := {}
 	for n in nodes:
-		if is_selectable(n) and n not in clean:
+		if not seen.has(n) and is_selectable(n):
+			seen[n] = true
 			clean.append(n)
 	begin_batch()
 	if mode == Mode.REPLACE:
@@ -123,11 +127,16 @@ func select_many(nodes: Array, mode: int = Mode.REPLACE) -> void:
 		_active = clean[clean.size() - 1] if not clean.is_empty() else null
 		_dirty_in_batch = true
 	else:
+		var cur := {}
+		for n in _selected:
+			cur[n] = true
 		for n in clean:
-			if mode == Mode.TOGGLE and n in _selected:
+			if mode == Mode.TOGGLE and cur.has(n):
 				_selected.erase(n)
-			elif n not in _selected:
+				cur.erase(n)
+			elif not cur.has(n):
 				_selected.append(n)
+				cur[n] = true
 			_active = n
 			_dirty_in_batch = true
 	if not clean.is_empty():

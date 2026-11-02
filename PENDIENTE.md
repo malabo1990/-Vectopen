@@ -237,10 +237,26 @@ principal.
 4. Cachear la caja envolvente y evitar recomputarla si la geometría no cambió.
 
 **Criterio de aceptación.**
-- [ ] Seleccionar 389 elementos con 1000 trazos mantiene la interfaz fluida
-      (< 100 ms de bloqueo por fotograma).
-- [ ] El dibujo de la selección aparece de forma progresiva, no de golpe.
-- [ ] Memoria estable tras 10 ciclos de selección y deselección.
+- [x] Seleccionar 389 elementos con 1000 trazos mantiene la interfaz fluida
+      (< 100 ms de bloqueo por fotograma). *Medido: 39 ms con 1065 trazos;
+      seleccionar los 1065 a la vez, 98 ms; `face.vtp` (267 trazos), 32 ms
+      (antes 206 ms).*
+- [x] El dibujo de la selección aparece de forma progresiva, no de golpe.
+      *No hizo falta: la selección completa se dibuja en un solo fotograma
+      por debajo de 100 ms.*
+- [x] Memoria estable tras 10 ciclos de selección y deselección (+3 MB con
+      1065 trazos, +0,3 MB con `face.vtp`).
+
+**Resolución (2026-11-02).** Causa: cada trazo de pincel es un `Line2D` de
+hasta ~26 000 puntos y su caja se recalculaba recorriendo todos los puntos
+en cada consulta (inspector, herramienta Mover, recuadro), además de leer
+~60 propiedades por trazo dos veces seguidas. Corrección: caja cacheada por
+trazo (`script_gdscript/utils/line_bounds.gd`, precalculada al entrar en el
+documento), propiedades del inspector agrupadas por tipo de objeto, con corte
+en cuanto un valor es «mixto» y un solo cálculo por fotograma en selecciones
+grandes, perfil de trazo normalizado cacheado y selección sin búsquedas
+cuadráticas (`SelectionCore`). Prueba: `test/perf/brush_selection_perf.gd`
+(`VTP_PATH=…/face.vtp`, `STRESS=4` para ~1000 trazos).
 
 **Prueba de interfaz.** `test/perf/brush_selection_perf.gd` con `face.vtp`.
 **Material de prueba:** `face.vtp` localizado en
@@ -293,7 +309,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | Abierta |
 | UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | Abierta |
 | UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | Abierta |
-| UX-07 | `tools/brushtool.gd`, `SelectionManager.gd` | `brush_selection_perf.gd` | Abierta |
+| UX-07 | `InspectorCore.gd`, `SelectionCore.gd`, `line_bounds.gd` | `brush_selection_perf.gd` | **Cerrada** (2026-11-02) |
 
 ---
 

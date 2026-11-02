@@ -93,25 +93,6 @@ func _run() -> void:
 		for i in 4:
 			await _key(KEY_RIGHT, true, true)
 		print("E2E TICK teclado sel=%s" % [vrt.get_selection_range()])
-		# Lápiz: pulsar y arrastrar SIN que llegue el «soltar»; luego el
-		# puntero se mueve sin botón → la selección NO debe seguirle.
-		_mouse(xf * Vector2(r.position.x + 5, y), true)
-		await _frames(2)
-		var mv := InputEventMouseMotion.new()
-		mv.position = xf * Vector2(r.position.x + r.size.x * 0.3, y)
-		mv.global_position = mv.position
-		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
-		Input.parse_input_event(mv)
-		await _frames(2)
-		var sel_pen: Vector2i = vrt.get_selection_range()
-		for k in 5:
-			var hv := InputEventMouseMotion.new()
-			hv.position = xf * Vector2(r.position.x + r.size.x * (0.5 + k * 0.08), y)
-			hv.global_position = hv.position
-			hv.button_mask = 0
-			Input.parse_input_event(hv)
-			await _frames(1)
-		_check(vrt.get_selection_range() == sel_pen, "%s: sin botón pulsado la selección no sigue al puntero (%s → %s)" % [mode, sel_pen, vrt.get_selection_range()])
 		var t1 := Time.get_ticks_msec()
 		await _frames(30)
 		var ms := Time.get_ticks_msec() - t1

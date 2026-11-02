@@ -749,17 +749,8 @@ func _global_rect(node: Node2D) -> Rect2:
 		var line: Line2D = node as Line2D
 		if line.points.size() == 0:
 			return Rect2(line.global_position - Vector2(10, 10), Vector2(20, 20))
-		var first_gpt: Vector2 = line.to_global(line.points[0])
-		var g_mn: Vector2 = first_gpt
-		var g_mx: Vector2 = first_gpt
-		for p in line.points:
-			var g_pt: Vector2 = line.to_global(p)
-			g_mn.x = min(g_mn.x, g_pt.x)
-			g_mn.y = min(g_mn.y, g_pt.y)
-			g_mx.x = max(g_mx.x, g_pt.x)
-			g_mx.y = max(g_mx.y, g_pt.y)
-		var pad: float = max(MIN_LINE_PAD, line.width * 0.5)
-		return Rect2(g_mn, g_mx - g_mn).grow(pad)
+		# Caja cacheada (los trazos de pincel tienen miles de puntos).
+		return preload("res://script_gdscript/utils/line_bounds.gd").global_rect(line, MIN_LINE_PAD)
 
 	if node is Sprite2D and (node as Sprite2D).texture:
 		var sp: Sprite2D = node as Sprite2D

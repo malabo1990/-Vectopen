@@ -58,17 +58,43 @@ var _canvas: Node = null
 var _mt = null
 
 func _ready() -> void:
+	# Trazos de pincel grandes: su caja se calcula al entrar en el documento
+	# (en diferido), no al seleccionarlos todos a la vez (UX-07).
+	get_tree().node_added.connect(func(n: Node) -> void:
+		if n is Line2D and (n as Line2D).points.size() > 256:
+			(func() -> void:
+				if is_instance_valid(n):
+					_LineBounds.local_rect(n)
+					_read(n, "stroke_profile")).call_deferred())
 	var ge := get_node_or_null("/root/GlobalEvents")
 	if ge:
 		for sig in ["selection_changed", "object_transformed", "object_style_changed", "data_selection_cleared", "object_deleted"]:
 			if ge.has_signal(sig) and not ge.is_connected(sig, _on_event):
 				ge.connect(sig, _on_event)
 
+var _event_pending := false
+## A partir de este número de objetos, los avisos se agrupan en uno por
+## fotograma: con cientos de trazos, calcular las propiedades dos veces
+## seguidas (selección + estilo) bloqueaba la interfaz (UX-07).
+const COALESCE_FROM := 50
+
 func _on_event(_a = null, _b = null) -> void:
 	if not is_inside_tree():
 		return   # app shutting down: listeners and autoloads are leaving the tree
 	if _in_post_write:
 		return   # _post_write ya avisa una vez
+	_sync_selection()
+	if _selection.size() >= COALESCE_FROM:
+		if not _event_pending:
+			_event_pending = true
+			_emit_coalesced.call_deferred()
+		return
+	changed.emit(current_props())
+
+func _emit_coalesced() -> void:
+	_event_pending = false
+	if not is_inside_tree():
+		return
 	_sync_selection()
 	changed.emit(current_props())
 
@@ -289,8 +315,21 @@ func _read(shape, prop):
 			return 0
 		"stroke_profile":
 			if "stroke_profile" in shape: return PackedVector2Array(shape.stroke_profile)
+			if shape is Line2D and not shape.has_meta("stroke_profile"):
+				# Sin perfil propio: el normalizado por defecto, calculado una vez
+				# (con 1000 trazos, normalizarlo en cada lectura costaba ~45 ms).
+				if _default_profile.is_empty():
+					_default_profile = StrokeProfile.normalize(PackedVector2Array())
+				return _default_profile
 			if shape is Line2D or shape.has_meta("stroke_profile"):
-				return StrokeProfile.normalize(shape.get_meta("stroke_profile", PackedVector2Array()))
+				# Normalizado cacheado por trazo (se recalcula si cambia el perfil).
+				var src: PackedVector2Array = shape.get_meta("stroke_profile", PackedVector2Array())
+				var cache = shape.get_meta("_vo_profile_norm", null)
+				if cache is Array and (cache as Array).size() == 2 and cache[0] == src:
+					return cache[1]
+				var norm: PackedVector2Array = StrokeProfile.normalize(src)
+				shape.set_meta("_vo_profile_norm", [src, norm])
+				return norm
 			return null
 		"stroke_pointer_scale":
 			if "stroke_pointer_scale" in shape: return float(shape.stroke_pointer_scale)
@@ -437,23 +476,63 @@ func _read_fill_paint(shape) -> Variant:
 	return null
 
 ## {prop: {value, mixed}} para la selección actual. {} si no hay selección.
+## Propiedades que se pueden leer en cada TIPO de objeto (clase + script +
+## shape_type), calculadas una vez. Con selecciones grandes solo se leen esas:
+## un trazo de pincel no tiene ~45 de las ~60 propiedades.
+var _kind_props := {}
+var _default_profile := PackedVector2Array()
+const _LineBounds = preload("res://script_gdscript/utils/line_bounds.gd")
+
+func _kind_of(s) -> String:
+	var sc = s.get_script()
+	return "%s|%s|%s" % [s.get_class(), sc.resource_path if sc else "", String(s.get_meta("shape_type", ""))]
+
+func _props_for(s) -> Dictionary:
+	var k := _kind_of(s)
+	if not _kind_props.has(k):
+		var d := {}
+		for p in PROPS:
+			if _read(s, p) != null:
+				d[p] = true
+		_kind_props[k] = d
+	return _kind_props[k]
+
 func current_props() -> Dictionary:
 	var out := {}
 	if _selection.is_empty():
 		return out
-	for prop in PROPS:
-		var vals := []
+	var large := _selection.size() >= COALESCE_FROM
+	var relevant := {}
+	var per_shape: Array = []   # propiedades de cada objeto (compartidas por tipo)
+	var valid_sel: Array = []
+	if large:
 		for s in _selection:
+			if is_instance_valid(s):
+				var d: Dictionary = _props_for(s)
+				valid_sel.append(s)
+				per_shape.append(d)
+				relevant.merge(d)
+	for prop in PROPS:
+		if large and not relevant.has(prop):
+			continue
+		var vals := []
+		var mixed := false
+		var shapes: Array = valid_sel if large else _selection
+		for si in shapes.size():
+			var s = shapes[si]
+			if large and not (per_shape[si] as Dictionary).has(prop):
+				continue
 			var v = _read(s, prop)
 			if v != null:
-				vals.append(v)
+				if vals.is_empty():
+					vals.append(v)
+				elif not _approx_eq(v, vals[0]):
+					mixed = true
+					# Ya es «mixto»: con muchos objetos no hace falta leer el resto.
+					if large:
+						break
 		if vals.is_empty():
 			continue
-		var mixed := false
-		for v in vals:
-			if not _approx_eq(v, vals[0]):
-				mixed = true
-				break
 		# nombre solo tiene sentido con selección única
 		if prop == "name" and _selection.size() > 1:
 			continue
