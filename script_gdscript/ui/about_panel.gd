@@ -13,7 +13,7 @@ const SOCIAL := [
 	["telegram", "Telegram", "res://icon/UI/telegram-circle.svg", "https://t.me/vectopen"],
 	["reddit", "Reddit", "res://icon/UI/reddit-circle.svg", "https://www.reddit.com/r/Vectopen_editor/"],
 ]
-const LOGO := "res://icon/app/vectopen_app_icon.png"
+const LOGO := "res://icon/logo/logo_vectopen.png"
 
 ## Ventana flotante compartida (Modern / Pro) y los logos que la abren.
 static var _floating: AboutPanel

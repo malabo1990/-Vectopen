@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://blxyl3f2e5udj"]
 
-[ext_resource type="Texture2D" path="res://icon/app/vectopen_app_icon.png" id="2_e3rjr"]
+[ext_resource type="Texture2D" uid="uid://boh0e23xvob1c" path="res://icon/logo/logo_vectopen.png" id="2_e3rjr"]
 [ext_resource type="Script" uid="uid://b0iykyemrmivd" path="res://script_gdscript/ui/btn_toogle.gd" id="6_e3rjr"]
 [ext_resource type="Script" path="res://script_gdscript/ui/about_panel.gd" id="7_about"]
 

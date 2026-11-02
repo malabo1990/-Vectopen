@@ -17,7 +17,7 @@ IM="$(command -v magick || echo convert)"
   \( icon/app/vectopen_app_icon.png -resize 232x232 \) -gravity center -geometry +0-150 -composite \
   -font "$F/Inter-SemiBold.ttf" -pointsize 72 -fill "#17151f" -annotate +0+18 "Vectopen" \
   -font "$F/Inter-Regular.ttf" -pointsize 25 -fill "#6a6e80" -annotate +0+82 "Editor vectorial libre y de código abierto" \
-  \( -size 132x40 xc:none -fill "#5b4cf2" -draw "roundrectangle 0,0 131,39 20,20" \
+  \( -size 132x40 xc:none -fill "#1b1a21" -draw "roundrectangle 0,0 131,39 20,20" \
      -font "$F/Inter-SemiBold.ttf" -pointsize 20 -fill white -gravity center -annotate +0+0 "v$VERSION" \) \
   -gravity center -geometry +0+152 -composite \
   -gravity south -font "$F/Inter-Regular.ttf" -pointsize 17 -fill "#9a9db0" \

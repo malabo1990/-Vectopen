@@ -121,8 +121,8 @@ func _build_ui() -> void:
 	logo_rect.custom_minimum_size = Vector2(20, 20)
 	logo_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	if ResourceLoader.exists("res://icon/app/vectopen_app_icon.png"):
-		logo_rect.texture = load("res://icon/app/vectopen_app_icon.png")
+	if ResourceLoader.exists("res://icon/logo/logo_vectopen.png"):
+		logo_rect.texture = load("res://icon/logo/logo_vectopen.png")
 	logo_rect.name = "BrandLogo"
 	left_box.add_child(logo_rect)
 	AboutPanel.register_anchor(logo_rect)   # clic: Acerca de · comunidad · actualizaciones
