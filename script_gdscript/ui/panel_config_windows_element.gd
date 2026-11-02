@@ -60,6 +60,9 @@ func toggle_orientation() -> void:
 
 const PRESETS := {
 	"papel": [
+		{"name": "A0", "sub": "841 × 1189 mm · Cartel grande", "w": 3179, "h": 4494, "landscape": false},
+		{"name": "A1", "sub": "594 × 841 mm · Cartel", "w": 2245, "h": 3179, "landscape": false},
+		{"name": "A2", "sub": "420 × 594 mm · Póster", "w": 1587, "h": 2245, "landscape": false},
 		{"name": "A4", "sub": "210 × 297 mm · Impresión estándar", "w": 794, "h": 1123, "landscape": false},
 		{"name": "A3", "sub": "297 × 420 mm · Formato grande", "w": 1123, "h": 1587, "landscape": false},
 		{"name": "A5", "sub": "148 × 210 mm · Cuaderno / Folleto", "w": 559, "h": 794, "landscape": false},
