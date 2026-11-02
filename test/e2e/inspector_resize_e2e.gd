@@ -109,6 +109,18 @@ func _run() -> void:
 			break
 		await process_frame
 	await frames(30)
+	# REG-02: en la suite completa la ventana a veces seguía maximizándose al
+	# empezar (salto de 730 px, borde bajo Capas): esperar a que su tamaño
+	# deje de cambiar 20 fotogramas seguidos.
+	var stable := 0
+	var last := DisplayServer.window_get_size()
+	for _i in 600:
+		await process_frame
+		var cur := DisplayServer.window_get_size()
+		stable = stable + 1 if cur == last else 0
+		last = cur
+		if stable >= 20:
+			break
 	var gui = root.get_node("GlobalUI")
 	var widths := {}
 	for mode in ["modern", "professional"]:
