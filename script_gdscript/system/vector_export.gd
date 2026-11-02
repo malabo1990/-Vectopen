@@ -57,8 +57,11 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 		return
 	if not (n is Node2D):
 		return
+	if n.has_meta(&"_vectopen_internal"):
+		return
 	var xf: Transform2D = inv * (n as Node2D).get_global_transform()
 	_note_raster_only(n, out)
+	var n0: int = (out["items"] as Array).size()
 	if n is VectorShape:
 		_shape(n, xf, op, out)
 	elif n is Path2D:
@@ -78,6 +81,33 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 	else:
 		for ch in n.get_children():   # grupo
 			_walk(ch, inv, op, out)
+		return
+	_child_layers(n, n0, inv, op, out)
+
+## VAL-14: capas metidas dentro de una figura (p. ej. una foto dentro de un
+## círculo). Si la figura es máscara (`clip_children`), su contorno recorta a
+## esas capas; en «solo recorte» la figura no se dibuja.
+static func _child_layers(n: Node, n0: int, inv: Transform2D, op: float, out: Dictionary) -> void:
+	var items: Array = out["items"]
+	var n1 := items.size()
+	for ch in n.get_children():
+		_walk(ch, inv, op, out)
+	var mode: int = n.get("clip_children") if "clip_children" in n else 0
+	if mode == CanvasItem.CLIP_CHILDREN_DISABLED or items.size() == n1:
+		return
+	var subs: Array = []
+	for i in range(n0, n1):
+		if items[i]["t"] == "path":
+			subs.append_array(items[i]["subs"])
+	if subs.is_empty():
+		return
+	var clip := {"subs": subs}
+	for i in range(n1, items.size()):
+		if items[i].get("clip") == null:   # máscaras anidadas: manda la interior
+			items[i]["clip"] = clip
+	if mode == CanvasItem.CLIP_CHILDREN_ONLY:
+		for i in range(n1 - 1, n0 - 1, -1):
+			items.remove_at(i)
 
 static func _note_raster_only(n: Node, out: Dictionary) -> void:
 	var w: PackedStringArray = out["warnings"]
@@ -649,7 +679,17 @@ static func to_svg(data: Dictionary) -> String:
 	if data["bg"] != null:
 		body.append('<rect width="%s" height="%s"%s data-vectopen="background"/>' % [_n(size.x), _n(size.y), _paint("fill", data["bg"])])
 	var gid := 0
+	var cur_clip: Variant = null
 	for it in data["items"]:
+		var clip: Variant = it.get("clip")
+		if not is_same(clip, cur_clip):
+			if cur_clip != null:
+				body.append("</g>")
+			if clip != null:
+				gid += 1
+				defs.append('<clipPath id="c%d"><path d="%s"/></clipPath>' % [gid, _svg_d(clip["subs"])])
+				body.append('<g clip-path="url(#c%d)">' % gid)
+			cur_clip = clip
 		match it["t"]:
 			"path":
 				var extra := ""
@@ -690,6 +730,8 @@ static func to_svg(data: Dictionary) -> String:
 				body.append('<image width="%s" height="%s" transform="%s"%s href="data:image/png;base64,%s"/>' % [
 					_n(it["size"].x), _n(it["size"].y), _matrix(xf),
 					(' opacity="%s"' % _n(it["opacity"])) if it["opacity"] < 0.999 else "", b64])
+	if cur_clip != null:
+		body.append("</g>")
 	var out := '<?xml version="1.0" encoding="UTF-8"?>\n'
 	out += '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">\n' % [_n(size.x), _n(size.y), _n(size.x), _n(size.y)]
 	if not defs.is_empty():
@@ -784,12 +826,9 @@ static func _svg_gradient(id: String, g: Dictionary) -> String:
 static func _svg_shadow(id: String, shadow: Variant) -> String:
 	var list: Array = shadow if shadow is Array else [shadow]
 	var head := '<filter id="%s" x="-50%%" y="-50%%" width="200%%" height="200%%">' % id
-	if list.size() == 1:
-		var fx: Dictionary = list[0]
-		var col := _shadow_col(fx)
-		return head + '<feDropShadow dx="%s" dy="%s" stdDeviation="%s" flood-color="%s" flood-opacity="%s"/></filter>' % [
-			_n(float(fx.get("offset_x", 4.0))), _n(float(fx.get("offset_y", 4.0))), _n(float(fx.get("blur", 6.0)) / 2.0), _hex(col), _n(col.a)]
-	# Varias: cada sombra por separado y todas debajo de la figura.
+	# SVG 1.1 (desenfoque + desplazamiento + color): feDropShadow es de SVG 2 y
+	# algunos lectores (ImageMagick, editores antiguos) descartan la figura. VAL-15
+	# Cada sombra por separado y todas debajo de la figura.
 	var parts := ""
 	var merge := ""
 	for i in list.size():
@@ -831,7 +870,15 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 	var images: Array = []  # [Image, opacity]
 	if data["bg"] != null:
 		content.append(_pdf_col(data["bg"], false) + " 0 0 %s %s re f" % [_n(size.x), _n(size.y)])
+	var cur_clip: Variant = null
 	for it in data["items"]:
+		var clip: Variant = it.get("clip")
+		if not is_same(clip, cur_clip):
+			if cur_clip != null:
+				content.append("Q")
+			if clip != null:
+				content.append("q " + _pdf_path(clip["subs"], false) + " W n")
+			cur_clip = clip
 		match it["t"]:
 			"path":
 				var fill: Variant = it["fill"]
@@ -873,6 +920,8 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 				var w: Vector2 = it["size"]
 				var g := ("/%s gs " % _gs(gstates, it["opacity"], 1.0)) if float(it["opacity"]) < 0.999 else ""
 				content.append("q %s cm %s%s 0 0 %s 0 %s cm /Im%d Do Q" % [_pdf_matrix(it["xf"]), g, _n(w.x), _n(-w.y), _n(w.y), images.size()])
+	if cur_clip != null:
+		content.append("Q")
 	var stream := "\n".join(content).to_utf8_buffer()
 	# objetos: 1 catálogo, 2 páginas, 3 página, 4 contenido, 5-8 fuentes, después gs e imágenes
 	var objs: Array = []   # PackedByteArray por objeto (1-based por índice+1)

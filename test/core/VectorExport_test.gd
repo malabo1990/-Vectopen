@@ -543,3 +543,36 @@ func test_copia_de_seguridad_antes_de_operar() -> void:
 	DirAccess.remove_absolute(snap)
 
 const IoGuard = preload("res://script_gdscript/system/io_guard.gd")
+
+## VAL-14: una foto metida en una figura-máscara se exporta recortada
+## (SVG con clipPath, PDF con «W n»), no desaparece.
+func test_mascara_de_figura_con_imagen_dentro() -> void:
+	var circ := _api.add_ellipse(Vector2(200, 200), Vector2(100, 100), "Marco")
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 0, 0))
+	var sp := _api.add_image(img, Vector2(200, 200), "Foto")
+	sp.get_parent().remove_child(sp)
+	circ.add_child(sp)
+	sp.position = Vector2.ZERO
+	circ.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var data := VX.collect(_ab)
+	var imgs := (data["items"] as Array).filter(func(i) -> bool: return i["t"] == "image")
+	assert_int(imgs.size()).is_equal(1)
+	assert_that(imgs[0].get("clip")).is_not_null()
+	var svg := VX.to_svg(data)
+	assert_str(svg).contains("<clipPath")
+	assert_str(svg).contains('clip-path="url(#')
+	var pdf := VX.to_pdf(data).get_string_from_ascii()
+	assert_str(pdf).contains(" W n")
+	# Solo-recorte (sin relleno): la figura no se dibuja.
+	circ.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	var paths := (VX.collect(_ab)["items"] as Array).filter(func(i) -> bool: return i["t"] == "path")
+	assert_int(paths.size()).is_equal(0)
+
+## VAL-15: la sombra se escribe con primitivas de SVG 1.1 (no feDropShadow).
+func test_sombra_svg_11() -> void:
+	var r := _api.add_rect(Vector2(100, 100), Vector2(80, 40))
+	_api.add_effect(r, "Drop Shadow")
+	var svg := VX.to_svg(VX.collect(_ab))
+	assert_str(svg).not_contains("feDropShadow")
+	assert_str(svg).contains("feGaussianBlur")
