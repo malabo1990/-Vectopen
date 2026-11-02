@@ -155,7 +155,8 @@ func _run() -> void:
 	var rb: Rect2 = mt._global_rect(btn)
 	api.align([btn, cta], ["center_h", "middle"])
 	await frames(4)
-	var rc: Rect2 = mt._global_rect(cta)
+	# Centro de lo que se VE del texto (VAL-26), no de su caja de edición.
+	var rc: Rect2 = ic._visual_rect(cta)
 	rb = mt._global_rect(btn)
 	check("el texto del botón queda centrado en el botón", rc.get_center().distance_to(rb.get_center()) < 2.0, "%s vs %s" % [rc.get_center(), rb.get_center()])
 	# 4. Deshacer 20 pasos.

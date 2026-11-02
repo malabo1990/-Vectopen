@@ -2224,7 +2224,7 @@ func align(modes) -> void:
 		return
 	var moves := []
 	for s in _selection:
-		var r: Rect2 = _mt._global_rect(s)
+		var r: Rect2 = _visual_rect(s)
 		var d := Vector2.ZERO
 		for mode in lista:
 			match mode:
@@ -2300,7 +2300,7 @@ func distribute(axis: String) -> void:
 		return
 	var items := []
 	for s in _selection:
-		items.append({"s": s, "r": _mt._global_rect(s)})
+		items.append({"s": s, "r": _visual_rect(s)})
 	items.sort_custom(func(a, b):
 		var ka: float = a["r"].get_center().x if axis == "h" else a["r"].get_center().y
 		var kb: float = b["r"].get_center().x if axis == "h" else b["r"].get_center().y
@@ -2333,8 +2333,11 @@ func distribute(axis: String) -> void:
 	_commit_moves("Distribuir " + axis, moves)
 
 func _align_reference() -> Rect2:
-	if _selection.size() >= 2 and _mt and _mt.has_method("_get_macro_rect"):
-		return _mt._get_macro_rect()
+	if _selection.size() >= 2:
+		var u := Rect2()
+		for s in _selection:
+			u = _visual_rect(s) if u.size == Vector2.ZERO else u.merge(_visual_rect(s))
+		return u
 	# selección única → el artboard que la contiene
 	var mgr := get_tree().get_first_node_in_group("artboard_manager") if get_tree() else null
 	if mgr and mgr.has_method("owning_artboard"):
@@ -2342,6 +2345,25 @@ func _align_reference() -> Rect2:
 		if is_instance_valid(ab):
 			return Rect2(ab.global_position, ab.artboard_size)
 	return Rect2()
+
+## VAL-26: caja para ALINEAR / DISTRIBUIR. Un título tiene una caja mínima
+## (120 × 36 + margen) para poder pincharlo; para alinear cuenta solo lo que
+## se ve (el contenido del texto nativo), como Illustrator o Figma.
+func _visual_rect(s: Node) -> Rect2:
+	var r: Rect2 = _mt._global_rect(s)
+	if s is Node2D and String(s.get_meta("shape_type", "")) == "text_title":
+		var vrt = s.get_node_or_null("VectorRichText")
+		if vrt and vrt.has_method("get_content_size"):
+			var csz: Vector2 = vrt.get_content_size()
+			if csz.x > 0.0 and csz.y > 0.0:
+				var xf: Transform2D = (vrt as CanvasItem).get_global_transform()
+				var off := 0.0
+				var box_w: float = (vrt as Control).size.x if vrt is Control else csz.x
+				match String(s.get_meta("text_align", "left")):
+					"center": off = (box_w - csz.x) / 2.0
+					"right": off = box_w - csz.x
+				return Rect2(xf.origin + Vector2(off, 0.0) * xf.get_scale(), csz * xf.get_scale())
+	return r
 
 func _commit_moves(accion: String, moves: Array) -> void:
 	if moves.is_empty():

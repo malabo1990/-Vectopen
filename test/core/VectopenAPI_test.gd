@@ -406,3 +406,21 @@ func test_duplicar_texto_conserva_su_aspecto() -> void:
 	var box2 := _api.duplicate(box, Vector2(0, 200))
 	await get_tree().process_frame
 	assert_float(box2.get_node("VectorRichText").get_content_size().y).is_equal_approx(box.get_node("VectorRichText").get_content_size().y, 1.0)
+
+## VAL-26: centrar un título en un botón usa lo que se ve del texto, no su
+## caja mínima de edición (antes quedaba arriba y a la izquierda).
+func test_alinear_titulo_por_su_contenido_visible() -> void:
+	if not ClassDB.class_exists("VectorRichText"):
+		return
+	var bg := _api.add_rect(Vector2(300, 300), Vector2(342, 52), 14.0)
+	var t := _api.add_text(Vector2(250, 280), "Continuar", 17, Color.WHITE)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_api.align([bg, t], ["center_h", "middle"])
+	await get_tree().process_frame
+	var vrt = t.get_node("VectorRichText")
+	var c: Vector2 = vrt.get_global_transform().origin + vrt.get_content_size() / 2.0
+	var ic = get_tree().root.get_node("InspectorCore")
+	var rb: Rect2 = ic._mt._global_rect(bg)
+	assert_float(c.x).is_equal_approx(rb.get_center().x, 1.5)
+	assert_float(c.y).is_equal_approx(rb.get_center().y, 1.5)
