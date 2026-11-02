@@ -21,6 +21,9 @@ pub struct StyleFonts {
     pub roman_w: std::collections::HashMap<i32, Gd<Font>>,
     pub italic_w: std::collections::HashMap<i32, Gd<Font>>,
     pub base_weight: i32,
+    /// Fuentes de OTRAS familias para tramos con su propia fuente
+    /// (familia, peso, cursiva) → fuente real (las registra FontCore).
+    pub families: std::collections::HashMap<(String, i32, bool), Gd<Font>>,
 }
 
 impl StyleFonts {
@@ -292,6 +295,33 @@ impl LayoutEngine {
 
     fn resolve_style_font(base_font: &Gd<Font>, sf: &StyleFonts, style: &TextStyle) -> Gd<Font> {
         let (bold, italic) = (style.bold, style.italic);
+        // Tramo con otra FAMILIA: su archivo real (peso/cursiva) o la regular
+        // de esa familia con negrita/cursiva sintetizadas.
+        if !style.font_family.is_empty() {
+            let w = sf.effective_weight(style);
+            if let Some(f) = sf.families.get(&(style.font_family.clone(), w, italic)) {
+                return f.clone();
+            }
+            if let Some(reg) = sf.families.get(&(style.font_family.clone(), 400, false)) {
+                let synth_b = w >= 600;
+                if !synth_b && !italic {
+                    return reg.clone();
+                }
+                let mut v = FontVariation::new_gd();
+                v.set_base_font(reg);
+                if synth_b {
+                    v.set_variation_embolden(0.35);
+                }
+                if italic {
+                    v.set_variation_transform(godot::builtin::Transform2D::from_cols(
+                        Vector2::new(1.0, 0.0),
+                        Vector2::new(0.22, 1.0),
+                        Vector2::ZERO,
+                    ));
+                }
+                return v.upcast();
+            }
+        }
         // Peso por run: archivo REAL de ese peso (Inter-Medium, -Black…).
         let w = sf.effective_weight(style);
         let base_w = if sf.base_weight > 0 { sf.base_weight } else { 400 };

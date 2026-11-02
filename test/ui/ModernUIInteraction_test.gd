@@ -153,9 +153,12 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	assert_that(regla_h.offset_right).is_equal(0.0)
 	assert_that(regla_h.offset_left).is_equal(0.0)
 	assert_that(layout.offset_left).is_equal(-106.0)
-	# modo smart: el panel queda a 10 px (EDGE_GAP) del borde derecho
-	assert_that(inner_panel.offset_left).is_equal(-486.0)
+	# modo smart: el panel queda a 10 px (EDGE_GAP) del borde derecho. Su
+	# ANCHO lo puede cambiar el usuario (se guarda en vectopen_layers_ui.cfg):
+	# no se fija a 476, solo que sea razonable.
 	assert_that(inner_panel.offset_right).is_equal(-10.0)
+	var smart_w: float = inner_panel.offset_right - inner_panel.offset_left
+	assert_bool(smart_w >= 200.0 and smart_w <= 900.0).override_failure_message("ancho del panel smart = %s" % smart_w).is_true()
 	assert_that(vert_tools.visible).is_true()
 
 	var restored_inner_sb = inner_panel.get_theme_stylebox("panel") as StyleBoxFlat

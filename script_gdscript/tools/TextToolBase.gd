@@ -179,3 +179,21 @@ func _letter_fx_edit_end(shape: Node2D) -> void:
 	var ic = _get_autoload("InspectorCore")
 	if ic and ic.has_method("_refit_text_shape"):
 		ic._refit_text_shape(shape)
+
+
+## Guarda lo escrito hasta ahora como un paso del historial y fija el nuevo
+## punto de partida (antes de un cambio de formato o de Ctrl+Z en edición).
+func checkpoint_text_edit() -> void:
+	if not is_editing or not is_instance_valid(current_editing_shape) or _edit_before.is_empty():
+		return
+	var vrt = current_editing_shape.get_node_or_null("VectorRichText")
+	if vrt and vrt.has_method("get_runs_meta"):
+		current_editing_shape.set_meta("text", String(vrt.get_text()))
+		current_editing_shape.set_meta("runs", vrt.get_runs_meta())
+	TextCore.register_text_undo(current_editing_shape, _edit_before, "Escribir")
+	_edit_before = TextCore.capture_text_state(current_editing_shape)
+
+## Tras un cambio con su propio paso de historial: nuevo punto de partida.
+func reset_text_checkpoint() -> void:
+	if is_editing and is_instance_valid(current_editing_shape):
+		_edit_before = TextCore.capture_text_state(current_editing_shape)

@@ -1334,22 +1334,10 @@ func _toggle_style_italic() -> void:
 	ProUIStyle.style_toggle(_btn_style_italic, to_italic)
 
 func _apply_case_transform(mode: String) -> void:
+	# Solo lo SELECCIONADO si se está editando (antes, siempre el texto entero).
 	var ic := get_node_or_null("/root/InspectorCore")
-	if ic == null or not ic.has_method("selection"):
-		return
-	for shape in ic.selection():
-		var cur = ic._read(shape, "text")
-		if cur == null:
-			continue
-		var t: String = String(cur)
-		match mode:
-			"upper":
-				t = t.to_upper()
-			"lower":
-				t = t.to_lower()
-			"title":
-				t = t.capitalize()
-		ic.apply("text", t)
+	if ic and ic.has_method("apply_case"):
+		ic.apply_case(mode)
 
 func _threading_targets() -> Array:
 	var sm := get_node_or_null("/root/SelectionManager")

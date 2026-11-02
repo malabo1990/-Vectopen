@@ -1,4 +1,4 @@
-use godot::builtin::{Array, Color, Dictionary, Variant};
+use godot::builtin::{Array, Color, Dictionary, GString, Variant};
 use godot::meta::ToGodot;
 
 pub type VarDictionary = Dictionary<Variant, Variant>;
@@ -556,6 +556,9 @@ impl TextDocument {
             d.set("letter_spacing", &r.style.letter_spacing.to_variant());
             d.set("baseline_shift", &r.style.baseline_shift.to_variant());
             d.set("weight", &r.style.weight.to_variant());
+            if !r.style.font_family.is_empty() {
+                d.set("family", &GString::from(r.style.font_family.as_str()).to_variant());
+            }
             arr.push(&d);
         }
         arr
@@ -587,10 +590,10 @@ impl TextDocument {
             if let Some(c) = d.get("color").and_then(|v| v.try_to::<Color>().ok()) {
                 style.fill_color = c;
             }
-            if let Some(op) = d.get("opacity").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(op) = d.get("opacity").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.opacity = op;
             }
-            if let Some(s) = d.get("size").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(s) = d.get("size").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.font_size = s;
             }
             if let Some(b) = d.get("bold").and_then(|v| v.try_to::<bool>().ok()) {
@@ -608,17 +611,20 @@ impl TextDocument {
             if let Some(sc) = d.get("stroke_color").and_then(|v| v.try_to::<Color>().ok()) {
                 style.stroke_color = sc;
             }
-            if let Some(sw) = d.get("stroke_width").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(sw) = d.get("stroke_width").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.stroke_width = sw;
             }
-            if let Some(ls) = d.get("letter_spacing").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(ls) = d.get("letter_spacing").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.letter_spacing = ls;
             }
-            if let Some(bs) = d.get("baseline_shift").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(bs) = d.get("baseline_shift").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.baseline_shift = bs;
             }
-            if let Some(w) = d.get("weight").and_then(|v| v.try_to::<f32>().ok()) {
+            if let Some(w) = d.get("weight").and_then(|v| v.try_to::<f32>().ok().or_else(|| v.try_to::<i64>().ok().map(|i| i as f32))) {
                 style.weight = w;
+            }
+            if let Some(f) = d.get("family").and_then(|v| v.try_to::<GString>().ok()) {
+                style.font_family = f.to_string();
             }
             runs.push(TextRun { length: len, style });
         }

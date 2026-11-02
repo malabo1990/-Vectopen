@@ -220,6 +220,12 @@ impl IControl for VectorRichText {
                 }
             }
         } else if let Ok(mm) = event.clone().try_cast::<InputEventMouseMotion>() {
+            // Lápiz/ratón soltado sin que llegara el «soltar» (pasa con
+            // tabletas): terminar el arrastre en vez de seguir seleccionando
+            // con el puntero para siempre.
+            if self.editor.is_mouse_dragging && (mm.get_button_mask().ord() & 1) == 0 {
+                self.editor.is_mouse_dragging = false;
+            }
             if self.editor.is_editing && self.editor.is_mouse_dragging {
                 let hit_char = self.layout.hit_test(mm.get_position());
                 let total = self.doc.char_count();
@@ -228,7 +234,11 @@ impl IControl for VectorRichText {
                 self.base_mut().queue_redraw();
             }
         } else if let Ok(key) = event.clone().try_cast::<InputEventKey>() {
-            if self.editor.is_editing && key.is_pressed() {
+            let undo_key = (key.is_ctrl_pressed() || key.is_meta_pressed())
+                && (key.get_keycode() == Key::Z || key.get_keycode() == Key::Y);
+            if self.editor.is_editing && key.is_pressed() && !undo_key {
+                // Ctrl+Z / Ctrl+Y siguen al historial de Vectopen (el editor
+                // no tiene deshacer propio).
                 // Consumir la tecla: si no, sigue hasta los atajos globales del
                 // lienzo (letras = cambio de herramienta) y cierra la edición.
                 self.base_mut().accept_event();
@@ -978,6 +988,33 @@ impl VectorRichText {
         let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
         let clamped = size.clamp(4.0, 400.0);
         self.doc.apply_style_range(s, e, |st| st.font_size = clamped);
+        self.recalculate();
+        self.base_mut().queue_redraw();
+    }
+
+    /// Registra la fuente real de una familia (peso 100..900, cursiva) para
+    /// los tramos que usan esa familia.
+    #[func]
+    pub fn register_family_font(&mut self, family: GString, weight: i64, italic: bool, font: Gd<Font>) {
+        let w = ((weight as f32 / 100.0).round() as i32 * 100).clamp(100, 900);
+        self.style_fonts.families.insert((family.to_string(), w, italic), font);
+        self.recalculate();
+        self.base_mut().queue_redraw();
+    }
+
+    /// ¿Ya hay una fuente registrada para esa familia/peso/cursiva?
+    #[func]
+    pub fn has_family_font(&self, family: GString, weight: i64, italic: bool) -> bool {
+        let w = ((weight as f32 / 100.0).round() as i32 * 100).clamp(100, 900);
+        self.style_fonts.families.contains_key(&(family.to_string(), w, italic))
+    }
+
+    /// Fuente (familia) de la selección. "" = la del texto.
+    #[func]
+    pub fn apply_family_to_selection(&mut self, family: GString) {
+        let (s, e) = self.editor.selected_range().unwrap_or((0, self.doc.char_count()));
+        let f = family.to_string();
+        self.doc.apply_style_range(s, e, |st| st.font_family = f.clone());
         self.recalculate();
         self.base_mut().queue_redraw();
     }

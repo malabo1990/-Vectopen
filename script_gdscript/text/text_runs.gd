@@ -63,7 +63,12 @@ static func merge_runs(runs: Array) -> Array:
 					and bool(last.get("italic", false)) == bool(r.get("italic", false)) \
 					and bool(last.get("underline", false)) == bool(r.get("underline", false)) \
 					and float(last.get("size", 0.0)) == float(r.get("size", 0.0)) \
-					and int(last.get("weight", 400)) == int(r.get("weight", 400)):
+					and int(last.get("weight", 400)) == int(r.get("weight", 400)) \
+					and bool(last.get("strikethrough", false)) == bool(r.get("strikethrough", false)) \
+					and is_equal_approx(float(last.get("letter_spacing", 0.0)), float(r.get("letter_spacing", 0.0))) \
+					and is_equal_approx(float(last.get("baseline_shift", 0.0)), float(r.get("baseline_shift", 0.0))) \
+					and is_equal_approx(float(last.get("opacity", 1.0)), float(r.get("opacity", 1.0))) \
+					and String(last.get("family", "")) == String(r.get("family", "")):
 				last["length"] = int(last["length"]) + int(r.get("length", 0))
 				continue
 		out.append((r as Dictionary).duplicate())

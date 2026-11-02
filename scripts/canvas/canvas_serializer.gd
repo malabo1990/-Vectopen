@@ -1121,6 +1121,12 @@ static func _runs_to_data(runs: Array) -> Array:
 		if r.has("stroke_color"): o["stroke_color"] = _col(r["stroke_color"])
 		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
 		if int(r.get("weight", 400)) != 400: o["weight"] = int(r["weight"])
+		# Formato por letra completo (antes se perdía al guardar).
+		if bool(r.get("strikethrough", false)): o["strikethrough"] = true
+		if absf(float(r.get("letter_spacing", 0.0))) > 0.001: o["letter_spacing"] = float(r["letter_spacing"])
+		if absf(float(r.get("baseline_shift", 0.0))) > 0.001: o["baseline_shift"] = float(r["baseline_shift"])
+		if float(r.get("opacity", 1.0)) < 0.999: o["opacity"] = float(r["opacity"])
+		if String(r.get("family", "")) != "": o["family"] = String(r["family"])
 		out.append(o)
 	return out
 
@@ -1138,6 +1144,8 @@ static func _runs_from_data(data: Array) -> Array:
 		if r.has("stroke_color"): o["stroke_color"] = _to_col(r["stroke_color"])
 		if r.has("stroke_width"): o["stroke_width"] = float(r["stroke_width"])
 		if r.has("weight"): o["weight"] = int(r["weight"])
+		for k in ["strikethrough", "letter_spacing", "baseline_shift", "opacity", "family"]:
+			if r.has(k): o[k] = r[k]
 		out.append(o)
 	return out
 

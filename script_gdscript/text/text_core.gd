@@ -217,9 +217,16 @@ static func flat_off(ed: TextEdit, line: int, column: int) -> int:
 ## Foto del estado editable de un texto (para undo de la edición de
 ## contenido / tamaño). En una cadena de marcos guarda la historia completa.
 static func capture_text_state(shape: Node2D) -> Dictionary:
+	# Tramos en la representación del editor nativo si lo hay (mismo texto):
+	# si no, «sin tramos» y «tramos completos» parecían estados distintos y
+	# se colaban pasos vacíos en el historial.
+	var runs: Array = (shape.get_meta("runs", []) as Array).duplicate(true)
+	var vrt = shape.get_node_or_null("VectorRichText")
+	if vrt and vrt.has_method("get_runs_meta") and String(vrt.get_text()) == String(shape.get_meta("text", "")):
+		runs = (vrt.get_runs_meta() as Array).duplicate(true)
 	var st := {
 		"text": String(shape.get_meta("text", "")),
-		"runs": (shape.get_meta("runs", []) as Array).duplicate(true),
+		"runs": runs,
 		"font_size": int(shape.get_meta("font_size", 24)),
 		"width": shape.get_meta("width") if shape.has_meta("width") else null,
 		"height": shape.get_meta("height") if shape.has_meta("height") else null,
@@ -373,7 +380,31 @@ static func set_vrt_runs(vrt, raw_runs, with_fx: bool = true) -> void:
 				if float(d.get("size", 0.0)) <= 0.0:
 					d["size"] = fs
 				typed_runs.append(d)
+	register_run_fonts(vrt, typed_runs)
 	vrt.set_runs_meta(typed_runs)
+
+## Tramos con su propia FUENTE (clave "family"): el motor nativo necesita la
+## fuente real de cada familia/peso/cursiva que se use (FontCore la resuelve).
+static func register_run_fonts(vrt, runs: Array) -> void:
+	if vrt == null or not vrt.has_method("register_family_font"):
+		return
+	var st := Engine.get_main_loop() as SceneTree
+	var fc = st.root.get_node_or_null("FontCore") if st else null
+	if fc == null:
+		return
+	for r in runs:
+		var fam := String(r.get("family", ""))
+		if fam == "":
+			continue
+		var w := int(r.get("weight", 400))
+		if bool(r.get("bold", false)):
+			w = maxi(w, 700)
+		var it := bool(r.get("italic", false))
+		for combo in [[400, false], [w, it]]:
+			if not vrt.has_family_font(fam, combo[0], combo[1]):
+				var f: Font = fc.get_font(fc.make_spec(fam, combo[0], combo[1]))
+				if f:
+					vrt.register_family_font(fam, combo[0], combo[1], f)
 
 ## Vuelve a pintar los efectos de letras del texto (tras cambiarlos, al
 ## salir de edición o al cargar) y reajusta la caja.
@@ -450,3 +481,43 @@ static func scale_runs(shape: Node2D, base_runs: Array, ratio: float) -> void:
 			d["size"] = clampf(sz * ratio, 4.0, 400.0)
 		out.append(d)
 	shape.set_meta("runs", out)
+
+## Cambio de mayúsculas/minúsculas: "upper", "lower", "title" (cada palabra
+## con inicial mayúscula, sin tocar los espacios), "sentence", "toggle".
+static func change_case(t: String, mode: String) -> String:
+	match mode:
+		"upper":
+			return t.to_upper()
+		"lower":
+			return t.to_lower()
+		"title":
+			var out := ""
+			var start := true
+			for ch in t:
+				if ch == " " or ch == "\n" or ch == "\t" or ch == "-":
+					start = true
+					out += ch
+				elif start:
+					out += ch.to_upper()
+					start = false
+				else:
+					out += ch.to_lower()
+			return out
+		"sentence":
+			var out2 := ""
+			var cap := true
+			for ch in t:
+				if cap and ch.strip_edges() != "":
+					out2 += ch.to_upper()
+					cap = false
+				else:
+					out2 += ch.to_lower()
+				if ch in [".", "!", "?", "\n"]:
+					cap = true
+			return out2
+		"toggle":
+			var out3 := ""
+			for ch in t:
+				out3 += ch.to_lower() if ch == ch.to_upper() else ch.to_upper()
+			return out3
+	return t

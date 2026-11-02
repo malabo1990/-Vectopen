@@ -605,7 +605,182 @@ func apply_text_range(prop: String, value) -> bool:
 	do_fn.call()
 	return true
 
+## Propiedades de LETRA: con texto seleccionado en el editor nativo se aplican
+## SOLO a la selección (como Word/InDesign); el resto del texto no cambia.
+const _CHAR_PROPS := ["fill_color", "font_size", "stroke_color", "stroke_width", "font_weight",
+	"font_italic", "underline", "strikethrough", "letter_spacing", "baseline_shift", "font_family"]
+
+## [shape, vrt, inicio, fin] del texto EN EDICIÓN con letras seleccionadas
+## en el editor nativo; vacío si no hay selección.
+func _native_text_selection() -> Array:
+	var ctx := TextCore.editing_context(get_tree())
+	if ctx.is_empty() or not (ctx[1] is Object) or not ctx[1].has_method("get_runs_meta"):
+		return []
+	var vrt = ctx[1]
+	var sel: Vector2i = vrt.get_selection_range()
+	var a := mini(sel.x, sel.y)
+	var b := maxi(sel.x, sel.y)
+	if b <= a:
+		return []
+	return [ctx[0], vrt, a, b]
+
+## Aplica `prop` a las letras seleccionadas (tramos del editor nativo), con
+## deshacer. Devuelve true si lo hizo.
+func apply_text_selection(prop: String, value) -> bool:
+	if not (prop in _CHAR_PROPS):
+		return false
+	var ctx := _native_text_selection()
+	if ctx.is_empty():
+		return false
+	var shape: Node2D = ctx[0]
+	var vrt = ctx[1]
+	var a: int = ctx[2]
+	var b: int = ctx[3]
+	var base_family := String(shape.get_meta("font_family", ""))
+	var mut: Callable
+	match prop:
+		"fill_color":
+			mut = func(r: Dictionary) -> void: r["color"] = value as Color
+		"font_size":
+			mut = func(r: Dictionary) -> void: r["size"] = clampf(float(value), 4.0, 400.0)
+		"stroke_color":
+			mut = func(r: Dictionary) -> void:
+				r["stroke_color"] = value as Color
+				if float(r.get("stroke_width", 0.0)) <= 0.0:
+					r["stroke_width"] = maxf(1.0, float(shape.get_meta("stroke_width", 1.0)))
+		"stroke_width":
+			mut = func(r: Dictionary) -> void:
+				r["stroke_width"] = maxf(0.0, float(value))
+				if not r.has("stroke_color"):
+					r["stroke_color"] = shape.get_meta("stroke_color", Color.BLACK)
+		"font_weight":
+			mut = func(r: Dictionary) -> void:
+				r["weight"] = clampi(int(value), 100, 900)
+				r["bold"] = int(value) >= 700
+		"font_italic":
+			mut = func(r: Dictionary) -> void: r["italic"] = bool(value)
+		"underline":
+			mut = func(r: Dictionary) -> void: r["underline"] = bool(value)
+		"strikethrough":
+			mut = func(r: Dictionary) -> void: r["strikethrough"] = bool(value)
+		"letter_spacing":
+			mut = func(r: Dictionary) -> void: r["letter_spacing"] = float(value)
+		"baseline_shift":
+			mut = func(r: Dictionary) -> void: r["baseline_shift"] = float(value)
+		"font_family":
+			mut = func(r: Dictionary) -> void:
+				var f := String(value)
+				if f == "" or f == base_family:
+					r.erase("family")
+				else:
+					r["family"] = f
+	var before: Array = (vrt.get_runs_meta() as Array).duplicate(true)
+	var after: Array = []
+	var pos := 0
+	for r in TextRuns.split_runs(before.duplicate(true), [a, b]):
+		var rr: Dictionary = (r as Dictionary).duplicate()
+		var l := int(rr.get("length", 0))
+		if pos >= a and pos < b:
+			mut.call(rr)
+		after.append(rr)
+		pos += l
+	after = TextRuns.merge_runs(after)
+	# Sin cambios (p. ej. un panel que se sincroniza y reaplica el mismo
+	# valor): nada de historial ni avisos — si no, rebotes y pasos fantasma.
+	if var_to_str(after) == var_to_str(TextRuns.merge_runs(before.duplicate(true))):
+		return true
+	_text_tool_call("checkpoint_text_edit")
+	var set_runs := func(runs: Array) -> void:
+		if not is_instance_valid(shape):
+			return
+		TextCore.register_run_fonts(vrt, runs)
+		vrt.set_runs_meta(runs)
+		shape.set_meta("runs", runs.duplicate(true))
+		var dl := _text_label(shape)
+		if dl and dl.has_method("set_rich_runs"):
+			dl.set_rich_runs(runs)
+		vrt.queue_redraw()
+		_refit_text_shape(shape)
+		_post_write()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Texto · %s (selección)" % prop)
+		hm.add_do(func() -> void: set_runs.call(after))
+		hm.add_undo(func() -> void: set_runs.call(before))
+		hm.commit()
+	set_runs.call(after)
+	_text_tool_call("reset_text_checkpoint")
+	return true
+
+func _text_tool_call(m: String) -> void:
+	var canvas = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	var t = canvas.current_tool if canvas and ("current_tool" in canvas) else null
+	if t and t.has_method(m):
+		t.call(m)
+
+## Mayúsculas / minúsculas / tipo título / invertir: con letras
+## seleccionadas en edición, SOLO esas; si no, el texto entero de cada
+## objeto seleccionado. Con deshacer.
+func apply_case(mode: String) -> void:
+	var ctx := _native_text_selection()
+	if not ctx.is_empty():
+		var shape: Node2D = ctx[0]
+		var vrt = ctx[1]
+		var a: int = ctx[2]
+		var b: int = ctx[3]
+		_text_tool_call("checkpoint_text_edit")
+		var old_text := String(vrt.get_text())
+		var old_runs: Array = (vrt.get_runs_meta() as Array).duplicate(true)
+		var piece := TextCore.change_case(old_text.substr(a, b - a), mode)
+		if piece == old_text.substr(a, b - a):
+			return
+		var new_text := old_text.substr(0, a) + piece + old_text.substr(b)
+		# Mismo formato: si la longitud cambia (ß → SS), el último tramo afectado absorbe la diferencia.
+		var new_runs: Array = old_runs.duplicate(true)
+		if piece.length() != b - a:
+			new_runs = TextRuns.split_runs(new_runs, [a, b])
+			var pos := 0
+			for r in new_runs:
+				pos += int(r.get("length", 0))
+				if pos >= b:
+					r["length"] = int(r["length"]) + piece.length() - (b - a)
+					break
+		var set_state := func(t: String, runs: Array, sel_end: int) -> void:
+			if not is_instance_valid(shape):
+				return
+			vrt.set_text(t)
+			TextCore.register_run_fonts(vrt, runs)
+			vrt.set_runs_meta(runs)
+			shape.set_meta("text", t)
+			shape.set_meta("runs", runs.duplicate(true))
+			var dl := _text_label(shape)
+			if dl:
+				if "text" in dl:
+					dl.text = t
+				if dl.has_method("set_rich_runs"):
+					dl.set_rich_runs(runs)
+			if vrt.is_editing():
+				vrt.set_selection_range(a, sel_end)
+			vrt.queue_redraw()
+			_refit_text_shape(shape)
+			_post_write()
+		var hm := get_node_or_null("/root/HistoryManager")
+		if hm and hm.has_method("register_action"):
+			hm.register_action("Texto · mayúsculas/minúsculas (selección)")
+			hm.add_do(func() -> void: set_state.call(new_text, new_runs, a + piece.length()))
+			hm.add_undo(func() -> void: set_state.call(old_text, old_runs, b))
+			hm.commit()
+		set_state.call(new_text, new_runs, a + piece.length())
+		_text_tool_call("reset_text_checkpoint")
+		return
+	for shape in selection():
+		var cur = _read(shape, "text")
+		if cur != null:
+			apply("text", TextCore.change_case(String(cur), mode))
+
 func apply(prop: String, value) -> void:
+	if apply_text_selection(prop, value):
+		return
 	if apply_text_range(prop, value):
 		return
 	_sync_selection()

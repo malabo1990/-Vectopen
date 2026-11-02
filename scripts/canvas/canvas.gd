@@ -466,6 +466,23 @@ func _handle_keyboard(event: InputEventKey) -> void:
 	# editaba caía al atajo de letra "b" de abajo → herramienta Pincel →
 	# se confirmaba y CERRABA la edición (la negrita solo funcionaba una vez).
 	if focus_owner and focus_owner.has_method("is_editing") and focus_owner.is_editing():
+		# Deshacer / rehacer SÍ mientras se edita (como Word): primero lo
+		# escrito queda como un paso del historial.
+		var is_redo := VectopenInput.is_action_triggered(event, "redo") \
+				or (event.pressed and event.keycode == KEY_Y and (event.ctrl_pressed or event.meta_pressed))
+		var is_undo := not is_redo and VectopenInput.is_action_triggered(event, "undo")
+		if (is_undo or is_redo) and HistoryManager:
+			if current_tool and current_tool.has_method("checkpoint_text_edit"):
+				current_tool.checkpoint_text_edit()
+			if is_redo:
+				HistoryManager.redo()
+			else:
+				HistoryManager.undo()
+			# El estado restaurado es el nuevo punto de partida (si no, el
+			# siguiente Ctrl+Z lo tomaba por «algo escrito» y rebotaba).
+			if current_tool and current_tool.has_method("reset_text_checkpoint"):
+				current_tool.reset_text_checkpoint()
+			get_viewport().set_input_as_handled()
 		return
 	var sm_edit := get_node_or_null("/root/SelectionManager")
 	if sm_edit and sm_edit.has_method("has_active_text_edit") and sm_edit.has_active_text_edit():
@@ -492,15 +509,22 @@ func _handle_keyboard(event: InputEventKey) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	if (VectopenInput.is_action_triggered(event, "redo") or VectopenInput.is_action_triggered(event, "undo")) \
+			and current_tool and current_tool.has_method("checkpoint_text_edit"):
+		current_tool.checkpoint_text_edit()
 	if VectopenInput.is_action_triggered(event, "redo"):
 		if HistoryManager:
 			HistoryManager.redo()
+		if current_tool and current_tool.has_method("reset_text_checkpoint"):
+			current_tool.reset_text_checkpoint()
 		get_viewport().set_input_as_handled()
 		return
 
 	if VectopenInput.is_action_triggered(event, "undo"):
 		if HistoryManager:
 			HistoryManager.undo()
+		if current_tool and current_tool.has_method("reset_text_checkpoint"):
+			current_tool.reset_text_checkpoint()
 		get_viewport().set_input_as_handled()
 		return
 

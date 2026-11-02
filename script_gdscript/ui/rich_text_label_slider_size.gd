@@ -458,13 +458,10 @@ func _on_case_pressed(mode: String) -> void:
 	if not ctx.is_empty():
 		_apply_case_to_range(ctx[0], ctx[1], int(ctx[2]), int(ctx[3]), mode)
 		return
+	# Editor nativo (selección o texto entero): la misma lógica que el panel Pro.
 	var ic := get_node_or_null("/root/InspectorCore")
-	if ic == null: return
-	# aplica la transformación de caja a cada figura de texto seleccionada
-	for shape in ic.selection():
-		var cur = ic._read(shape, "text")
-		if cur == null: continue
-		ic.apply("text", _case_of(String(cur), mode))   # nota: un undo por figura
+	if ic and ic.has_method("apply_case"):
+		ic.apply_case(mode)
 
 ## Mayúsculas/minúsculas solo en [start, end): reescribe texto + reajusta
 ## runs en una sola acción de undo (si no, el BBCode se desincronizaba).
