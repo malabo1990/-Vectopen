@@ -273,6 +273,16 @@ func _build_ui() -> void:
 	_build_swatches_page()
 	_build_stroke_page()
 	_pages_a = [_sec_color, _sec_swatches, _sec_stroke]
+	# UX-05: el panel que faltaba en Pro: «Página» (sin selección).
+	var page := PageSection.new(true, true)
+	page.name = "ProPageSection"
+	var page_margin := MarginContainer.new()
+	page_margin.name = "ProPageMargin"
+	for side in ["left", "right", "top"]:
+		page_margin.add_theme_constant_override("margin_" + side, 8)
+	page_margin.add_child(page)
+	_vbox.add_child(page_margin)
+	page.visibility_changed.connect(func() -> void: page_margin.visible = page.visible)
 	_vbox.add_child(_tab_group(TAB_TITLES["a"], _pages_a, _tabs_a, _tab_a, _select_tab_a, "a"))
 
 	_build_transform_page()

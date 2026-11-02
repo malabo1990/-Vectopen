@@ -689,7 +689,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-02 | `autoloads/VectopenInput.gd`, `docked_inspector.gd` | `inspector_keyboard_focus_e2e.gd` | Verde |
 | UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Verde |
 | UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Verde |
-| UX-05 | — | — | Por aclarar |
+| UX-05 | `page_section.gd`, `pro_studio.gd`, `docked_inspector.gd` | `page_section_e2e.gd` | Verde |
 | UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Verde |
 | UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Verde |
 | UX-08 | `panel_trazos.gd`, `stroke_geom.gd` | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Verde |
@@ -714,7 +714,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-02 | 1 | Verde | `inspector_keyboard_focus_e2e.gd` | Guarda `is_typing()`; Escape suelta el campo (fallaba en Pro) |
 | UX-03 | 1 | Verde | `palette_delete_gradient_e2e.gd` | Color o degradado; clic derecho Eliminar/Duplicar con deshacer |
 | UX-04 | 1 | Verde | `palette_modes_e2e.gd` | En Pro la recortaba el lateral; ahora flota junto al selector |
-| UX-05 | 0 | Pendiente de insumo | — | Falta identificar el panel |
+| UX-05 | 1 | Verde | `page_section_e2e.gd` | El que faltaba: «Página» (sin selección). Pro no lo tenía y en Modern no funcionaba (color sin efecto, tamaño fijo «1920 × 1080»). Componente común PageSection: color, ancho/alto reales, girar y «Tamaños…», con deshacer (28) |
 | UX-06 | 2 | Verde | `brush_panel_theme_e2e.gd` | Muestras dibujadas por estilo (sin emojis) y campos numéricos comunes |
 | UX-07 | 1 | Verde | `bezier_panel_theme_e2e.gd` | Tarjetas con superficie del tema, iconos SVG, campo numérico común |
 | UX-08 | 2 | Verde | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Uniones en los 3 modos; Modern con el panel completo de Smart; trazo de figuras guardado |

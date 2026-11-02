@@ -559,7 +559,16 @@ func _build_canvas_section() -> void:
 	lbl_canvas_hex.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row_bg.add_child(_wrap_input_pill(lbl_canvas_hex))
 
+	# UX-05: las filas de arriba no funcionaban (el color emitía una señal que
+	# nadie escuchaba; el tamaño era un texto fijo). Se ocultan y la sección
+	# usa el componente común de Página (el mismo que Pro).
+	row_bg.visible = false
+	var page := PageSection.new(false, false)
+	page.name = "ModernPageSection"
+	sec_canvas.add_child(page)
+
 	var row_dim := HBoxContainer.new()
+	row_dim.visible = false
 	row_dim.add_theme_constant_override("separation", 6)
 	sec_canvas.add_child(row_dim)
 
