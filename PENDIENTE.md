@@ -769,7 +769,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
-**Resumen Fase B:** 8 / 30 proyectos aprobados.
+**Resumen Fase B:** 9 / 30 proyectos aprobados.
 
 **Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
 iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
@@ -887,6 +887,8 @@ convierte el encargo en defecto `VAL-nn`.
 | VAL-18 | 06 Isotipo anillo | Smart | Botón «Figuras» con una elipse seleccionada | Título acorde (p. ej. «FIGURAS») | Dice «POLÍGONOS Y ESTRELLAS» | Baja | Acumulado |
 | VAL-19 | 07 Tarjeta de visita | Modern | Sangrado 3 mm → exportar PDF | PDF de 91 × 56 mm con TrimBox de 85 × 50 mm | El PDF salía al tamaño de corte, sin sangrado | Media | Corregido |
 | VAL-20 | 08 Infografía | Pro | Ejes con punta de flecha → exportar SVG/PDF/EPS | Las flechas como en pantalla | Se perdían las puntas (solo la línea) | Media | Corregido |
+| VAL-21 | 09 Enciclopedia | Pro | Páginas → vista Rejilla (4 columnas) | El lienzo también en 3 filas × 4 | Solo las miniaturas; el lienzo seguía en una fila de 12 | Media | Corregido |
+| VAL-22 | 09 Enciclopedia | Pro | Duplicar una página con títulos y un marco de texto | Copias idénticas | Títulos de la copia más pequeños, marco en una sola línea y, en marcos de la API, la etiqueta antigua pintada encima | Alta | Corregido |
 
 ### 19.5. Automatización y materiales
 
@@ -923,7 +925,7 @@ convierte el encargo en defecto `VAL-nn`.
 | 06 Isotipo anillo | Aprobado | Smart | VAL-17, VAL-18 (bajas) |
 | 07 Tarjeta de visita | Aprobado | Modern | VAL-19 (corregido) |
 | 08 Infografía | Aprobado | Pro | VAL-20 (corregido) |
-| 09 Enciclopedia visual | Pendiente | — | — |
+| 09 Enciclopedia visual | Aprobado | Pro | VAL-21, VAL-22 (corregidos); VAL-05 se repite |
 | 10 UI kit | Pendiente | — | — |
 | 11 Wireframe landing | Pendiente | — | — |
 | 12 Set 24 iconos | Pendiente | — | — |
