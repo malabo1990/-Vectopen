@@ -538,7 +538,7 @@ func _on_grid_input(ev: InputEvent) -> void:
 		if _drop_at >= 0 or ev.position.distance_to(start) > 14.0:
 			_drop_at = _insert_at(ev.position)
 			grid.queue_redraw()
-	elif ev is InputEventKey and ev.pressed and ev.keycode == KEY_DELETE and not selected.is_empty():
+	elif VectopenInput.is_delete_event(ev) and not selected.is_empty():
 		delete_selected()
 		grid.accept_event()
 

@@ -38,7 +38,7 @@ func _handle_key_shortcuts(keycode: int, shift_pressed: bool = false) -> bool:
 			_toggle_gradient_mode()
 			return true
 
-	if (keycode in [KEY_X, KEY_DELETE, KEY_BACKSPACE]) and current_key_mode == KeyMode.NONE and not shift_pressed:
+	if (keycode in VectopenInput.DELETE_KEYS) and current_key_mode == KeyMode.NONE and not shift_pressed:
 		if selected_shapes.size() > 0:
 			delete_selected()
 			return true

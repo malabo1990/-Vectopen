@@ -224,9 +224,9 @@ func _input(event: InputEvent) -> void:
 			_verificar_hover_guias()
 			_actualizar_vistas()
 
-	# Borrar guías con teclado de forma segura (Delete / Backspace)
+	# Borrar guías con teclado: X, Supr o Retroceso (UX-10)
 	if event is InputEventKey and event.pressed and indice_guia_activa != -1:
-		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+		if VectopenInput.is_delete_event(event):
 			if hover_es_horizontal and indice_guia_activa >= 0 and indice_guia_activa < guias_horizontales.size():
 				guias_horizontales.remove_at(indice_guia_activa)
 				_lanzar_flash(true, color_flash_eliminar)

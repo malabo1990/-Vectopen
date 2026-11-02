@@ -123,10 +123,20 @@ func _apply_theme() -> void:
 		for key in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(key, ProUIStyle.col("PANEL_TEXT"))
 
-# Entrada de teclado global para eliminar con "Supr" o "Backspace"
+# Teclas de borrar (X, Supr, Retroceso) para el punto seleccionado, SOLO si
+# el último clic fue en este editor (UX-10). Antes cualquier editor de
+# degradado (también el oculto del selector de color) tenía siempre un punto
+# seleccionado y se quedaba Supr y Retroceso en TODA la aplicación: en el
+# lienzo solo borraba la X.
+var _keys_armed := false
+
+## Que las teclas de borrar vayan a este editor (lo usa quien lo enfoca).
+func arm_keys(on: bool = true) -> void:
+	_keys_armed = on
+
 func _unhandled_key_input(event: InputEvent) -> void:
-	if is_instance_valid(selected_handle) and event.is_pressed():
-		if event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+	if _keys_armed and is_visible_in_tree() and is_instance_valid(selected_handle) and event.is_pressed():
+		if VectopenInput.is_delete_event(event):
 			_remove_selected()
 			get_viewport().set_input_as_handled()
 
@@ -192,6 +202,8 @@ func _on_grabber_moved(handle: StopHandle, raw_pos: float) -> void:
 	_emit_gradient()
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		_keys_armed = is_visible_in_tree() and get_global_rect().has_point((event as InputEventMouseButton).global_position)
 	if _active_dragging_handle != null:
 		if event is InputEventMouseMotion:
 			if is_instance_valid(color_rect) and color_rect.size.x > 0:

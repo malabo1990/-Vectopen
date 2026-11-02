@@ -277,7 +277,7 @@ func handle_input(event: InputEvent) -> bool:
 
 	# 2. Atajos estándar fuera de Grab Mode
 	if event is InputEventKey and event.pressed:
-		if (event.keycode in [KEY_X, KEY_DELETE, KEY_BACKSPACE]) and not selected_nodes.is_empty():
+		if VectopenInput.is_delete_event(event) and not selected_nodes.is_empty():
 			delete_selected_nodes()
 			return true
 		if event.keycode == KEY_G and not selected_nodes.is_empty():

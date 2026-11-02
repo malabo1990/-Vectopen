@@ -569,8 +569,7 @@ func _handle_keyboard(event: InputEventKey) -> void:
 
 	# ── Fase 1 del informe de interacción avanzada (19/08/2026) ────────────
 	# Eliminar/Copiar/Cortar/Pegar/Duplicar/Seleccionar todo/mover con flechas.
-	var kc_del: int = event.keycode if event.keycode != 0 else event.physical_keycode
-	var is_del: bool = (kc_del in [KEY_DELETE, KEY_BACKSPACE, KEY_X]) and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed
+	var is_del: bool = VectopenInput.is_delete_event(event)
 	if VectopenInput.is_action_triggered(event, "delete") or is_del:
 		var deleted_any := false
 		if current_tool and current_tool.has_method("delete_selected"):

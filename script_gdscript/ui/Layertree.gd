@@ -694,8 +694,7 @@ func _on_item_mouse_selected(pos_mouse: Vector2, boton: int) -> void:
 # =============================================================================
 func _input(event: InputEvent) -> void:
 	if has_focus() and event is InputEventKey and event.pressed and not event.echo:
-		var kc_del: int = event.keycode if event.keycode != 0 else event.physical_keycode
-		var is_del_pressed: bool = ((kc_del in [KEY_DELETE, KEY_BACKSPACE, KEY_X]) and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed) or event.is_action_pressed("ui_text_delete")
+		var is_del_pressed: bool = VectopenInput.is_delete_event(event) or event.is_action_pressed("ui_text_delete")
 		if is_del_pressed and get_edited() == null:
 			var to_delete: Array = []
 			var sm := get_node_or_null("/root/SelectionManager")

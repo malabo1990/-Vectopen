@@ -47,6 +47,22 @@ const TOOL_ACTIONS := {
 	"tool_paragraph": "paragraph", "tool_artboard": "artboard", "tool_hand": "hand",
 }
 
+## Teclas de BORRAR en TODOS los contextos (lienzo, nodos, capas, páginas,
+## puntos de degradado, guías): X, Supr / Delete (la misma tecla; «Supr» en
+## los teclados españoles) y Retroceso (UX-10).
+const DELETE_KEYS := [KEY_X, KEY_DELETE, KEY_BACKSPACE]
+
+## ¿Es `event` una pulsación de borrar? Sin Ctrl / Alt / Cmd (Ctrl+X es
+## cortar) y nunca mientras se escribe en un campo (ahí borra texto).
+func is_delete_event(event: InputEvent) -> bool:
+	if not (event is InputEventKey) or not event.pressed:
+		return false
+	var k := event as InputEventKey
+	if k.ctrl_pressed or k.alt_pressed or k.meta_pressed:
+		return false
+	var kc: int = k.keycode if k.keycode != 0 else k.physical_keycode
+	return kc in DELETE_KEYS and not is_typing()
+
 ## Herramienta para esta tecla (sin modificadores), o "" si no es de herramienta.
 ## Mientras se escribe en un campo de texto NUNCA es atajo (UX-02).
 func tool_for_event(event: InputEvent) -> String:
