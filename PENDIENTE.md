@@ -137,10 +137,31 @@ El modo pliego debe tratar la primera página como portada exenta y emparejar el
 resto (impar/par), contemplando documentos con número impar de páginas.
 
 **Criterio de aceptación.**
-- [ ] Los tres modos conmutan sin perder la selección ni el desplazamiento.
-- [ ] En pliego, la portada va sola y el emparejamiento es correcto hasta el final.
-- [ ] En rejilla, el zoom y el número de columnas se ajustan al ancho del panel.
-- [ ] El modo elegido persiste entre sesiones.
+- [x] Los tres modos conmutan sin perder la selección ni el desplazamiento.
+- [x] En pliego, la portada va sola y el emparejamiento es correcto hasta el final.
+- [x] En rejilla, el zoom y el número de columnas se ajustan al ancho del panel.
+- [x] El modo elegido persiste entre sesiones.
+
+**Resolución (2026-11-02).** `pages_panel.gd` tiene `ViewMode {SIMPLE,
+SPREAD, GRID}` con tres botones (▯ ▯▯ ▦) junto a añadir / duplicar / borrar.
+La rejilla virtualizada sigue siendo un solo Control; ahora calcula una celda
+por página según el modo (`_build_rects`), y clic, arrastrar para
+reordenar, «Ir a» y miniaturas en segundo plano funcionan igual en los tres.
+- Simple: el comportamiento de antes (miniaturas de tamaño fijo).
+- Pliegos: portada sola a la derecha, luego 2‑3, 4‑5…; con nº par de
+  páginas la última queda sola a la izquierda (`PagesPanel.spreads(n)`).
+- Rejilla: el deslizador pasa a ser «columnas» (1–8) y las miniaturas llenan
+  el ancho del panel.
+- Al cambiar de modo se conserva la selección y queda a la vista la página
+  activa (o la que estaba arriba). Modo, tamaño y columnas se guardan en
+  `user://vectopen_pages.cfg`.
+- Corregido de paso: con la barra de desplazamiento apareciendo y
+  desapareciendo, la rejilla se recalculaba sin fin (cola de mensajes llena
+  y cierre de Godot): la barra queda siempre visible.
+Prueba: `test/e2e/pages_panel_modes_e2e.gd` (1, 2, 5, 8 y 40 páginas, clics
+reales); `pages_e2e.gd` (500 páginas) sigue en verde.
+**Pendiente (requisito 1, acabado visual):** el panel usa la misma paleta y
+botones que Capas, pero no sus miniaturas por capa ni menú contextual propio.
 
 **Prueba de interfaz.** `test/e2e/pages_panel_modes_e2e.gd` con documentos de 1,
 2, 5 y 8 páginas.
@@ -375,7 +396,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 |---|---|---|---|
 | UX-01 | `panel_paragraph.gd`, `text_core.gd` | `paragraph_panel_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-02 | `tools/TextTool.gd`, `ParagraphTool.gd` | `text_drag_size_e2e.gd` | **Cerrada** (2026-11-02) |
-| UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
+| UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | **Cerrada** (2026-11-02) |

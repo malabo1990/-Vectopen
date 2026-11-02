@@ -9,7 +9,14 @@
 #   · número + nombre, la activa resaltada; clic = ir a la página, doble clic =
 #     encuadrarla; Mayús / Ctrl = selección múltiple;
 #   · «Ir a» por número, tamaño de miniatura, añadir / duplicar / borrar
-#     (con deshacer) y reordenar arrastrando (la fila del lienzo se recoloca).
+#     (con deshacer) y reordenar arrastrando (la fila del lienzo se recoloca);
+#   · tres MODOS DE VISTA (se recuerdan entre sesiones):
+#       SIMPLE – miniaturas de tamaño fijo, tantas por fila como quepan;
+#       SPREAD – pliegos enfrentados como InDesign: la portada sola (a la
+#                derecha) y luego 2‑3, 4‑5…; con un nº par de páginas la
+#                última queda sola a la izquierda;
+#       GRID   – retícula: N columnas que llenan el ancho del panel (redes
+#                sociales, carteles); el deslizador elige las columnas.
 # =============================================================================
 class_name PagesPanel
 extends VBoxContainer
@@ -30,6 +37,19 @@ var _scroll: ScrollContainer = null
 var grid: Control = null
 var _drag_from := -1
 var _drop_at := -1
+
+enum ViewMode { SIMPLE, SPREAD, GRID }
+const PREFS := "user://vectopen_pages.cfg"
+const MODE_NAMES := ["simple", "spread", "grid"]
+const SPREAD_GAP := 14.0          # separación entre pliegos
+var view_mode: int = ViewMode.SIMPLE
+var grid_cols := 3                # columnas en modo rejilla
+var _mode_btns: Array[Button] = []
+var _zoom: HSlider = null
+## Celdas calculadas para el modo actual: índice de página → Rect2.
+var _rects: Array[Rect2] = []
+var _content_h := 0.0
+var _laid_w := -1.0
 
 func _init() -> void:
 	name = "PagesPanel"
@@ -78,6 +98,26 @@ func _init() -> void:
 		b.custom_minimum_size = Vector2(28, 24)
 		b.pressed.connect(spec[3])
 		bar.add_child(b)
+	var sep := Control.new()
+	sep.custom_minimum_size = Vector2(6, 0)
+	bar.add_child(sep)
+	var group := ButtonGroup.new()
+	for spec in [["ModeSimple", "▯", "Página simple: miniaturas en fila", ViewMode.SIMPLE],
+			["ModeSpread", "▯▯", "Pliegos enfrentados (libro): portada sola y luego 2‑3, 4‑5…", ViewMode.SPREAD],
+			["ModeGrid", "▦", "Rejilla: columnas que llenan el panel (redes sociales, carteles)", ViewMode.GRID]]:
+		var mb := Button.new()
+		mb.name = spec[0]
+		mb.text = spec[1]
+		mb.tooltip_text = spec[2]
+		mb.toggle_mode = true
+		mb.button_group = group
+		mb.focus_mode = Control.FOCUS_NONE
+		mb.custom_minimum_size = Vector2(28, 24)
+		mb.add_theme_font_size_override("font_size", 12)
+		var m: int = spec[3]
+		mb.pressed.connect(func() -> void: set_view_mode(m))
+		bar.add_child(mb)
+		_mode_btns.append(mb)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(sp)
@@ -90,15 +130,17 @@ func _init() -> void:
 	zoom.tooltip_text = "Tamaño de las miniaturas"
 	zoom.custom_minimum_size = Vector2(80, 0)
 	zoom.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	zoom.value_changed.connect(func(v: float) -> void:
-		thumb_w = v
-		_cache.clear()          # nueva resolución
-		_relayout())
+	zoom.value_changed.connect(_on_zoom)
 	bar.add_child(zoom)
+	_zoom = zoom
 
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Barra siempre presente: si apareciera y desapareciera, el ancho útil
+	# cambiaría con la altura y la rejilla (que depende del ancho) se
+	# recalcularía sin fin.
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	_scroll.custom_minimum_size = Vector2(0, 160)
 	add_child(_scroll)
 	grid = Control.new()
@@ -108,7 +150,9 @@ func _init() -> void:
 	grid.focus_mode = Control.FOCUS_CLICK
 	grid.draw.connect(_draw_grid)
 	grid.gui_input.connect(_on_grid_input)
-	grid.resized.connect(_relayout)
+	grid.resized.connect(func() -> void:
+		if absf(grid.size.x - _laid_w) > 0.5:
+			_relayout())
 	_scroll.add_child(grid)
 	_scroll.get_v_scroll_bar().value_changed.connect(func(_v: float) -> void: grid.queue_redraw())
 
@@ -127,6 +171,7 @@ func _ready() -> void:
 	visibility_changed.connect(func() -> void:
 		if is_visible_in_tree():
 			refresh())
+	_load_prefs()
 	restyle()
 	refresh()
 
@@ -179,55 +224,210 @@ func _on_doc_changed() -> void:
 	if is_visible_in_tree():
 		refresh()
 
-# ── geometría de la rejilla ──────────────────────────────────────────────────
+# ── modo de vista ────────────────────────────────────────────────────────────
+## Cambia el modo. Conserva la selección y deja a la vista la página que se
+## veía arriba (no salta al principio).
+func set_view_mode(m: int) -> void:
+	m = clampi(m, ViewMode.SIMPLE, ViewMode.GRID)
+	# Qué página dejar a la vista: la activa si se veía; si no, la de arriba.
+	var keep := _first_visible_index()
+	var ai := pages().find(active())
+	if ai >= 0 and grid:
+		var vr := _visible_range()
+		if vr.x <= ai and ai <= vr.y:
+			keep = ai
+	view_mode = m
+	_sync_mode_ui()
+	_cache.clear()          # otra resolución de miniatura
+	_relayout()
+	_save_prefs()
+	if keep >= 0 and _scroll:
+		_restore_scroll(keep)
+
+## El contenedor aplica la nueva altura al fotograma siguiente: antes de eso
+## el desplazamiento se recortaría a la altura vieja.
+func _restore_scroll(i: int) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(_scroll) or i >= pages().size():
+		return
+	var r := _cell_rect(i)
+	_scroll.scroll_vertical = int(maxf(0.0, r.get_center().y - _scroll.size.y * 0.5))
+	grid.queue_redraw()
+
+func _on_zoom(v: float) -> void:
+	if view_mode == ViewMode.GRID:
+		grid_cols = int(v)
+	else:
+		thumb_w = v
+	_cache.clear()          # nueva resolución
+	_relayout()
+	_save_prefs()
+
+## El deslizador es «tamaño» en Simple / Pliegos y «columnas» en Rejilla.
+func _sync_mode_ui() -> void:
+	for k in _mode_btns.size():
+		_mode_btns[k].set_pressed_no_signal(k == view_mode)
+	if _zoom == null:
+		return
+	_zoom.set_block_signals(true)
+	if view_mode == ViewMode.GRID:
+		_zoom.min_value = 1
+		_zoom.max_value = 8
+		_zoom.step = 1
+		_zoom.value = grid_cols
+		_zoom.tooltip_text = "Columnas de la rejilla"
+	else:
+		_zoom.min_value = 56
+		_zoom.max_value = 220
+		_zoom.step = 4
+		_zoom.value = thumb_w
+		_zoom.tooltip_text = "Tamaño de las miniaturas"
+	_zoom.set_block_signals(false)
+
+func _load_prefs() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(PREFS) == OK:
+		view_mode = MODE_NAMES.find(String(cf.get_value("pages", "view_mode", "simple")))
+		if view_mode < 0:
+			view_mode = ViewMode.SIMPLE
+		thumb_w = clampf(float(cf.get_value("pages", "thumb_w", thumb_w)), 56.0, 220.0)
+		grid_cols = clampi(int(cf.get_value("pages", "grid_cols", grid_cols)), 1, 8)
+	_sync_mode_ui()
+
+func _save_prefs() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("pages", "view_mode", MODE_NAMES[view_mode])
+	cf.set_value("pages", "thumb_w", thumb_w)
+	cf.set_value("pages", "grid_cols", grid_cols)
+	cf.save(PREFS)
+
+# ── geometría (una celda por página, según el modo) ──────────────────────────
+## Ancho de la miniatura en el modo actual.
+func _box_w() -> float:
+	var w := maxf(grid.size.x if grid else 0.0, 1.0)
+	match view_mode:
+		ViewMode.GRID:
+			return maxf(24.0, (w - 4.0) / grid_cols - CELL_PAD * 2.0)
+		ViewMode.SPREAD:
+			# dos páginas por pliego: que quepa al menos uno
+			return minf(thumb_w, maxf(24.0, (w - 8.0) * 0.5 - CELL_PAD))
+	return thumb_w
+
 func _cell_size() -> Vector2:
-	return Vector2(thumb_w + CELL_PAD * 2.0, thumb_w * 1.414 + LABEL_H + CELL_PAD * 2.0)
+	var bw := _box_w()
+	return Vector2(bw + CELL_PAD * 2.0, bw * 1.414 + LABEL_H + CELL_PAD * 2.0)
 
 func _cols() -> int:
+	if view_mode == ViewMode.GRID:
+		return grid_cols
 	return maxi(1, int(floor(maxf(grid.size.x, 1.0) / _cell_size().x)))
 
-func _cell_rect(i: int) -> Rect2:
+## Pliegos: [[0], [1, 2], [3, 4], …] (la portada sola).
+static func spreads(n: int) -> Array:
+	var out: Array = []
+	if n <= 0:
+		return out
+	out.append([0])
+	var i := 1
+	while i < n:
+		out.append([i, i + 1] if i + 1 < n else [i])
+		i += 2
+	return out
+
+func _build_rects() -> void:
+	_rects.clear()
+	var n := pages().size()
 	var cs := _cell_size()
+	var w := maxf(grid.size.x, 1.0)
+	if view_mode == ViewMode.SPREAD:
+		var y := 0.0
+		var pair_w := cs.x * 2.0
+		var x0 := (w - pair_w) * 0.5
+		_rects.resize(n)
+		for sp in spreads(n):
+			if sp.size() == 2:
+				_rects[sp[0]] = Rect2(Vector2(x0, y), cs)                 # par, izquierda
+				_rects[sp[1]] = Rect2(Vector2(x0 + cs.x, y), cs)          # impar, derecha
+			elif sp[0] == 0:
+				_rects[0] = Rect2(Vector2(x0 + cs.x, y), cs)              # portada: derecha
+			else:
+				_rects[sp[0]] = Rect2(Vector2(x0, y), cs)                 # última par: izquierda
+			y += cs.y + SPREAD_GAP
+		_content_h = y
+		return
 	var cols := _cols()
-	var x0 := (grid.size.x - cols * cs.x) * 0.5
-	return Rect2(Vector2(x0 + (i % cols) * cs.x, (i / cols) * cs.y), cs)
+	var x0 := maxf(0.0, (w - cols * cs.x) * 0.5)
+	_rects.resize(n)
+	for i in n:
+		_rects[i] = Rect2(Vector2(x0 + (i % cols) * cs.x, (i / cols) * cs.y), cs)
+	_content_h = ceilf(float(n) / cols) * cs.y
+
+func _cell_rect(i: int) -> Rect2:
+	if _rects.size() != pages().size():
+		_build_rects()
+	if i < 0 or i >= _rects.size():
+		return Rect2()
+	return _rects[i]
 
 func _relayout() -> void:
 	if grid == null:
 		return
-	var n := pages().size()
-	var rows := int(ceil(float(n) / _cols()))
-	grid.custom_minimum_size = Vector2(0, rows * _cell_size().y + 4.0)
+	_build_rects()
+	_laid_w = grid.size.x
+	grid.custom_minimum_size = Vector2(0, _content_h + 4.0)
 	grid.queue_redraw()
 
 func _index_at(p: Vector2) -> int:
-	var cs := _cell_size()
-	var cols := _cols()
-	var x0 := (grid.size.x - cols * cs.x) * 0.5
-	var col := int(floor((p.x - x0) / cs.x))
-	var row := int(floor(p.y / cs.y))
-	if col < 0 or col >= cols or row < 0:
-		return -1
-	var i := row * cols + col
-	return i if i < pages().size() else -1
+	if _rects.size() != pages().size():
+		_build_rects()
+	for i in _rects.size():
+		if _rects[i].has_point(p):
+			return i
+	return -1
 
-## Índice de inserción (entre celdas) para soltar al reordenar.
+## Índice de inserción (entre celdas) para soltar al reordenar: la celda más
+## cercana de esa fila, antes o después según el lado.
 func _insert_at(p: Vector2) -> int:
-	var cs := _cell_size()
-	var cols := _cols()
-	var x0 := (grid.size.x - cols * cs.x) * 0.5
-	var col := clampi(int(round((p.x - x0) / cs.x)), 0, cols)
-	var row := maxi(0, int(floor(p.y / cs.y)))
-	return clampi(row * cols + col, 0, pages().size())
+	if _rects.size() != pages().size():
+		_build_rects()
+	var n := _rects.size()
+	if n == 0:
+		return 0
+	var best := -1
+	var best_d := INF
+	for i in n:
+		var r := _rects[i]
+		var dy := 0.0 if (p.y >= r.position.y and p.y <= r.end.y) else minf(absf(p.y - r.position.y), absf(p.y - r.end.y)) * 4.0
+		var d := absf(p.x - r.get_center().x) + dy
+		if d < best_d:
+			best_d = d
+			best = i
+	return best + (1 if p.x > _rects[best].get_center().x else 0)
 
 func _visible_range() -> Vector2i:
-	var cs := _cell_size()
-	var cols := _cols()
-	var top := _scroll.scroll_vertical if _scroll else 0
+	if _rects.size() != pages().size():
+		_build_rects()
+	var top := float(_scroll.scroll_vertical) if _scroll else 0.0
 	var h := _scroll.size.y if _scroll else grid.size.y
-	var first := maxi(0, int(floor(top / cs.y)) * cols)
-	var last := mini(pages().size() - 1, int(ceil((top + h) / cs.y)) * cols + cols - 1)
+	var first := -1
+	var last := -1
+	for i in _rects.size():
+		var r := _rects[i]
+		if r.end.y >= top and r.position.y <= top + h:
+			if first < 0:
+				first = i
+			last = i
+		elif first >= 0 and r.position.y > top + h:
+			break
+	if first < 0:
+		return Vector2i(0, -1)
 	return Vector2i(first, last)
+
+func _first_visible_index() -> int:
+	if grid == null or pages().is_empty():
+		return -1
+	var vr := _visible_range()
+	return vr.x if vr.y >= vr.x else -1
 
 # ── miniaturas (en segundo plano, solo lo visible) ───────────────────────────
 func _render_next() -> void:
@@ -250,7 +450,7 @@ func _render_thumb(ab: Node2D) -> void:
 		return
 	_rendering = true
 	var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
-	var k := clampf(thumb_w * 2.0 / maxf(sz.x, 1.0), 0.02, 1.0)   # ×2 para pantallas nítidas
+	var k := clampf(_box_w() * 2.0 / maxf(sz.x, 1.0), 0.02, 1.0)   # ×2 para pantallas nítidas
 	var img: Image = await ab.render_to_image(k, false)
 	_rendering = false
 	if not is_inside_tree() or not is_instance_valid(ab) or img == null or img.is_empty():
@@ -275,7 +475,7 @@ func _draw_grid() -> void:
 		var cell := _cell_rect(i)
 		var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
 		var box_h := cell.size.y - LABEL_H - CELL_PAD * 2.0
-		var box_w := thumb_w
+		var box_w := _box_w()
 		var k := minf(box_w / sz.x, box_h / sz.y)
 		var tsz := sz * k
 		var tr := Rect2(cell.position + Vector2(CELL_PAD + (box_w - tsz.x) * 0.5, CELL_PAD + (box_h - tsz.y) * 0.5), tsz)
@@ -295,8 +495,6 @@ func _draw_grid() -> void:
 	if _drop_at >= 0:
 		var r := _cell_rect(mini(_drop_at, ps.size() - 1))
 		var x := r.position.x if _drop_at < ps.size() else r.end.x
-		if _drop_at < ps.size() and _drop_at % _cols() == 0 and _drop_at > 0:
-			x = r.position.x
 		grid.draw_line(Vector2(x, r.position.y + 4), Vector2(x, r.end.y - 4), acc, 3.0)
 
 # ── entrada ──────────────────────────────────────────────────────────────────
