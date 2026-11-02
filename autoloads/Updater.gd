@@ -17,6 +17,7 @@ extends Node
 signal update_available(info: Dictionary)
 signal check_finished(info: Dictionary)          # {} = no hay nada nuevo / error
 signal download_progress(done: int, total: int)
+signal download_finished(path: String)
 signal install_finished(ok: bool, message: String)
 
 const REPO := "malabo1990/-Vectopen"
@@ -178,6 +179,13 @@ func download_and_install(info: Dictionary = latest) -> void:
 		OS.shell_open(String(info.get("page", RELEASES_URL)))
 		install_finished.emit(false, tr("No hay paquete para este sistema: se abre la página de descargas."))
 		return
+	download(asset, func(path: String) -> void: _install(path, kind))
+
+## Descarga `asset` en user://updates/ (con progreso) y llama a `then(ruta)`.
+## Emite `download_finished` (ruta vacía si falla).
+func download(asset: Dictionary, then: Callable = Callable()) -> void:
+	if downloading:
+		return
 	var dir := OS.get_user_data_dir().path_join("updates")
 	DirAccess.make_dir_recursive_absolute(dir)
 	var dest := dir.path_join(String(asset["name"]))
@@ -185,6 +193,7 @@ func download_and_install(info: Dictionary = latest) -> void:
 	_http = HTTPRequest.new()
 	_http.download_file = dest
 	_http.use_threads = true
+	_http.max_redirects = 10   # GitHub redirige a su CDN
 	add_child(_http)
 	var total := int(asset.get("size", 0))
 	var timer := Timer.new()
@@ -200,12 +209,16 @@ func download_and_install(info: Dictionary = latest) -> void:
 		downloading = false
 		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 			install_finished.emit(false, tr("La descarga falló (%d).") % code)
+			download_finished.emit("")
 			return
 		download_progress.emit(total, total)
-		_install(dest, kind))
+		download_finished.emit(dest)
+		if then.is_valid():
+			then.call(dest))
 	if _http.request(String(asset["url"]), ["User-Agent: Vectopen/" + current_version()]) != OK:
 		downloading = false
 		install_finished.emit(false, tr("No se pudo iniciar la descarga."))
+		download_finished.emit("")
 
 func _install(file: String, kind: String) -> void:
 	match kind:
