@@ -236,10 +236,13 @@ func set_view_mode(m: int) -> void:
 		var vr := _visible_range()
 		if vr.x <= ai and ai <= vr.y:
 			keep = ai
+	var changed := view_mode != m
 	view_mode = m
 	_sync_mode_ui()
 	_cache.clear()          # otra resolución de miniatura
 	_relayout()
+	if changed:
+		_relayout_canvas()   # VAL-04: el lienzo también en pliegos
 	_save_prefs()
 	if keep >= 0 and _scroll:
 		_restore_scroll(keep)
@@ -691,10 +694,33 @@ func _relayout_canvas() -> void:
 		if ab.global_position.x < x:
 			x = ab.global_position.x
 			y = ab.global_position.y
+	if view_mode == ViewMode.SPREAD:
+		_relayout_canvas_spreads(ps, Vector2(x, y))
+		return
 	for ab in ps:
 		ab.global_position = Vector2(x, y)
 		var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
 		x += sz.x + GAP
+
+## VAL-04: en la vista Pliegos el LIENZO también se ordena en pliegos, como
+## InDesign: la portada sola a la derecha, luego las páginas de dos en dos
+## enfrentadas (sin hueco entre ellas), un pliego debajo de otro.
+func _relayout_canvas_spreads(ps: Array, origin: Vector2) -> void:
+	var w := 0.0
+	for ab in ps:
+		w = maxf(w, (ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)).x)
+	var y := origin.y
+	for sp in spreads(ps.size()):
+		var row_h := 0.0
+		var pair: bool = (sp as Array).size() == 2
+		for k in (sp as Array).size():
+			var ab: Node2D = ps[sp[k]]
+			var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(794, 1123)
+			# Página impar (derecha) / par (izquierda); la portada va a la derecha.
+			var right: bool = (k == 1) if pair else (int(sp[k]) == 0)
+			ab.global_position = Vector2(origin.x + (w if right else w - sz.x), y)
+			row_h = maxf(row_h, sz.y)
+		y += row_h + GAP
 
 func _selected_in_order() -> Array:
 	return pages().filter(func(ab) -> bool: return selected.has(ab))
