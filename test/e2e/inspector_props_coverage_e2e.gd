@@ -226,6 +226,13 @@ func _drag_value(c: Object, nv: float) -> void:
 ## `_acted` queda en false si el control se saltó a propósito (lista DENY,
 ## desactivado, cabecera ya abierta…): esos no cuentan como «sin efecto».
 var _acted := false
+## Un color DISTINTO en cada uso: con uno fijo, si un control anterior ya lo
+## había puesto, el siguiente «no cambiaba nada» y contaba como sin efecto.
+var _color_i := 0
+func _next_color() -> Color:
+	_color_i += 1
+	return Color.from_hsv(fmod(0.13 + _color_i * 0.618034, 1.0), 0.7, 0.8)
+
 func exercise(c: Control) -> void:
 	_done[c.get_instance_id()] = true
 	_acted = true
@@ -265,7 +272,7 @@ func _exercise(c: Control) -> void:
 		le.text_submitted.emit(nt)
 	elif c is ColorPickerButton:
 		var cp := c as ColorPickerButton
-		cp.color = Color(0.2, 0.6, 0.3, 1)
+		cp.color = _next_color()
 		cp.color_changed.emit(cp.color)
 	elif c is BaseButton and not (c.has_signal("color_changed") and "color" in c):
 		var b := c as BaseButton
@@ -299,7 +306,7 @@ func _exercise(c: Control) -> void:
 			nv = v - 1.0
 		_drag_value(c, nv)
 	elif c.has_signal("color_changed") and "color" in c and c.get("color") is Color:
-		c.set("color", Color(0.7, 0.2, 0.5, 1))
+		c.set("color", _next_color())
 		c.emit_signal("color_changed", c.get("color"))
 	elif c.mouse_filter == Control.MOUSE_FILTER_STOP and not (c is Container and c.get_script() == null) \
 			and not (c is LineEdit or c is TextEdit or c is ScrollBar or c is Label) \

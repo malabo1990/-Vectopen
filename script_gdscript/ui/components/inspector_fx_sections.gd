@@ -95,6 +95,7 @@ func _toggle() -> void:
 	if not is_open():
 		_pinned.erase(kind)
 	_refresh_header()
+	_sync_visibility()
 
 func _refresh_header() -> void:
 	if not is_instance_valid(_btn):
@@ -128,8 +129,17 @@ func _sync_visibility() -> void:
 	if _pinned.get(kind, false):
 		visible = true
 	elif kind == SCRIPT:
-		visible = true          # los scripts trabajan con todo el documento
-	elif kind == FILTERS or kind == SHADER:
+		# UX-19: sin nada asignado no se muestra; se abre con su icono de la
+		# barra superior (los scripts trabajan con todo el documento).
+		visible = false
+	elif kind == SHADER:
+		# UX-19: solo si algún objeto seleccionado tiene un shader asignado.
+		visible = false
+		for n in sel:
+			if is_instance_valid(n) and n.has_meta("custom_shader") and not (n.get_meta("custom_shader", {}) as Dictionary).is_empty():
+				visible = true
+				break
+	elif kind == FILTERS:
 		visible = not sel.is_empty()
 	else:
 		var has_img := false
