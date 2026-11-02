@@ -562,6 +562,7 @@ func add_text_box(rect: Rect2, text: String, font_size: int = 14, color: Color =
 		vrt.set_font_size(float(font_size))
 		vrt.set_columns(clampi(columns, 1, 16), maxf(0.0, gap))
 		t.add_child(vrt)
+		label.visible = false   # VAL-22: pinta el nativo (si no, salían los dos)
 	t.position = rect.position
 	var out := add(t)
 	# Como add_text: el marco nace ajustado a su contenido (si no, el primer
@@ -621,12 +622,34 @@ func duplicate(node: Node2D, offset: Vector2 = Vector2(20, 20)) -> Node2D:
 		return null
 	var c: Node2D = node.duplicate(Node.DUPLICATE_SIGNALS | Node.DUPLICATE_GROUPS | Node.DUPLICATE_SCRIPTS)
 	var added := add(c, node.get_parent())
+	if added:
+		_resync_texts(added)
 	if added and offset != Vector2.ZERO:
 		if added is VectorShape:
 			added.set_doc_position(DVec2.from_v2(node.get_doc_position().to_v2() + offset))
 		else:
 			added.position = node.position + offset
 	return added
+
+## VAL-22: el texto nativo (VectorRichText) guarda parte de su estado fuera de
+## las propiedades que copia `duplicate()`: tras copiar, cada texto se vuelve
+## a montar desde sus metas, como al abrir un archivo.
+static func _resync_texts(root_node: Node) -> void:
+	var stack: Array = [root_node]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Node2D and String(n.get_meta("shape_type", "")).begins_with("text") and n.get_node_or_null("VectorRichText"):
+			# Uno nuevo (párrafo, columnas, fuentes, runs): la copia a medias
+			# perdía tamaño y ajuste de líneas.
+			var old: Node = n.get_node("VectorRichText")
+			var idx := old.get_index()
+			n.remove_child(old)
+			old.free()
+			var vrt = TextCore.ensure_vrt(n)
+			if vrt:
+				n.move_child(vrt, idx)
+			continue
+		stack.append_array(n.get_children())
 
 ## Agrupa objetos del mismo padre en un grupo nuevo.
 func group(nodes: Array, name: String = "Grupo") -> Node2D:

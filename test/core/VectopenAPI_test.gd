@@ -384,3 +384,25 @@ func test_vectorizar_imagen() -> void:
 	HistoryManager.undo()
 	assert_object(g.get_parent()).is_null()
 	assert_bool(sp.visible).is_true()
+
+## VAL-22: al duplicar (objeto o página) el texto copiado se ve igual que el
+## original (antes el texto nativo de la copia salía a su tamaño por defecto),
+## y el marco de texto no pinta también la etiqueta antigua por encima.
+func test_duplicar_texto_conserva_su_aspecto() -> void:
+	if not ClassDB.class_exists("VectorRichText"):
+		return
+	var t := _api.add_text(Vector2(40, 40), "Ballena", 40, Color.WHITE)
+	await get_tree().process_frame
+	var c := _api.duplicate(t, Vector2(0, 100))
+	await get_tree().process_frame
+	var a: Vector2 = t.get_node("VectorRichText").get_content_size()
+	var b: Vector2 = c.get_node("VectorRichText").get_content_size()
+	assert_float(b.y).is_equal_approx(a.y, 1.0)
+	assert_float(b.x).is_equal_approx(a.x, 1.0)
+	var box := _api.add_text_box(Rect2(Vector2(40, 300), Vector2(300, 100)), "Texto del marco. ".repeat(10), 16)
+	assert_bool((box.get_node("DisplayLabel") as CanvasItem).visible).is_false()
+	# El marco copiado sigue partiendo líneas (mismo alto de contenido).
+	await get_tree().process_frame
+	var box2 := _api.duplicate(box, Vector2(0, 200))
+	await get_tree().process_frame
+	assert_float(box2.get_node("VectorRichText").get_content_size().y).is_equal_approx(box.get_node("VectorRichText").get_content_size().y, 1.0)
