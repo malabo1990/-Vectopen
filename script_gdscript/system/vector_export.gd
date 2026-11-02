@@ -186,6 +186,7 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 ## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
 ## El punteado se exporta como trazos de largo 0 con remate redondo.
 const StrokeGeomX = preload("res://script_gdscript/shapes/stroke_geom.gd")
+const PageFieldsX = preload("res://script_gdscript/text/page_fields.gd")
 
 ## Guiones como texto: «a b c d».
 static func _dash_list(it: Dictionary, sep: String = " ") -> String:
@@ -245,6 +246,7 @@ static func _text(n: Node, xf: Transform2D, op: float, out: Dictionary) -> void:
 	var dl := n.get_node_or_null("DisplayLabel") as Label
 	if txt == "" and dl:
 		txt = dl.text
+	txt = PageFieldsX.resolve(txt, n)   # VAL-01: {pág} / {total} → números
 	if txt.strip_edges() == "":
 		return
 	var col: Color = n.get_meta("text_color") if n.has_meta("text_color") else Color.BLACK

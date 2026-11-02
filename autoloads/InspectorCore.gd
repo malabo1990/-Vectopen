@@ -32,6 +32,7 @@ signal selection_size_changed(count: int)
 
 ## Propiedades expuestas. Cada una: {value, mixed, editable}.
 const StrokeGeomRef = preload("res://script_gdscript/shapes/stroke_geom.gd")
+const PageFields = preload("res://script_gdscript/text/page_fields.gd")
 
 const PROPS := [
 	"name", "pos_x", "pos_y", "width", "height", "rotation",
@@ -600,7 +601,18 @@ func _overlay_editing_style(out: Dictionary) -> void:
 ## salir de la edición). Comparación barata por fotograma.
 var _edit_key := ""
 
+var _pages_sig := ""
+var _pages_tick := 0
+
 func _process(_dt: float) -> void:
+	# VAL-01: al cambiar las páginas (añadir, borrar, reordenar, abrir) se
+	# recalculan los números de página de los textos con {pág} / {total}.
+	_pages_tick += 1
+	if _pages_tick % 20 == 0 and is_inside_tree():
+		var sig := PageFields.signature(get_tree())
+		if sig != _pages_sig:
+			_pages_sig = sig
+			PageFields.refresh_all(get_tree())
 	var st := TextCore.selection_style(get_tree()) if is_inside_tree() else {}
 	var key := ""
 	if not st.is_empty():
@@ -1734,12 +1746,14 @@ func _write_text_content(shape, txt: String) -> void:
 	if not _is_text(shape):
 		return
 	shape.set_meta("text", txt)
+	# VAL-01: {pág} / {total} se muestran con el número (se guardan como marcador).
+	var shown := PageFields.resolve(txt, shape)
 	var dl := _text_label(shape)
 	if dl and "text" in dl:
-		dl.text = txt
+		dl.text = shown
 	var vrt = shape.get_node_or_null("VectorRichText")
 	if vrt:
-		vrt.set_text(txt)
+		vrt.set_text(shown)
 		vrt.queue_redraw()
 	var me: Node = shape.get_node_or_null("MultiLineEdit")
 	if me == null: me = shape.get_node_or_null("LineEdit")
