@@ -77,7 +77,9 @@ for t in "${TESTS[@]}"; do
 	result=$(grep -oE 'RESULT[: ].*' "$log" | tail -1)
 	printf '%-26s %3d PASS %3d FAIL  %s\n' "$t" "$pass" "$fail" "${result:-SIN RESULTADO}"
 	grep '^FAIL' "$log" | head -5 | sed 's/^/    /'
-	if [ "$fail" -gt 0 ] || ! grep -qE 'RESULT(:)? (OK|PASS|DONE)' "$log"; then
+	# Éxito: sin FAIL y un RESULT de éxito (OK, PASS, DONE o «0 fallos»; las
+	# pruebas antiguas usan «RESULT 0 fallos» y se contaban como fallidas).
+	if [ "$fail" -gt 0 ] || ! grep -qE 'RESULT(:)? (OK|PASS|DONE|0 fallos)' "$log"; then
 		fails=$((fails + 1))
 	fi
 done
