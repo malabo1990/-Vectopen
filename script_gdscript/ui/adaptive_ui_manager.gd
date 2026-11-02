@@ -352,6 +352,9 @@ func apply_ui_mode(mode: String) -> void:
 	# Si estaba activo el modo Focus Canvas, restaurarlo
 	if _focus_canvas_active:
 		_focus_canvas_active = false
+	# El lateral flotante de Pro vuelve a su sitio al salir de Pro.
+	if _inspector_floating and mode != "professional":
+		set_inspector_floating(false)
 
 	match mode:
 		"smart":
@@ -369,6 +372,7 @@ func apply_ui_mode(mode: String) -> void:
 		_close_floating_panels()
 	_applied_mode = mode
 	_sync_edge_resizer.call_deferred()
+	_ensure_right_resizer.call_deferred()
 
 func _apply_smart_mode() -> void:
 	# Smart Panel: Canvas First. Ocultar chrome de Modern UI y Docked Inspector
@@ -580,7 +584,7 @@ func _apply_modern_mode() -> void:
 		docked_inspector.anchor_right = 1.0
 		docked_inspector.anchor_top = 0.0
 		docked_inspector.anchor_bottom = 1.0
-		docked_inspector.offset_left = -268.0
+		docked_inspector.offset_left = -right_dock_width("modern")
 		docked_inspector.offset_right = 0.0
 		docked_inspector.offset_top = 36.0 # Bajo la ModernTopBar
 		docked_inspector.offset_bottom = 0.0
@@ -728,7 +732,7 @@ func _apply_professional_mode() -> void:
 		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control
 		if regla_h:
 			regla_h.offset_left = left_x + 24.0
-			var right_offset: float = -PRO_RIGHT_W if is_instance_valid(pro_studio) else 0.0
+			var right_offset: float = -right_dock_width("professional") if is_instance_valid(pro_studio) and not _inspector_floating else 0.0
 			regla_h.offset_right = right_offset
 		if windows_regla.has_method("_aplicar_estilo_tema"):
 			windows_regla._aplicar_estilo_tema()
@@ -737,8 +741,8 @@ func _apply_professional_mode() -> void:
 	if is_instance_valid(docked_inspector):
 		docked_inspector.visible = false
 
-	# Activar ProStudio lateral derecho
-	if is_instance_valid(pro_studio):
+	# Activar ProStudio lateral derecho (si flota, lo coloca su ventana)
+	if is_instance_valid(pro_studio) and not _inspector_floating:
 		pro_studio.visible = true
 		pro_studio.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		pro_studio.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -747,8 +751,8 @@ func _apply_professional_mode() -> void:
 		pro_studio.anchor_right = 1.0
 		pro_studio.anchor_top = 0.0
 		pro_studio.anchor_bottom = 1.0
-		pro_studio.custom_minimum_size.x = PRO_RIGHT_W
-		pro_studio.offset_left = -PRO_RIGHT_W
+		pro_studio.custom_minimum_size.x = right_dock_width("professional")
+		pro_studio.offset_left = -right_dock_width("professional")
 		pro_studio.offset_right = 0.0
 		pro_studio.offset_top = PRO_TOP_H
 		pro_studio.offset_bottom = 0.0
@@ -1216,10 +1220,10 @@ func _update_modern_rulers(sidebar_open: bool) -> void:
 	if regla_h:
 		regla_h.offset_left = left_x + 24.0
 		var right_offset: float = 0.0
-		if is_instance_valid(pro_studio) and pro_studio.visible:
-			right_offset = -PRO_RIGHT_W
+		if is_instance_valid(pro_studio) and pro_studio.visible and not _inspector_floating:
+			right_offset = -right_dock_width("professional")
 		elif is_instance_valid(docked_inspector) and docked_inspector.visible:
-			right_offset = -268.0
+			right_offset = -right_dock_width("modern")
 		regla_h.offset_right = right_offset
 
 	if is_instance_valid(manager_windws_regla) and manager_windws_regla.visible:
@@ -1765,3 +1769,138 @@ func set_left_dock_width(w: float) -> void:
 		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control
 		if regla_h:
 			regla_h.offset_left = width + 24.0
+
+# ── Ancho del Inspector (lateral DERECHO) arrastrando su borde (UX-14) ──────
+## Modern: Inspector · Pro: barra lateral. Borde IZQUIERDO del panel (el
+## lienzo y la regla se apartan). Doble clic = ancho por defecto. Se guarda
+## por modo. En Pro el lateral además puede flotar en su propia ventana.
+const RIGHT_DEFAULT_W := {"modern": 268.0, "professional": PRO_RIGHT_W}
+const RIGHT_MIN_W := 240.0
+var _right_resizer: Control = null
+var _inspector_floating := false
+var _inspector_window: Window = null
+var _float_size := Vector2i.ZERO
+
+func _ui_mode() -> String:
+	var gui := get_node_or_null("/root/GlobalUI")
+	return gui.get_ui_mode() if is_instance_valid(gui) and gui.has_method("get_ui_mode") else "smart"
+
+## Ancho del lateral derecho en `mode`: el guardado o el de por defecto.
+func right_dock_width(mode: String) -> float:
+	var LS = load("res://script_gdscript/ui/panels/layers_settings.gd")
+	var cfg := ConfigFile.new()
+	cfg.load(LS.CFG)
+	var w := float(cfg.get_value("panel", "inspector_width_" + mode, 0.0))
+	if w <= 0.0:
+		w = float(RIGHT_DEFAULT_W.get(mode, 268.0))
+	return clampf(w, RIGHT_MIN_W, _right_max_w())
+
+func _right_max_w() -> float:
+	var vp := get_viewport().get_visible_rect().size if get_viewport() else Vector2(1920, 1080)
+	return maxf(RIGHT_MIN_W + 40.0, vp.x * 0.6)
+
+func _right_panel() -> Control:
+	match _ui_mode():
+		"modern": return docked_inspector
+		"professional": return null if _inspector_floating else pro_studio
+	return null
+
+## Aplica el ancho `w` al lateral derecho del modo actual y aparta la regla.
+func set_right_dock_width(w: float) -> void:
+	var mode := _ui_mode()
+	w = clampf(w, RIGHT_MIN_W, _right_max_w())
+	var p := _right_panel()
+	if p == null:
+		return
+	if mode == "professional":
+		p.custom_minimum_size.x = w
+	p.offset_left = -w
+	p.offset_right = 0.0
+	var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control if is_instance_valid(windows_regla) else null
+	if regla_h:
+		regla_h.offset_right = -w
+		regla_h.queue_redraw()
+
+func _ensure_right_resizer() -> void:
+	if not is_instance_valid(_right_resizer):
+		var host := docked_inspector.get_parent() if is_instance_valid(docked_inspector) else (pro_studio.get_parent() if is_instance_valid(pro_studio) else null)
+		if host == null:
+			return
+		_right_resizer = load("res://script_gdscript/ui/components/panel_edge_resizer.gd").new()
+		_right_resizer.name = "InspectorEdgeResizer"
+		_right_resizer.edge_left = true
+		host.add_child(_right_resizer)
+		_right_resizer.dragged.connect(func(dx: float) -> void:
+			var p := _right_panel()
+			if p:
+				set_right_dock_width(p.size.x - dx))   # hacia la izquierda = más ancho
+		_right_resizer.released.connect(func() -> void:
+			var p := _right_panel()
+			if p:
+				load("res://script_gdscript/ui/panels/layers_settings.gd").save_value("inspector_width_" + _ui_mode(), roundf(p.size.x)))
+		_right_resizer.reset_requested.connect(func() -> void:
+			var mode := _ui_mode()
+			load("res://script_gdscript/ui/panels/layers_settings.gd").save_value("inspector_width_" + mode, 0.0)
+			set_right_dock_width(float(RIGHT_DEFAULT_W.get(mode, 268.0))))
+	_right_resizer.target = _right_panel()
+	_right_resizer.get_parent().move_child(_right_resizer, -1)
+	var p := _right_panel()
+	if p:
+		set_right_dock_width(right_dock_width(_ui_mode()))
+
+# ── Pro: barra lateral FLOTANTE ─────────────────────────────────────────────
+## Saca el lateral de Pro a una ventana propia (movible y redimensionable) y
+## lo vuelve a acoplar al cerrarla. Es el MISMO nodo (no se recrea): conserva
+## pestaña, desplazamiento y estado; la ventana recuerda su tamaño.
+func is_inspector_floating() -> bool:
+	return _inspector_floating
+
+func set_inspector_floating(on: bool) -> void:
+	if on == _inspector_floating or not is_instance_valid(pro_studio):
+		return
+	if on and _ui_mode() != "professional":
+		return
+	var vp := get_viewport().get_visible_rect().size
+	if on:
+		var w := int(right_dock_width("professional"))
+		var win := Window.new()
+		win.name = "InspectorWindow"
+		win.title = tr("Inspector")
+		win.min_size = Vector2i(int(RIGHT_MIN_W), 320)
+		win.size = _float_size if _float_size != Vector2i.ZERO else Vector2i(w, int(vp.y * 0.8))
+		win.position = Vector2i(int(vp.x) - win.size.x - 40, int(PRO_TOP_H) + 24)
+		win.wrap_controls = false
+		win.close_requested.connect(func() -> void: set_inspector_floating(false))
+		pro_studio.get_parent().add_child(win)
+		_inspector_window = win
+		_float_home = [pro_studio.get_parent(), pro_studio.get_index()]
+		pro_studio.reparent(win, false)
+		pro_studio.custom_minimum_size.x = 0.0
+		pro_studio.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_inspector_floating = true
+		var regla_h = windows_regla.get_node_or_null("regla horizontal") as Control if is_instance_valid(windows_regla) else null
+		if regla_h:
+			regla_h.offset_right = 0.0
+		win.popup()
+	else:
+		var win := _inspector_window
+		if is_instance_valid(win):
+			_float_size = win.size
+		var home: Array = _float_home
+		_inspector_floating = false
+		if home.size() == 2 and is_instance_valid(home[0]):
+			pro_studio.reparent(home[0], false)
+			(home[0] as Node).move_child(pro_studio, mini(int(home[1]), (home[0] as Node).get_child_count() - 1))
+		if is_instance_valid(win):
+			win.queue_free()
+		_inspector_window = null
+		if _ui_mode() == "professional":
+			_apply_professional_mode()
+		else:
+			pro_studio.visible = false
+	inspector_floating_changed.emit(_inspector_floating)
+	_ensure_right_resizer.call_deferred()
+
+var _float_home: Array = []
+signal inspector_floating_changed(on: bool)
+

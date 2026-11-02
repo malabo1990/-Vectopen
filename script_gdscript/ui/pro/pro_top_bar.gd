@@ -131,6 +131,23 @@ func _build() -> void:
 	_row.add_child(btn_export)
 	_row.add_child(ProUIStyle.vsep())
 
+	# Lateral flotante (UX-14): sacarlo a su ventana y volver a acoplarlo.
+	var btn_float := ProUIStyle.action_button("", "res://icon/UI/app-window.svg", tr("Inspector flotante (ventana propia)"))
+	btn_float.name = "BtnFloatInspector"
+	btn_float.toggle_mode = true
+	btn_float.custom_minimum_size = Vector2(24, 22)
+	btn_float.toggled.connect(func(on: bool) -> void:
+		var m := get_tree().root.find_child("AdaptiveUIManager", true, false)
+		if m and m.has_method("set_inspector_floating"):
+			m.set_inspector_floating(on))
+	_row.add_child(btn_float)
+	(func() -> void:
+		var m := get_tree().root.find_child("AdaptiveUIManager", true, false) if is_inside_tree() else null
+		if m and m.has_signal("inspector_floating_changed"):
+			m.inspector_floating_changed.connect(func(on: bool) -> void:
+				if is_instance_valid(btn_float):
+					btn_float.set_pressed_no_signal(on))).call_deferred()
+
 	var btn_settings := ProUIStyle.action_button("", "res://icon/UI/settings.svg", tr("Configuración"))
 	btn_settings.custom_minimum_size = Vector2(24, 22)
 	btn_settings.pressed.connect(func():

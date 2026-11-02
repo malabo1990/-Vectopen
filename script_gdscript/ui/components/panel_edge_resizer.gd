@@ -16,6 +16,8 @@ extends Control
 
 signal dragged(dx: float)
 signal released()
+## Doble clic en el borde: volver al ancho por defecto.
+signal reset_requested()
 
 const GRAB_W := 8.0
 
@@ -54,6 +56,11 @@ func _process(_dt: float) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.double_click:
+			_dragging = false
+			reset_requested.emit()
+			accept_event()
+			return
 		if mb.pressed:
 			_dragging = true
 			_last_x = mb.global_position.x
