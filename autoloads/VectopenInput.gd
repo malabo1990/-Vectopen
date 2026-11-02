@@ -48,13 +48,49 @@ const TOOL_ACTIONS := {
 }
 
 ## Herramienta para esta tecla (sin modificadores), o "" si no es de herramienta.
+## Mientras se escribe en un campo de texto NUNCA es atajo (UX-02).
 func tool_for_event(event: InputEvent) -> String:
+	if is_typing():
+		return ""
 	for action in TOOL_ACTIONS:
 		if is_action_exact(event, action):
 			return TOOL_ACTIONS[action]
 	return ""
 
 const PenScrub = preload("res://script_gdscript/ui/pen_scrub.gd")
+
+## ¿Hay un campo de texto con el teclado? (LineEdit, TextEdit, SpinBox o un
+## editor propio que diga is_editing()). Guarda única para los atajos de una
+## letra: si es así, la tecla es texto, no herramienta.
+func is_typing() -> bool:
+	var vp := get_viewport()
+	var fo: Control = vp.gui_get_focus_owner() if vp else null
+	if fo == null or not fo.is_visible_in_tree():
+		return false
+	if fo is LineEdit:
+		return (fo as LineEdit).editable
+	if fo is TextEdit:
+		return (fo as TextEdit).editable
+	if fo is SpinBox:
+		return true
+	return fo.has_method("is_editing") and bool(fo.call("is_editing"))
+
+## Escape en un campo de texto: el campo lo recibe primero (cancela o
+## restaura su valor) y después se suelta el foco para que el teclado vuelva
+## al lienzo. Los editores de código (Script/Shader) usan Escape para cerrar
+## el autocompletado: no se tocan.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE):
+		return
+	var fo: Control = get_viewport().gui_get_focus_owner()
+	if fo == null or fo is CodeEdit:
+		return
+	if fo is LineEdit or fo is TextEdit or fo is SpinBox:
+		_release_later.call_deferred(fo)
+
+func _release_later(fo: Control) -> void:
+	if is_instance_valid(fo) and fo.has_focus():
+		fo.release_focus()
 
 func _ready() -> void:
 	_register_defaults()
