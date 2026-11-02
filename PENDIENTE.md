@@ -769,7 +769,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
-**Resumen Fase B:** 7 / 30 proyectos aprobados.
+**Resumen Fase B:** 8 / 30 proyectos aprobados.
 
 **Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
 iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
@@ -886,6 +886,7 @@ convierte el encargo en defecto `VAL-nn`.
 | VAL-17 | 06 Isotipo anillo | Smart | Seleccionar un círculo y buscar «Forma» en el inspector | Forma/anillo/ángulos también en el inspector, como en Pro | Solo desde el botón «Figuras» de la barra | Baja | Acumulado |
 | VAL-18 | 06 Isotipo anillo | Smart | Botón «Figuras» con una elipse seleccionada | Título acorde (p. ej. «FIGURAS») | Dice «POLÍGONOS Y ESTRELLAS» | Baja | Acumulado |
 | VAL-19 | 07 Tarjeta de visita | Modern | Sangrado 3 mm → exportar PDF | PDF de 91 × 56 mm con TrimBox de 85 × 50 mm | El PDF salía al tamaño de corte, sin sangrado | Media | Corregido |
+| VAL-20 | 08 Infografía | Pro | Ejes con punta de flecha → exportar SVG/PDF/EPS | Las flechas como en pantalla | Se perdían las puntas (solo la línea) | Media | Corregido |
 
 ### 19.5. Automatización y materiales
 
@@ -921,7 +922,7 @@ convierte el encargo en defecto `VAL-nn`.
 | 05 Logo vectorial | Aprobado | Pro | VAL-16 (corregido); VAL-05 se repite (rótulo «Artboard» en el lienzo) |
 | 06 Isotipo anillo | Aprobado | Smart | VAL-17, VAL-18 (bajas) |
 | 07 Tarjeta de visita | Aprobado | Modern | VAL-19 (corregido) |
-| 08 Infografía | Pendiente | — | — |
+| 08 Infografía | Aprobado | Pro | VAL-20 (corregido) |
 | 09 Enciclopedia visual | Pendiente | — | — |
 | 10 UI kit | Pendiente | — | — |
 | 11 Wireframe landing | Pendiente | — | — |
