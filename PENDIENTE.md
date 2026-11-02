@@ -200,9 +200,21 @@ presentes en otros modos o en la arquitectura del producto.
 `autoloads/PluginManager.gd`, `docs/en/guides/SCRIPTS_AND_ADDONS.md`.
 
 **Criterio de aceptación.**
-- [ ] Ambas pestañas visibles y funcionales en Modern y Pro.
-- [ ] El script abierto y los plugins activos sobreviven al cambio de modo.
-- [ ] Sin regresiones en Smart.
+- [x] Ambas pestañas visibles y funcionales en Modern y Pro.
+- [x] El script abierto y los plugins activos sobreviven al cambio de modo.
+- [x] Sin regresiones en Smart.
+
+**Resolución (2026-11-02).** La sección SCRIPT (módulos Scripts y
+Complementos, el mismo `script_panel.gd` de Smart) ya estaba en el inspector
+de Modern y en la pestaña Efectos de Pro, pero fallaba: (1) la lista de
+complementos medía 0 px dentro del inspector y no se veía ninguno; (2) el
+plegado es compartido y, al cambiar de modo, la cabecera decía «abierta»
+con el cuerpo oculto; (3) cada modo tenía su propio script. Ahora la lista
+crece con su contenido en modo compacto, la sección se resincroniza al
+verse y el script abierto (nombre, código y módulo) se comparte entre
+instancias. Los complementos activos ya eran globales (`PluginManager`).
+Prueba: `test/e2e/panels_script_plugins_e2e.gd` (clics reales, Modern → Pro
+→ Modern y Smart).
 
 **Prueba de interfaz.** `test/e2e/panels_script_plugins_e2e.gd`.
 
@@ -334,7 +346,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-02 | `tools/TextTool.gd`, `ParagraphTool.gd` | `text_drag_size_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | **Cerrada** (2026-11-02) |
-| UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | Abierta |
+| UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | Abierta |
 | UX-07 | `InspectorCore.gd`, `SelectionCore.gd`, `line_bounds.gd` | `brush_selection_perf.gd` | **Cerrada** (2026-11-02) |
 

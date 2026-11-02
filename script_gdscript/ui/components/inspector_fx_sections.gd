@@ -64,6 +64,11 @@ func _ready() -> void:
 	var lm := get_node_or_null("/root/LanguageManager")
 	if lm and lm.has_signal("language_changed"):
 		lm.language_changed.connect(func(_l) -> void: _refresh_header())
+	# El plegado es compartido entre Modern y Pro: al volver a verse, mostrar
+	# el estado actual (antes la cabecera decía «abierta» y el cuerpo seguía oculto).
+	visibility_changed.connect(func() -> void:
+		if is_visible_in_tree():
+			_refresh_header())
 	_sync_visibility()
 
 func title() -> String:

@@ -53,6 +53,13 @@ var _addon_menu_id := ""
 var _file_dialog: FileDialog = null
 
 var _titles: Array[Label] = []
+var _addon_scroll: ScrollContainer = null
+
+## Script abierto y módulo, COMPARTIDOS por todas las instancias (ventana de
+## Smart, inspector de Modern, estudio de Pro): al cambiar de modo se sigue
+## con el mismo script.
+static var _shared := {"name": "", "code": "", "module": "scripts", "rev": 0}
+var _rev := -1
 
 ## Monta la pestaña dentro del nodo "Script" existente de la ventana.
 static func install(effects_panel: Control) -> Control:
@@ -118,7 +125,14 @@ func _ready() -> void:
 			_fit_window.call_deferred())
 	refresh_list()
 	refresh_addons()
-	_load_template("Nuevo script")
+	if String(_shared["code"]) != "":
+		_pull_shared()
+	else:
+		_load_template("Nuevo script")
+	_name.text_changed.connect(func(_t: String) -> void: _push_shared())
+	visibility_changed.connect(func() -> void:
+		if is_visible_in_tree() and _rev != int(_shared["rev"]):
+			_pull_shared())
 	restyle()
 
 func _pm() -> Node:
@@ -130,6 +144,8 @@ func _api() -> VectopenAPI:
 
 ## "scripts" | "addons"
 func show_module(which: String) -> void:
+	if _shared["module"] != which:
+		_shared["module"] = which
 	_page_scripts.visible = which == "scripts"
 	_page_addons.visible = which == "addons"
 	_tabs.set_meta("active", _tab_addons if which == "addons" else _tab_scripts)
@@ -271,6 +287,7 @@ func set_code(nm: String, code: String) -> void:
 	_code.text = code
 	_code.clear_undo_history()
 	_syncing = false
+	_push_shared()
 	_check_now()
 
 func get_code() -> String:
@@ -280,8 +297,25 @@ func _load_template(tname: String) -> void:
 	set_code(Lib.unique_name(tname if tname != "Nuevo script" else "Mi script"), Lib.template_code(tname))
 
 func _on_code_changed() -> void:
+	if not _syncing:
+		_push_shared()
 	if not _syncing and _check_timer:
 		_check_timer.start()
+
+func _push_shared() -> void:
+	if _syncing or _code == null:
+		return
+	_shared["name"] = _name.text
+	_shared["code"] = _code.text
+	_shared["rev"] = int(_shared["rev"]) + 1
+	_rev = int(_shared["rev"])
+
+func _pull_shared() -> void:
+	_rev = int(_shared["rev"])
+	if _code.text != String(_shared["code"]) or _name.text != String(_shared["name"]):
+		set_code(String(_shared["name"]), String(_shared["code"]))
+		_rev = int(_shared["rev"])
+	show_module(String(_shared["module"]))
 
 func _on_code_key(ev: InputEvent) -> void:
 	if not (ev is InputEventKey and ev.pressed):
@@ -529,6 +563,7 @@ func _build_addons() -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	page.add_child(scroll)
+	_addon_scroll = scroll
 	_addon_list = VBoxContainer.new()
 	_addon_list.name = "AddonList"
 	_addon_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -911,6 +946,10 @@ func set_compact(on: bool) -> void:
 	_split.vertical = on
 	_split.split_offset = 0
 	_split.custom_minimum_size.y = 560.0 if on else 0.0
+	# En el inspector (que ya desplaza) la lista de complementos no tenía
+	# alto: se quedaba en 0 px y no se veía ninguno. Ahora crece con ellos.
+	if is_instance_valid(_addon_scroll):
+		_addon_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if on else ScrollContainer.SCROLL_MODE_AUTO
 	for c in _split.get_children():
 		if c is Control:
 			(c as Control).custom_minimum_size.x = 0.0
