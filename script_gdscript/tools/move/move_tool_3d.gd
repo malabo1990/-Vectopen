@@ -126,7 +126,7 @@ func handle_key_3d(event: InputEventKey) -> bool:
 		KEY_F, KEY_KP_PERIOD:
 			m.frame_model()
 		KEY_HOME:
-			m.reset_view()
+			load("res://script_gdscript/shapes/VectorModel3D.gd").reset_view_undoable([m])
 		_:
 			return false
 	if is_instance_valid(canvas):

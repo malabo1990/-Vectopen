@@ -24,7 +24,8 @@ const DENY := ["eliminar", "borrar", "export", "instalar", "carpeta", "abrir", "
 	"importar", "desinstalar", "guardar", "ejecutar", "vectoriz", "crear", "cerrar",
 	"unir", "restar", "intersec", "excluir", "combinar", "separar", "agrupar",
 	"convertir", "curvas", "duplicar", "aplanar", "rasteriz", "recargar", "api",
-	"buscar", "bloquear", "close", "✕", "×", "reemplazar", "descargar", "google", "pegar", "copiar"]
+	"buscar", "bloquear", "close", "✕", "×", "reemplazar", "descargar", "google", "pegar", "copiar",
+	"cambiar archivo", "📂"]
 
 var fails := 0
 var cur_obj: Node2D = null
@@ -40,14 +41,17 @@ var seen_props := {}
 ## Huella barata de lo visible bajo el inspector y sus desplegables: si un
 ## clic muestra u oculta algo (pestaña, sección, desplegable) cambia.
 func _vis_sig(panel_root: Control) -> int:
-	var n := 0
+	var ids := PackedInt64Array()
+	var texts := PackedStringArray()
 	for r in [panel_root] + _popups():
 		if not is_instance_valid(r):
 			continue
 		for c in (r as Node).find_children("*", "Control", true, false):
 			if (c as Control).is_visible_in_tree():
-				n += 1
-	return n + 100000 * _popups().size()
+				ids.append(c.get_instance_id())
+				if c is Label:
+					texts.append((c as Label).text)   # «Relleno» → «Trazo», estado…
+	return hash([ids, texts])
 
 ## ¿Se juzga si este control «hace algo»? Solo los de valor o acción
 ## (botones, campos, deslizadores, desplegables). Un clic en un panel, una
@@ -67,7 +71,7 @@ func _doc_sig(obj: Node, expected: Dictionary) -> String:
 	if is_instance_valid(obj):
 		for p in expected:
 			parts.append(str(ic._read(obj, p)))
-		for k in ["orbit_yaw", "orbit_pitch", "orbit_distance", "view_rotation"]:
+		for k in ["view_yaw", "view_pitch", "view_target", "camera_distance"]:
 			if k in obj:
 				parts.append(str(obj.get(k)))
 	var cv = get_first_node_in_group("_vectopen_canvas")
@@ -86,7 +90,10 @@ func _own_state(c: Control) -> Variant:
 	if c is OptionButton:
 		return (c as OptionButton).selected
 	if c is Button:
-		return [(c as Button).button_pressed, (c as Button).text, (c as Button).icon, (c as Button).modulate]
+		# Los botones «interruptor» de estilo propio cambian su caja de fondo.
+		var sb = c.get_theme_stylebox("normal") if c.has_theme_stylebox_override("normal") else null
+		return [(c as Button).button_pressed, (c as Button).text, (c as Button).icon, (c as Button).modulate,
+			c.tooltip_text, sb.get_instance_id() if sb else 0, (sb as StyleBoxFlat).bg_color if sb is StyleBoxFlat else Color()]
 	if c is BaseButton:
 		return (c as BaseButton).button_pressed
 	if c is Range:
@@ -129,6 +136,9 @@ func _skip_subtree(c: Node) -> bool:
 	while n:
 		if String(n.name) in ["SecScript", "SecShader", "SecVectorize", "ScriptContent", "ShaderContent", "VectorizeContent"]:
 			return true
+		# Formato de PÁGINA (papel / redes / icono): no es del objeto.
+		if String(n.scene_file_path).ends_with("panel_config_windows_element.tscn"):
+			return true
 		# Con el efecto / filtro ya probado, sus tarjetas (decenas de
 		# controles cada una) no aportan nada.
 		if fx_done and String(n.name) in ["EffectsList", "FullEffects"]:
@@ -140,7 +150,13 @@ func _skip_subtree(c: Node) -> bool:
 
 ## Orden: valores primero, luego casillas y desplegables, y al final botones
 ## (que pueden cambiar de pestaña u ocultar lo anterior).
+var _tab_ids := {}
+
 func _prio(c: Control) -> int:
+	# Pestañas de página (Pro): al final, cuando ya se usó lo de la página
+	# visible; si no, la página se ocultaba antes de probar sus controles.
+	if _tab_ids.has(c.get_instance_id()):
+		return 3
 	if not (c is BaseButton):
 		return 0
 	if c is CheckBox or c is CheckButton or c is OptionButton:
@@ -166,6 +182,15 @@ func _interactive_kind(c: Control) -> bool:
 	if c.has_signal("value_changed") or c.has_signal("color_changed"):
 		return true
 	return c.mouse_filter == Control.MOUSE_FILTER_STOP and c.get_script() != null and not (c is Container)
+
+## Orden estable por prioridad (sort_custom no es estable: el orden entre
+## iguales cambiaba de una ejecución a otra).
+func _sorted(arr: Array) -> Array:
+	var keyed: Array = []
+	for i in arr.size():
+		keyed.append([_prio(arr[i]), i, arr[i]])
+	keyed.sort_custom(func(x, y): return x[0] < y[0] or (x[0] == y[0] and x[1] < y[1]))
+	return keyed.map(func(k): return k[2])
 
 func _controls(roots: Array) -> Array:
 	var out := []
@@ -416,89 +441,127 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 	ic.prop_written.connect(on_w)
 	# Cola en profundidad: lo que aparece al pulsar algo (una pestaña, un
 	# desplegable) se usa ANTES de seguir, porque la siguiente pestaña lo oculta.
-	var queue: Array = _controls([panel_root] + _popups())
-	queue.sort_custom(func(x, y): return _prio(x) < _prio(y))
-	if OS.has_environment("UX06_DEBUG"):
-		for b in panel_root.find_children("Btn_italic", "Button", true, false):
-			print("DBGQ italic vis=%s inq=%s skip=%s done=%s" % [b.is_visible_in_tree(), queue.has(b), _skip_subtree(b), _done.has(b.get_instance_id())])
+	# Pro: página a página (pestañas A: Color/Muestras/Trazo; B: Transformar/
+	# Texto/Efectos), para no ocultar una página antes de usar sus controles.
+	var tabs_a = panel_root.get("_tabs_a")
+	var tabs_b = panel_root.get("_tabs_b")
+	# Vistas: [pestaña A, pestaña B, sub-pestaña de Texto (General/Párrafo)].
+	var views: Array = [[-1, -1, -1]]
+	if tabs_a is Array and tabs_b is Array:
+		views.clear()
+		for i in maxi((tabs_a as Array).size(), (tabs_b as Array).size()):
+			views.append([i, i, 0])
+		views.append([0, 1, 1])          # Texto → Párrafo
+		var subs: Array = [panel_root.get("_tab_typo_general"), panel_root.get("_tab_typo_parrafo")]
+		for t in (tabs_a as Array) + (tabs_b as Array) + subs:
+			if t is Object and is_instance_valid(t):
+				_done[t.get_instance_id()] = true
+	var queue: Array = []
 	var seen := {}
-	for c in queue:
-		seen[c.get_instance_id()] = true
 	var guard := 0
-	while not queue.is_empty() and guard < 20000:
-		guard += 1
-		var c = queue.pop_front()
-		if OS.has_environment("UX06_DEBUG") and is_instance_valid(c) and String(c.name) == "Btn_italic":
-			print("DBGQ pop italic vis=%s done=%s" % [c.is_visible_in_tree(), _done.has(c.get_instance_id())])
-		if not is_instance_valid(obj):
-			print("DBGQ objeto liberado en el paso %d" % guard)
-			break
-		if not is_instance_valid(c) or _done.has(c.get_instance_id()):
-			continue
-		if not (c as Control).is_visible_in_tree():
-			# Oculto ahora (otra pestaña, sección plegada…): reintentar luego.
-			var r: int = _retry.get(c.get_instance_id(), 0)
-			if r < 2:
-				_retry[c.get_instance_id()] = r + 1
-				queue.push_back(c)
-			continue
-		var n0 := written.size()
-		var h0: int = ur.undo_stack.size()
-		var vis0 := _vis_sig(panel_root) if strict else 0
-		var doc0 := _doc_sig(obj, expected) if strict else ""
-		var sel0: Array = ic.selection().duplicate()
-		var st0 = _own_state(c) if strict else null
-		# Opción que ya es el valor actual (p. ej. «Sólido» con el trazo
-		# sólido): pulsarla no cambia nada y es lo correcto.
-		var already: bool = strict and c.has_meta("prop") and c.has_meta("value") \
-				and ic._approx_eq(ic._read(obj, String(c.get_meta("prop"))), c.get_meta("value"))
-		var snap := {}
+	for v in views:
+		if int(v[0]) >= 0:
+			if int(v[0]) < (tabs_a as Array).size():
+				panel_root.call("_select_tab_a", int(v[0]))
+			if int(v[1]) < (tabs_b as Array).size():
+				panel_root.call("_select_tab_b", int(v[1]))
+			if panel_root.has_method("_switch_typography_subtab"):
+				panel_root.call("_switch_typography_subtab", int(v[2]))
+			_retry.clear()
+			await frames(4)
+		queue = _sorted(_controls([panel_root] + _popups()))
 		if OS.has_environment("UX06_DEBUG"):
-			for p in expected:
-				snap[p] = ic._read(obj, p)
-		var ft := panel_root.find_child("FullTypography", true, false) as Control
-		var ft_before := ft != null and ft.is_visible_in_tree()
-		await exercise(c)
-		if strict and _acted and not already and is_instance_valid(c) and _judged(c):
-			await process_frame
-			var moved: bool = written.size() != n0 or ur.undo_stack.size() != h0 \
-					or _vis_sig(panel_root) != vis0 or ic.selection() != sel0 \
-					or not _same(st0, _own_state(c)) or _doc_sig(obj, expected) != doc0
-			if not moved:
-				dead.append(c)
-		if OS.has_environment("UX06_DEBUG") and ft_before and is_instance_valid(ft) and not ft.is_visible_in_tree():
-			print("DBGQ tipografía oculta tras %s «%s» %s sel=%s" % [c.get_class() if is_instance_valid(c) else "?", (c as Control).tooltip_text if is_instance_valid(c) else "", str(c.get_path()).right(60) if is_instance_valid(c) else "", ic.selection().size()])
-		if OS.has_environment("UX06_DEBUG") and is_instance_valid(obj) and is_instance_valid(c):
-			var sc = c.get_script()
-			var silent := []
-			for p in expected:
-				if not ic._approx_eq(snap[p], ic._read(obj, p)) and not written.has(ALIAS.get(p, p)):
-					silent.append(p)
-			var path := str(c.get_path()).replace("/root/", "").right(70)
-			print("DBG %s %s «%s» -> %s%s  @%s" % [c.get_class(), String(sc.resource_path).get_file() if sc else "", (c as Control).tooltip_text.left(30) if not (c is Button) else (c as Button).text.left(30), written.keys().slice(n0), ("  SIN-DESHACER " + str(silent)) if not silent.is_empty() else "", path])
-		# Un desplegable se prueba con todas sus opciones (cada forma de la
-		# elipse muestra campos distintos).
-		if is_instance_valid(c) and c is OptionButton:
-			var k: int = _opt_rounds.get(c.get_instance_id(), 1)
-			if k < (c as OptionButton).item_count - 1:
-				_opt_rounds[c.get_instance_id()] = k + 1
-				_done.erase(c.get_instance_id())
-				queue.push_back(c)
-		if ic.selection() != [obj] and is_instance_valid(obj):
-			api.select(obj)
-			await process_frame
-		var fresh: Array = []
-		for n in _controls([panel_root] + _popups()):
-			if not seen.has(n.get_instance_id()):
-				seen[n.get_instance_id()] = true
-				fresh.append(n)
-		fresh.sort_custom(func(x, y): return _prio(x) < _prio(y))
-		queue = fresh + queue
+			for b in panel_root.find_children("Btn_italic", "Button", true, false):
+				print("DBGQ italic vis=%s inq=%s skip=%s done=%s" % [b.is_visible_in_tree(), queue.has(b), _skip_subtree(b), _done.has(b.get_instance_id())])
+		for c in queue:
+			seen[c.get_instance_id()] = true
+		while not queue.is_empty() and guard < 20000:
+			guard += 1
+			var c = queue.pop_front()
+			if OS.has_environment("UX06_DEBUG") and is_instance_valid(c) and String(c.name) == "Btn_italic":
+				print("DBGQ pop italic vis=%s done=%s" % [c.is_visible_in_tree(), _done.has(c.get_instance_id())])
+			if not is_instance_valid(obj):
+				print("DBGQ objeto liberado en el paso %d" % guard)
+				break
+			if not is_instance_valid(c) or _done.has(c.get_instance_id()):
+				continue
+			if not (c as Control).is_visible_in_tree():
+				# Oculto ahora (otra pestaña, sección plegada…): reintentar luego.
+				var r: int = _retry.get(c.get_instance_id(), 0)
+				if r < 2:
+					_retry[c.get_instance_id()] = r + 1
+					queue.push_back(c)
+				continue
+			var n0 := written.size()
+			var h0: int = ur.undo_stack.size()
+			var vis0 := _vis_sig(panel_root) if strict else 0
+			var doc0 := _doc_sig(obj, expected) if strict else ""
+			var sel0: Array = ic.selection().duplicate()
+			var st0 = _own_state(c) if strict else null
+			# Opción que ya es el valor actual (p. ej. «Sólido» con el trazo
+			# sólido): pulsarla no cambia nada y es lo correcto.
+			var already: bool = strict and c.has_meta("prop") and c.has_meta("value") \
+					and ic._approx_eq(ic._read(obj, String(c.get_meta("prop"))), c.get_meta("value"))
+			var snap := {}
+			if OS.has_environment("UX06_DEBUG"):
+				for p in expected:
+					snap[p] = ic._read(obj, p)
+			var ft := panel_root.find_child("FullTypography", true, false) as Control
+			var ft_before := ft != null and ft.is_visible_in_tree()
+			await exercise(c)
+			# Muestra de Relleno / Trazo (Pro): cambia a qué escribe el selector;
+			# se vuelve a probar el selector con el nuevo destino.
+			if is_instance_valid(c) and c.get_script() and String(c.tooltip_text) in [tr("Relleno"), tr("Trazo")] and c is BaseButton:
+				var again: Array = []
+				for g in panel_root.find_children("*", "", true, false):
+					if g.get_script() and g.get_script().get_global_name() == "GestorColor":
+						for gc in g.find_children("*", "Control", true, false):
+							_done.erase(gc.get_instance_id())
+						again.append_array(_controls([g]))
+				queue = _sorted(again) + queue
+			if strict and _acted and not already and is_instance_valid(c) and _judged(c):
+				await process_frame
+				var moved: bool = written.size() != n0 or ur.undo_stack.size() != h0 \
+						or _vis_sig(panel_root) != vis0 or ic.selection() != sel0 \
+						or not _same(st0, _own_state(c)) or _doc_sig(obj, expected) != doc0
+				if not moved:
+					dead.append(c)
+			if OS.has_environment("UX06_DEBUG") and ft_before and is_instance_valid(ft) and not ft.is_visible_in_tree():
+				print("DBGQ tipografía oculta tras %s «%s» %s sel=%s" % [c.get_class() if is_instance_valid(c) else "?", (c as Control).tooltip_text if is_instance_valid(c) else "", str(c.get_path()).right(60) if is_instance_valid(c) else "", ic.selection().size()])
+			if OS.has_environment("UX06_DEBUG") and is_instance_valid(obj) and is_instance_valid(c):
+				var sc = c.get_script()
+				var silent := []
+				for p in expected:
+					if not ic._approx_eq(snap[p], ic._read(obj, p)) and not written.has(ALIAS.get(p, p)):
+						silent.append(p)
+				var path := str(c.get_path()).replace("/root/", "").right(70)
+				print("DBG %s %s «%s» -> %s%s  @%s" % [c.get_class(), String(sc.resource_path).get_file() if sc else "", (c as Control).tooltip_text.left(30) if not (c is Button) else (c as Button).text.left(30), written.keys().slice(n0), ("  SIN-DESHACER " + str(silent)) if not silent.is_empty() else "", path])
+			# Un desplegable se prueba con todas sus opciones (cada forma de la
+			# elipse muestra campos distintos).
+			if is_instance_valid(c) and c is OptionButton:
+				var k: int = _opt_rounds.get(c.get_instance_id(), 1)
+				if k < (c as OptionButton).item_count - 1:
+					_opt_rounds[c.get_instance_id()] = k + 1
+					_done.erase(c.get_instance_id())
+					queue.push_back(c)
+			if ic.selection() != [obj] and is_instance_valid(obj):
+				api.select(obj)
+				await process_frame
+			var fresh: Array = []
+			for n in _controls([panel_root] + _popups()):
+				if not seen.has(n.get_instance_id()):
+					seen[n.get_instance_id()] = true
+					fresh.append(n)
+			queue = _sorted(fresh) + queue
 	if OS.has_environment("UX06_DEBUG"):
 		print("DBGQ fin: pasos=%d cola=%d" % [guard, queue.size()])
 	# Lista de fuentes: se rellena al abrirse y sus filas son muchas; se abre
 	# y se elige una fuente instalada distinta de la actual.
 	if expected.has("font_family") and not written.has("font_family") and is_instance_valid(obj):
+		if panel_root.has_method("_switch_typography_subtab"):
+			panel_root.call("_select_tab_b", 1)          # Texto → General
+			panel_root.call("_switch_typography_subtab", 0)
+			await frames(4)
 		for fb in panel_root.find_children("Button_font", "BaseButton", true, false):
 			if not (fb as Control).is_visible_in_tree():
 				continue
@@ -553,7 +616,24 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		for c in dead:
 			if not is_instance_valid(c):
 				continue
-			if not c.has_meta("prop") and (c as Control).is_visible_in_tree():
+			if not c.has_meta("prop") and not (c as Control).is_visible_in_tree():
+				print("INFO %s/%s: sin confirmar (oculto al repetir): %s «%s»" % [mode, kind, c.get_class(), _label(c).strip_edges().left(40)])
+				continue
+			if not c.has_meta("prop"):
+				# Opción de un grupo (vistas, pestañas, muestras…): pulsar antes
+				# OTRA del grupo, para que esta no sea ya la activa.
+				var par: Node = c.get_parent()
+				if par and c is BaseButton:
+					for sib in par.get_children():
+						if sib != c and sib is BaseButton and (sib as Control).is_visible_in_tree() and not (sib as BaseButton).disabled:
+							var deny := false
+							for d in DENY:
+								if _label(sib).contains(d):
+									deny = true
+							if not deny:
+								(sib as BaseButton).pressed.emit()
+								await frames(2)
+								break
 				_done.erase(c.get_instance_id())
 				var n1 := written.size()
 				var h1: int = ur.undo_stack.size()
@@ -591,7 +671,7 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		if kind == "text" and p in ["width", "height"] and now is float and absf(float(now) - float(before[p])) <= 6.0:
 			continue
 		if not ic._approx_eq(now, before[p]):
-			diff.append("%s %s→%s" % [p, str(before[p]).left(24), str(now).left(24)])
+			diff.append("%s %s→%s" % [p, str(before[p]).left(160), str(now).left(160)])
 	check("%s/%s: deshacer restaura todas las propiedades" % [mode, kind], diff.is_empty(), "difieren: %s" % ", ".join(diff))
 	if strict and is_instance_valid(obj):
 		# Rehacer todo deja el objeto como quedó tras usar los controles.
@@ -608,7 +688,7 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 			if kind == "text" and p in ["width", "height"] and now is float and absf(float(now) - float(after[p])) <= 6.0:
 				continue
 			if not ic._approx_eq(now, after[p]):
-				rdiff.append("%s %s→%s" % [p, str(after[p]).left(24), str(now).left(24)])
+				rdiff.append("%s %s→%s" % [p, str(after[p]).left(160), str(now).left(160)])
 		check("%s/%s: rehacer repite todos los cambios (%d pasos)" % [mode, kind, k], rdiff.is_empty(), "difieren: %s" % ", ".join(rdiff))
 		var safety2 := 0
 		while ur.undo_stack.size() > base_action and hm.can_undo() and safety2 < 5000:

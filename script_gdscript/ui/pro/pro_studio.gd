@@ -405,6 +405,70 @@ func _select_tab_b(idx: int) -> void:
 	_tab_b = idx
 	_apply_tab_state(_tabs_b, _pages_b, idx)
 
+# ── PÁGINAS QUE NO APLICAN A LA SELECCIÓN (UX-12) ──
+## Con algo seleccionado que no tiene texto, la pestaña Texto no ofrece
+## controles que no harían nada (mayúsculas, alinear, reorganizar…); con un
+## modelo 3D (sin relleno ni trazo), tampoco Color, Muestras ni Trazo. Sin
+## selección todo sigue disponible (colores por defecto para lo nuevo).
+func _gate_pages(props: Dictionary) -> void:
+	var any := not props.is_empty()
+	_gate(_sec_typography, not any or props.has("font_size"), tr("Selecciona un texto para editar la tipografía."))
+	var paint := not any or props.has("fill_color") or props.has("stroke_width")
+	_gate(_sec_color, paint, tr("Este objeto no tiene relleno ni trazo."))
+	_gate(_sec_swatches, paint, tr("Este objeto no tiene relleno ni trazo."))
+	_gate(_sec_stroke, not any or props.has("stroke_width"), tr("Este objeto no tiene trazo."))
+	_sync_threading()
+
+## Estado de la cadena de marcos de texto: «Romper enlace» solo si hay marco
+## siguiente y «Reorganizar» solo dentro de una cadena (antes estaban siempre
+## activos y el texto decía siempre «Marco independiente»).
+func _sync_threading() -> void:
+	if not is_instance_valid(_btn_unlink_threading):
+		return
+	var has_next := false
+	var in_chain := false
+	for n in _threading_targets():
+		if not (n is Node2D) or not is_instance_valid(n):
+			continue
+		var nx := ParagraphThreading.get_next_frame(n)
+		var pv := ParagraphThreading.get_prev_frame(n)
+		has_next = has_next or is_instance_valid(nx)
+		in_chain = in_chain or is_instance_valid(nx) or is_instance_valid(pv)
+	_btn_unlink_threading.disabled = not has_next
+	_btn_reflow_threading.disabled = not in_chain
+	if is_instance_valid(_lbl_threading_status):
+		_lbl_threading_status.text = tr("Marco enlazado en una cadena") if in_chain else tr("Marco independiente")
+
+func _gate(page: Control, ok: bool, msg: String) -> void:
+	if not is_instance_valid(page):
+		return
+	var note := page.get_node_or_null("GateNote") as Label
+	if ok:
+		if note == null or not note.visible:
+			return
+		note.visible = false
+		for c in page.get_children():
+			if c != note and c is CanvasItem and c.has_meta("gate_prev"):
+				(c as CanvasItem).visible = bool(c.get_meta("gate_prev"))
+				c.remove_meta("gate_prev")
+		return
+	if note == null:
+		note = Label.new()
+		note.name = "GateNote"
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+		note.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+		page.add_child(note)
+		page.move_child(note, 0)
+	note.text = msg
+	if note.visible and page.get_children().all(func(c): return c == note or not (c is CanvasItem) or c.has_meta("gate_prev")):
+		return
+	note.visible = true
+	for c in page.get_children():
+		if c != note and c is CanvasItem and not c.has_meta("gate_prev"):
+			c.set_meta("gate_prev", (c as CanvasItem).visible)
+			(c as CanvasItem).visible = false
+
 # ── ROW HELPERS ──
 func _page() -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -1308,10 +1372,19 @@ func _on_dash_params_changed(_v: float) -> void:
 func _switch_typography_subtab(idx: int) -> void:
 	_typo_subtab = idx
 	_set_segment([_tab_typo_general, _tab_typo_parrafo], idx)
-	if is_instance_valid(_box_typo_general):
-		_box_typo_general.visible = idx == 0
-	if is_instance_valid(_box_typo_parrafo):
-		_box_typo_parrafo.visible = idx == 1
+	# Con la página bloqueada (sin texto seleccionado) solo se recuerda qué
+	# sub-pestaña mostrar al desbloquear; no se vuelve a enseñar nada.
+	var note := _sec_typography.get_node_or_null("GateNote") as Control if is_instance_valid(_sec_typography) else null
+	var gated := note != null and note.visible
+	for pair in [[_box_typo_general, idx == 0], [_box_typo_parrafo, idx == 1]]:
+		var box = pair[0]
+		if not is_instance_valid(box):
+			continue
+		if gated:
+			box.set_meta("gate_prev", bool(pair[1]))
+			box.visible = false
+		else:
+			box.visible = bool(pair[1])
 
 func _set_text_alignment(align_idx: int) -> void:
 	_text_align = align_idx
@@ -1386,6 +1459,7 @@ func _prop(props: Dictionary, key: String) -> Variant:
 func _on_inspector_changed(props: Dictionary) -> void:
 	if not is_instance_valid(_spin_x):
 		return
+	_gate_pages(props)
 	_sync_guard = true
 	_has_selection = not props.is_empty() and props.has("pos_x")
 	var v: Variant

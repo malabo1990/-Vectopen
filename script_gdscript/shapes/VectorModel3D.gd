@@ -569,7 +569,7 @@ func toggle_ortho() -> void:
 ## Encuadrar (F): centra el modelo y ajusta la distancia para que quepa.
 func frame_model() -> void:
 	view_target = Vector3.ZERO
-	camera_distance = 1.25 / tan(deg_to_rad(camera_fov) * 0.5) * 1.15
+	camera_distance = frame_distance()
 	_apply_camera_transform()
 	request_render_update()
 
@@ -583,6 +583,25 @@ func _schedule_zoom_settle() -> void:
 			is_interactive_zooming = false
 			capture_high_quality()
 	)
+
+## Valores de «Restablecer vista» que son propiedades del Inspector (para
+## aplicarlos con deshacer). La navegación (giro de vista) no se deshace.
+const RESET_PROPS := {"model_rotation_x": 0.0, "model_rotation_y": 0.0, "model_rotation_z": 0.0,
+	"camera_distance": 3.5, "camera_fov": 45.0, "camera_ortho": false}
+
+## Distancia de cámara a la que el modelo cabe entero (Encuadrar).
+func frame_distance() -> float:
+	return 1.25 / tan(deg_to_rad(camera_fov) * 0.5) * 1.15
+
+## Restablecer vista CON deshacer (UX-12): rotación, distancia, campo de
+## visión y ortográfica pasan por InspectorCore; luego la navegación.
+static func reset_view_undoable(models: Array) -> void:
+	var ic = Engine.get_main_loop().root.get_node_or_null("/root/InspectorCore") if Engine.get_main_loop() else null
+	if ic and ic.has_method("apply_multi") and ic.has_method("selection") and ic.selection() == models:
+		ic.apply_multi(RESET_PROPS, "Restablecer vista 3D")
+	for m in models:
+		if is_instance_valid(m) and m.has_method("reset_view"):
+			m.reset_view()
 
 func reset_view() -> void:
 	model_rotation = Vector3.ZERO

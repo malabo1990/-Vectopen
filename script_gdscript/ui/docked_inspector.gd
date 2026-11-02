@@ -1318,9 +1318,13 @@ func _on_3d_view(view_name: String) -> void:
 	var ic = get_node_or_null("/root/InspectorCore")
 	if ic == null:
 		return
-	for s in ic.selection():
+	var sel: Array = ic.selection()
+	for s in sel:
 		if s is VectorModel3D:
 			if view_name == "frame":
+				# La distancia es una propiedad del Inspector: con deshacer.
+				if sel.size() == 1 and ic.has_method("apply"):
+					ic.apply("camera_distance", s.frame_distance())
 				s.frame_model()
 			else:
 				s.set_view(view_name)
@@ -1352,11 +1356,10 @@ func _on_change_3d_file_pressed() -> void:
 func _on_3d_reset_view_pressed() -> void:
 	var ic = get_node_or_null("/root/InspectorCore")
 	if ic and ic.has_method("selection"):
-		var sel: Array = ic.selection()
+		var sel: Array = ic.selection().filter(func(s): return is_instance_valid(s) and s.has_method("reset_view"))
+		load("res://script_gdscript/shapes/VectorModel3D.gd").reset_view_undoable(sel)
 		for s in sel:
-			if is_instance_valid(s) and s.has_method("reset_view"):
-				s.reset_view()
-				_sync_3d_controls(s)
+			_sync_3d_controls(s)
 
 func _sync_3d_controls(model) -> void:
 	_syncing = true

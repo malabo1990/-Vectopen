@@ -381,9 +381,16 @@ func _read(shape, prop):
 			if "points_count" in shape: return int(shape.points_count)
 			return null
 		"sides":
-			if "sides" in shape: return int(shape.sides)
+			# Solo un polígono REGULAR tiene «lados» que editar; una gota o
+			# una forma libre no (el Inspector tampoco lo muestra).
+			if "sides" in shape and not shape.has_meta("drop_radius") and bool(shape.get("is_regular")):
+				return int(shape.sides)
 			return null
 		"is_regular":
+			# La gota es paramétrica: hacerla «regular» la convertía en un
+			# polígono y deshacer no la devolvía.
+			if shape.has_meta("drop_radius"):
+				return null
 			if "is_regular" in shape: return bool(shape.is_regular)
 		"poly_angle", "poly_aspect", "inner_corner_radius", "star_angle":
 			if prop in shape: return float(shape.get(prop))
@@ -493,7 +500,10 @@ const _LineBounds = preload("res://script_gdscript/utils/line_bounds.gd")
 
 func _kind_of(s) -> String:
 	var sc = s.get_script()
-	return "%s|%s|%s" % [s.get_class(), sc.resource_path if sc else "", String(s.get_meta("shape_type", ""))]
+	# shape_kind y «regular» cambian qué propiedades tiene (una gota es un
+	# polígono irregular con curvatura; un polígono irregular no tiene lados).
+	return "%s|%s|%s|%s|%s" % [s.get_class(), sc.resource_path if sc else "", String(s.get_meta("shape_type", "")),
+		String(s.get_meta("shape_kind", "")), str(s.get("is_regular"))]
 
 func _props_for(s) -> Dictionary:
 	var k := _kind_of(s)

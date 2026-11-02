@@ -233,6 +233,16 @@ func _sync(cur: Dictionary) -> void:
 			show = show and not cur.has("corner_tl")   # el rectángulo usa las 4 esquinas
 		elif prop == "stroke_details":
 			show = cur.has("stroke_cap_start") or cur.has("stroke_pointer_start")
+			# Cada botón solo si la selección tiene lo que edita: el perfil
+			# de grosor es de los trazados (no de rectángulos ni textos).
+			var row := _rows[prop] as Control
+			for m in STROKE_MODES:
+				var b := row.find_child("Stroke_" + String(m[0]), true, false) as Control
+				if b:
+					match String(m[0]):
+						"start", "end": b.visible = cur.has("stroke_cap_start") or cur.has("stroke_pointer_start")
+						"style": b.visible = cur.has("stroke_style")
+						"profile": b.visible = cur.has("stroke_profile")
 		elif prop in ["start_angle_deg", "end_angle_deg"] and mode != "":
 			show = show and mode in ["arc", "pie", "chord"]
 		elif prop == "inner_radius_ratio" and mode != "":

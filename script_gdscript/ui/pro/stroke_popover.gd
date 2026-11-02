@@ -124,6 +124,11 @@ func _place() -> void:
 func _ic() -> Node:
 	return get_node_or_null("/root/InspectorCore")
 
+## ¿La selección tiene esta propiedad?
+func _has(name: String) -> bool:
+	var ic := _ic()
+	return ic != null and ic.has_method("current_props") and (ic.current_props() as Dictionary).has(name)
+
 func _prop(name: String, def: Variant) -> Variant:
 	var ic := _ic()
 	if ic == null or not ic.has_method("current_props"):
@@ -173,7 +178,12 @@ func _build() -> void:
 				var b := _item("cap", c[0], at_start, tr(c[1]), cprop, Vector2(0, 28))
 				b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				caps.add_child(b)
-			_section(tr("Tamaño de la punta"))
+			# Tamaño de la punta: solo si la selección lo tiene (los trazados;
+			# en una figura cerrada el campo no hacía nada). «Intercambiar»
+			# sigue disponible.
+			var has_scale := _has("stroke_pointer_scale")
+			if has_scale:
+				_section(tr("Tamaño de la punta"))
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 6)
 			_box.add_child(row)
@@ -190,6 +200,7 @@ func _build() -> void:
 			f.value_changed.connect(func(v: float) -> void:
 				if _live_before.is_empty():
 					_apply("stroke_pointer_scale", v / 100.0))
+			f.visible = has_scale
 			row.add_child(f)
 			_fields.append(f)
 			var swap := Button.new()
