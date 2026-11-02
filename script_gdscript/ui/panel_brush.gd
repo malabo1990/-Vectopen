@@ -11,9 +11,9 @@ signal closed
 # Referencias UI
 var _header_title: Label
 var _btn_close: Button
-var _spin_size: SpinBox
+var _spin_size: NumericField
 var _slider_size: HSlider
-var _spin_opacity: SpinBox
+var _spin_opacity: NumericField
 var _slider_opacity: HSlider
 var _opt_smoothing: OptionButton
 var _style_buttons: Dictionary = {}
@@ -40,13 +40,15 @@ const _CURVES := [["Suave", 0.6], ["Lineal", 1.0], ["Firme", 1.7]]
 
 var _syncing: bool = false
 
+## UX-06: sin emojis; cada estilo se ve con una muestra DIBUJADA de su trazo
+## (color del tema), como las muestras del panel de Trazo.
 const STYLES_INFO := [
-	{"id": "pencil", "name": "Lápiz", "icon_txt": "✏️", "desc": "Boceto fino y rápido"},
-	{"id": "pen", "name": "Pluma", "icon_txt": "✒️", "desc": "Tinta y contorno nítido"},
-	{"id": "marker", "name": "Marcador", "icon_txt": "🖍️", "desc": "Trazo ancho y semi-opaco"},
-	{"id": "calligraphy", "name": "Caligráfico", "icon_txt": "🖌️", "desc": "Dinámica de variación angular"},
-	{"id": "airbrush", "name": "Aerógrafo", "icon_txt": "💨", "desc": "Trazo amplio y difuminado"},
-	{"id": "eraser", "name": "Borrador", "icon_txt": "🧹", "desc": "Elimina trazos vectoriales"},
+	{"id": "pencil", "name": "Lápiz", "desc": "Boceto fino y rápido"},
+	{"id": "pen", "name": "Pluma", "desc": "Tinta y contorno nítido"},
+	{"id": "marker", "name": "Marcador", "desc": "Trazo ancho y semi-opaco"},
+	{"id": "calligraphy", "name": "Caligráfico", "desc": "Dinámica de variación angular"},
+	{"id": "airbrush", "name": "Aerógrafo", "desc": "Trazo amplio y difuminado"},
+	{"id": "eraser", "name": "Borrador", "desc": "Elimina trazos vectoriales"},
 ]
 
 func _ready() -> void:
@@ -112,7 +114,7 @@ func _build_ui() -> void:
 	_header_title.add_theme_font_size_override("font_size", 13)
 	header.add_child(_header_title)
 
-	# Sin botón ✕: ocultaba el panel y no había forma de volver a abrirlo
+	# Sin botón de cerrar: ocultaba el panel y no había forma de volver a abrirlo
 	# (se muestra solo con su herramienta).
 
 	# Separador
@@ -127,18 +129,17 @@ func _build_ui() -> void:
 	size_box.add_child(size_header)
 
 	var lbl_size := Label.new()
-	lbl_size.text = "Grosor (px)"
+	lbl_size.text = "Grosor"
 	lbl_size.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl_size.add_theme_font_size_override("font_size", 11)
 	size_header.add_child(lbl_size)
 	_row_labels.append(lbl_size)
 
-	_spin_size = SpinBox.new()
-	_spin_size.min_value = 0.5
-	_spin_size.max_value = 100.0
-	_spin_size.step = 0.5
+	_spin_size = NumericField.new("", " px", 0.5, 100.0, 0.5)
+	_spin_size.name = "FieldSize"
+	_spin_size.decimals = 1
 	_spin_size.value = 4.0
-	_spin_size.custom_minimum_size = Vector2(65, 24)
+	_spin_size.custom_minimum_size = Vector2(72, 24)
 	_spin_size.value_changed.connect(_on_size_spin_changed)
 	size_header.add_child(_spin_size)
 
@@ -159,18 +160,17 @@ func _build_ui() -> void:
 	op_box.add_child(op_header)
 
 	var lbl_op := Label.new()
-	lbl_op.text = "Opacidad (%)"
+	lbl_op.text = "Opacidad"
 	lbl_op.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl_op.add_theme_font_size_override("font_size", 11)
 	op_header.add_child(lbl_op)
 	_row_labels.append(lbl_op)
 
-	_spin_opacity = SpinBox.new()
-	_spin_opacity.min_value = 5.0
-	_spin_opacity.max_value = 100.0
-	_spin_opacity.step = 1.0
+	_spin_opacity = NumericField.new("", " %", 5.0, 100.0, 1.0)
+	_spin_opacity.name = "FieldOpacity"
+	_spin_opacity.decimals = 0
 	_spin_opacity.value = 100.0
-	_spin_opacity.custom_minimum_size = Vector2(65, 24)
+	_spin_opacity.custom_minimum_size = Vector2(72, 24)
 	_spin_opacity.value_changed.connect(_on_opacity_spin_changed)
 	op_header.add_child(_spin_opacity)
 
@@ -215,7 +215,10 @@ func _build_ui() -> void:
 	root_vbox.add_child(lbl_styles)
 	_section_labels.append(lbl_styles)
 
+	# Dos columnas (como antes, el panel no crece): nombre a la izquierda y
+	# muestra del trazo a la derecha.
 	var grid := GridContainer.new()
+	grid.name = "BrushStyles"
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
@@ -224,12 +227,25 @@ func _build_ui() -> void:
 	_style_buttons.clear()
 	for info in STYLES_INFO:
 		var btn := Button.new()
-		btn.text = String(info["name"])
-		btn.tooltip_text = info["desc"]
-		btn.custom_minimum_size = Vector2(134, 30)
+		btn.name = "Style_" + String(info["id"])
+		btn.text = tr(String(info["name"]))
+		btn.tooltip_text = tr(String(info["desc"]))
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.custom_minimum_size = Vector2(0, 30)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.toggle_mode = true
+		var glyph := _BrushGlyph.new(String(info["id"]))
+		glyph.name = "Sample"
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyph.anchor_left = 0.56
+		glyph.anchor_right = 1.0
+		glyph.anchor_bottom = 1.0
+		glyph.offset_left = 0
+		glyph.offset_right = -6
+		glyph.offset_top = 4
+		glyph.offset_bottom = -4
+		btn.add_child(glyph)
 		var s_id: String = info["id"]
 		btn.pressed.connect(func(): _select_style(s_id))
 		grid.add_child(btn)
@@ -407,11 +423,11 @@ func _sync_from_tool() -> void:
 	var tool = _get_brush_tool()
 	if tool:
 		if is_instance_valid(_spin_size):
-			_spin_size.value = tool.brush_width
+			_spin_size.set_value_silent(tool.brush_width)
 		if is_instance_valid(_slider_size):
 			_slider_size.value = tool.brush_width
 		if is_instance_valid(_spin_opacity):
-			_spin_opacity.value = tool.brush_opacity * 100.0
+			_spin_opacity.set_value_silent(tool.brush_opacity * 100.0)
 		if is_instance_valid(_slider_opacity):
 			_slider_opacity.value = tool.brush_opacity * 100.0
 		_update_active_style_button(tool.brush_style)
@@ -421,7 +437,7 @@ func _sync_from_tool() -> void:
 func _on_size_slider_changed(val: float) -> void:
 	if _syncing: return
 	_syncing = true
-	_spin_size.value = val
+	_spin_size.set_value_silent(val)
 	var tool = _get_brush_tool()
 	if tool:
 		tool.brush_width = val
@@ -439,7 +455,7 @@ func _on_size_spin_changed(val: float) -> void:
 func _on_opacity_slider_changed(val: float) -> void:
 	if _syncing: return
 	_syncing = true
-	_spin_opacity.value = val
+	_spin_opacity.set_value_silent(val)
 	var tool = _get_brush_tool()
 	if tool:
 		tool.brush_opacity = val / 100.0
@@ -494,7 +510,70 @@ func _apply_theme() -> void:
 	for s_id in _style_buttons:
 		var btn: Button = _style_buttons[s_id]
 		TPS.style_toggle(btn, btn.button_pressed)
+		var g := btn.get_node_or_null("Sample") as Control
+		if g:
+			g.queue_redraw()
 	for cb in [_chk_pressure, _chk_speed]:
 		if is_instance_valid(cb):
 			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
 				cb.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
+
+
+## Muestra del trazo de cada estilo (misma malla que el pincel: StrokeGeom),
+## con el color del tema.
+class _BrushGlyph extends Control:
+	const SG = preload("res://script_gdscript/shapes/stroke_geom.gd")
+	var style_id := ""
+	func _init(id: String) -> void:
+		style_id = id
+	static func _a(c: Color, a: float) -> Color:
+		var out := c
+		out.a = a
+		return out
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		if r.size.x < 8.0 or r.size.y < 4.0:
+			return
+		var col := ProUIStyle.col("PANEL_TEXT")
+		var n := 28
+		var pts := PackedVector2Array()
+		for i in n:
+			var t := float(i) / float(n - 1)
+			pts.append(Vector2(r.position.x + 4.0 + t * (r.size.x - 8.0), r.get_center().y + sin(t * TAU) * r.size.y * 0.28))
+		var h := r.size.y * 0.5
+		var half := PackedFloat32Array()
+		half.resize(n)
+		var alpha := 1.0
+		for i in n:
+			var t := float(i) / float(n - 1)
+			var w := 0.0
+			match style_id:
+				"pencil": w = 0.7
+				"pen": w = 0.6 + 1.4 * sin(t * PI)
+				"marker":
+					w = h * 0.55
+					alpha = 0.55
+				"calligraphy":
+					var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
+					w = 0.6 + absf(d.dot(Vector2(0.7, -0.7))) * h * 0.55
+				"airbrush":
+					w = h * 0.7
+					alpha = 0.18
+				_: w = 1.0
+			half[i] = maxf(0.5, w)
+		if style_id == "airbrush":
+			for k in 3:
+				var hh := half.duplicate()
+				for i in n:
+					hh[i] = half[i] * (1.0 - k * 0.3)
+				var m := SG.strip_mesh(pts, hh, 1, 1)
+				RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], PackedColorArray([_a(col, alpha)]))
+			return
+		if style_id == "eraser":
+			# Trazo punteado (lo que se borra) y la goma como un círculo hueco.
+			for i in range(0, n - 1, 3):
+				draw_line(pts[i], pts[i + 1], _a(col, 0.55), 1.5, true)
+			draw_arc(pts[n - 1] - Vector2(4, 0), h * 0.45, 0.0, TAU, 20, col, 1.5, true)
+			return
+		var mesh := SG.strip_mesh(pts, half, 1, 1)
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), mesh["indices"], mesh["points"], PackedColorArray([_a(col, alpha)]))

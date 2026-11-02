@@ -241,11 +241,19 @@ del tema activo (`ThemeDB`/`theme_changed`).
 **Criterio de aceptación.**
 - [x] Sin colores literales en el panel.
 - [x] Legible en tema claro y oscuro.
-- [ ] Estructura y densidad equivalentes al panel de capas — **siguen los emojis** (✏️ ✒️ 🖍️ 🖌️ 💨 🧹) y campos propios (SpinBox + HSlider) en vez de los componentes compartidos (iconos SVG, `NumericField`).
+- [x] Estructura y densidad equivalentes al panel de capas (iconografía dibujada del tema y campos comunes).
 
 **Prueba de interfaz.** `test/e2e/brush_panel_theme_e2e.gd` (captura en ambos temas).
 
 **Reabierta (revisión 2026-11-02):** solo se migraron los colores; falta la iconografía y los campos comunes que pide la corrección propuesta.
+
+**Resolución (intento 2).** Sin emojis en el panel. Cada estilo de pincel
+(Lápiz, Pluma, Marcador, Caligráfico, Aerógrafo, Borrador) lleva una muestra
+DIBUJADA de su trazo con la misma malla del pincel y el color del tema. Grosor y
+Opacidad usan el campo numérico común (`NumericField`) en vez del `SpinBox` de
+Godot. Se mantiene el tamaño del panel (dos columnas). La prueba añade: sin
+emojis en el código, las 6 muestras visibles en los tres modos, campos comunes y
+clic real en «Marcador» que activa ese estilo (47 comprobaciones).
 
 **Resolución parcial (2026-11-02).** Componente común `ui/components/tool_panel_style.gd`
 (colores del tema vía `ProUIStyle.col`): marco flotante, título, cabeceras de
@@ -639,7 +647,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Verde |
 | UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Verde |
 | UX-05 | — | — | Por aclarar |
-| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Abierta |
+| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Verde |
 | UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Verde |
 | UX-08 | `panel_trazos.gd`, `stroke_geom.gd` | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Verde |
 | UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Verde |
@@ -664,7 +672,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-03 | 1 | Verde | `palette_delete_gradient_e2e.gd` | Color o degradado; clic derecho Eliminar/Duplicar con deshacer |
 | UX-04 | 1 | Verde | `palette_modes_e2e.gd` | En Pro la recortaba el lateral; ahora flota junto al selector |
 | UX-05 | 0 | Pendiente de insumo | — | Falta identificar el panel |
-| UX-06 | 2 | Abierta | `brush_panel_theme_e2e.gd` | Colores hechos; faltan iconos SVG (quedan emojis) y campos comunes |
+| UX-06 | 2 | Verde | `brush_panel_theme_e2e.gd` | Muestras dibujadas por estilo (sin emojis) y campos numéricos comunes |
 | UX-07 | 1 | Verde | `bezier_panel_theme_e2e.gd` | Tarjetas con superficie del tema, iconos SVG, campo numérico común |
 | UX-08 | 2 | Verde | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Uniones en los 3 modos; Modern con el panel completo de Smart; trazo de figuras guardado |
 | UX-09 | 1 | Verde | `pro_tabs_dock_float_e2e.gd` | Arrastrar = reordenar; soltar fuera = flotar; doble clic = acoplar; persistente |
@@ -675,7 +683,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
 | UX-15 | 1 | Verde | `inspector_capas_style_e2e.gd` | El tema no llegaba a la UI (CanvasLayer corta la herencia): se aplica al Inspector y a Pro |
 
-**Resumen Fase A:** 12 / 15 en verde · abierta: UX-06 (reabierta) · 2 pendientes de insumo (UX-05: panel
+**Resumen Fase A:** 13 / 15 en verde · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
 **Resumen Fase B:** 0 / 30 proyectos aprobados.

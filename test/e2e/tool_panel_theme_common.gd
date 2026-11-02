@@ -141,7 +141,22 @@ func probe(theme: String, mode: String) -> void:
 	check("%s/%s: todos los colores salen del tema" % [theme, mode], not_theme.is_empty(), "; ".join(not_theme.slice(0, 6)))
 	check("%s/%s: se lee (contraste)" % [theme, mode], low.is_empty(), "; ".join(low.slice(0, 6)))
 	check("%s/%s: letra como Capas (≤ 13 px)" % [theme, mode], big.is_empty(), "; ".join(big.slice(0, 6)))
+	await extra_checks(p, theme, mode)
 	await shot("%s_%s" % [theme, mode])
+
+## Comprobaciones propias de cada panel (las pruebas concretas las añaden).
+func extra_checks(_panel: Control, _theme: String, _mode: String) -> void:
+	pass
+
+## Sin emojis en el código del panel (iconos SVG o dibujados del tema).
+func no_emoji(path: String) -> void:
+	var src := FileAccess.get_file_as_string(path)
+	var found := []
+	for i in src.length():
+		var cp := src.unicode_at(i)
+		if (cp >= 0x1F300 and cp <= 0x1FAFF) or (cp >= 0x2600 and cp <= 0x27BF):
+			found.append(src.substr(i, 1))
+	check("sin emojis en %s" % path.get_file(), found.is_empty(), " ".join(found.slice(0, 10)))
 
 func _run() -> void:
 	var ui_backup := FileAccess.get_file_as_string(UI_CFG) if FileAccess.file_exists(UI_CFG) else ""
