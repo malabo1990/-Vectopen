@@ -55,8 +55,17 @@ jobs:
         if: runner.os != 'macOS'
         run: cargo build --locked --release
 
+      # ONNX Runtime (vectorizador) no tiene binarios para Mac Intel: ahí
+      # solo Apple Silicon (en Intel, Vectopen funciona sin el vectorizador IA).
+      - name: Build (macOS Apple Silicon, vectorizador)
+        if: runner.os == 'macOS' && matrix.crate == 'vectopen_vectorizer'
+        run: |
+          cargo build --locked --release --target aarch64-apple-darwin
+          mkdir -p target/release
+          cp target/aarch64-apple-darwin/release/lib${{ matrix.crate }}.dylib target/release/
+
       - name: Build (macOS universal)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && matrix.crate != 'vectopen_vectorizer'
         run: |
           cargo build --locked --release --target x86_64-apple-darwin
           cargo build --locked --release --target aarch64-apple-darwin
