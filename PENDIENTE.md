@@ -416,9 +416,9 @@ instancia, o el trazo se crea en un contenedor con visibilidad desactivada.
 ¿está en el árbol?) y corregir la ruta de instanciación del panel y del contenedor.
 
 **Criterio de aceptación.**
-- [ ] Dibujar en Modern muestra el trazo inmediatamente (no reproducido aún con el caso del usuario).
-- [ ] El trazo persiste al cambiar de modo.
-- [ ] Sin regresiones en Smart y Pro.
+- [x] Dibujar en Modern muestra el trazo inmediatamente (también tras seleccionar una figura blanca).
+- [x] El trazo persiste al cambiar de modo.
+- [x] Sin regresiones en Smart y Pro.
 
 **Prueba de interfaz.** `test/e2e/modern_strokes_visible_e2e.gd`.
 
@@ -695,7 +695,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-08 | `panel_trazos.gd`, `stroke_geom.gd` | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Verde |
 | UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Verde |
 | UX-10 | `move_tool_keyboard.gd`, `NodeSelectionTool.gd` | `delete_keys_matrix_e2e.gd` | Verde |
-| UX-11 | `panel_trazos.gd`, `adaptive_ui_manager.gd` | `modern_strokes_visible_e2e.gd` | Pendiente de insumo |
+| UX-11 | `ColorCore.gd`, `brushtool.gd`, `beziertool.gd` | `modern_strokes_visible_e2e.gd`, `modern_strokes_scenarios_e2e.gd` | Verde |
 | UX-12 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_coverage_e2e.gd` | Verde |
 | UX-13 | `docked_inspector.gd`, `vectorize_panel.gd` | `inspector_action_icons_e2e.gd` | Verde |
 | UX-14 | `panel_edge_resizer.gd`, `docked_inspector.gd` | `inspector_resize_e2e.gd` | Verde |
@@ -720,7 +720,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-08 | 2 | Verde | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Uniones en los 3 modos; Modern con el panel completo de Smart; trazo de figuras guardado |
 | UX-09 | 1 | Verde | `pro_tabs_dock_float_e2e.gd` | Arrastrar = reordenar; soltar fuera = flotar; doble clic = acoplar; persistente |
 | UX-10 | 1 | Verde | `delete_keys_matrix_e2e.gd` | El editor de degradado se quedaba Supr/Retroceso; lista única de teclas |
-| UX-11 | 1 | Pendiente de insumo | `modern_strokes_visible_e2e.gd` | No reproducible (43/43 verde en los 3 modos); faltan pasos o archivo |
+| UX-11 | 2 | Verde | `modern_strokes_scenarios_e2e.gd` | Causa: los trazos nuevos heredan el color de la selección (ColorCore). Tras seleccionar una figura con relleno blanco, pincel y Bézier nacían BLANCOS sobre página blanca (1,00:1). Ahora un trazo nuevo nunca nace sin contraste con su página (oscuro sobre claro, claro sobre oscuro). 88 |
 | UX-12 | 1 | Verde | `inspector_coverage_e2e.gd` | Modo estricto: 82 comprobaciones; 7 defectos corregidos |
 | UX-13 | 1 | Verde | `inspector_action_icons_e2e.gd` | Cuatro iconos junto a Exportar en los tres modos |
 | UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
@@ -748,7 +748,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-22 | 1 | Verde | `size_popup_style_e2e.gd` | Rediseño: cuadrícula de 3 columnas con miniatura proporcional (hoja, monitor con pie, móvil, red social, icono), nombre y medida; pestañas con icono, buscador con lupa, «Girar 90°» y cada formato en su orientación natural; todo con colores del tema y legible en claro/oscuro; dentro de la pantalla (41) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |
 
-**Resumen Fase A:** 22 / 24 en verde · 2 pendientes de insumo (UX-05, UX-11)
+**Resumen Fase A:** 24 / 24 en verde · Fase A COMPLETA
 
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no

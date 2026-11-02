@@ -341,6 +341,9 @@ func _start_new_path() -> void:
 	if is_instance_valid(cc):
 		var sc: Color = cc.stroke_color
 		if sc.a < 0.15: sc.a = 1.0
+		# UX-11: nunca un trazo invisible sobre la página.
+		if is_instance_valid(target_artboard) and "fill_color" in target_artboard:
+			sc = cc.visible_on(sc, target_artboard.fill_color)
 		current_path.stroke_color = sc
 		var fc: Color = cc.fill_color
 		if fc.a < 0.15: fc.a = 1.0

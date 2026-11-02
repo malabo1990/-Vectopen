@@ -53,6 +53,26 @@ func _ready() -> void:
 		ic.changed.connect(_on_inspector_changed)
 
 # ── objetivo activo ──────────────────────────────────────────────────────────
+## UX-11: color con el que NACE un trazo nuevo (pincel, Bézier) sobre una
+## página de fondo `bg`. Si apenas contrasta con la página (p. ej. blanco
+## heredado de una figura con relleno blanco, sobre página blanca), el trazo
+## sería invisible: se usa el color de trazo por defecto (oscuro sobre fondo
+## claro, claro sobre fondo oscuro). Conserva la opacidad pedida.
+const DEFAULT_STROKE_DARK := Color(0.1, 0.1, 0.1, 1.0)
+const DEFAULT_STROKE_LIGHT := Color(0.95, 0.95, 0.95, 1.0)
+static func visible_on(c: Color, bg: Color) -> Color:
+	if bg.a < 0.05:
+		return c
+	var f := func(v: float) -> float: return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	var lc: float = 0.2126 * f.call(c.r) + 0.7152 * f.call(c.g) + 0.0722 * f.call(c.b)
+	var lb: float = 0.2126 * f.call(bg.r) + 0.7152 * f.call(bg.g) + 0.0722 * f.call(bg.b)
+	var ratio := (maxf(lc, lb) + 0.05) / (minf(lc, lb) + 0.05)
+	if ratio >= 1.3 and c.a >= 0.15:
+		return c
+	var out := DEFAULT_STROKE_DARK if lb > 0.4 else DEFAULT_STROKE_LIGHT
+	out.a = clampf(c.a, 0.15, 1.0) if c.a >= 0.15 else 1.0
+	return out
+
 func set_target(t: String) -> void:
 	if t == active_target or not (t in ["fill", "stroke"]):
 		return

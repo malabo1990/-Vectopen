@@ -75,6 +75,10 @@ func _get_brush_color() -> Color:
 			col = cc.stroke_color
 		else:
 			col = cc.fill_color
+	# UX-11: nunca un trazo invisible sobre la página (p. ej. blanco heredado
+	# de una figura con relleno blanco).
+	if is_instance_valid(target_artboard) and "fill_color" in target_artboard:
+		col = ColorCore.visible_on(col, target_artboard.fill_color)
 	col.a = clampf(col.a * brush_opacity, 0.05, 1.0)
 	return col
 
