@@ -272,7 +272,7 @@ static func _em(v: Variant, size: float) -> float:
 
 # ── estilo ───────────────────────────────────────────────────────────────────
 const STYLE_KEYS := ["fill", "stroke", "stroke-width", "fill-opacity", "stroke-opacity", "fill-rule",
-	"stroke-linecap", "stroke-dasharray", "font-size", "font-family", "font-weight", "stop-color", "stop-opacity",
+	"stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray", "font-size", "font-family", "font-weight", "stop-color", "stop-opacity",
 	"display", "visibility", "color"]
 
 ## Estilo heredado + atributos de presentación < reglas CSS < style="".
@@ -398,6 +398,8 @@ static func _path_item(subs: Array, xf: Transform2D, st: Dictionary, op: float, 
 		"grad": _fill_gradient(st, grads), "dash": dash,
 		"width": _len(st.get("stroke-width", "1"), 1.0) * k,
 		"cap": 1 if cap == "round" else (2 if cap == "square" else 0),
+		"join": {"round": 1, "bevel": 2}.get(String(st.get("stroke-linejoin", "miter")), 0),
+		"miter": float(st.get("stroke-miterlimit", "4")),
 		"evenodd": String(st.get("fill-rule", "")) == "evenodd", "opacity": op,
 		"name": id if id != "" else {"rect": "Rectángulo", "circle": "Círculo", "ellipse": "Elipse",
 			"line": "Línea", "polyline": "Trazado", "polygon": "Polígono"}.get(tag, "Trazado")}
@@ -830,6 +832,8 @@ static func _vector_path(it: Dictionary) -> Node2D:
 	p.stroke_width = float(it["width"]) if it["stroke"] != null else 0.0
 	p.stroke_cap_start = int(it["cap"])
 	p.stroke_cap_end = int(it["cap"])
+	p.stroke_join = int(it.get("join", 0))
+	p.stroke_miter_limit = float(it.get("miter", 4.0))
 	if it.get("dash") is Array:
 		if float(it["dash"][0]) <= 0.01:
 			p.stroke_style = 2   # punteado: hueco = paso − grosor

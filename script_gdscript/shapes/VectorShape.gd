@@ -32,7 +32,20 @@ class_name VectorShape
 		stroke_dash_gap = maxf(1.0, v)
 		queue_redraw()
 
+## Unión entre tramos (UX-08): 0 inglete, 1 redonda, 2 bisel.
+@export var stroke_join: int = 0:
+	set(v):
+		stroke_join = clampi(v, 0, 2)
+		queue_redraw()
+
+## Límite de inglete (como SVG/PDF): por encima, la esquina se bisela.
+@export var stroke_miter_limit: float = 4.0:
+	set(v):
+		stroke_miter_limit = clampf(v, 1.0, 50.0)
+		queue_redraw()
+
 const StrokePaint = preload("res://script_gdscript/shapes/stroke_paint.gd")
+const StrokeGeomJ = preload("res://script_gdscript/shapes/stroke_geom.gd")
 
 ## ── Degradado en el trazo (opcional) ──────────────────────────────────────
 ## Con >= 2 puntos el trazo se pinta con este degradado (0 lineal, 1 radial)
@@ -1059,14 +1072,22 @@ func draw_stroke_ring(points: PackedVector2Array) -> void:
 		4: # Double
 			_draw_ring_double(ring, rend_col)
 		_: # Solid
-			if has_gradient_stroke():
-				var cols := stroke_colors_for(ring)
-				if rend_col.a < stroke_color.a and stroke_color.a > 0.0:
-					for i in cols.size():
-						cols[i].a *= rend_col.a / stroke_color.a
-				draw_polyline_colors(ring, cols, rend_w, false)
-			else:
-				draw_polyline(ring, rend_col, rend_w, false)
+			draw_joined_ring(ring, rend_w, rend_col)
+
+## Contorno cerrado sólido con la unión elegida (antes draw_polyline: sin
+## uniones reales y con muesca en el primer vértice).
+func draw_joined_ring(ring: PackedVector2Array, rend_w: float, rend_col: Color) -> void:
+	var m := StrokeGeomJ.build(ring, true, 0, rend_w, 0, 0, PackedVector2Array(), 1.0, 1.0,
+		stroke_join, stroke_miter_limit)
+	if (m["indices"] as PackedInt32Array).is_empty():
+		return
+	var cols := PackedColorArray([rend_col])
+	if has_gradient_stroke():
+		cols = stroke_colors_for(m["points"])
+		if rend_col.a < stroke_color.a and stroke_color.a > 0.0:
+			for i in cols.size():
+				cols[i].a *= rend_col.a / stroke_color.a
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], cols)
 
 func _draw_ring_dashed(ring: PackedVector2Array, rend_w: float = -1.0, rend_col: Color = Color(-1, -1, -1, -1)) -> void:
 	var use_w: float = stroke_width if rend_w < 0.0 else rend_w

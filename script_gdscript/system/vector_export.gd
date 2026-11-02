@@ -100,7 +100,24 @@ static func _scale_of(xf: Transform2D) -> float:
 ## Primitiva de contorno. `subs`: [{ops: [...], closed}]
 static func _item(subs: Array, fill: Variant, stroke: Variant, width: float, op: float, cap: int, evenodd: bool) -> Dictionary:
 	return {"t": "path", "subs": subs, "fill": fill, "stroke": stroke, "width": width,
-		"opacity": op, "cap": cap, "evenodd": evenodd, "grad": null, "sgrad": null, "shadow": null}
+		"opacity": op, "cap": cap, "evenodd": evenodd, "grad": null, "sgrad": null, "shadow": null,
+		"join": 1, "miter": 4.0}
+
+const _JOIN_NAMES := ["miter", "round", "bevel"]
+
+## Unión del trazo (UX-08): 0 inglete, 1 redonda, 2 bisel (= códigos de PDF/PS).
+static func _add_join(it: Dictionary, n: Node) -> void:
+	if "stroke_join" in n:
+		it["join"] = clampi(int(n.get("stroke_join")), 0, 2)
+		it["miter"] = clampf(float(n.get("stroke_miter_limit")), 1.0, 50.0) if "stroke_miter_limit" in n else 4.0
+
+## Atributos SVG de la unión.
+static func _svg_join(it: Dictionary) -> String:
+	var j := clampi(int(it.get("join", 1)), 0, 2)
+	var out := ' stroke-linejoin="%s"' % _JOIN_NAMES[j]
+	if j == 0:
+		out += ' stroke-miterlimit="%s"' % _n(float(it.get("miter", 4.0)))
+	return out
 
 static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) -> void:
 	var subs: Array = []
@@ -125,6 +142,7 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 		it["fill"] = g.get_color(0)
 	_add_stroke_grad(it, s)
 	_add_dash(it, s, _scale_of(xf))
+	_add_join(it, s)
 	# TODAS las sombras proyectadas (antes solo quedaba la última)
 	var shadows: Array = []
 	for fx in s.effects:
@@ -154,6 +172,7 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 	var pit := _item(subs, fill, stroke, sw * _scale_of(xf), op, cap, evenodd)
 	_add_stroke_grad(pit, p)
 	_add_dash(pit, p, _scale_of(xf))
+	_add_join(pit, p)
 	out["items"].append(pit)
 
 ## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
@@ -559,6 +578,7 @@ static func to_render_json(data: Dictionary) -> Dictionary:
 					subs.append({"ops": ops, "closed": sub["closed"]})
 				var d := {"type": "path", "subpaths": subs, "fill": _jc(it["fill"]), "stroke": _jc(it["stroke"]),
 					"stroke_width": _r(it["width"]), "cap": ["butt", "round", "square"][clampi(int(it["cap"]), 0, 2)],
+					"join": _JOIN_NAMES[clampi(int(it.get("join", 1)), 0, 2)], "miter_limit": _r(float(it.get("miter", 4.0))),
 					"fill_rule": "evenodd" if it["evenodd"] else "nonzero", "opacity": _r(it["opacity"])}
 				if it["grad"] != null:
 					var stops: Array = []
@@ -607,10 +627,10 @@ static func to_svg(data: Dictionary) -> String:
 				if it["stroke"] != null and it.get("sgrad") != null:
 					gid += 1
 					defs.append(_svg_stroke_gradient("g%d" % gid, it["sgrad"], _subs_bounds(it["subs"])))
-					extra += ' stroke="url(#g%d)" stroke-width="%s" stroke-linejoin="round"' % [gid, _n(it["width"])]
+					extra += ' stroke="url(#g%d)" stroke-width="%s"' % [gid, _n(it["width"])] + _svg_join(it)
 					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
 				elif it["stroke"] != null:
-					extra += _paint("stroke", it["stroke"]) + ' stroke-width="%s" stroke-linejoin="round"' % _n(it["width"])
+					extra += _paint("stroke", it["stroke"]) + ' stroke-width="%s"' % _n(it["width"]) + _svg_join(it)
 					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
 				if it["stroke"] != null and it.get("dash") is Array:
 					extra += ' stroke-dasharray="%s %s"' % [_n(it["dash"][0]), _n(it["dash"][1])]
@@ -783,7 +803,8 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 				if fill != null:
 					s += _pdf_col(fill, false) + " "
 				if stroke != null:
-					s += _pdf_col(stroke, true) + " %s w %d J 1 j " % [_n(it["width"]), clampi(int(it["cap"]), 0, 2)]
+					s += _pdf_col(stroke, true) + " %s w %d J %d j %s M " % [_n(it["width"]), clampi(int(it["cap"]), 0, 2),
+						clampi(int(it.get("join", 1)), 0, 2), _n(float(it.get("miter", 4.0)))]
 					if it.get("dash") is Array:
 						s += "[%s %s] 0 d " % [_n(it["dash"][0]), _n(it["dash"][1])]
 				s += _pdf_path(it["subs"], false)
@@ -939,7 +960,8 @@ static func to_eps(data_in: Dictionary) -> String:
 					o.append("gsave %s %s %s %s setrgbcolor %s grestore" % [path, _n(f.r), _n(f.g), _n(f.b), fill_op])
 				if it["stroke"] != null:
 					var s: Color = it["stroke"]
-					o.append("gsave %s %s %s %s setrgbcolor %s setlinewidth %d setlinecap %s stroke grestore" % [path, _n(s.r), _n(s.g), _n(s.b), _n(it["width"]), clampi(int(it["cap"]), 0, 2),
+					o.append("gsave %s %s %s %s setrgbcolor %s setlinewidth %d setlinecap %d setlinejoin %s setmiterlimit %s stroke grestore" % [path, _n(s.r), _n(s.g), _n(s.b), _n(it["width"]), clampi(int(it["cap"]), 0, 2),
+						clampi(int(it.get("join", 1)), 0, 2), _n(float(it.get("miter", 4.0))),
 						("[%s %s] 0 setdash" % [_n(it["dash"][0]), _n(it["dash"][1])]) if it.get("dash") is Array else ""])
 			"text":
 				var c: Color = it["color"]

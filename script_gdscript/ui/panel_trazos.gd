@@ -374,6 +374,10 @@ func _build_compact_ui() -> void:
 	st.add_child(_chip("style", "style", 0, false, tr("Estilo: sólido, discontinuo, punteado, doble"), 0, true))
 	var pr := _row(vb, "RowProfile", tr("Perfil"), at + 2)
 	pr.add_child(_chip("profile", "profile", PackedVector2Array(), false, tr("Perfil de grosor (Ideal, Afilado… o personalizado)"), 0, true))
+	# Unión del trazo (UX-08): el mismo componente en los tres modos.
+	var jr := StrokeJoinRow.new(_LABEL_W)
+	vb.add_child(jr)
+	vb.move_child(jr, at + 3)
 	_theme_compact_ui()
 
 func _row(vb: Node, nm: String, text: String, idx: int) -> HBoxContainer:
@@ -460,6 +464,16 @@ func _update_swatches(props: Dictionary) -> void:
 	if st == 3 and StrokeProfile.is_uniform(prof):
 		prof = StrokeProfile.preset("taper")
 	_swatches["profile"].set_value(prof)
+	# Perfil, extremos y estilo solo si la selección los tiene (un
+	# rectángulo no tiene perfil de grosor).
+	var vb := find_child("BoxContainer", false, false)
+	if vb == null:
+		vb = get_node_or_null("MarginContainer/BoxContainer")
+	if vb:
+		for pair in [["RowProfile", "stroke_profile"], ["RowEnds", "stroke_cap_start"], ["RowStyleChip", "stroke_style"]]:
+			var row := vb.get_node_or_null(String(pair[0])) as Control
+			if row:
+				row.visible = props.has(pair[1])
 	if is_instance_valid(_num_width) and props.has("stroke_width"):
 		if props["stroke_width"]["mixed"]:
 			_num_width.set_mixed(true)

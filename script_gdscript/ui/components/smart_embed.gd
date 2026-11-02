@@ -38,6 +38,7 @@ static func embed(scene_path: String, parent: Control, node_name: String, hide_p
 const TITLE_PATHS := {
 	"res://scenes/ui/panel_tooltext.tscn": ["BoxContainer/Label"],
 	"res://scenes/ui/panels/effects/effects.tscn": ["MarginContainer/VBoxContainer/Toolbar/Label"],
+	"res://scenes/ui/panel_trazos.tscn": ["MarginContainer/BoxContainer/Header", "MarginContainer/BoxContainer/HSeparator1"],
 }
 
 ## Quita el marco de ventana del componente (lo repone su propio tema si lo

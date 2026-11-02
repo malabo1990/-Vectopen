@@ -10,12 +10,22 @@
 #   · discontinuo y punteado con el patrón AJUSTADO para empezar y acabar en
 #     guion / punto (las puntas de flecha siempre se apoyan en trazo);
 #   · perfil de grosor (StrokeProfile) en el sólido.
+#   · UNIONES elegibles (UX-08): inglete (con límite; si lo supera, bisel,
+#     como SVG/PDF), redonda o bisel. El pincel conserva su malla de siempre.
 # =============================================================================
 extends RefCounted
 
 const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 
 const MITER_LIMIT := 4.0
+
+## Uniones entre tramos (stroke_join).
+const JOIN_MITER := 0
+const JOIN_ROUND := 1
+const JOIN_BEVEL := 2
+const JOIN_LABELS := {0: "Inglete", 1: "Redonda", 2: "Bisel"}
+const MITER_LIMIT_MIN := 1.0
+const MITER_LIMIT_MAX := 50.0
 
 ## Puntos precisos de la curva: subdivisión adaptativa por ÁNGULO (se ve
 ## lisa a cualquier zoom), sin duplicados.
@@ -49,7 +59,7 @@ const STYLE_LABELS := {
 ## Patrón de encendido/apagado: [on, off, on, off…]; on = 0 es un punto
 ## redondo de diámetro = grosor. Se escala para acabar en tramo completo.
 static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: Array,
-		width: float, cap_s: int, cap_e: int) -> void:
+		width: float, cap_s: int, cap_e: int, jn: Array = []) -> void:
 	var cum := _cumulative(pts)
 	var total := cum[cum.size() - 1]
 	if total <= 0.0:
@@ -81,7 +91,7 @@ static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: 
 		else:
 			var e := minf(s + on, total)
 			var d := sub_path(pts, cum, s, e)
-			_strip(m, d, _const_half(d.size(), width * 0.5), false, cap_s if first else cap_e, cap_e)
+			_strip(m, d, _const_half(d.size(), width * 0.5), false, cap_s if first else cap_e, cap_e, jn)
 		first = false
 		s += on + off
 		i += 2
@@ -89,11 +99,11 @@ static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: 
 ## Varias líneas paralelas: [[grosor relativo, desplazamiento relativo]…]
 ## (respecto al grosor total; el borde exterior coincide con él).
 static func _lines(m: Dictionary, pts: PackedVector2Array, closed: bool, spec: Array,
-		width: float, cap_s: int, cap_e: int) -> void:
+		width: float, cap_s: int, cap_e: int, jn: Array = []) -> void:
 	for l in spec:
 		var sub := maxf(1.0, width * float(l[0]))
 		var o := offset_line(pts, width * float(l[1]), closed) if not is_zero_approx(float(l[1])) else pts
-		_strip(m, o, _const_half(o.size(), sub * 0.5), closed, cap_s, cap_e)
+		_strip(m, o, _const_half(o.size(), sub * 0.5), closed, cap_s, cap_e, jn)
 
 ## Onda (seno) o zigzag que ocupa el grosor del trazo, con un número entero
 ## de ciclos (acaba en el eje).
@@ -126,9 +136,9 @@ static func _wave(m: Dictionary, pts: PackedVector2Array, closed: bool, width: f
 	_strip(m, out, _const_half(out.size(), line_w * 0.5), false, 1, 1)
 
 ## Vía: línea central fina + traviesas perpendiculares repartidas.
-static func _rail(m: Dictionary, pts: PackedVector2Array, closed: bool, width: float, spacing: float) -> void:
+static func _rail(m: Dictionary, pts: PackedVector2Array, closed: bool, width: float, spacing: float, jn: Array = []) -> void:
 	var line_w := maxf(1.0, width * 0.18)
-	_strip(m, pts, _const_half(pts.size(), line_w * 0.5), closed, 0, 0)
+	_strip(m, pts, _const_half(pts.size(), line_w * 0.5), closed, 0, 0, jn)
 	var cum := _cumulative(pts)
 	var total := cum[cum.size() - 1]
 	var n := maxi(1, int(roundf(total / spacing)))
@@ -245,7 +255,7 @@ static func double_metrics(width: float) -> Vector2:
 ## (3 = perfil "afilado" antiguo, lo resuelve quien llama pasándolo en profile).
 static func build(pts: PackedVector2Array, closed: bool, style: int, width: float,
 		cap_start: int, cap_end: int, profile: PackedVector2Array,
-		dash: float, gap: float) -> Dictionary:
+		dash: float, gap: float, join: int = JOIN_MITER, miter_limit: float = MITER_LIMIT) -> Dictionary:
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array()}
 	if pts.size() < 2 or width <= 0.0:
 		return m
@@ -257,34 +267,35 @@ static func build(pts: PackedVector2Array, closed: bool, style: int, width: floa
 		cap_end = 0
 	dash = maxf(dash, 0.5)
 	gap = maxf(gap, 0.5)
+	var jn := [clampi(join, JOIN_MITER, JOIN_BEVEL), clampf(miter_limit, MITER_LIMIT_MIN, MITER_LIMIT_MAX)]
 	match style:
 		1:
-			_pattern(m, pts, closed, [dash, gap], width, cap_start, cap_end)
+			_pattern(m, pts, closed, [dash, gap], width, cap_start, cap_end, jn)
 		2:
 			for c in dots(pts, closed, width, gap):
 				_disc(m, c, width * 0.5)
 		4:
-			_lines(m, pts, closed, [[0.3, 0.35], [0.3, -0.35]], width, cap_start, cap_end)
+			_lines(m, pts, closed, [[0.3, 0.35], [0.3, -0.35]], width, cap_start, cap_end, jn)
 		5:   # guion-punto
-			_pattern(m, pts, closed, [dash, gap, 0.0, gap], width, cap_start, cap_end)
+			_pattern(m, pts, closed, [dash, gap, 0.0, gap], width, cap_start, cap_end, jn)
 		6:   # guion-punto-punto
-			_pattern(m, pts, closed, [dash, gap, 0.0, gap, 0.0, gap], width, cap_start, cap_end)
+			_pattern(m, pts, closed, [dash, gap, 0.0, gap, 0.0, gap], width, cap_start, cap_end, jn)
 		7:   # guiones largos
-			_pattern(m, pts, closed, [dash * 2.5, gap], width, cap_start, cap_end)
+			_pattern(m, pts, closed, [dash * 2.5, gap], width, cap_start, cap_end, jn)
 		8:   # guiones cortos
-			_pattern(m, pts, closed, [maxf(width, dash * 0.35), gap * 0.6], width, cap_start, cap_end)
+			_pattern(m, pts, closed, [maxf(width, dash * 0.35), gap * 0.6], width, cap_start, cap_end, jn)
 		9:   # triple
-			_lines(m, pts, closed, [[0.2, 0.4], [0.2, 0.0], [0.2, -0.4]], width, cap_start, cap_end)
+			_lines(m, pts, closed, [[0.2, 0.4], [0.2, 0.0], [0.2, -0.4]], width, cap_start, cap_end, jn)
 		10:  # grueso + fino
-			_lines(m, pts, closed, [[0.55, 0.225], [0.15, -0.425]], width, cap_start, cap_end)
+			_lines(m, pts, closed, [[0.55, 0.225], [0.15, -0.425]], width, cap_start, cap_end, jn)
 		11:  # ondulado
 			_wave(m, pts, closed, width, maxf(dash, width * 1.5), false)
 		12:  # zigzag
 			_wave(m, pts, closed, width, maxf(dash, width * 1.2), true)
 		13:  # puntos cuadrados (tramos de largo = grosor, remate plano)
-			_pattern(m, pts, closed, [width, gap], width, 0, 0)
+			_pattern(m, pts, closed, [width, gap], width, 0, 0, jn)
 		14:  # vía (línea fina con traviesas)
-			_rail(m, pts, closed, width, maxf(dash, width * 0.8))
+			_rail(m, pts, closed, width, maxf(dash, width * 0.8), jn)
 		_:
 			var half := PackedFloat32Array()
 			half.resize(pts.size())
@@ -295,7 +306,7 @@ static func build(pts: PackedVector2Array, closed: bool, style: int, width: floa
 				var total := maxf(cum[cum.size() - 1], 0.0001)
 				for i in pts.size():
 					half[i] = width * 0.5 * StrokeProfile.sample(profile, cum[i] / total)
-			_strip(m, pts, half, closed, cap_start, cap_end)
+			_strip(m, pts, half, closed, cap_start, cap_end, jn)
 	return m
 
 # ── tira con uniones y remates ───────────────────────────────────────────────
@@ -305,8 +316,12 @@ static func _const_half(n: int, h: float) -> PackedFloat32Array:
 	a.fill(h)
 	return a
 
+## jn = [unión, límite de inglete]; vacío = malla antigua (pincel).
 static func _strip(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFloat32Array,
-		closed: bool, cap_s: int, cap_e: int) -> void:
+		closed: bool, cap_s: int, cap_e: int, jn: Array = []) -> void:
+	if not jn.is_empty():
+		_strip_joined(m, pts_in, half_in, closed, cap_s, cap_e, int(jn[0]), float(jn[1]))
+		return
 	var pts := pts_in.duplicate()
 	var half := half_in.duplicate()
 	var n := pts.size()
@@ -366,6 +381,118 @@ static func _strip(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFlo
 	m["indices"] = idx
 	for j in joins:
 		_disc(m, j[0], j[1])
+	if not closed:
+		if cap_s == 1:
+			_fan(m, pts[0], pts[0] - pts[1], half[0])
+		if cap_e == 1:
+			_fan(m, pts[n - 1], pts[n - 1] - pts[n - 2], half[n - 1])
+
+## Tira con la unión pedida. Cada tramo es un cuadrilátero; en cada vértice
+## con giro, el lado INTERIOR se cierra en el punto de inglete interior y el
+## EXTERIOR se rellena con la pieza de unión (punta, arco o bisel), que
+## comparte arista con los dos tramos: sin solapes (el trazo semitransparente
+## no oscurece las esquinas).
+static func _strip_joined(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFloat32Array,
+		closed: bool, cap_s: int, cap_e: int, join: int, limit: float) -> void:
+	var pts := pts_in.duplicate()
+	var half := half_in.duplicate()
+	var n := pts.size()
+	if closed and n > 1 and pts[0].distance_squared_to(pts[n - 1]) < 1e-6:
+		pts.remove_at(n - 1)
+		half.remove_at(n - 1)
+		n -= 1
+	if n < 2:
+		return
+	if not closed:
+		if cap_s == 2:
+			pts[0] = pts[0] + (pts[0] - pts[1]).normalized() * half[0]
+		if cap_e == 2:
+			pts[n - 1] = pts[n - 1] + (pts[n - 1] - pts[n - 2]).normalized() * half[n - 1]
+	var l_in := PackedVector2Array()
+	var l_out := PackedVector2Array()
+	var r_in := PackedVector2Array()
+	var r_out := PackedVector2Array()
+	l_in.resize(n)
+	l_out.resize(n)
+	r_in.resize(n)
+	r_out.resize(n)
+	var patches: Array = []   # polígonos [interior, exterior…] en abanico
+	for i in n:
+		var p := pts[i]
+		var h := half[i]
+		var has_prev := closed or i > 0
+		var has_next := closed or i < n - 1
+		var v0 := (p - pts[(i - 1 + n) % n]) if has_prev else Vector2.ZERO
+		var v1 := (pts[(i + 1) % n] - p) if has_next else Vector2.ZERO
+		var d0 := v0.normalized() if v0 != Vector2.ZERO else v1.normalized()
+		var d1 := v1.normalized() if v1 != Vector2.ZERO else d0
+		var n0 := Vector2(-d0.y, d0.x)
+		var n1 := Vector2(-d1.y, d1.x)
+		var cr := d0.cross(d1)
+		var mdir := n0 + n1
+		if mdir.length_squared() < 1e-8:
+			# Vuelta de 180°: extremo plano en cada lado; redonda = semicírculo.
+			l_in[i] = p + n0 * h
+			r_in[i] = p - n0 * h
+			l_out[i] = p + n1 * h
+			r_out[i] = p - n1 * h
+			if join == JOIN_ROUND:
+				_fan(m, p, d0, h)
+			continue
+		mdir = mdir.normalized()
+		var mlen := h / maxf(mdir.dot(n1), 0.0001)
+		if absf(cr) < 1e-6 or mlen - h < 0.02:
+			# Recto o giro mínimo (curvas teseladas): inglete, sin pieza.
+			l_in[i] = p + mdir * mlen
+			l_out[i] = l_in[i]
+			r_in[i] = p - mdir * mlen
+			r_out[i] = r_in[i]
+			continue
+		var s_out := -signf(cr)              # +1: el exterior es el lado izquierdo (+n)
+		var reach := minf(v0.length(), v1.length())
+		var in_len := minf(mlen, sqrt(h * h + reach * reach))
+		var inner := p - mdir * s_out * in_len
+		var a := p + n0 * h * s_out
+		var b := p + n1 * h * s_out
+		if s_out > 0.0:
+			l_in[i] = a
+			l_out[i] = b
+			r_in[i] = inner
+			r_out[i] = inner
+		else:
+			r_in[i] = a
+			r_out[i] = b
+			l_in[i] = inner
+			l_out[i] = inner
+		var poly := [inner, a]
+		match join:
+			JOIN_ROUND:
+				var a0 := (a - p).angle()
+				var sweep := wrapf((b - p).angle() - a0, -PI, PI)
+				var segs := clampi(int(absf(sweep) * maxf(h, 1.0) / 2.0) + 2, 2, 48)
+				for k in range(1, segs):
+					var t := a0 + sweep * float(k) / float(segs)
+					poly.append(p + Vector2(cos(t), sin(t)) * h)
+			JOIN_MITER:
+				if mlen <= h * limit:
+					poly.append(p + mdir * s_out * mlen)
+		poly.append(b)
+		patches.append(poly)
+	var verts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	for k in (n if closed else n - 1):
+		var j := (k + 1) % n
+		var v := verts.size()
+		verts.append_array([l_out[k], r_out[k], l_in[j], r_in[j]])
+		idx.append_array([v, v + 1, v + 2, v + 1, v + 3, v + 2])
+	for poly in patches:
+		var c := verts.size()
+		for q in poly:
+			verts.append(q)
+		for k in range(1, poly.size() - 1):
+			idx.append_array([c, c + k, c + k + 1])
+	m["points"] = verts
+	m["indices"] = idx
 	if not closed:
 		if cap_s == 1:
 			_fan(m, pts[0], pts[0] - pts[1], half[0])

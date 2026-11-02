@@ -43,7 +43,7 @@ const PROPS := [
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
 	"stroke_profile", "stroke_pointer_scale",
-	"stroke_dash_len", "stroke_dash_gap",
+	"stroke_dash_len", "stroke_dash_gap", "stroke_join", "stroke_miter_limit",
 	"letter_proportions", "letter_wave", "letter_tracking_ramp",
 	"effects", "filters", "custom_shader",
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
@@ -354,6 +354,14 @@ func _read(shape, prop):
 			if "stroke_dash_gap" in shape: return float(shape.stroke_dash_gap)
 			if shape.has_meta("stroke_dash_gap"): return float(shape.get_meta("stroke_dash_gap"))
 			return 8.0
+		"stroke_join":
+			if "stroke_join" in shape: return int(shape.stroke_join)
+			return null
+		"stroke_miter_limit":
+			# Solo tiene efecto con unión en inglete (la interfaz lo atenúa).
+			if "stroke_miter_limit" in shape:
+				return float(shape.stroke_miter_limit)
+			return null
 		"effects":
 			if "effects" in shape and shape.effects is Array:
 				return shape.effects.duplicate(true)
@@ -1308,6 +1316,14 @@ func _write_prop(shape, prop, value) -> void:
 			var fval := maxf(1.0, float(value))
 			if "stroke_dash_gap" in shape: shape.stroke_dash_gap = fval
 			shape.set_meta("stroke_dash_gap", fval)
+		"stroke_join":
+			if "stroke_join" in shape:
+				shape.stroke_join = clampi(int(value), 0, 2)
+				shape.set_meta("stroke_join", shape.stroke_join)
+		"stroke_miter_limit":
+			if "stroke_miter_limit" in shape:
+				shape.stroke_miter_limit = clampf(float(value), 1.0, 50.0)
+				shape.set_meta("stroke_miter_limit", shape.stroke_miter_limit)
 		"effects":
 			var eff_arr: Array = value if value is Array else []
 			if "effects" in shape:

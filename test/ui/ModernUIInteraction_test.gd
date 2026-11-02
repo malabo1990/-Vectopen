@@ -50,7 +50,9 @@ func test_modern_mode_no_conflicts_and_proper_layout() -> void:
 	# y acompañan al panel de capas acoplado al borde (260)
 	var regla_v = windows_regla.get_node("regla vertical") as Control
 	assert_that(windows_regla.offset_top).is_equal(36.0)
-	assert_that(regla_h.offset_right).is_equal(-268.0)
+	# El ancho del Inspector se puede arrastrar y se guarda (UX-14): la regla
+	# acaba donde empieza el Inspector, con el ancho que tenga.
+	assert_that(regla_h.offset_right).is_equal(-adapt_mgr.right_dock_width("modern"))
 	# la regla empieza justo en el borde del panel acoplado (su ancho real:
 	# 260 como mínimo, más si el contenido lo necesita; antes se salía de
 	# la pantalla por la izquierda)

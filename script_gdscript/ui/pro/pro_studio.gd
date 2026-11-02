@@ -928,6 +928,8 @@ func _build_stroke_page() -> void:
 	_btn_align_outside = aligns[2]
 	# Puntas, remates, estilo y perfil: el mismo desplegable que Smart (UX-06).
 	_sec_stroke.add_child(InspectorExtraProps.create(["stroke_details"], "StrokeDetails"))
+	# Unión del trazo (UX-08): el mismo componente en los tres modos.
+	_sec_stroke.add_child(StrokeJoinRow.new(48.0))
 
 # ── 4. TRANSFORM ──
 func _build_transform_page() -> void:

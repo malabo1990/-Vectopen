@@ -118,7 +118,7 @@ func _draw() -> void:
 			var ring := PackedVector2Array(poly)
 			ring.append(poly[0])
 			var sp := _get_rendered_stroke_params()
-			draw_polyline(ring, sp[1], sp[0], false)
+			draw_joined_ring(ring, sp[0], sp[1])
 
 		draw_effects_overlays(poly)
 

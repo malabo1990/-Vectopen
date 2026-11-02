@@ -405,11 +405,12 @@ func _build_ui() -> void:
 	# ── SECCION E: RELLENO (FILL - FILA COMPACTA) ──
 	_build_fill_section()
 
-	# ── SECCION F: TRAZO (STROKE - FILA COMPACTA) ──
+	# ── SECCION F: TRAZO ──
+	# UX-08: el panel de Trazo COMPLETO de Smart (color, grosor, alineación,
+	# extremos, estilo, perfil y unión), no la fila compacta de antes
+	# («Center/Inside/Outside» a 9 px, ojo y «−»).
 	_build_stroke_section()
-
-	# Puntas, remates, estilo y perfil del trazo (UX-06).
-	content_container.add_child(InspectorExtraProps.create(["stroke_details"], "StrokeDetails"))
+	_embed_full(sec_stroke, "res://scenes/ui/panel_trazos.tscn", "FullStroke")
 
 	# ── SECCION G: EFECTOS (SHADOW - FILA COMPACTA) ──
 	_build_effects_section()

@@ -131,6 +131,18 @@ func stroke_colors_for(points: PackedVector2Array) -> PackedColorArray:
 		stroke_dash_gap = maxf(1.0, v)
 		queue_redraw()
 
+## Unión entre tramos (UX-08): 0 inglete, 1 redonda, 2 bisel.
+@export var stroke_join: int = 0:
+	set(v):
+		stroke_join = clampi(v, 0, 2)
+		queue_redraw()
+
+## Límite de inglete (como SVG/PDF): por encima, la esquina se bisela.
+@export var stroke_miter_limit: float = 4.0:
+	set(v):
+		stroke_miter_limit = clampf(v, 1.0, 50.0)
+		queue_redraw()
+
 func _ready() -> void:
 	# Compat: los trazos cargados de disco traen el estado como meta.
 	if has_meta("is_closed"):
@@ -153,6 +165,10 @@ func _ready() -> void:
 		stroke_dash_len = float(get_meta("stroke_dash_len"))
 	if has_meta("stroke_dash_gap"):
 		stroke_dash_gap = float(get_meta("stroke_dash_gap"))
+	if has_meta("stroke_join"):
+		stroke_join = int(get_meta("stroke_join"))
+	if has_meta("stroke_miter_limit"):
+		stroke_miter_limit = float(get_meta("stroke_miter_limit"))
 	if curve and not curve.changed.is_connected(_solicitar_redibuja):
 		curve.changed.connect(_solicitar_redibuja)
 	queue_redraw()
@@ -270,7 +286,8 @@ func _draw_stroke_mesh(pts: PackedVector2Array, is_closed: bool) -> void:
 	var wc := _render_width_color()
 	var sp := _style_and_profile()
 	var m := StrokeGeom.build(pts, is_closed, int(sp[0]), float(wc[0]),
-		stroke_cap_start, stroke_cap_end, sp[1], stroke_dash_len, stroke_dash_gap)
+		stroke_cap_start, stroke_cap_end, sp[1], stroke_dash_len, stroke_dash_gap,
+		stroke_join, stroke_miter_limit)
 	if (m["indices"] as PackedInt32Array).is_empty():
 		return
 	var cols := PackedColorArray([wc[1]])

@@ -21,6 +21,10 @@ restore() {
 	cp -p "$SNAP"/project.godot.bak project.godot   # el test de idioma lo reescribe
 }
 trap restore EXIT
+# Las pruebas parten de los ajustes de FÁBRICA: la disposición que el usuario
+# haya elegido (ancho del Inspector, pestañas flotantes de Pro…) no debe
+# cambiar el resultado. Se reponen al terminar (restore).
+rm -f "$USERDATA"/*.cfg
 timeout 300 flatpak run --command=godot org.godotengine.Godot --headless --path . --import > /dev/null 2>&1
 timeout 1500 flatpak run --command=godot org.godotengine.Godot --headless --path . \
 	-s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode -a "res://${1:-test}" -c 2>&1 \

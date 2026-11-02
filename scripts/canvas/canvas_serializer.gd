@@ -103,10 +103,14 @@ static func read_vtc_chunk_compressed(path: String, off: int, clen: int) -> Pack
 # ─────────────────────────────────────────────────────────── serializar
 const _PATH_STROKE_KEYS := ["stroke_style", "stroke_cap_start", "stroke_cap_end",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_pointer_scale",
-	"stroke_dash_len", "stroke_dash_gap", "stroke_profile"]
+	"stroke_dash_len", "stroke_dash_gap", "stroke_profile", "stroke_join", "stroke_miter_limit"]
 const _PATH_STROKE_DEFAULTS := {"stroke_style": 0, "stroke_cap_start": 0, "stroke_cap_end": 0,
 	"stroke_pointer_start": 0, "stroke_pointer_end": 0, "stroke_pointer_scale": 1.0,
-	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0}
+	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0}
+## Trazo de las figuras (rectángulo, elipse, estrella, polígono, booleana):
+## antes no se guardaban estilo, alineación ni guiones y se perdían al reabrir.
+const _SHAPE_STROKE_DEFAULTS := {"stroke_style": 0, "stroke_align": 0,
+	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0}
 
 static func serialize_container(container: Node) -> Dictionary:
 	var out := {"v": V, "artboards": [], "loose": []}
@@ -399,6 +403,9 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 	d["fill"] = _col(s.fill_color)
 	d["stroke"] = _col(s.stroke_color)
 	d["stroke_w"] = s.stroke_width
+	for k in _SHAPE_STROKE_DEFAULTS:
+		if k in s and s.get(k) != _SHAPE_STROKE_DEFAULTS[k]:
+			d[k] = s.get(k)
 	if s.has_gradient_fill():
 		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle), s.fill_gradient_p0, s.fill_gradient_p1)
 	if s.has_gradient_stroke():
@@ -1242,6 +1249,9 @@ static func _read_style(s: VectorShape, d: Dictionary) -> void:
 	s.fill_color = _to_col(d.get("fill", [1, 1, 1, 1]))
 	s.stroke_color = _to_col(d.get("stroke", [0, 0, 0, 1]))
 	s.stroke_width = d.get("stroke_w", 2.0)
+	for k in _SHAPE_STROKE_DEFAULTS:
+		if d.has(k) and k in s:
+			s.set(k, d[k])
 	_read_stroke_grad(s, d)
 	if d.has("fill_grad") and d["fill_grad"] is Dictionary:
 		s.fill_gradient_type = int(d["fill_grad"].get("type", 0))

@@ -67,10 +67,13 @@ func _draw() -> void:
 			draw_line(Vector2(end_x, r.position.y), Vector2(end_x, r.end.y), guide, 1.0)
 		"style":
 			# La misma geometría que el lienzo, a escala de la muestra.
-			var w := clampf(r.size.y * 0.55, 3.0, 9.0)
+			# Fino y del mismo grosor siempre (antes hasta 9 px: barras macizas).
+			var w := clampf(r.size.y * 0.3, 2.0, 4.0)
 			var line := PackedVector2Array([Vector2(r.position.x + w * 0.5, cy), Vector2(r.end.x - w * 0.5, cy)])
 			var m := StrokeGeom.build(line, false, int(value), w, 0, 0, PackedVector2Array(), w * 2.2, w * 1.1)
 			if not (m["indices"] as PackedInt32Array).is_empty():
 				RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], PackedColorArray([col]))
 		"profile":
-			StrokeProfile.draw_thumbnail(self, r, value, col)
+			# Banda de altura limitada: un perfil uniforme no es un bloque macizo.
+			var hgt := minf(r.size.y, 8.0)
+			StrokeProfile.draw_thumbnail(self, Rect2(r.position.x, cy - hgt * 0.5, r.size.x, hgt), value, col)

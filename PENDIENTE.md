@@ -104,6 +104,8 @@ compara píxel a píxel con la geometría exacta (400 muestras por tramo) en
 cuatro casos (lente de dos nodos, S cruzada, cierre repetido, abierta) a 100 %
 y 800 %: 0,00 % de error; antes 43–58 % en la S y la abierta.
 
+**Pendiente de la propuesta (revisión 2026-11-02):** punto 3, recorte por geometría (intersección de contornos) a petición del usuario, no hecho.
+
 ---
 
 ## 3. UX-02 — El teclado del Inspector se comporta como atajo de herramienta
@@ -239,11 +241,13 @@ del tema activo (`ThemeDB`/`theme_changed`).
 **Criterio de aceptación.**
 - [x] Sin colores literales en el panel.
 - [x] Legible en tema claro y oscuro.
-- [x] Estructura y densidad equivalentes al panel de capas.
+- [ ] Estructura y densidad equivalentes al panel de capas — **siguen los emojis** (✏️ ✒️ 🖍️ 🖌️ 💨 🧹) y campos propios (SpinBox + HSlider) en vez de los componentes compartidos (iconos SVG, `NumericField`).
 
 **Prueba de interfaz.** `test/e2e/brush_panel_theme_e2e.gd` (captura en ambos temas).
 
-**Resolución (2026-11-02).** Componente común `ui/components/tool_panel_style.gd`
+**Reabierta (revisión 2026-11-02):** solo se migraron los colores; falta la iconografía y los campos comunes que pide la corrección propuesta.
+
+**Resolución parcial (2026-11-02).** Componente común `ui/components/tool_panel_style.gd`
 (colores del tema vía `ProUIStyle.col`): marco flotante, título, cabeceras de
 sección en versalitas como Capas, textos secundarios con el color atenuado del
 tema (no `modulate`), separadores y botones-interruptor. Sin `Color(` en el
@@ -297,12 +301,21 @@ uniones, guiones, alineación, puntas y escala.
 presentación por modo, en lugar de mantener tres implementaciones.
 
 **Criterio de aceptación.**
-- [x] Las mismas propiedades editables en los tres modos.
+- [x] Las mismas propiedades editables en los tres modos (incluidas las uniones).
 - [x] Los cambios se reflejan al instante y son deshacibles.
 
 **Prueba de interfaz.** `test/e2e/stroke_panel_parity_e2e.gd`.
 
-**Resultado (2026-11-02).** La paridad ya la trajo UX-06 de la lista anterior
+**Reabierta (revisión 2026-11-02).** El requisito incluye «uniones»: no se puede dar por cerrada dejándolas como función nueva.
+
+**Resolución (2026-11-02, intento 2).**
+- **Uniones:** `stroke_join` (inglete / redonda / bisel) y `stroke_miter_limit` en figuras y trazados. La malla (`stroke_geom.gd`) hace cada esquina sin solapes: un trazo semitransparente ya no oscurece las esquinas. El inglete que supera el límite se bisela, como en SVG/PDF. Se exportan a SVG, PDF, EPS y JSON, y se importan de SVG.
+- **Interfaz:** un único componente, `StrokeJoinRow` (fila «Unión» con iconos dibujados con la misma geometría y el límite, activo solo con inglete), en Smart, Modern y Pro.
+- **Modern (petición del usuario: «trazos es malísimo»):** la sección Trazo es ahora el panel COMPLETO de Smart, sin la fila compacta («Center/Inside/Outside» a 9 px, ojo y «−»). Perfil, extremos y estilo se ocultan si el objeto no los tiene. Las muestras ya no son barras macizas.
+- **Encontrado de paso:** las figuras (rectángulo, elipse, estrella, polígono) no guardaban estilo, alineación ni guiones del trazo, que se perdían al reabrir. Ahora se guardan.
+- **Pruebas:** `StrokeJoin_test.gd` (8: áreas exactas de cada unión, límite → bisel, sin solapes en un cuadrado cerrado, guardado, SVG); `stroke_panel_parity_e2e.gd` (25, ahora con unión y límite en los tres modos); `modern_stroke_panel_e2e.gd` (20, clics y deshacer en Modern, capturas claro y oscuro).
+
+**Resultado anterior (intento 1).** La paridad ya la trajo UX-06 de la lista anterior
 (commit `89f28c3`, posterior al RPM instalado): la prueba usa con clics reales
 todos los controles del panel «Trazos y Borde» de Smart, del Inspector de
 Modern y del lateral de Pro, con una línea y con un rectángulo, y en los tres
@@ -395,9 +408,9 @@ instancia, o el trazo se crea en un contenedor con visibilidad desactivada.
 ¿está en el árbol?) y corregir la ruta de instanciación del panel y del contenedor.
 
 **Criterio de aceptación.**
-- [x] Dibujar en Modern muestra el trazo inmediatamente.
-- [x] El trazo persiste al cambiar de modo (guardar: cubierto por la batería unitaria).
-- [x] Sin regresiones en Smart y Pro.
+- [ ] Dibujar en Modern muestra el trazo inmediatamente (no reproducido aún con el caso del usuario).
+- [ ] El trazo persiste al cambiar de modo.
+- [ ] Sin regresiones en Smart y Pro.
 
 **Prueba de interfaz.** `test/e2e/modern_strokes_visible_e2e.gd`.
 
@@ -449,6 +462,8 @@ alinear…) y Color/Muestras/Trazo con un modelo 3D; «Romper enlace» y
 perdía); «Restablecer vista 3D» y «Encuadrar» sin deshacer; la gota de agua
 tratada como polígono regular (sin su curvatura; «Regular» la rompía y deshacer
 no la devolvía). Resultado: 82 comprobaciones en verde.
+
+**Pendiente de la propuesta (revisión 2026-11-02):** la interfaz no se genera desde `PROPS`; la prueba sí falla si una propiedad no tiene control.
 
 ---
 
@@ -513,6 +528,28 @@ regla y el lienzo se apartan, doble clic = ancho por defecto, guardado por modo.
 En Pro, botón «Inspector flotante» en la barra superior: el lateral (el mismo
 nodo, con su pestaña) pasa a una ventana redimensionable; cerrarla lo acopla con
 su ancho; la ventana recuerda su tamaño; cambiar de modo lo reacopla.
+
+---
+
+## 15 bis. UX-15 — Inspector: barras gris claro con texto blanco (estilo de Capas)
+
+**Síntoma (usuario, 2026-11-02).** «En el Inspector hay muchas barras gris claro
+con texto blanco: no es la UI de Vectopen como la tiene Capas. La UI de Capas es
+la referencia para todo el diseño de la UI, elegante.» Visto en la captura de
+Modern (tema claro): el campo «Nombre» y los campos desactivados son barras
+grises con texto blanco.
+
+**Corrección propuesta.** Revisar todos los campos, botones y filas del Inspector
+(Modern y Pro, tema claro y oscuro) contra el panel de Capas: superficies, bordes,
+texto y estados (normal, hover, foco, desactivado) con los colores del tema de
+Capas; nada de gris fijo ni texto blanco sobre gris claro.
+
+**Criterio de aceptación.**
+- [ ] Ningún control del Inspector con contraste de texto < 4,5:1 (3:1 desactivado/secundario).
+- [ ] Superficies y bordes con los mismos colores del tema que Capas.
+- [ ] Claro y oscuro, Modern y Pro, con capturas.
+
+**Prueba de interfaz.** `test/e2e/inspector_capas_style_e2e.gd`.
 
 ---
 
@@ -582,15 +619,16 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Verde |
 | UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Verde |
 | UX-05 | — | — | Por aclarar |
-| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Verde |
+| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Abierta |
 | UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Verde |
-| UX-08 | `panel_trazos.gd` | `stroke_panel_parity_e2e.gd` | Verde |
+| UX-08 | `panel_trazos.gd`, `stroke_geom.gd` | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Verde |
 | UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Verde |
 | UX-10 | `move_tool_keyboard.gd`, `NodeSelectionTool.gd` | `delete_keys_matrix_e2e.gd` | Verde |
 | UX-11 | `panel_trazos.gd`, `adaptive_ui_manager.gd` | `modern_strokes_visible_e2e.gd` | Pendiente de insumo |
 | UX-12 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_coverage_e2e.gd` | Verde |
 | UX-13 | `docked_inspector.gd`, `vectorize_panel.gd` | `inspector_action_icons_e2e.gd` | Verde |
 | UX-14 | `panel_edge_resizer.gd`, `docked_inspector.gd` | `inspector_resize_e2e.gd` | Verde |
+| UX-15 | `docked_inspector.gd`, `numeric_field.gd`, `pro_studio.gd` | `inspector_capas_style_e2e.gd` | Abierta |
 
 ---
 
@@ -606,17 +644,18 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-03 | 1 | Verde | `palette_delete_gradient_e2e.gd` | Color o degradado; clic derecho Eliminar/Duplicar con deshacer |
 | UX-04 | 1 | Verde | `palette_modes_e2e.gd` | En Pro la recortaba el lateral; ahora flota junto al selector |
 | UX-05 | 0 | Pendiente de insumo | — | Falta identificar el panel |
-| UX-06 | 1 | Verde | `brush_panel_theme_e2e.gd` | Colores del tema (componente común); marco repintado al soltar del lateral |
+| UX-06 | 2 | Abierta | `brush_panel_theme_e2e.gd` | Colores hechos; faltan iconos SVG (quedan emojis) y campos comunes |
 | UX-07 | 1 | Verde | `bezier_panel_theme_e2e.gd` | Tarjetas con superficie del tema, iconos SVG, campo numérico común |
-| UX-08 | 1 | Verde | `stroke_panel_parity_e2e.gd` | Paridad comprobada (vino con UX-06 anterior); uniones = función nueva |
+| UX-08 | 2 | Verde | `stroke_panel_parity_e2e.gd`, `modern_stroke_panel_e2e.gd` | Uniones en los 3 modos; Modern con el panel completo de Smart; trazo de figuras guardado |
 | UX-09 | 1 | Verde | `pro_tabs_dock_float_e2e.gd` | Arrastrar = reordenar; soltar fuera = flotar; doble clic = acoplar; persistente |
 | UX-10 | 1 | Verde | `delete_keys_matrix_e2e.gd` | El editor de degradado se quedaba Supr/Retroceso; lista única de teclas |
 | UX-11 | 1 | Pendiente de insumo | `modern_strokes_visible_e2e.gd` | No reproducible (43/43 verde en los 3 modos); faltan pasos o archivo |
 | UX-12 | 1 | Verde | `inspector_coverage_e2e.gd` | Modo estricto: 82 comprobaciones; 7 defectos corregidos |
 | UX-13 | 1 | Verde | `inspector_action_icons_e2e.gd` | Cuatro iconos junto a Exportar en los tres modos |
 | UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
+| UX-15 | 0 | Abierta | `inspector_capas_style_e2e.gd` | Barras gris claro con texto blanco en el Inspector; Capas es la referencia |
 
-**Resumen Fase A:** 12 / 14 en verde · 2 pendientes de insumo (UX-05: panel
+**Resumen Fase A:** 11 / 15 en verde · abiertas: UX-06 (reabierta) y UX-15 (nueva) · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
 **Resumen Fase B:** 0 / 30 proyectos aprobados.
