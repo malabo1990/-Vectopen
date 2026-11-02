@@ -69,6 +69,52 @@ func _ready() -> void:
 	_build_eyedropper_button()
 	_conectar_controles_ui()
 	_aplicar_tema()
+	var pal := get_node_or_null("palleteColor") as Control
+	if pal and not pal.visibility_changed.is_connected(_on_palette_visibility):
+		pal.visibility_changed.connect(_on_palette_visibility)
+
+# ── Panel de paleta (botón bajo la rueda) ────────────────────────────────────
+## Se abre 497 px a la izquierda del selector. Dentro del lateral de Pro (un
+## contenedor que recorta) quedaba invisible (UX-04). Si al abrirse no se ve
+## entero, pasa a flotar (top_level: no lo recorta nadie) junto al selector y
+## dentro de la ventana. Diferido: btn_toogle lo recoloca justo después.
+func _on_palette_visibility() -> void:
+	var pal := get_node_or_null("palleteColor") as Control
+	if pal and pal.visible:
+		_place_palette.call_deferred(pal)
+
+func _place_palette(pal: Control) -> void:
+	if not is_instance_valid(pal) or not pal.is_visible_in_tree():
+		return
+	var panel := pal.get_node_or_null("Panel_ multicolor") as Control
+	if panel == null:
+		return
+	if not pal.top_level and _visible_fraction(panel) > 0.95:
+		return          # se ve bien donde está (Smart, Modern)
+	pal.top_level = true
+	var vr := get_viewport_rect()
+	var me := get_global_rect()
+	var off := panel.position                     # desplazamiento del panel en su contenedor
+	var sz := panel.size
+	var gap := 8.0
+	var x := me.position.x - gap - sz.x           # a la izquierda del selector
+	if x < vr.position.x:
+		x = me.end.x + gap                        # si no cabe, a la derecha
+	x = clampf(x, vr.position.x, maxf(vr.position.x, vr.end.x - sz.x))
+	var y := clampf(me.position.y, vr.position.y, maxf(vr.position.y, vr.end.y - sz.y))
+	pal.global_position = Vector2(x, y) - off
+
+## Fracción de `c` que se ve: dentro de la ventana y de cada antepasado que
+## recorta su contenido.
+func _visible_fraction(c: Control) -> float:
+	var full := c.get_global_rect()
+	var r := full.intersection(get_viewport_rect())
+	var p := c.get_parent()
+	while p:
+		if p is Control and (p as Control).clip_contents and not (p as Control).top_level:
+			r = r.intersection((p as Control).get_global_rect())
+		p = p.get_parent()
+	return r.get_area() / maxf(1.0, full.get_area())
 
 func _on_theme_changed(_mode: String) -> void:
 	_aplicar_tema()
