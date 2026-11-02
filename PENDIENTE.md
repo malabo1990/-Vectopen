@@ -224,6 +224,14 @@ cuál. **Requiere aclaración del solicitante** antes de planificarlo.
 **Acción inmediata.** Confirmar el panel ausente (candidatos: Paleta, Trazos,
 Script, Plugins, Vectorizar) y, una vez identificado, asignarle un ID propio.
 
+**Resolución (2026-11-02, decidido por auditoría, §16.1).** Comparando las
+secciones del Inspector de Modern con el lateral de Pro, el panel que faltaba
+era **«Página»** (sin selección): Pro no lo tenía. Además en Modern no
+funcionaba: el color emitía una señal sin receptor y el tamaño era un texto
+fijo «1920 × 1080 px». Componente común `PageSection` (color, ancho/alto
+reales, girar, «Tamaños…»), con deshacer, en los dos modos.
+`page_section_e2e.gd` (28).
+
 ---
 
 ## 7. UX-06 — Panel de pincel y estilos: acabado y tema
@@ -431,6 +439,13 @@ aplicación instalada es el RPM `0.2.0-0.1.alpha` del 28/10, anterior a los
 últimos arreglos. **Pendiente de insumo:** pasos exactos o archivo con el que
 falla (¿herramienta, pincel o ajuste concreto? ¿o se refería al *panel*
 «Trazos y Borde», que es UX-08?). La prueba queda como regresión.
+
+**Resolución (2026-11-02, intento 2).** Reproducido con el uso real: los
+trazos nuevos heredan el color de la selección (ColorCore). Tras seleccionar
+una figura con relleno blanco, el pincel pintaba blanco y la Bézier siguiente
+heredaba ese blanco: blanco sobre página blanca (1,00:1). Ahora un trazo
+nuevo nunca nace sin contraste con su página (`ColorCore.visible_on`).
+`modern_strokes_scenarios_e2e.gd` (88; sin el arreglo, 6 fallos).
 
 ---
 
