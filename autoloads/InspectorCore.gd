@@ -31,6 +31,8 @@ signal prop_written(prop: String)
 signal selection_size_changed(count: int)
 
 ## Propiedades expuestas. Cada una: {value, mixed, editable}.
+const StrokeGeomRef = preload("res://script_gdscript/shapes/stroke_geom.gd")
+
 const PROPS := [
 	"name", "pos_x", "pos_y", "width", "height", "rotation",
 	"fill_color", "stroke_color", "stroke_width", "opacity", "corner_radius", "visible",
@@ -44,6 +46,7 @@ const PROPS := [
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
 	"stroke_profile", "stroke_pointer_scale",
 	"stroke_dash_len", "stroke_dash_gap", "stroke_join", "stroke_miter_limit",
+	"stroke_dash_offset", "stroke_dash_pattern", "stroke_behind_fill",
 	"letter_proportions", "letter_wave", "letter_tracking_ramp",
 	"effects", "filters", "custom_shader",
 	"shape_mode", "start_angle_deg", "end_angle_deg", "inner_radius_ratio", "points_count",
@@ -356,6 +359,16 @@ func _read(shape, prop):
 			return 8.0
 		"stroke_join":
 			if "stroke_join" in shape: return int(shape.stroke_join)
+			return null
+		"stroke_dash_offset":
+			if "stroke_dash_offset" in shape: return float(shape.stroke_dash_offset)
+			return null
+		"stroke_dash_pattern":
+			# Como texto «12 4 2 4» (vacío = guion / hueco).
+			if "stroke_dash_pattern" in shape: return StrokeGeomRef.pattern_text(shape.stroke_dash_pattern)
+			return null
+		"stroke_behind_fill":
+			if "stroke_behind_fill" in shape: return bool(shape.stroke_behind_fill)
 			return null
 		"stroke_miter_limit":
 			# Solo tiene efecto con unión en inglete (la interfaz lo atenúa).
@@ -1320,6 +1333,19 @@ func _write_prop(shape, prop, value) -> void:
 			if "stroke_join" in shape:
 				shape.stroke_join = clampi(int(value), 0, 2)
 				shape.set_meta("stroke_join", shape.stroke_join)
+		"stroke_dash_offset":
+			if "stroke_dash_offset" in shape:
+				shape.stroke_dash_offset = float(value)
+				shape.set_meta("stroke_dash_offset", shape.stroke_dash_offset)
+		"stroke_dash_pattern":
+			if "stroke_dash_pattern" in shape:
+				var pat: PackedFloat32Array = value if value is PackedFloat32Array else StrokeGeomRef.parse_pattern(str(value))
+				shape.stroke_dash_pattern = pat
+				shape.set_meta("stroke_dash_pattern", pat)
+		"stroke_behind_fill":
+			if "stroke_behind_fill" in shape:
+				shape.stroke_behind_fill = bool(value)
+				shape.set_meta("stroke_behind_fill", shape.stroke_behind_fill)
 		"stroke_miter_limit":
 			if "stroke_miter_limit" in shape:
 				shape.stroke_miter_limit = clampf(float(value), 1.0, 50.0)

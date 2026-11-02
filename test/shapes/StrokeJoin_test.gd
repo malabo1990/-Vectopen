@@ -146,3 +146,54 @@ func test_export_writes_each_join() -> void:
 	var pit := {}
 	VX._add_join(pit, r)
 	assert_int(int(pit["join"])).is_equal(1)
+
+# ── UX-18: desfase, patrón propio y trazo detrás del relleno ────────────────
+func _dashed(offset: float, pattern: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
+	var line := PackedVector2Array([Vector2(0, 0), Vector2(200, 0)])
+	return SG.build(line, false, 1, 4.0, 0, 0, PackedVector2Array(), 20.0, 20.0, 0, 4.0, offset, pattern)
+
+func _min_x(m: Dictionary) -> float:
+	var x := INF
+	for q in m["points"]:
+		x = minf(x, (q as Vector2).x)
+	return x
+
+func test_dash_offset_moves_the_pattern() -> void:
+	var a := _dashed(0.0)
+	var b := _dashed(10.0)
+	# Sin desfase el primer guion empieza en 0; con 10 px, el primer guion
+	# visible es medio guion (empieza en 0 pero acaba 10 px antes).
+	assert_float(_min_x(a)).is_equal_approx(0.0, 0.01)
+	assert_float(_area(b)).is_less(_area(a))
+	var c := _dashed(40.0)   # un periodo entero: igual que sin desfase
+	assert_float(_area(c)).is_equal_approx(_area(a), 0.01)
+
+func test_custom_dash_pattern() -> void:
+	var plain := _dashed(0.0)
+	var custom := _dashed(0.0, PackedFloat32Array([30.0, 5.0, 5.0, 5.0]))
+	# Más tinta: 35 de cada 45 frente a 20 de cada 40.
+	assert_float(_area(custom)).is_greater(_area(plain) * 1.3)
+	assert_str(SG.pattern_text(SG.parse_pattern("12, 4 2 4"))).is_equal("12 4 2 4")
+	assert_int(SG.custom_pattern(PackedFloat32Array([6.0]), 12.0, 8.0).size()).is_equal(2)
+
+func test_new_stroke_props_save_and_export() -> void:
+	var s: Node2D = load(CANVAS).instantiate()
+	add_child(s)
+	auto_free(s)
+	var r := VectorRectangle.new()
+	r.size = Vector2(80, 40)
+	r.stroke_style = 1
+	r.stroke_dash_offset = 7.0
+	r.stroke_dash_pattern = PackedFloat32Array([10.0, 3.0, 2.0, 3.0])
+	r.stroke_behind_fill = true
+	var back = CS._element_from(CS._serialize_element(r))
+	auto_free(r)
+	auto_free(back)
+	assert_float(back.stroke_dash_offset).is_equal(7.0)
+	assert_str(SG.pattern_text(back.stroke_dash_pattern)).is_equal("10 3 2 3")
+	assert_bool(back.stroke_behind_fill).is_true()
+	var it := {"stroke": Color.BLACK}
+	VX._add_dash(it, r, 1.0)
+	assert_str(VX._dash_list(it)).is_equal("10 3 2 3")
+	assert_float(float(it["dash_offset"])).is_equal(7.0)
+	assert_bool(it.get("behind", false)).is_true()

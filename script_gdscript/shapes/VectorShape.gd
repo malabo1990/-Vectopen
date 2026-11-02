@@ -44,6 +44,25 @@ class_name VectorShape
 		stroke_miter_limit = clampf(v, 1.0, 50.0)
 		queue_redraw()
 
+## UX-18: desfase del patrón de guiones (dónde empieza).
+@export var stroke_dash_offset: float = 0.0:
+	set(v):
+		stroke_dash_offset = v
+		queue_redraw()
+
+## UX-18: patrón de guiones personalizado (guion, hueco, guion, hueco…).
+## Vacío = guion / hueco de siempre.
+@export var stroke_dash_pattern: PackedFloat32Array = PackedFloat32Array():
+	set(v):
+		stroke_dash_pattern = v
+		queue_redraw()
+
+## UX-18: trazo DETRÁS del relleno (el relleno tapa su mitad interior).
+@export var stroke_behind_fill: bool = false:
+	set(v):
+		stroke_behind_fill = v
+		queue_redraw()
+
 const StrokePaint = preload("res://script_gdscript/shapes/stroke_paint.gd")
 const StrokeGeomJ = preload("res://script_gdscript/shapes/stroke_geom.gd")
 
@@ -1065,14 +1084,29 @@ func draw_stroke_ring(points: PackedVector2Array) -> void:
 	var rend_w: float = sp[0]
 	var rend_col: Color = sp[1]
 	match stroke_style:
-		1: # Dashed
-			_draw_ring_dashed(ring, rend_w, rend_col)
+		1: # Dashed: misma malla que los trazados (uniones, desfase, patrón)
+			_draw_patterned_ring(ring, rend_w, rend_col)
 		2: # Dotted
 			_draw_ring_dotted(ring, rend_col)
 		4: # Double
 			_draw_ring_double(ring, rend_col)
 		_: # Solid
 			draw_joined_ring(ring, rend_w, rend_col)
+	# UX-18: trazo detrás del relleno → el relleno se vuelve a pintar encima.
+	if stroke_behind_fill and points.size() >= 3:
+		draw_fill(points)
+
+## Discontinuo de las figuras con StrokeGeom (UX-18: desfase y patrón).
+func _draw_patterned_ring(ring: PackedVector2Array, rend_w: float, rend_col: Color) -> void:
+	var m := StrokeGeomJ.build(ring, true, 1, rend_w, 0, 0, PackedVector2Array(),
+		maxf(stroke_dash_len, 2.0), maxf(stroke_dash_gap, 2.0), stroke_join, stroke_miter_limit,
+		stroke_dash_offset, stroke_dash_pattern)
+	if (m["indices"] as PackedInt32Array).is_empty():
+		return
+	var cols := PackedColorArray([rend_col])
+	if has_gradient_stroke():
+		cols = stroke_colors_for(m["points"])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], cols)
 
 ## Contorno cerrado sólido con la unión elegida (antes draw_polyline: sin
 ## uniones reales y con muesca en el primer vértice).

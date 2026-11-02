@@ -143,6 +143,25 @@ func stroke_colors_for(points: PackedVector2Array) -> PackedColorArray:
 		stroke_miter_limit = clampf(v, 1.0, 50.0)
 		queue_redraw()
 
+## UX-18: desfase del patrón de guiones (dónde empieza).
+@export var stroke_dash_offset: float = 0.0:
+	set(v):
+		stroke_dash_offset = v
+		queue_redraw()
+
+## UX-18: patrón de guiones personalizado (guion, hueco, guion, hueco…).
+## Vacío = guion / hueco de siempre.
+@export var stroke_dash_pattern: PackedFloat32Array = PackedFloat32Array():
+	set(v):
+		stroke_dash_pattern = v
+		queue_redraw()
+
+## UX-18: trazo DETRÁS del relleno (el relleno tapa su mitad interior).
+@export var stroke_behind_fill: bool = false:
+	set(v):
+		stroke_behind_fill = v
+		queue_redraw()
+
 func _ready() -> void:
 	# Compat: los trazos cargados de disco traen el estado como meta.
 	if has_meta("is_closed"):
@@ -167,6 +186,9 @@ func _ready() -> void:
 		stroke_dash_gap = float(get_meta("stroke_dash_gap"))
 	if has_meta("stroke_join"):
 		stroke_join = int(get_meta("stroke_join"))
+	for k in ["stroke_dash_offset", "stroke_dash_pattern", "stroke_behind_fill"]:
+		if has_meta(k):
+			set(k, get_meta(k))
 	if has_meta("stroke_miter_limit"):
 		stroke_miter_limit = float(get_meta("stroke_miter_limit"))
 	if curve and not curve.changed.is_connected(_solicitar_redibuja):
@@ -191,10 +213,13 @@ func _draw() -> void:
 		draw_effects_shadows(pts)
 		if subpaths.is_empty():
 			var fc := _area_color()
+			# UX-18: con «detrás del relleno» se pinta el trazo primero.
+			if stroke_behind_fill and stroke_width > 0.0:
+				_draw_stroke_mesh(pts, true)
 			if fc.a > 0.0 and pts.size() >= 3:
 				for poly in fill_polygons(pts):
 					draw_colored_polygon(poly, fc)
-			if stroke_width > 0.0:
+			if stroke_width > 0.0 and not stroke_behind_fill:
 				_draw_stroke_mesh(pts, true)
 		else:
 			var rings: Array = [pts]
@@ -202,10 +227,13 @@ func _draw() -> void:
 				if c and c.point_count >= 2:
 					rings.append(closed_points(c))
 			var fc2 := _area_color()
+			if stroke_behind_fill and stroke_width > 0.0:
+				for r in rings:
+					_draw_stroke_mesh(r, true)
 			if fc2.a > 0.0:
 				for poly in StrokeGeom.evenodd_fill(rings):
 					draw_colored_polygon(poly, fc2)
-			if stroke_width > 0.0:
+			if stroke_width > 0.0 and not stroke_behind_fill:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
 		draw_effects_overlays(pts)
@@ -287,7 +315,7 @@ func _draw_stroke_mesh(pts: PackedVector2Array, is_closed: bool) -> void:
 	var sp := _style_and_profile()
 	var m := StrokeGeom.build(pts, is_closed, int(sp[0]), float(wc[0]),
 		stroke_cap_start, stroke_cap_end, sp[1], stroke_dash_len, stroke_dash_gap,
-		stroke_join, stroke_miter_limit)
+		stroke_join, stroke_miter_limit, stroke_dash_offset, stroke_dash_pattern)
 	if (m["indices"] as PackedInt32Array).is_empty():
 		return
 	var cols := PackedColorArray([wc[1]])

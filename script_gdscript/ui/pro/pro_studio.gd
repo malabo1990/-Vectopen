@@ -933,6 +933,7 @@ func _build_stroke_page() -> void:
 	_sec_stroke.add_child(InspectorExtraProps.create(["stroke_details"], "StrokeDetails"))
 	# Unión del trazo (UX-08): el mismo componente en los tres modos.
 	_sec_stroke.add_child(StrokeJoinRow.new(48.0))
+	_sec_stroke.add_child(StrokeBehindRow.new(48.0))   # UX-18
 
 # ── 4. TRANSFORM ──
 func _build_transform_page() -> void:

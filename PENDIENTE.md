@@ -704,7 +704,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-15 | 1 | Verde | `inspector_capas_style_e2e.gd` | El tema no llegaba a la UI (CanvasLayer corta la herencia): se aplica al Inspector y a Pro |
 | UX-16 | 1 | Verde | `brush_panel_theme_e2e.gd` | Causa de fondo: el render del lienzo ignoraba la textura de cada estilo (todo salía como banda lisa). Ahora la aplica (UV a lo largo/ancho, también en documentos guardados) y las muestras son trazos REALES con ese render: lápiz granulado, pluma afilada, marcador, caligráfico, aerógrafo difuminado (59) |
 | UX-17 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | Todo ColorPickerButton de la app abre el selector de Vectopen (enganche global en ThemeManager); 53 comprobaciones, cabe en pantalla |
-| UX-18 | 0 | Abierta | `stroke_panel_parity_e2e.gd` | Más paramétricos de trazo |
+| UX-18 | 1 | Verde | `stroke_panel_parity_e2e.gd`, `StrokeJoin_test.gd` | Nuevos (Affinity/Illustrator): desfase de guiones, patrón propio «12 4 2 4» y trazo detrás del relleno; en figuras y trazados, guardado y SVG/PDF/EPS; en los 3 modos (25 + 11 unitarias). Las figuras usan ya la misma malla que los trazados para el discontinuo |
 | UX-19 | 1 | Verde | `fx_sections_hidden_e2e.gd` | SHADER solo con shader asignado; SCRIPT solo desde su icono; pulsar otra vez la oculta (22) |
 | UX-20 | 1 | Verde | `palette_modes_e2e.gd` | 5 causas: en Modern el selector se CERRABA al pulsar su paleta (clic «fuera»); la muestra iba siempre al relleno; pulsarla deseleccionaba el objeto; el color del trazo se filtraba al relleno (señal global); la paleta solo flotaba si la recortaban. Ahora flota siempre dentro de la pantalla, compacta y en español (55) |
 | UX-24 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | El menú se colocaba una vez con un alto estimado: al cambiar a una pestaña alta se salía por abajo (645+443 > 1080) y cerca de arriba quedaba bajo la regla. Ahora zona segura y se recoloca al cambiar de tamaño (99) |
@@ -712,7 +712,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-22 | 1 | Verde | `size_popup_style_e2e.gd` | Rediseño: cuadrícula de 3 columnas con miniatura proporcional (hoja, monitor con pie, móvil, red social, icono), nombre y medida; pestañas con icono, buscador con lupa, «Girar 90°» y cada formato en su orientación natural; todo con colores del tema y legible en claro/oscuro; dentro de la pantalla (41) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |
 
-**Resumen Fase A:** 20 / 24 en verde (abiertas: UX-18, UX-21)
+**Resumen Fase A:** 21 / 24 en verde (abierta: UX-21)
 
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no

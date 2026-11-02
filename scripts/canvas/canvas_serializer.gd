@@ -103,14 +103,24 @@ static func read_vtc_chunk_compressed(path: String, off: int, clen: int) -> Pack
 # ─────────────────────────────────────────────────────────── serializar
 const _PATH_STROKE_KEYS := ["stroke_style", "stroke_cap_start", "stroke_cap_end",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_pointer_scale",
-	"stroke_dash_len", "stroke_dash_gap", "stroke_profile", "stroke_join", "stroke_miter_limit"]
+	"stroke_dash_len", "stroke_dash_gap", "stroke_profile", "stroke_join", "stroke_miter_limit",
+	"stroke_dash_offset", "stroke_dash_pattern", "stroke_behind_fill"]
 const _PATH_STROKE_DEFAULTS := {"stroke_style": 0, "stroke_cap_start": 0, "stroke_cap_end": 0,
 	"stroke_pointer_start": 0, "stroke_pointer_end": 0, "stroke_pointer_scale": 1.0,
-	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0}
+	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0,
+	"stroke_dash_offset": 0.0, "stroke_dash_pattern": [], "stroke_behind_fill": false}
 ## Trazo de las figuras (rectángulo, elipse, estrella, polígono, booleana):
 ## antes no se guardaban estilo, alineación ni guiones y se perdían al reabrir.
 const _SHAPE_STROKE_DEFAULTS := {"stroke_style": 0, "stroke_align": 0,
-	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0}
+	"stroke_dash_len": 12.0, "stroke_dash_gap": 8.0, "stroke_join": 0, "stroke_miter_limit": 4.0,
+	"stroke_dash_offset": 0.0, "stroke_dash_pattern": [], "stroke_behind_fill": false}
+
+## Valor guardable (el patrón de guiones va como lista).
+static func _stroke_val(v: Variant) -> Variant:
+	return Array(v) if v is PackedFloat32Array else v
+
+static func _stroke_load(k: String, v: Variant) -> Variant:
+	return PackedFloat32Array(v) if k == "stroke_dash_pattern" and v is Array else v
 
 static func serialize_container(container: Node) -> Dictionary:
 	var out := {"v": V, "artboards": [], "loose": []}
@@ -339,8 +349,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 				if k == "stroke_profile":
 					if not StrokeProfile.is_uniform(v):
 						base[k] = _pv2_to_arr(v)
-				elif v != _PATH_STROKE_DEFAULTS[k]:
-					base[k] = v
+				elif _stroke_val(v) != _PATH_STROKE_DEFAULTS[k]:
+					base[k] = _stroke_val(v)
 		return base
 	if node is Line2D:
 		base["kind"] = "line"
@@ -404,8 +414,8 @@ static func _add_style(d: Dictionary, s: VectorShape) -> void:
 	d["stroke"] = _col(s.stroke_color)
 	d["stroke_w"] = s.stroke_width
 	for k in _SHAPE_STROKE_DEFAULTS:
-		if k in s and s.get(k) != _SHAPE_STROKE_DEFAULTS[k]:
-			d[k] = s.get(k)
+		if k in s and _stroke_val(s.get(k)) != _SHAPE_STROKE_DEFAULTS[k]:
+			d[k] = _stroke_val(s.get(k))
 	if s.has_gradient_fill():
 		d["fill_grad"] = _grad_to_dict(s.fill_gradient, int(s.fill_gradient_type), float(s.fill_gradient_angle), s.fill_gradient_p0, s.fill_gradient_p1)
 	if s.has_gradient_stroke():
@@ -1014,7 +1024,7 @@ static func _element_from(d: Dictionary) -> Node2D:
 				vp.set("subpaths", subs)
 			for k in _PATH_STROKE_KEYS:
 				if d.has(k):
-					var v = _arr_to_pv2(d[k]) if k == "stroke_profile" else d[k]
+					var v = _arr_to_pv2(d[k]) if k == "stroke_profile" else _stroke_load(k, d[k])
 					vp.set(k, v)
 					vp.set_meta(k, v)
 			vp.name = d.get("name", "Trazo")
@@ -1251,7 +1261,7 @@ static func _read_style(s: VectorShape, d: Dictionary) -> void:
 	s.stroke_width = d.get("stroke_w", 2.0)
 	for k in _SHAPE_STROKE_DEFAULTS:
 		if d.has(k) and k in s:
-			s.set(k, d[k])
+			s.set(k, _stroke_load(k, d[k]))
 	_read_stroke_grad(s, d)
 	if d.has("fill_grad") and d["fill_grad"] is Dictionary:
 		s.fill_gradient_type = int(d["fill_grad"].get("type", 0))

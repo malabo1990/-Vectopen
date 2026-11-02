@@ -254,6 +254,36 @@ func _build() -> void:
 				f.value_changed.connect(func(v: float) -> void: _apply(p, v))
 				row.add_child(f)
 				_fields.append(f)
+			# UX-18: desfase del patrón y patrón personalizado (como Illustrator:
+			# «guion hueco guion hueco…»).
+			var row2 := HBoxContainer.new()
+			row2.name = "DashRow2"
+			row2.add_theme_constant_override("separation", 6)
+			_box.add_child(row2)
+			var fo: Control = NumField.new("", "D", tr("Desfase: dónde empieza el patrón"))
+			fo.name = "DashOffset"
+			fo.min_value = -500
+			fo.max_value = 500
+			fo.step = 1
+			fo.suffix = "px"
+			fo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			fo.set_value_no_signal(float(_prop("stroke_dash_offset", 0.0)))
+			fo.set_meta("prop", "stroke_dash_offset")
+			fo.value_changed.connect(func(v: float) -> void: _apply("stroke_dash_offset", v))
+			row2.add_child(fo)
+			_fields.append(fo)
+			var pe := LineEdit.new()
+			pe.name = "DashPattern"
+			pe.placeholder_text = tr("Patrón: 12 4 2 4")
+			pe.tooltip_text = tr("Patrón propio: guion, hueco, guion, hueco… (vacío = Guion y Hueco)")
+			pe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pe.size_flags_stretch_ratio = 1.4
+			pe.text = String(_prop("stroke_dash_pattern", ""))
+			pe.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
+			var commit := func(t: String) -> void: _apply("stroke_dash_pattern", t.strip_edges())
+			pe.text_submitted.connect(commit)
+			pe.focus_exited.connect(func() -> void: commit.call(pe.text))
+			row2.add_child(pe)
 		"profile":
 			_title.text = tr("Perfil de grosor")
 			var grid := GridContainer.new()
@@ -400,6 +430,9 @@ func _refresh_states() -> void:
 	var dash := _box.get_node_or_null("DashRow") as Control
 	if dash:
 		dash.visible = st in StrokeGeom.PATTERNED
+	var dash2 := _box.get_node_or_null("DashRow2") as Control
+	if dash2:
+		dash2.visible = st == 1   # desfase y patrón propio: discontinuo
 	if is_instance_valid(_editor):
 		_editor.set_profile(cur_prof)
 	if visible:

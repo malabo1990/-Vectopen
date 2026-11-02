@@ -58,8 +58,38 @@ const STYLE_LABELS := {
 
 ## Patrón de encendido/apagado: [on, off, on, off…]; on = 0 es un punto
 ## redondo de diámetro = grosor. Se escala para acabar en tramo completo.
+## Patrón de guiones del usuario: pares guion/hueco (impar → se repite
+## para completarlo, como SVG). Vacío o inválido → [guion, hueco].
+static func custom_pattern(p: PackedFloat32Array, dash: float, gap: float) -> Array:
+	var out: Array = []
+	for v in p:
+		if v >= 0.0:
+			out.append(maxf(v, 0.0))
+	if out.size() % 2 == 1:
+		out.append_array(out.duplicate())
+	var total := 0.0
+	for v in out:
+		total += float(v)
+	if out.size() < 2 or total <= 0.5:
+		return [dash, gap]
+	return out
+
+## Texto «12 4 2 4» ↔ patrón.
+static func parse_pattern(t: String) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for part in t.replace(",", " ").split(" ", false):
+		if part.is_valid_float() and float(part) >= 0.0:
+			out.append(float(part))
+	return out
+
+static func pattern_text(p: PackedFloat32Array) -> String:
+	var parts: Array[String] = []
+	for v in p:
+		parts.append(str(snappedf(v, 0.1)).trim_suffix(".0"))
+	return " ".join(parts)
+
 static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: Array,
-		width: float, cap_s: int, cap_e: int, jn: Array = []) -> void:
+		width: float, cap_s: int, cap_e: int, jn: Array = [], offset: float = 0.0) -> void:
 	var cum := _cumulative(pts)
 	var total := cum[cum.size() - 1]
 	if total <= 0.0:
@@ -79,7 +109,8 @@ static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: 
 		k = total / (maxf(1.0, roundf(total / period)) * period)
 	else:
 		k = (total + last_off) / (maxf(1.0, roundf((total + last_off) / period)) * period)
-	var s := 0.0
+	# Desfase: el patrón empieza «antes» del inicio (se recorta a [0, total]).
+	var s := -fposmod(offset * k, period * k) if absf(offset) > 0.0001 else 0.0
 	var i := 0
 	var first := true
 	while s < total - 0.001:
@@ -87,12 +118,16 @@ static func _pattern(m: Dictionary, pts: PackedVector2Array, closed: bool, pat: 
 		var on := float(real[i % real.size()]) * k
 		var off := float(real[(i + 1) % real.size()]) * k
 		if is_dot:
-			_disc(m, point_at(pts, cum, minf(s + on * 0.5, total)), width * 0.5)
+			var c := s + on * 0.5
+			if c >= 0.0 and c <= total:
+				_disc(m, point_at(pts, cum, c), width * 0.5)
 		else:
+			var a := maxf(s, 0.0)
 			var e := minf(s + on, total)
-			var d := sub_path(pts, cum, s, e)
-			_strip(m, d, _const_half(d.size(), width * 0.5), false, cap_s if first else cap_e, cap_e, jn)
-		first = false
+			if e - a > 0.01:
+				var d := sub_path(pts, cum, a, e)
+				_strip(m, d, _const_half(d.size(), width * 0.5), false, cap_s if first else cap_e, cap_e, jn)
+				first = false
 		s += on + off
 		i += 2
 
@@ -255,7 +290,8 @@ static func double_metrics(width: float) -> Vector2:
 ## (3 = perfil "afilado" antiguo, lo resuelve quien llama pasándolo en profile).
 static func build(pts: PackedVector2Array, closed: bool, style: int, width: float,
 		cap_start: int, cap_end: int, profile: PackedVector2Array,
-		dash: float, gap: float, join: int = JOIN_MITER, miter_limit: float = MITER_LIMIT) -> Dictionary:
+		dash: float, gap: float, join: int = JOIN_MITER, miter_limit: float = MITER_LIMIT,
+		dash_offset: float = 0.0, dash_pattern: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array()}
 	if pts.size() < 2 or width <= 0.0:
 		return m
@@ -270,7 +306,8 @@ static func build(pts: PackedVector2Array, closed: bool, style: int, width: floa
 	var jn := [clampi(join, JOIN_MITER, JOIN_BEVEL), clampf(miter_limit, MITER_LIMIT_MIN, MITER_LIMIT_MAX)]
 	match style:
 		1:
-			_pattern(m, pts, closed, [dash, gap], width, cap_start, cap_end, jn)
+			# UX-18: patrón personalizado (guion, hueco, guion, hueco…) y desfase.
+			_pattern(m, pts, closed, custom_pattern(dash_pattern, dash, gap), width, cap_start, cap_end, jn, dash_offset)
 		2:
 			for c in dots(pts, closed, width, gap):
 				_disc(m, c, width * 0.5)

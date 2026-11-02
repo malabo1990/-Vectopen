@@ -177,13 +177,33 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 
 ## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
 ## El punteado se exporta como trazos de largo 0 con remate redondo.
+const StrokeGeomX = preload("res://script_gdscript/shapes/stroke_geom.gd")
+
+## Guiones como texto: «a b c d».
+static func _dash_list(it: Dictionary, sep: String = " ") -> String:
+	var parts: Array[String] = []
+	for v in it["dash"]:
+		parts.append(_n(float(v)))
+	return sep.join(parts)
+
 static func _add_dash(it: Dictionary, n: Node, k: float) -> void:
+	if "stroke_behind_fill" in n and bool(n.get("stroke_behind_fill")):
+		it["behind"] = true
 	if it["stroke"] == null or not ("stroke_style" in n):
 		return
 	var style := int(n.get("stroke_style"))
 	var w := float(n.get("stroke_width"))
 	if style == 1:
 		it["dash"] = [maxf(float(n.get("stroke_dash_len")), 2.0) * k, maxf(float(n.get("stroke_dash_gap")), 2.0) * k]
+		# UX-18: patrón personalizado y desfase.
+		var pat = n.get("stroke_dash_pattern") if "stroke_dash_pattern" in n else null
+		if pat is PackedFloat32Array and (pat as PackedFloat32Array).size() >= 2:
+			var arr: Array = []
+			for v in StrokeGeomX.custom_pattern(pat, 12.0, 8.0):
+				arr.append(float(v) * k)
+			it["dash"] = arr
+		if "stroke_dash_offset" in n:
+			it["dash_offset"] = float(n.get("stroke_dash_offset")) * k
 	elif style == 2:
 		it["dash"] = [0.0, maxf(float(n.get("stroke_dash_gap")) + w, w * 2.5) * k]
 		it["cap"] = 1
@@ -633,7 +653,11 @@ static func to_svg(data: Dictionary) -> String:
 					extra += _paint("stroke", it["stroke"]) + ' stroke-width="%s"' % _n(it["width"]) + _svg_join(it)
 					extra += [' stroke-linecap="butt"', ' stroke-linecap="round"', ' stroke-linecap="square"'][clampi(int(it["cap"]), 0, 2)]
 				if it["stroke"] != null and it.get("dash") is Array:
-					extra += ' stroke-dasharray="%s %s"' % [_n(it["dash"][0]), _n(it["dash"][1])]
+					extra += ' stroke-dasharray="%s"' % _dash_list(it)
+					if absf(float(it.get("dash_offset", 0.0))) > 0.0001:
+						extra += ' stroke-dashoffset="%s"' % _n(float(it["dash_offset"]))
+				if it["stroke"] != null and it.get("behind", false):
+					extra += ' paint-order="stroke"' 
 				if it["evenodd"]:
 					extra += ' fill-rule="evenodd"'
 				if it["opacity"] < 0.999:
@@ -806,10 +830,14 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 					s += _pdf_col(stroke, true) + " %s w %d J %d j %s M " % [_n(it["width"]), clampi(int(it["cap"]), 0, 2),
 						clampi(int(it.get("join", 1)), 0, 2), _n(float(it.get("miter", 4.0)))]
 					if it.get("dash") is Array:
-						s += "[%s %s] 0 d " % [_n(it["dash"][0]), _n(it["dash"][1])]
+						s += "[%s] %s d " % [_dash_list(it), _n(float(it.get("dash_offset", 0.0)))]
 				s += _pdf_path(it["subs"], false)
 				var star := "*" if it["evenodd"] else ""
-				s += (" B" + star) if (fill != null and stroke != null) else ((" f" + star) if fill != null else (" S" if stroke != null else " n"))
+				if fill != null and stroke != null and it.get("behind", false):
+					# UX-18: trazo detrás del relleno → primero el trazo, luego el relleno.
+					s += " S " + _pdf_path(it["subs"], false) + " f" + star
+				else:
+					s += (" B" + star) if (fill != null and stroke != null) else ((" f" + star) if fill != null else (" S" if stroke != null else " n"))
 				content.append(s + " Q")
 			"text":
 				var xf: Transform2D = it["xf"]
@@ -962,7 +990,7 @@ static func to_eps(data_in: Dictionary) -> String:
 					var s: Color = it["stroke"]
 					o.append("gsave %s %s %s %s setrgbcolor %s setlinewidth %d setlinecap %d setlinejoin %s setmiterlimit %s stroke grestore" % [path, _n(s.r), _n(s.g), _n(s.b), _n(it["width"]), clampi(int(it["cap"]), 0, 2),
 						clampi(int(it.get("join", 1)), 0, 2), _n(float(it.get("miter", 4.0))),
-						("[%s %s] 0 setdash" % [_n(it["dash"][0]), _n(it["dash"][1])]) if it.get("dash") is Array else ""])
+						("[%s] %s setdash" % [_dash_list(it), _n(float(it.get("dash_offset", 0.0)))]) if it.get("dash") is Array else ""])
 			"text":
 				var c: Color = it["color"]
 				var size_t: float = it["size"]

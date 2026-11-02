@@ -378,6 +378,9 @@ func _build_compact_ui() -> void:
 	var jr := StrokeJoinRow.new(_LABEL_W)
 	vb.add_child(jr)
 	vb.move_child(jr, at + 3)
+	var br := StrokeBehindRow.new(_LABEL_W)   # UX-18
+	vb.add_child(br)
+	vb.move_child(br, at + 4)
 	_theme_compact_ui()
 
 func _row(vb: Node, nm: String, text: String, idx: int) -> HBoxContainer:

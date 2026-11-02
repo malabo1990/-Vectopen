@@ -265,6 +265,8 @@ func _exercise(c: Control) -> void:
 			nt = "#336699"
 		elif is_instance_valid(cur_obj) and t == String(cur_obj.name):
 			nt = t + " e2e"
+		elif String(le.name) == "DashPattern":
+			nt = "12 4 2 4" if t != "12 4 2 4" else "9 3"   # patrón de guiones (UX-18)
 		else:
 			_acted = false
 			return
