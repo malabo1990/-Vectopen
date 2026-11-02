@@ -1,0 +1,152 @@
+name: Release
+
+# Publica una versión de Vectopen para Windows, macOS y Linux.
+#   1. Sube la versión en project.godot (application/config/version), p. ej. 0.2.2
+#   2. git tag v0.2.2 && git push origin v0.2.2
+# El workflow compila las extensiones nativas en cada sistema, exporta con
+# Godot, empaqueta (tools/package_release.sh) y crea la release en GitHub.
+# La app avisa sola de la versión nueva (autoloads/Updater.gd lee estas
+# releases) y la descarga e instala con un botón.
+# Etiquetas con guion (v0.3.0-beta) salen como «pre-release».
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Etiqueta a publicar (p. ej. v0.2.2). Debe existir."
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  native:
+    name: ${{ matrix.crate }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-22.04: glibc 2.35 → el binario de Linux funciona en más distros.
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+        crate: [vectopen_text, vectopen_io, vectopen_vectorizer]
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust/${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'x86_64-apple-darwin,aarch64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/${{ matrix.crate }}
+
+      - name: Build (Linux / Windows)
+        if: runner.os != 'macOS'
+        run: cargo build --locked --release
+
+      - name: Build (macOS universal)
+        if: runner.os == 'macOS'
+        run: |
+          cargo build --locked --release --target x86_64-apple-darwin
+          cargo build --locked --release --target aarch64-apple-darwin
+          mkdir -p target/release
+          lipo -create \
+            target/x86_64-apple-darwin/release/lib${{ matrix.crate }}.dylib \
+            target/aarch64-apple-darwin/release/lib${{ matrix.crate }}.dylib \
+            -output target/release/lib${{ matrix.crate }}.dylib
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.crate }}-${{ runner.os }}
+          path: |
+            rust/${{ matrix.crate }}/target/release/${{ matrix.crate }}.dll
+            rust/${{ matrix.crate }}/target/release/lib${{ matrix.crate }}.so
+            rust/${{ matrix.crate }}/target/release/lib${{ matrix.crate }}.dylib
+          if-no-files-found: error
+
+  package:
+    name: Exportar, empaquetar y publicar
+    needs: native
+    # Si alguna extensión nativa falla, se publica igual: Vectopen funciona sin
+    # ellas (texto e importadores en GDScript), solo sin esas funciones extra.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Versión = etiqueta
+        id: ver
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VER="$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)"
+          if [ "v$VER" != "$TAG" ]; then
+            echo "::error::La etiqueta $TAG no coincide con la versión de project.godot ($VER)"; exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Librerías nativas
+        uses: actions/download-artifact@v4
+        with:
+          path: natives
+      - name: Colocar librerías donde las esperan los .gdextension
+        run: |
+          for crate in vectopen_text vectopen_io vectopen_vectorizer; do
+            mkdir -p "rust/$crate/target/release" "rust/$crate/target/debug"
+            for d in natives/native-$crate-*; do
+              [ -d "$d" ] && cp -v "$d"/* "rust/$crate/target/release/" || echo "::warning::Sin $crate para ${d##*-}"
+            done
+            cp rust/$crate/target/release/* rust/$crate/target/debug/ 2>/dev/null || true
+          done
+
+      - name: Godot ${{ env.GODOT_VERSION }} y plantillas de exportación
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          wget -q "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          wget -q "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && chmod +x godot
+          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$T" && unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d tpl && mv tpl/templates/* "$T"/
+
+      - name: Exportar Windows, macOS y Linux
+        run: |
+          mkdir -p build/windows build/macos build/linux
+          ./godot --headless --path . --import || true
+          ./godot --headless --path . --export-release "Vectopen_windows" build/windows/Vectopen.exe
+          ./godot --headless --path . --export-release "Vectopen_macos" build/macos/Vectopen.zip
+          ./godot --headless --path . --export-release "Vectopen_linux" build/linux/vectopen.x86_64
+          ls -la build/*
+
+      - name: Empaquetar (.zip, .dmg, .deb, .rpm, .tar.gz)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rpm genisoimage zip
+          RPM_RELEASE=1 bash tools/package_release.sh "${{ steps.ver.outputs.version }}"
+          ls -la "dist/${{ steps.ver.outputs.version }}"
+
+      - name: Publicar la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          PRE=$([[ "$TAG" == *-* ]] && echo "--prerelease" || echo "--latest")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/${{ steps.ver.outputs.version }}/* --clobber
+          else
+            gh release create "$TAG" dist/${{ steps.ver.outputs.version }}/* $PRE \
+              --title "Vectopen ${{ steps.ver.outputs.version }}" --generate-notes
+          fi
