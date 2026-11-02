@@ -889,6 +889,10 @@ convierte el encargo en defecto `VAL-nn`.
 | VAL-20 | 08 Infografía | Pro | Ejes con punta de flecha → exportar SVG/PDF/EPS | Las flechas como en pantalla | Se perdían las puntas (solo la línea) | Media | Corregido |
 | VAL-21 | 09 Enciclopedia | Pro | Páginas → vista Rejilla (4 columnas) | El lienzo también en 3 filas × 4 | Solo las miniaturas; el lienzo seguía en una fila de 12 | Media | Corregido |
 | VAL-22 | 09 Enciclopedia | Pro | Duplicar una página con títulos y un marco de texto | Copias idénticas | Títulos de la copia más pequeños, marco en una sola línea y, en marcos de la API, la etiqueta antigua pintada encima | Alta | Corregido |
+| VAL-23 | 10 UI kit | Modern | Botón guardado en Recursos y colocado 4 veces; cambiar el color de uno | Componente vinculado: cambiar el maestro actualiza las copias | Las copias son independientes (no hay símbolos/componentes) | Alta (función nueva) | Pendiente |
+| VAL-24 | 10 UI kit | Modern | Reutilizar H1 / cuerpo / pie en varios textos | Estilos de texto con nombre que se aplican y actualizan | No existen estilos de texto | Alta (función nueva) | Pendiente |
+| VAL-25 | 10 UI kit | Modern | Exportar PNG a 3× con textos fuera de pantalla | Todos los textos nítidos | Los textos que no se veían en el lienzo salían borrosos | Media | Corregido |
+| VAL-26 | 10 UI kit | Modern | Centrar un título en un botón (alinear centro + medio) | Texto centrado | Se usaba la caja mínima de edición (120 × 36): el texto quedaba arriba a la izquierda | Media | Corregido |
 
 ### 19.5. Automatización y materiales
 
@@ -926,7 +930,7 @@ convierte el encargo en defecto `VAL-nn`.
 | 07 Tarjeta de visita | Aprobado | Modern | VAL-19 (corregido) |
 | 08 Infografía | Aprobado | Pro | VAL-20 (corregido) |
 | 09 Enciclopedia visual | Aprobado | Pro | VAL-21, VAL-22 (corregidos); VAL-05 se repite |
-| 10 UI kit | Pendiente | — | — |
+| 10 UI kit | Bloqueado | Modern | VAL-25, VAL-26 (corregidos); faltan funciones: componentes vinculados (VAL-23) y estilos de texto (VAL-24) |
 | 11 Wireframe landing | Pendiente | — | — |
 | 12 Set 24 iconos | Pendiente | — | — |
 | 13 Ilustración con pinceles | Pendiente | — | — |
