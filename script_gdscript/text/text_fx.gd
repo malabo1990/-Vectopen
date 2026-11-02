@@ -69,7 +69,9 @@ static func enabled_effects(s: Node2D) -> Array:
 func _ready() -> void:
 	if shape == null:
 		shape = get_parent() as Node2D
-	refresh(true)
+	# DBG-04: en diferido. En _ready el padre aún está montando sus hijos y
+	# recolocar las capas (move_child) fallaba con «Parent node is busy».
+	refresh.call_deferred(true)
 
 func _process(_dt: float) -> void:
 	refresh(false)
