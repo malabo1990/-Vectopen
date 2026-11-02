@@ -64,6 +64,7 @@ const REFERENCE := [
 	["Crear", "add_curve(curve2d, cerrado = false) -> Node2D", "Trazado Bézier (Curve2D con tiradores)"],
 	["Crear", "add_line(a, b, grosor = 2, color = negro) -> Node2D", "Línea"],
 	["Crear", "add_text(pos, texto, tamaño = 24, color = negro) -> Node2D", "Texto (pos = arriba-izquierda)"],
+	["Crear", "add_text_box(rect, texto, tamaño = 14, color = negro, columnas = 1, separación = 20, nombre) -> Node2D", "Marco de texto: ajusta al ancho de rect, en columnas"],
 	["Crear", "import_svg(svg_texto, pos = (0,0)) -> Node2D", "SVG como grupo de trazados"],
 	["Crear", "add(nodo, padre = null) -> Node2D", "Añade un nodo ya configurado"],
 	["Organizar", "delete(objeto_o_lista)", "Borra"],
@@ -514,6 +515,62 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 	if out and ic and ic.has_method("_refit_text_shape"):
 		ic._refit_text_shape(out)
 		# (InspectorCore repite el ajuste cuando el editor nativo ya ha maquetado.)
+	return out
+
+## Marco de texto (párrafo): el texto se ajusta al ancho de `rect` y puede
+## repartirse en `columns` columnas separadas `gap` px (VAL-09: la API solo
+## creaba textos de punto, de una línea).
+func add_text_box(rect: Rect2, text: String, font_size: int = 14, color: Color = Color.BLACK,
+		columns: int = 1, gap: float = 20.0, name: String = "Párrafo") -> Node2D:
+	var t := Node2D.new()
+	t.name = name
+	t.set_meta("shape_type", "text_paragraph")
+	t.set_meta("text", text)
+	t.set_meta("font_size", font_size)
+	t.set_meta("text_color", color)
+	t.set_meta("width", rect.size.x)
+	t.set_meta("height", rect.size.y)
+	t.set_meta("size", rect.size)
+	t.set_meta("columns", clampi(columns, 1, 16))
+	t.set_meta("column_gap", maxf(0.0, gap))
+	var label := WorldTextLabel.new()
+	label.name = "DisplayLabel"
+	label.base_font_size = font_size
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size = rect.size
+	label.size = rect.size
+	label.set_world_size(rect.size)
+	label.text = text
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_font_size_override("font_size", font_size)
+	t.add_child(label)
+	var edit := TextEdit.new()
+	edit.name = "MultiLineEdit"
+	edit.visible = false
+	edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	edit.custom_minimum_size = rect.size
+	edit.size = rect.size
+	t.add_child(edit)
+	if ClassDB.class_exists("VectorRichText"):
+		var vrt = ClassDB.instantiate("VectorRichText")
+		vrt.name = "VectorRichText"
+		vrt.set_is_paragraph(true)
+		TextCore.apply_vrt_fonts(vrt, t)
+		vrt.set_frame_size(rect.size)
+		vrt.set_text(text)
+		vrt.set_text_color(color)
+		vrt.set_font_size(float(font_size))
+		vrt.set_columns(clampi(columns, 1, 16), maxf(0.0, gap))
+		t.add_child(vrt)
+	t.position = rect.position
+	var out := add(t)
+	# Como add_text: el marco nace ajustado a su contenido (si no, el primer
+	# cambio lo reajustaba y deshacer no volvía al alto de creación).
+	var ic: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("InspectorCore") if Engine.get_main_loop() is SceneTree else null
+	if out and ic and ic.has_method("_refit_text_shape"):
+		ic._refit_text_shape(out)
+		if ic.has_method("_refit_text_later"):
+			ic._refit_text_later(out)   # y otra vez cuando el texto nativo ha maquetado
 	return out
 
 ## Importa un SVG (texto) como grupo de objetos editables (trazados Bézier,
