@@ -82,8 +82,13 @@ static func editing_context(tree: SceneTree) -> Array:
 	var canvas = tree.get_first_node_in_group("_vectopen_canvas")
 	if canvas == null or not ("current_tool" in canvas):
 		return []
+	# DBG-02: la herramienta puede estar ya liberada (cambio de herramienta):
+	# comprobarla ANTES de asignarla (asignar una instancia liberada escribe
+	# «previously freed instance» en el depurador).
+	if not is_instance_valid(canvas.current_tool):
+		return []
 	var t = canvas.current_tool
-	var flag = t.get("is_editing") if t != null else null
+	var flag = t.get("is_editing")
 	if flag == null or not bool(flag):
 		return []
 	# Comprobar ANTES de asignar a una variable tipada: si el texto en edición
