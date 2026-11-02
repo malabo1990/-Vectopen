@@ -52,6 +52,9 @@ trap restore_userdata EXIT
 fails=0
 for t in "${TESTS[@]}"; do
 	snapshot_userdata
+	# Cada prueba parte de los ajustes de FÁBRICA (no de la disposición del
+	# usuario: Inspector ensanchado, pestañas de Pro flotando…).
+	rm -f "$USERDATA"/*.cfg
 	log="$LOG_DIR/$t.log"
 	before=$(pgrep -x godot-bin | sort)
 	flatpak run --command=godot org.godotengine.Godot --path . --screen 1 \

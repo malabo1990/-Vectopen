@@ -158,6 +158,9 @@ var _chip_buttons: Array[Button] = []
 var _align_bar_panel: PanelContainer = null
 
 func _ready() -> void:
+	var tm0 := get_node_or_null("/root/ThemeManager")
+	if tm0 and tm0.has_method("adopt"):
+		tm0.adopt(self)   # UX-15: tema de Vectopen, no el de Godot por defecto
 	_pull_theme_tokens()
 	_setup_panel_style()
 	_build_ui()
@@ -166,6 +169,20 @@ func _ready() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(_on_theme_changed)
+
+## UX-15: las etiquetas (cabeceras de sección, «Opacidad»…) se colorean al
+## crearse; al cambiar de tema se quedaban con el gris del tema anterior
+## (en oscuro, #666666 sobre #202020: 2,8:1). Se pasan a los colores nuevos.
+func _remap_label_colors(old_text: Color, old_muted: Color) -> void:
+	for n in find_children("*", "Label", true, false):
+		var l := n as Label
+		if not l.has_theme_color_override("font_color"):
+			continue
+		var c := l.get_theme_color("font_color")
+		if l.has_meta("header_title_key") or c.is_equal_approx(old_muted):
+			l.add_theme_color_override("font_color", _C_MUTED)
+		elif c.is_equal_approx(old_text):
+			l.add_theme_color_override("font_color", _C_TEXT)
 
 func _pull_theme_tokens() -> void:
 	var tm = get_node_or_null("/root/ThemeManager")
@@ -221,8 +238,11 @@ func _setup_panel_style() -> void:
 	add_theme_stylebox_override("panel", sb)
 
 func _on_theme_changed(_mode: String = "") -> void:
+	var old_text := _C_TEXT
+	var old_muted := _C_MUTED
 	_pull_theme_tokens()
 	_setup_panel_style()
+	_remap_label_colors(old_text, old_muted)
 	if is_instance_valid(lbl_title):
 		lbl_title.add_theme_color_override("font_color", _C_TEXT)
 	if is_instance_valid(lbl_selection):

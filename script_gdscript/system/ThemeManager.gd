@@ -395,11 +395,32 @@ func _reapply_current() -> void:
 	if has_node("/root/GlobalEvents"):
 		GlobalEvents.theme_changed.emit(current_mode)
 
+## UX-15: el tema de la ventana raíz NO llega a la interfaz: entre medias hay
+## un Node2D (CanvasRoot) y un CanvasLayer, que cortan la herencia de temas de
+## Godot. Los controles sin estilo propio caían en el tema por defecto de
+## Godot (barra gris translúcida con texto blanco). Los paneles que se
+## «adoptan» reciben el tema de Vectopen directamente.
+const UI_THEME_GROUP := "vectopen_ui_theme_root"
+var ui_theme: Theme = null
+
+func adopt(c: Control) -> void:
+	if not is_instance_valid(c):
+		return
+	if not c.is_in_group(UI_THEME_GROUP):
+		c.add_to_group(UI_THEME_GROUP)
+	if ui_theme == null:
+		ui_theme = _build_theme()
+	c.theme = ui_theme
+
 func _apply_theme_resource() -> void:
 	var theme := _build_theme()
 	if not theme:
 		return
+	ui_theme = theme
 	get_tree().root.theme = theme
+	for n in get_tree().get_nodes_in_group(UI_THEME_GROUP):
+		if n is Control and is_instance_valid(n):
+			(n as Control).theme = theme
 
 # ============================================================================
 #                        CONSTRUCCIÓN DEL THEME
@@ -483,11 +504,35 @@ func _build_theme() -> Theme:
 	theme.set_color("font_color", "LineEdit", text_primary)
 	theme.set_color("caret_color", "LineEdit", text_primary)
 	theme.set_color("placeholder_font_color", "LineEdit", text_secondary)
+	theme.set_color("font_placeholder_color", "LineEdit", text_secondary)
+	theme.set_color("font_uneditable_color", "LineEdit", text_secondary)
+	theme.set_color("selection_color", "LineEdit", Color(accent.r, accent.g, accent.b, 0.3))
+	theme.set_stylebox("read_only", "LineEdit", _flat(get_color(Slot.PANEL_SURFACE), 6, get_color(Slot.INPUT_BORDER)))
 	theme.set_font_size("font_size", "LineEdit", 13)
 
 	# --- Etiquetas / ventanas ---
 	theme.set_color("font_color", "Label", text_primary)
 	theme.set_color("font_color", "Window", text_primary)
+	# Ventanas incrustadas (pestañas flotantes de Pro, Inspector flotante):
+	# antes la barra de título era la de Godot (gris oscuro y texto blanco).
+	var title_h := 28
+	var win := _flat(get_color(Slot.SURFACE_RAISED), 8, border)
+	win.expand_margin_left = 1
+	win.expand_margin_right = 1
+	win.expand_margin_bottom = 1
+	win.expand_margin_top = title_h
+	win.shadow_color = Color(0, 0, 0, 0.25 if is_dark() else 0.12)
+	win.shadow_size = 12
+	theme.set_stylebox("embedded_border", "Window", win)
+	var win_off := win.duplicate() as StyleBoxFlat
+	win_off.bg_color = get_color(Slot.PANEL_BG)
+	theme.set_stylebox("embedded_unfocused_border", "Window", win_off)
+	theme.set_constant("title_height", "Window", title_h)
+	theme.set_color("title_color", "Window", text_primary)
+	theme.set_font_size("title_font_size", "Window", 12)
+	if ResourceLoader.exists("res://icon/UI/close.svg"):
+		theme.set_icon("close", "Window", ProUIStyle.icon("res://icon/UI/close.svg", text_secondary, 14))
+		theme.set_icon("close_pressed", "Window", ProUIStyle.icon("res://icon/UI/close.svg", accent, 14))
 
 	# --- Popups ---
 	theme.set_color("font_color", "PopupMenu", text_primary)

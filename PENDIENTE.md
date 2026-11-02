@@ -545,11 +545,31 @@ texto y estados (normal, hover, foco, desactivado) con los colores del tema de
 Capas; nada de gris fijo ni texto blanco sobre gris claro.
 
 **Criterio de aceptación.**
-- [ ] Ningún control del Inspector con contraste de texto < 4,5:1 (3:1 desactivado/secundario).
-- [ ] Superficies y bordes con los mismos colores del tema que Capas.
-- [ ] Claro y oscuro, Modern y Pro, con capturas.
+- [x] Ningún control del Inspector con contraste de texto < 4,5:1 (3:1 desactivado/secundario).
+- [x] Superficies y bordes con los mismos colores del tema que Capas.
+- [x] Claro y oscuro, Modern y Pro, con capturas.
 
 **Prueba de interfaz.** `test/e2e/inspector_capas_style_e2e.gd`.
+
+**Resolución (2026-11-02).** Causa: el tema de Vectopen se ponía en la ventana
+raíz, pero entre ella y la interfaz hay un `Node2D` (CanvasRoot) y un
+`CanvasLayer`, que cortan la herencia de temas de Godot. Todo control sin estilo
+propio caía en el tema por defecto de Godot: fondo gris translúcido
+`(0.1, 0.1, 0.1, 0.6)` con texto `#DFDFDF`, las «barras gris claro con texto
+blanco» (campo Nombre, botones Inicio/Fin/Estilo/Perfil de Pro, cabeceras
+FILTROS/SHADER/SCRIPT, cabecera de pestaña flotante…).
+- `ThemeManager.adopt()` aplica el tema de Vectopen directamente al Inspector de
+  Modern y al lateral de Pro, y lo renueva al cambiar de tema.
+- El tema añade el campo de solo lectura y las ventanas incrustadas (barra de
+  título del tema e icono de cerrar propio; antes se usaba `x.svg`, que es el
+  logotipo de X).
+- El Inspector repinta sus etiquetas al cambiar de tema: en oscuro las cabeceras
+  se quedaban con el gris del tema claro (2,8:1).
+- Sufijos de los campos numéricos con el texto secundario del tema.
+- Prueba: 186 comprobaciones (Modern y Pro, cada pestaña de Pro, rectángulo,
+  trazado y texto, claro y oscuro, ventana flotante). Antes: 60 fallos.
+- `run_all.sh` y la batería unitaria parten ahora de los ajustes de fábrica:
+  la disposición guardada del usuario cambiaba los resultados.
 
 ---
 
@@ -628,7 +648,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-12 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_coverage_e2e.gd` | Verde |
 | UX-13 | `docked_inspector.gd`, `vectorize_panel.gd` | `inspector_action_icons_e2e.gd` | Verde |
 | UX-14 | `panel_edge_resizer.gd`, `docked_inspector.gd` | `inspector_resize_e2e.gd` | Verde |
-| UX-15 | `docked_inspector.gd`, `numeric_field.gd`, `pro_studio.gd` | `inspector_capas_style_e2e.gd` | Abierta |
+| UX-15 | `ThemeManager.gd`, `docked_inspector.gd`, `numeric_field.gd`, `pro_studio.gd` | `inspector_capas_style_e2e.gd` | Verde |
 
 ---
 
@@ -653,12 +673,16 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-12 | 1 | Verde | `inspector_coverage_e2e.gd` | Modo estricto: 82 comprobaciones; 7 defectos corregidos |
 | UX-13 | 1 | Verde | `inspector_action_icons_e2e.gd` | Cuatro iconos junto a Exportar en los tres modos |
 | UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
-| UX-15 | 0 | Abierta | `inspector_capas_style_e2e.gd` | Barras gris claro con texto blanco en el Inspector; Capas es la referencia |
+| UX-15 | 1 | Verde | `inspector_capas_style_e2e.gd` | El tema no llegaba a la UI (CanvasLayer corta la herencia): se aplica al Inspector y a Pro |
 
-**Resumen Fase A:** 11 / 15 en verde · abiertas: UX-06 (reabierta) y UX-15 (nueva) · 2 pendientes de insumo (UX-05: panel
+**Resumen Fase A:** 12 / 15 en verde · abierta: UX-06 (reabierta) · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
 **Resumen Fase B:** 0 / 30 proyectos aprobados.
+
+**Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
+iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
+la disposición real del usuario). Pendiente como incidencia aparte.
 
 ---
 

@@ -119,6 +119,7 @@ func _update_theme_styles(is_hover: bool = false, is_focus: bool = false) -> voi
 	var border_col := Color(0.3, 0.3, 0.3, 1.0)
 	var text_col := Color(0.9, 0.9, 0.9, 1.0)
 	var muted_col := Color(0.55, 0.55, 0.55, 1.0)
+	var suffix_col := muted_col
 	var accent_col := Color(0.04, 0.52, 1.0, 1.0)
 
 	if tm:
@@ -135,6 +136,7 @@ func _update_theme_styles(is_hover: bool = false, is_focus: bool = false) -> voi
 
 		text_col = tm.get_color(S.PANEL_TEXT)
 		muted_col = tm.get_color(S.TEXT_MUTED) if "TEXT_MUTED" in S else tm.get_color(S.TEXT_SECONDARY)
+		suffix_col = tm.get_color(S.TEXT_SECONDARY)
 		accent_col = tm.get_color(S.ACCENT)
 
 	var sb := StyleBoxFlat.new()
@@ -156,7 +158,8 @@ func _update_theme_styles(is_hover: bool = false, is_focus: bool = false) -> voi
 	if is_instance_valid(_lbl_prefix):
 		_lbl_prefix.add_theme_color_override("font_color", muted_col)
 	if is_instance_valid(_lbl_suffix):
-		_lbl_suffix.add_theme_color_override("font_color", muted_col)
+		# El sufijo («px», «×», «%») se lee como el resto (antes 3:1 justo).
+		_lbl_suffix.add_theme_color_override("font_color", suffix_col)
 	if is_instance_valid(_line_edit):
 		_line_edit.add_theme_color_override("font_color", text_col)
 		_line_edit.add_theme_color_override("caret_color", accent_col)

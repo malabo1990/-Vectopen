@@ -213,6 +213,9 @@ var _has_selection: bool = false
 func _ready() -> void:
 	custom_minimum_size = Vector2(STUDIO_WIDTH, 0)
 	z_index = 50
+	var tm0 := get_node_or_null("/root/ThemeManager")
+	if tm0 and tm0.has_method("adopt"):
+		tm0.adopt(self)   # UX-15: tema de Vectopen, no el de Godot por defecto
 	_build_ui()
 	_connect_cores()
 	var tm := get_node_or_null("/root/ThemeManager")
