@@ -34,6 +34,72 @@ var _done := {}
 var _sib := {}
 var _opt_rounds := {}
 var _retry := {}
+## Propiedades que tiene algún objeto probado (para «PROPS sin control»).
+var seen_props := {}
+
+## Huella barata de lo visible bajo el inspector y sus desplegables: si un
+## clic muestra u oculta algo (pestaña, sección, desplegable) cambia.
+func _vis_sig(panel_root: Control) -> int:
+	var n := 0
+	for r in [panel_root] + _popups():
+		if not is_instance_valid(r):
+			continue
+		for c in (r as Node).find_children("*", "Control", true, false):
+			if (c as Control).is_visible_in_tree():
+				n += 1
+	return n + 100000 * _popups().size()
+
+## ¿Se juzga si este control «hace algo»? Solo los de valor o acción
+## (botones, campos, deslizadores, desplegables). Un clic en un panel, una
+## etiqueta o un widget de arrastre (reloj de rotación, editor de perfil)
+## no tiene por qué hacer nada.
+func _judged(c: Control) -> bool:
+	if c is RichTextLabel or c is Label:
+		return false
+	return c is BaseButton or c is Range or c is LineEdit \
+			or c.has_signal("value_changed") or c.has_signal("color_changed")
+
+## Huella del documento: el objeto (todas sus propiedades), la página y la
+## cámara. Botones de vista 3D, formato de página… cambian esto.
+func _doc_sig(obj: Node, expected: Dictionary) -> String:
+	var ic := root.get_node("InspectorCore")
+	var parts: Array = []
+	if is_instance_valid(obj):
+		for p in expected:
+			parts.append(str(ic._read(obj, p)))
+		for k in ["orbit_yaw", "orbit_pitch", "orbit_distance", "view_rotation"]:
+			if k in obj:
+				parts.append(str(obj.get(k)))
+	var cv = get_first_node_in_group("_vectopen_canvas")
+	if cv and cv.get("camera"):
+		parts.append(str(cv.camera.zoom) + str(cv.camera.position))
+	var m = cv.get_node_or_null("manager_script") if cv else null
+	var ab = m.get_active_artboard() if m and m.has_method("get_active_artboard") else null
+	if ab:
+		parts.append(str(ab.get("size")) + str(ab.get_parent().get_child_count()))
+	return "|".join(parts)
+
+## Estado propio del control (marcado, valor, texto, color, selección).
+func _own_state(c: Control) -> Variant:
+	if not is_instance_valid(c):
+		return null
+	if c is OptionButton:
+		return (c as OptionButton).selected
+	if c is Button:
+		return [(c as Button).button_pressed, (c as Button).text, (c as Button).icon, (c as Button).modulate]
+	if c is BaseButton:
+		return (c as BaseButton).button_pressed
+	if c is Range:
+		return (c as Range).value
+	if c is LineEdit:
+		return (c as LineEdit).text
+	for k in ["value", "color"]:
+		if k in c:
+			return c.get(k)
+	return null
+
+func _same(a: Variant, b: Variant) -> bool:
+	return typeof(a) == typeof(b) and str(a) == str(b)
 
 func _init() -> void:
 	_run.call_deferred()
@@ -132,8 +198,15 @@ func _drag_value(c: Object, nv: float) -> void:
 			c.emit_signal(n, true if c is Range else c.get("value"))
 
 ## Usa un control como lo haría el usuario (cambiar valor, elegir, marcar).
+## `_acted` queda en false si el control se saltó a propósito (lista DENY,
+## desactivado, cabecera ya abierta…): esos no cuentan como «sin efecto».
+var _acted := false
 func exercise(c: Control) -> void:
 	_done[c.get_instance_id()] = true
+	_acted = true
+	await _exercise(c)
+
+func _exercise(c: Control) -> void:
 	if c is OptionButton:
 		var ob := c as OptionButton
 		if ob.item_count > 1:
@@ -150,6 +223,7 @@ func exercise(c: Control) -> void:
 	elif c is LineEdit:
 		var le := c as LineEdit
 		if not le.editable:
+			_acted = false
 			return
 		var t := le.text.strip_edges()
 		var nt := ""
@@ -160,6 +234,7 @@ func exercise(c: Control) -> void:
 		elif is_instance_valid(cur_obj) and t == String(cur_obj.name):
 			nt = t + " e2e"
 		else:
+			_acted = false
 			return
 		le.text = nt
 		le.text_submitted.emit(nt)
@@ -171,15 +246,19 @@ func exercise(c: Control) -> void:
 		var b := c as BaseButton
 		# Quitar un efecto o filtro recién añadido no aporta nada a la prueba.
 		if String(b.name) == "Remove":
+			_acted = false
 			return
 		if b.disabled:
+			_acted = false
 			return
 		# Cabecera de una sección ya abierta: pulsarla la plegaría.
 		if b is Button and (b as Button).text.begins_with("▾"):
+			_acted = false
 			return
 		var lab := _label(c)
 		for d in DENY:
 			if lab.contains(d):
+				_acted = false
 				return
 		if b.toggle_mode:
 			b.button_pressed = not b.button_pressed
@@ -312,11 +391,26 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		root.get_texture().get_image().save_png(OS.get_environment("UX06_SHOT") + "/%s_%s.png" % [mode, kind])
 		return
 	var expected: Dictionary = ic._props_for(obj).duplicate()
+	# UX06_PROPS: solo las propiedades que empiezan por alguno de estos
+	# prefijos (p. ej. «stroke_» para la paridad del panel de trazos, UX-08).
+	var only_props := OS.get_environment("UX06_PROPS")
+	if only_props != "":
+		for p in expected.keys():
+			var keep := false
+			for pre in only_props.split(","):
+				if String(p).begins_with(pre):
+					keep = true
+			if not keep:
+				expected.erase(p)
+		check("%s/%s: propiedades «%s» a revisar" % [mode, kind, only_props], expected.size() > 0,
+			", ".join(PackedStringArray(expected.keys())))
 	var before := {}
 	for p in expected:
 		before[p] = ic._read(obj, p)
 	var ur = hm._undo_redo
 	var base_action: int = ur.undo_stack.size()
+	var strict := OS.has_environment("UX12_STRICT")
+	var dead: Array = []
 	var on_w := func(p: String) -> void:
 		written[ALIAS.get(p, p)] = true
 	ic.prop_written.connect(on_w)
@@ -349,6 +443,15 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 				queue.push_back(c)
 			continue
 		var n0 := written.size()
+		var h0: int = ur.undo_stack.size()
+		var vis0 := _vis_sig(panel_root) if strict else 0
+		var doc0 := _doc_sig(obj, expected) if strict else ""
+		var sel0: Array = ic.selection().duplicate()
+		var st0 = _own_state(c) if strict else null
+		# Opción que ya es el valor actual (p. ej. «Sólido» con el trazo
+		# sólido): pulsarla no cambia nada y es lo correcto.
+		var already: bool = strict and c.has_meta("prop") and c.has_meta("value") \
+				and ic._approx_eq(ic._read(obj, String(c.get_meta("prop"))), c.get_meta("value"))
 		var snap := {}
 		if OS.has_environment("UX06_DEBUG"):
 			for p in expected:
@@ -356,6 +459,13 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		var ft := panel_root.find_child("FullTypography", true, false) as Control
 		var ft_before := ft != null and ft.is_visible_in_tree()
 		await exercise(c)
+		if strict and _acted and not already and is_instance_valid(c) and _judged(c):
+			await process_frame
+			var moved: bool = written.size() != n0 or ur.undo_stack.size() != h0 \
+					or _vis_sig(panel_root) != vis0 or ic.selection() != sel0 \
+					or not _same(st0, _own_state(c)) or _doc_sig(obj, expected) != doc0
+			if not moved:
+				dead.append(c)
 		if OS.has_environment("UX06_DEBUG") and ft_before and is_instance_valid(ft) and not ft.is_visible_in_tree():
 			print("DBGQ tipografía oculta tras %s «%s» %s sel=%s" % [c.get_class() if is_instance_valid(c) else "?", (c as Control).tooltip_text if is_instance_valid(c) else "", str(c.get_path()).right(60) if is_instance_valid(c) else "", ic.selection().size()])
 		if OS.has_environment("UX06_DEBUG") and is_instance_valid(obj) and is_instance_valid(c):
@@ -431,6 +541,40 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		missing.append(p)
 	check("%s/%s: todas sus propiedades se editan desde el inspector" % [mode, kind], missing.is_empty(),
 		"faltan: %s" % ", ".join(missing))
+	for p in expected:
+		seen_props[p] = true
+	var after := {}
+	if strict:
+		# Segunda oportunidad: con el resto de controles ya usados, el estado
+		# es otro (otra pestaña activa, otro estilo…). Si vuelve a no hacer
+		# nada, no hace nada. Las opciones de un desplegable (meta «prop»)
+		# ya se juzgaron contra el valor actual.
+		var confirmed: Array = []
+		for c in dead:
+			if not is_instance_valid(c):
+				continue
+			if not c.has_meta("prop") and (c as Control).is_visible_in_tree():
+				_done.erase(c.get_instance_id())
+				var n1 := written.size()
+				var h1: int = ur.undo_stack.size()
+				var v1 := _vis_sig(panel_root)
+				var s1 = _own_state(c)
+				var d1 := _doc_sig(obj, expected)
+				ic.prop_written.connect(on_w)
+				await exercise(c)
+				ic.prop_written.disconnect(on_w)
+				await process_frame
+				if written.size() != n1 or ur.undo_stack.size() != h1 or _vis_sig(panel_root) != v1 \
+						or not _same(s1, _own_state(c)) or _doc_sig(obj, expected) != d1:
+					continue
+				_close_popups()
+			if not is_instance_valid(c):
+				continue
+			confirmed.append("%s «%s» %s" % [c.get_class(), _label(c).strip_edges().left(40), str(c.get_path()).right(48)])
+		check("%s/%s: ningún control sin efecto" % [mode, kind], confirmed.is_empty(), "%d: %s" % [confirmed.size(), " | ".join(confirmed.slice(0, 14))])
+		for p in expected:
+			after[p] = ic._read(obj, p)
+	var steps: int = ur.undo_stack.size() - base_action
 	# Deshacer todo lo hecho devuelve el objeto a como estaba.
 	var safety := 0
 	while ur.undo_stack.size() > base_action and hm.can_undo() and safety < 5000:
@@ -449,6 +593,28 @@ func cover(mode: String, panel_root: Control, obj: Node2D, kind: String) -> void
 		if not ic._approx_eq(now, before[p]):
 			diff.append("%s %s→%s" % [p, str(before[p]).left(24), str(now).left(24)])
 	check("%s/%s: deshacer restaura todas las propiedades" % [mode, kind], diff.is_empty(), "difieren: %s" % ", ".join(diff))
+	if strict and is_instance_valid(obj):
+		# Rehacer todo deja el objeto como quedó tras usar los controles.
+		var k := 0
+		while hm.can_redo() and k < steps + 5:
+			hm.redo()
+			k += 1
+		await frames(4)
+		var rdiff := []
+		for p in after:
+			if p in ["name"]:
+				continue
+			var now = ic._read(obj, p)
+			if kind == "text" and p in ["width", "height"] and now is float and absf(float(now) - float(after[p])) <= 6.0:
+				continue
+			if not ic._approx_eq(now, after[p]):
+				rdiff.append("%s %s→%s" % [p, str(after[p]).left(24), str(now).left(24)])
+		check("%s/%s: rehacer repite todos los cambios (%d pasos)" % [mode, kind, k], rdiff.is_empty(), "difieren: %s" % ", ".join(rdiff))
+		var safety2 := 0
+		while ur.undo_stack.size() > base_action and hm.can_undo() and safety2 < 5000:
+			hm.undo()
+			safety2 += 1
+		await frames(4)
 	covered += 1
 
 func make_objects(api) -> Dictionary:
@@ -463,6 +629,17 @@ func make_objects(api) -> Dictionary:
 	cv.add_point(Vector2(200, 0), Vector2(-60, 60), Vector2.ZERO)
 	o["path"] = api.add_curve(cv, false)
 	o["text"] = api.add_text(c + Vector2(-200, -200), "Texto de prueba", 24, Color.BLACK)
+	# Gota paramétrica (como la crea su herramienta): curvatura editable.
+	var dpts: PackedVector2Array = load("res://script_gdscript/tools/WaterDropTool.gd").drop_points(70.0, 0.0, 0.5)
+	for i in dpts.size():
+		dpts[i] += c + Vector2(520, 0)
+	var drop = api.add_shape(dpts, "Gota")
+	if drop:
+		drop.set_meta("shape_kind", "drop")
+		drop.set_meta("drop_radius", 70.0)
+		drop.set_meta("drop_rotation", 0.0)
+		drop.set_meta("drop_curvature", 0.5)
+		o["drop"] = drop
 	# Modelo 3D sin archivo: tiene todas sus propiedades (cámara, luz…).
 	var m = load("res://script_gdscript/shapes/VectorModel3D.gd").new()
 	m.name = "Modelo"
@@ -476,6 +653,17 @@ func make_objects(api) -> Dictionary:
 	return o
 
 func inspector_root(mode: String) -> Control:
+	if mode == "smart":
+		# Smart: el panel flotante «Trazos y Borde» (PanelTrazos).
+		for c in root.find_children("*", "PanelContainer", true, false):
+			if c.get_script() and c.get_script().get_global_name() == "PanelTrazos":
+				(c as Control).visible = true
+				var p := c.get_parent()
+				while p and p is CanvasItem:
+					(p as CanvasItem).visible = true
+					p = p.get_parent()
+				return c
+		return null
 	var want := "docked_inspector.gd" if mode == "modern" else "pro_studio.gd"
 	for c in root.find_children("*", "Control", true, false):
 		var s = c.get_script()
@@ -500,6 +688,8 @@ func _run() -> void:
 	var modes := ["modern", "professional"]
 	if OS.get_environment("UX06_MODE") != "":
 		modes = [OS.get_environment("UX06_MODE")]
+	if OS.get_environment("UX06_MODES") != "":
+		modes = Array(OS.get_environment("UX06_MODES").split(","))
 	for mode in modes:
 		root.get_node("GlobalUI").set_ui_mode(mode)
 		await frames(40)
@@ -518,9 +708,15 @@ func _run() -> void:
 			if is_instance_valid(objs[k]):
 				api.delete(objs[k])
 		await frames(6)
-	var want := (7 if only == "" else only.split(",").size()) * modes.size()
+	if OS.has_environment("UX12_STRICT") and only == "":
+		var orphan := []
+		for p in root.get_node("InspectorCore").PROPS:
+			if not seen_props.has(p) and not EXCLUDED.has(p) and not ALIAS.has(p):
+				orphan.append(p)
+		check("cada propiedad declarada en PROPS la tiene algún objeto", orphan.is_empty(), ", ".join(orphan))
+	var want := (8 if only == "" else only.split(",").size()) * modes.size()
 	if not OS.has_environment("UX06_SHOT"):
-		check("se revisaron todos los objetos en los dos modos", covered == want, "%d/%d" % [covered, want])
+		check("se revisaron todos los objetos en todos los modos", covered == want, "%d/%d" % [covered, want])
 	if ui_backup != "":
 		var f := FileAccess.open(UI_CFG, FileAccess.WRITE)
 		if f:

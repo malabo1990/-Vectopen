@@ -83,12 +83,26 @@ polilínea), por lo que el clip corta sobre una silueta distinta de la dibujada.
    contornos) y no por píxeles cuando el usuario lo solicite.
 
 **Criterio de aceptación.**
-- [ ] Recorte correcto en curvas con dos Bézier y en S.
-- [ ] El borde recortado coincide con el trazo a cualquier zoom (hasta 800 %).
-- [ ] Sin cambios en el rendimiento con máscaras simples.
+- [x] Recorte correcto en curvas con dos Bézier y en S.
+- [x] El borde recortado coincide con el trazo a cualquier zoom (hasta 800 %).
+- [x] Sin cambios en el rendimiento con máscaras simples.
 
 **Prueba de interfaz.** `test/e2e/clip_mask_bezier_e2e.gd`: crear trazo con dos
 Bézier, aplicar máscara, capturar y comparar contra referencia.
+
+**Resolución (2026-11-02).** Causa real: `clip_children` recorta con lo que
+**dibuja** la máscara, y cuando la máscara no dibujaba nada Godot enseñaba el
+contenido **entero, sin recortar**. Pasaba en dos casos: (1) dos Bézier que se
+cruzan (una «S» cerrada): la triangulación fallaba y el relleno no se dibujaba;
+(2) trazado abierto o sin relleno: solo se dibujaba la línea. Ahora
+`VectorPath.fill_polygons()` parte el contorno que se corta a sí mismo en piezas
+simples (`Geometry2D.merge_polygons` + par-impar) y una máscara sin relleno, o
+abierta, recorta por su área implícita (como Illustrator). El botón de Capas
+usa «solo recortar» si la figura no tiene relleno (no pinta un área blanca).
+Las máscaras simples siguen el mismo camino de antes (sin coste). La prueba
+compara píxel a píxel con la geometría exacta (400 muestras por tramo) en
+cuatro casos (lente de dos nodos, S cruzada, cierre repetido, abierta) a 100 %
+y 800 %: 0,00 % de error; antes 43–58 % en la S y la abierta.
 
 ---
 
@@ -174,11 +188,20 @@ del modo Smart o su visibilidad no se restablece al cambiar de modo.
 `script_gdscript/ui/docked_inspector.gd`, `script_gdscript/ui/ListaColor.gd`.
 
 **Criterio de aceptación.**
-- [ ] La paleta se muestra en los tres modos.
-- [ ] Conserva posición y estado al alternar.
-- [ ] No duplica instancias.
+- [x] La paleta se muestra en los tres modos.
+- [x] Conserva posición y estado al alternar.
+- [x] No duplica instancias.
 
 **Prueba de interfaz.** `test/e2e/palette_modes_e2e.gd`.
+
+**Resolución (2026-11-02).** En Modern y Smart la paleta se abría bien; en Pro
+se abría **dentro** del lateral (497 px a la izquierda del selector) y el
+contenedor la recortaba entera: 0 % visible. Ahora el selector (`GestorColor`)
+comprueba al abrirla si se ve completa; si no, la hace flotar (`top_level`)
+junto al selector y dentro de la ventana. La prueba abre el selector como el
+usuario en los tres modos, pulsa el botón de paleta y mide el área realmente
+visible (ventana + contenedores que recortan), que reciba el ratón, que haya una
+sola, que siga abierta al cambiar de modo y que no se dupliquen selectores.
 
 ---
 
@@ -248,10 +271,21 @@ uniones, guiones, alineación, puntas y escala.
 presentación por modo, en lugar de mantener tres implementaciones.
 
 **Criterio de aceptación.**
-- [ ] Las mismas propiedades editables en los tres modos.
-- [ ] Los cambios se reflejan al instante y son deshacibles.
+- [x] Las mismas propiedades editables en los tres modos.
+- [x] Los cambios se reflejan al instante y son deshacibles.
 
 **Prueba de interfaz.** `test/e2e/stroke_panel_parity_e2e.gd`.
+
+**Resultado (2026-11-02).** La paridad ya la trajo UX-06 de la lista anterior
+(commit `89f28c3`, posterior al RPM instalado): la prueba usa con clics reales
+todos los controles del panel «Trazos y Borde» de Smart, del Inspector de
+Modern y del lateral de Pro, con una línea y con un rectángulo, y en los tres
+modos se editan las mismas 11 propiedades de trazo del rectángulo y 13 de la
+línea (color, grosor, alineación, remates, estilo, guion/hueco, puntas, escala
+de puntas y perfil), cada una con su paso de deshacer y deshaciendo todo vuelve
+a como estaba. **Uniones** (inglete/redonda/bisel) no existen en ningún modo
+(tampoco en Smart): el trazo usa inglete con límite y unión redonda en giros
+cerrados. Se propone como función nueva aparte (modelo + malla + SVG/PDF).
 
 ---
 
@@ -471,14 +505,14 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 
 | ID | Archivos principales | Prueba asociada | Estado |
 |---|---|---|---|
-| UX-01 | `ui/layers_system.gd`, `canvas_serializer.gd` | `clip_mask_bezier_e2e.gd` | Abierta |
+| UX-01 | `ui/layers_system.gd`, `canvas_serializer.gd` | `clip_mask_bezier_e2e.gd` | Verde |
 | UX-02 | `autoloads/VectopenInput.gd`, `docked_inspector.gd` | `inspector_keyboard_focus_e2e.gd` | Verde |
 | UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Abierta |
-| UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Abierta |
+| UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Verde |
 | UX-05 | — | — | Por aclarar |
 | UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Abierta |
 | UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Abierta |
-| UX-08 | `panel_trazos.gd` | `stroke_panel_parity_e2e.gd` | Abierta |
+| UX-08 | `panel_trazos.gd` | `stroke_panel_parity_e2e.gd` | Verde |
 | UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Abierta |
 | UX-10 | `move_tool_keyboard.gd`, `NodeSelectionTool.gd` | `delete_keys_matrix_e2e.gd` | Abierta |
 | UX-11 | `panel_trazos.gd`, `adaptive_ui_manager.gd` | `modern_strokes_visible_e2e.gd` | Pendiente de insumo |
@@ -495,14 +529,14 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 
 | ID | Intento | Estado | Prueba | Nota / causa |
 |---|---:|---|---|---|
-| UX-01 | 0 | Abierta | `clip_mask_bezier_e2e.gd` | — |
+| UX-01 | 1 | Verde | `clip_mask_bezier_e2e.gd` | Máscara sin dibujo = contenido sin recortar; relleno par-impar y área implícita |
 | UX-02 | 1 | Verde | `inspector_keyboard_focus_e2e.gd` | Guarda `is_typing()`; Escape suelta el campo (fallaba en Pro) |
 | UX-03 | 0 | Abierta | `palette_delete_gradient_e2e.gd` | — |
-| UX-04 | 0 | Abierta | `palette_modes_e2e.gd` | — |
+| UX-04 | 1 | Verde | `palette_modes_e2e.gd` | En Pro la recortaba el lateral; ahora flota junto al selector |
 | UX-05 | 0 | Pendiente de insumo | — | Falta identificar el panel |
 | UX-06 | 0 | Abierta | `brush_panel_theme_e2e.gd` | — |
 | UX-07 | 0 | Abierta | `bezier_panel_theme_e2e.gd` | — |
-| UX-08 | 0 | Abierta | `stroke_panel_parity_e2e.gd` | — |
+| UX-08 | 1 | Verde | `stroke_panel_parity_e2e.gd` | Paridad comprobada (vino con UX-06 anterior); uniones = función nueva |
 | UX-09 | 0 | Abierta | `pro_tabs_dock_float_e2e.gd` | — |
 | UX-10 | 0 | Abierta | `delete_keys_matrix_e2e.gd` | — |
 | UX-11 | 1 | Pendiente de insumo | `modern_strokes_visible_e2e.gd` | No reproducible (43/43 verde en los 3 modos); faltan pasos o archivo |
