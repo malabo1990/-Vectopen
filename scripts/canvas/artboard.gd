@@ -550,6 +550,13 @@ func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Ar
 		# 3 fotogramas: texto nativo y capas de efectos/shaders necesitan uno más.
 		for i in 3:
 			await get_tree().process_frame
+			if i == 0 and is_instance_valid(artboard_copy):
+				# VAL-25: los textos de la copia ajustan su nitidez solo si los
+				# ve la cámara del lienzo; aquí se fija a la escala del PNG
+				# (si no, los que estaban fuera de pantalla salían borrosos).
+				for lb in artboard_copy.find_children("DisplayLabel", "", true, false):
+					if lb.has_method("_sync_vrt_oversampling"):
+						lb._sync_vrt_oversampling()
 			if not is_inside_tree():
 				# la mesa se quitó a mitad (cerrar documento, pruebas): sin imagen
 				if is_instance_valid(sub_viewport):
