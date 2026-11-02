@@ -54,6 +54,11 @@ func _load_translation_file() -> void:
 
 func _load_csv_translations() -> void:
 	if not FileAccess.file_exists(TRANSLATIONS_PATH):
+		# VAL-02: en la app EXPORTADA el CSV no va en el paquete (Godot solo
+		# empaqueta las .translation compiladas a partir de él al exportar).
+		# Sin esto la app instalada salía sin traducir (inglés y español
+		# mezclados).
+		_load_compiled_translations()
 		return
 	var file := FileAccess.open(TRANSLATIONS_PATH, FileAccess.READ)
 	if not file:
@@ -82,6 +87,14 @@ func _load_csv_translations() -> void:
 					translations_by_col[col].add_message(key, text)
 	for col in translations_by_col:
 		TranslationServer.add_translation(translations_by_col[col])
+
+func _load_compiled_translations() -> void:
+	for loc in available_locales:
+		var path := TRANSLATIONS_PATH.get_basename() + ".%s.translation" % loc
+		if ResourceLoader.exists(path):
+			var t = load(path)
+			if t is Translation:
+				TranslationServer.add_translation(t)
 
 func set_locale(locale: String, remember: bool = true) -> void:
 	if not locale in available_locales:

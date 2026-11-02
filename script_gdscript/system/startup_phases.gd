@@ -140,7 +140,24 @@ func _finish() -> void:
 	_done = true
 	_pending.clear()
 	Engine.set_meta(DONE_META, true)
+	_fit_window_to_screen.call_deferred()
 	all_done.emit()
+
+## VAL-03: la ventana debe caber en la pantalla. El proyecto pide «maximizada»,
+## pero el gestor de ventanas no siempre lo aplica al arrancar: quedaba una
+## ventana de 1920 px desplazada y el lateral derecho (Inspector) fuera de la
+## pantalla. Si no cabe en el área útil de su pantalla, se maximiza.
+func _fit_window_to_screen() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var mode := DisplayServer.window_get_mode()
+	if mode in [DisplayServer.WINDOW_MODE_MAXIMIZED, DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]:
+		return
+	var scr := DisplayServer.window_get_current_screen()
+	var usable := DisplayServer.screen_get_usable_rect(scr)
+	var win := Rect2i(DisplayServer.window_get_position(), DisplayServer.window_get_size())
+	if not usable.grow(2).encloses(win):
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
 
 func is_done() -> bool:
 	return _done
