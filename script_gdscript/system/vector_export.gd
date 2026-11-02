@@ -397,6 +397,7 @@ static func offset(data: Dictionary, delta: Vector2, size: Vector2) -> Dictionar
 	var d := data.duplicate(true)
 	d["size"] = size
 	var t := Transform2D(0.0, delta)
+	var moved_clips: Array = []
 	for it in d["items"]:
 		match it["t"]:
 			"path":
@@ -406,6 +407,23 @@ static func offset(data: Dictionary, delta: Vector2, size: Vector2) -> Dictionar
 							o[k] = o[k] + delta
 			"text", "image":
 				it["xf"] = t * it["xf"]
+		if it.get("clip") is Dictionary and not moved_clips.any(func(c) -> bool: return is_same(c, it["clip"])):
+			moved_clips.append(it["clip"])
+			for sub in it["clip"]["subs"]:
+				for o in sub["ops"]:
+					for k in range(1, o.size()):
+						o[k] = o[k] + delta
+	return d
+
+## VAL-19: documento con el sangrado de la página alrededor (para imprenta):
+## crece `bleed` px por cada lado y guarda la línea de corte en `trim`. El
+## fondo de la página cubre también el sangrado.
+static func with_bleed(data: Dictionary, bleed: float) -> Dictionary:
+	if bleed <= 0.0:
+		return data
+	var size: Vector2 = data["size"]
+	var d := offset(data, Vector2(bleed, bleed), size + Vector2(bleed, bleed) * 2.0)
+	d["trim"] = Rect2(Vector2(bleed, bleed), size)
 	return d
 
 # ═════════════════════════ Texto → curvas (contornos) ═══════════════════════
@@ -964,8 +982,13 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 			smask = " /SMask %d 0 R" % objs.size()
 		objs.append(_pdf_stream("/Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8%s" % [img.get_width(), img.get_height(), smask], rgb))
 		img_res += "/Im%d %d 0 R " % [i + 1, objs.size()]
-	objs[2] = ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >>%s%s >> >>" % [
-		_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX), (" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
+	var boxes := ""
+	if data.get("trim") is Rect2:   # VAL-19: línea de corte dentro del sangrado
+		var tr: Rect2 = data["trim"]
+		boxes = " /TrimBox [%s %s %s %s] /BleedBox [0 0 %s %s]" % [_n(tr.position.x * PT_PER_PX), _n((size.y - tr.end.y) * PT_PER_PX),
+			_n(tr.end.x * PT_PER_PX), _n((size.y - tr.position.y) * PT_PER_PX), _n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)]
+	objs[2] = ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s]" % [_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)] + boxes + " /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >>%s%s >> >>" % [
+		(" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
 	var pdf := "%PDF-1.4\n%âãÏÓ\n".to_utf8_buffer()
 	var offsets := PackedInt64Array()
 	for i in objs.size():

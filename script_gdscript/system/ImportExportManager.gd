@@ -449,7 +449,11 @@ func export_artboard(artboard: Node, format: ExportFormat, path: String, setting
 				sd = VectorExport.texts_to_curves(sd)
 			err = _write_text(path, VectorExport.to_svg(sd))
 		ExportFormat.PDF:
-			err = _write_bytes(path, VectorExport.to_pdf(VectorExport.collect(artboard, transparent)))
+			var pd := VectorExport.collect(artboard, transparent)
+			# VAL-19: el PDF de imprenta lleva el sangrado de la página (si lo hay).
+			if bool(settings.get("bleed", true)) and "bleed" in artboard:
+				pd = VectorExport.with_bleed(pd, float(artboard.bleed))
+			err = _write_bytes(path, VectorExport.to_pdf(pd))
 		ExportFormat.EPS:
 			err = _write_text(path, VectorExport.to_eps(VectorExport.collect(artboard, transparent)))
 		ExportFormat.PNG:

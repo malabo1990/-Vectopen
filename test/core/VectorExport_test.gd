@@ -576,3 +576,22 @@ func test_sombra_svg_11() -> void:
 	var svg := VX.to_svg(VX.collect(_ab))
 	assert_str(svg).not_contains("feDropShadow")
 	assert_str(svg).contains("feGaussianBlur")
+
+## VAL-19: el PDF de imprenta incluye el sangrado de la página (MediaBox con
+## sangrado + TrimBox en la línea de corte) y lo que sale de la página se ve.
+func test_pdf_con_sangrado() -> void:
+	_ab.artboard_size = Vector2(400, 200)
+	_ab.bleed = 12.0
+	var r := _api.add_rect(Vector2(0, 0), Vector2(40, 40))   # medio fuera de la página
+	r.fill_color = Color(1, 0, 0)
+	var data := VX.with_bleed(VX.collect(_ab), _ab.bleed)
+	assert_that(data["size"]).is_equal(Vector2(424, 224))
+	var pdf := VX.to_pdf(data).get_string_from_ascii()
+	assert_str(pdf).contains("/MediaBox [0 0 318 168]")
+	assert_str(pdf).contains("/TrimBox [9 9 309 159]")
+	assert_str(pdf).contains("/BleedBox [0 0 318 168]")
+	# El rectángulo empieza en el sangrado (x = -20 + 12 = -8 → recortado al borde).
+	var b := VX.bounds(data)
+	assert_float(b.position.x).is_equal_approx(-8.0, 1.5)   # + medio trazo
+	# Sin sangrado, sin cajas de corte.
+	assert_str(VX.to_pdf(VX.collect(_ab)).get_string_from_ascii()).not_contains("/TrimBox")
