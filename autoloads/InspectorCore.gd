@@ -280,10 +280,12 @@ func _read(shape, prop):
 			if _is_text(shape): return float(shape.get_meta("indent_first", 0))
 			return null
 		"columns":
-			if _is_text(shape): return int(shape.get_meta("columns", 1))
+			# VAL-08: solo los MARCOS de texto se reparten en columnas (en un
+			# texto de punto la opción salía y no hacía nada).
+			if _is_text_frame(shape): return int(shape.get_meta("columns", 1))
 			return null
 		"column_gap":
-			if _is_text(shape): return float(shape.get_meta("column_gap", 20.0))
+			if _is_text_frame(shape): return float(shape.get_meta("column_gap", 20.0))
 			return null
 		"font_family":
 			if _is_text(shape): return String(shape.get_meta("font_family", "Inter"))
@@ -1933,8 +1935,12 @@ func _write_indent(shape, prop: String, value) -> void:
 			me.queue_redraw()
 	_refit_text_shape(shape)
 
+## ¿Marco de texto (párrafo con ancho), no texto de punto?
+func _is_text_frame(shape) -> bool:
+	return _is_text(shape) and String(shape.get_meta("shape_type", "")) == "text_paragraph"
+
 func _write_columns(shape: Node2D, prop: String, value: Variant) -> void:
-	if not _is_text(shape):
+	if not _is_text_frame(shape):
 		return
 	if prop == "columns":
 		shape.set_meta("columns", clampi(int(value), 1, 16))
@@ -1946,6 +1952,10 @@ func _write_columns(shape: Node2D, prop: String, value: Variant) -> void:
 		var gap = float(shape.get_meta("column_gap", 20.0))
 		vrt.set_columns(cols, gap)
 		vrt.queue_redraw()
+	# Con otras columnas el texto ocupa otro alto: el marco se reajusta (antes,
+	# al deshacer un cambio de columnas el alto se quedaba en el del cambio).
+	_refit_text_shape(shape)
+	_refit_text_later(shape)
 
 ## El editor nativo maqueta un par de fotogramas después de cambiar fuente o
 ## tamaño: el ajuste inmediato puede leer la medida vieja (el recuadro quedaba
@@ -2044,6 +2054,11 @@ func _write_extent(shape, prop: String, v: float) -> void:
 				vrt.set_frame_size(Vector2(w, h))
 				vrt.custom_minimum_size = Vector2(w, h)
 				vrt.size = Vector2(w, h)
+		# Marco de texto: con otro ancho el texto ocupa otro alto; el marco se
+		# ajusta (también al deshacer: antes se quedaba con el alto viejo).
+		if prop == "width" and _is_text_frame(shape):
+			_refit_text_shape(shape)
+			_refit_text_later(shape)
 		return
 	if "artboard_size" in shape:
 		var sz: Vector2 = shape.artboard_size
