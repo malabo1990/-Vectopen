@@ -36,6 +36,9 @@ class_name VectorCircle
 		queue_redraw()
 
 const CIRCLE_QUALITY: int = 128
+## Un arco a menos de esto de la vuelta completa (p. ej. 359,999°) cuenta como
+## vuelta completa.
+const FULL_TURN_TOLERANCE_DEG: float = 0.01
 
 var _verts_cache: PackedVector2Array = PackedVector2Array()
 var _verts_cache_size: Vector2 = Vector2(-1, -1)
@@ -68,6 +71,13 @@ func _draw() -> void:
 		if stroke_width > 0 and verts.size() >= 2:
 			var sp: Array = _get_rendered_stroke_params(stroke_width, stroke_color)
 			draw_polyline(verts, sp[1], sp[0], true)
+	elif is_full_ring():
+		var stroke_size: Vector2 = size
+		if stroke_align == 1:
+			stroke_size = Vector2(maxf(0.0, size.x - stroke_width), maxf(0.0, size.y - stroke_width))
+		elif stroke_align == 2:
+			stroke_size = size + Vector2(stroke_width, stroke_width)
+		_draw_full_ring(stroke_size)
 	else:
 		draw_fill(verts)
 		if stroke_width > 0:
@@ -81,6 +91,68 @@ func _draw() -> void:
 			draw_stroke_ring(ring_verts)
 
 	draw_effects_overlays(verts)
+
+## Recorrido angular en radianes; 0 o casi 360° = vuelta completa (TAU).
+static func arc_span(start_deg: float, end_deg: float) -> float:
+	var span_deg: float = fposmod(end_deg - start_deg, 360.0)
+	if span_deg < FULL_TURN_TOLERANCE_DEG or span_deg > 360.0 - FULL_TURN_TOLERANCE_DEG:
+		return TAU
+	return deg_to_rad(span_deg)
+
+## Anillo de vuelta completa: se dibuja como DOS circunferencias cerradas
+## (sin el segmento radial que unía la exterior con la interior).
+func is_full_ring() -> bool:
+	return shape_mode == "donut" and is_equal_approx(arc_span(start_angle_deg, end_angle_deg), TAU)
+
+## [exterior, interior] de un anillo completo, cada una cerrada y sin repetir
+## el primer punto. `half` = semiejes exteriores.
+static func ring_contours(half: Vector2, ratio: float, center: Vector2 = Vector2.ZERO, quality: int = CIRCLE_QUALITY) -> Array[PackedVector2Array]:
+	var inner: Vector2 = half * clampf(ratio, 0.01, 0.95)
+	var outer_pts := PackedVector2Array()
+	var inner_pts := PackedVector2Array()
+	for i in range(quality):
+		var a: float = (i * TAU) / quality
+		var d := Vector2(cos(a), sin(a))
+		outer_pts.append(center + d * half)
+		inner_pts.append(center + d * inner)
+	return [outer_pts, inner_pts]
+
+func _draw_full_ring(target_size: Vector2) -> void:
+	var rings := ring_contours(size / 2.0, inner_radius_ratio)
+	var outer: PackedVector2Array = rings[0]
+	var inner: PackedVector2Array = rings[1]
+	var n: int = outer.size()
+	# Relleno: tira de triángulos entre las dos circunferencias.
+	if has_gradient_fill() or fill_color.a > 0.0:
+		var pts := PackedVector2Array(outer)
+		pts.append_array(inner)
+		var idx := PackedInt32Array()
+		for i in range(n):
+			var j: int = (i + 1) % n
+			idx.append_array([i, j, n + i, j, n + j, n + i])
+		var cols := PackedColorArray()
+		var col: Color = Color.WHITE if has_gradient_fill() else fill_color
+		cols.resize(pts.size())
+		cols.fill(col)
+		var uvs := PackedVector2Array()
+		var tex := RID()
+		if has_gradient_fill():
+			var bb := _points_bounds(outer)
+			var sx := maxf(bb.size.x, 0.001)
+			var sy := maxf(bb.size.y, 0.001)
+			for p in pts:
+				uvs.append(Vector2((p.x - bb.position.x) / sx, (p.y - bb.position.y) / sy))
+			var t: Texture2D = _ensure_grad_tex()
+			if t:
+				tex = t.get_rid()
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols, uvs, PackedInt32Array(), PackedFloat32Array(), tex)
+	# Trazo: cada circunferencia por separado.
+	if stroke_width > 0.0:
+		var stroke_rings := rings
+		if not target_size.is_equal_approx(size):
+			stroke_rings = ring_contours(target_size / 2.0, inner_radius_ratio)
+		draw_stroke_ring(stroke_rings[0])
+		draw_stroke_ring(stroke_rings[1])
 
 func _cached_vertices() -> PackedVector2Array:
 	if _verts_cache.is_empty() or _verts_cache_size != size:
@@ -105,11 +177,7 @@ func _generate_vertices_for_size(target_size: Vector2) -> PackedVector2Array:
 
 	var s_rad: float = deg_to_rad(start_angle_deg)
 	var e_rad: float = deg_to_rad(end_angle_deg)
-	var span: float = fposmod(e_rad - s_rad, TAU)
-	if is_zero_approx(span) and not is_equal_approx(start_angle_deg, end_angle_deg):
-		span = TAU
-	elif is_zero_approx(span):
-		span = TAU
+	var span: float = arc_span(start_angle_deg, end_angle_deg)
 
 	var steps: int = maxi(8, int(round((span / TAU) * CIRCLE_QUALITY)))
 
@@ -169,6 +237,17 @@ func to_svg() -> String:
 			cx, cy, rx, ry,
 			fill_color.to_html(), stroke_color.to_html(), stroke_width,
 			filter_attr
+		]
+	if is_full_ring():
+		var rings := ring_contours(Vector2(rx, ry), inner_radius_ratio, Vector2(cx, cy))
+		var sub: PackedStringArray = PackedStringArray()
+		for ring in rings:
+			var seg: PackedStringArray = PackedStringArray()
+			for i in range(ring.size()):
+				seg.append(("M %.4f %.4f" if i == 0 else "L %.4f %.4f") % [ring[i].x, ring[i].y])
+			sub.append(" ".join(seg) + " Z")
+		return '<path d="%s" fill-rule="evenodd" fill="%s" stroke="%s" stroke-width="%.4f"%s />' % [
+			" ".join(sub), fill_color.to_html(), stroke_color.to_html(), stroke_width, filter_attr
 		]
 	var verts: PackedVector2Array = _cached_vertices()
 	if verts.is_empty():

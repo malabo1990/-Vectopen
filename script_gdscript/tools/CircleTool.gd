@@ -166,9 +166,7 @@ func draw_preview(c: Node2D) -> void:
 	else:
 		var s_rad: float = deg_to_rad(start_angle_deg)
 		var e_rad: float = deg_to_rad(end_angle_deg)
-		var span: float = fposmod(e_rad - s_rad, TAU)
-		if is_zero_approx(span):
-			span = TAU
+		var span: float = VectorCircle.arc_span(start_angle_deg, end_angle_deg)
 		var steps: int = maxi(8, int(round((span / TAU) * CIRCLE_QUALITY)))
 
 		match shape_mode:
@@ -215,7 +213,13 @@ func draw_preview(c: Node2D) -> void:
 	if shape_mode != "arc" and vertices_preview.size() >= 3:
 		c.draw_colored_polygon(vertices_preview, COLOR_PREVIEW_F)
 
-	if shape_mode == "arc" and vertices_preview.size() >= 2:
+	if shape_mode == "donut" and is_equal_approx(VectorCircle.arc_span(start_angle_deg, end_angle_deg), TAU):
+		# Anillo completo: dos circunferencias, sin línea radial.
+		for ring in VectorCircle.ring_contours(radius, inner_radius_ratio, center_local):
+			var closed := PackedVector2Array(ring)
+			closed.append(ring[0])
+			c.draw_polyline(closed, COLOR_PREVIEW_S, line_width, true)
+	elif shape_mode == "arc" and vertices_preview.size() >= 2:
 		c.draw_polyline(vertices_preview, COLOR_PREVIEW_S, line_width, true)
 	elif vertices_preview.size() >= 3:
 		var points_outline: Array = Array(vertices_preview)

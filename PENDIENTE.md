@@ -167,9 +167,19 @@ con `TAU`, rama `donut`), `shape_mode` en `CircleTool.gd:7-10`.
 3. Añadir un margen de tolerancia angular para valores límite (359,999°).
 
 **Criterio de aceptación.**
-- [ ] Anillo a 360° sin línea radial, con grosor uniforme.
-- [ ] Arcos parciales siguen cerrando correctamente por el centro.
-- [ ] Sin artefactos al cambiar `inner_radius_ratio`.
+- [x] Anillo a 360° sin línea radial, con grosor uniforme.
+- [x] Arcos parciales siguen cerrando correctamente por el centro.
+- [x] Sin artefactos al cambiar `inner_radius_ratio`.
+
+**Resolución (2026-11-02).** El anillo completo se generaba como UN contorno
+que iba de la circunferencia exterior a la interior por un puente en 0°, y el
+trazo dibujaba ese puente. Ahora `VectorCircle` lo trata como dos
+circunferencias cerradas: relleno con una tira de triángulos entre ambas
+(admite degradado), trazo de cada una por separado y SVG con dos subtrazados
+`fill-rule="evenodd"`. Tolerancia de 0,01° (359,999° = vuelta completa) en
+`VectorCircle.arc_span`, compartida con la vista previa de `CircleTool`, que
+también dibuja las dos circunferencias. Prueba: `test/e2e/ring_full_circle_e2e.gd`
+(dibuja con la herramienta real y comprueba píxeles con hueco 25/50/80 %).
 
 **Prueba de interfaz.** `test/e2e/ring_full_circle_e2e.gd`: crear anillo 0–360,
 inspeccionar la malla generada y comparar el número de vértices con el esperado.
@@ -323,7 +333,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-01 | `panel_paragraph.gd`, `text_core.gd` | `paragraph_panel_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-02 | `tools/TextTool.gd`, `ParagraphTool.gd` | `text_drag_size_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
-| UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | Abierta |
+| UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | Abierta |
 | UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | Abierta |
 | UX-07 | `InspectorCore.gd`, `SelectionCore.gd`, `line_bounds.gd` | `brush_selection_perf.gd` | **Cerrada** (2026-11-02) |
