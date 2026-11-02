@@ -59,6 +59,7 @@ DebugConsola="*res://script_gdscript/system/DebugConsola.gd"
 VectopenMCPServer="*res://script_gdscript/system/VectopenMCPServer.gd"
 BooleanCore="*res://autoloads/BooleanCore.gd"
 MCPRuntime="*uid://3fh08fg3rlff"
+Updater="*res://autoloads/Updater.gd"
 
 [debug]
 

@@ -56,7 +56,9 @@ func _build() -> void:
 
 	var brand := ProUIStyle.label("VECTOPEN", true, ProUIStyle.FONT_SIZE_SMALL)
 	brand.custom_minimum_size.x = 64
+	brand.name = "BrandLogo"
 	_row.add_child(brand)
+	AboutPanel.register_anchor(brand)   # clic: Acerca de · comunidad · actualizaciones
 	_row.add_child(ProUIStyle.vsep())
 
 	_btn_undo = _action("↶", "", "Deshacer (Ctrl+Z)", "undo")
