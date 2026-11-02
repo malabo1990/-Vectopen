@@ -315,3 +315,30 @@ func test_boolean_core_lifecycle() -> void:
 	assert_bool(sel_flat is VectorPath).is_true()
 	assert_bool(sel_flat.closed).is_true()
 
+
+## VAL-16: aplanar una resta que deja un agujero conserva el agujero
+## (subtrazado par-impar), no un contorno macizo.
+func test_aplanar_resta_conserva_el_agujero() -> void:
+	var bc: Node = auto_free(BooleanCoreScript.new())
+	add_child(bc)
+	var parent: Node2D = auto_free(Node2D.new())
+	add_child(parent)
+	var outer: VectorRectangle = VectorRectangle.new()
+	outer.size = Vector2(200, 200)
+	outer.position = Vector2(100, 100)
+	parent.add_child(outer)
+	var inner: VectorRectangle = VectorRectangle.new()
+	inner.size = Vector2(60, 60)
+	inner.position = Vector2(100, 100)
+	parent.add_child(inner)
+	var vb: VectorShape = bc.call("apply_operation", "subtract", [outer, inner])
+	assert_object(vb).is_not_null()
+	var path: VectorPath = bc.call("flatten_boolean", vb)
+	assert_object(path).is_not_null()
+	assert_int(path.subpaths.size()).is_equal(1)
+	assert_int(path.get_evaluated_geometry().size()).is_equal(2)
+	# El contorno principal es el exterior (el de mayor área), no el agujero.
+	var r := Rect2(path.curve.get_baked_points()[0], Vector2.ZERO)
+	for p in path.curve.get_baked_points():
+		r = r.expand(p)
+	assert_float(r.size.x).is_equal_approx(200.0, 1.0)

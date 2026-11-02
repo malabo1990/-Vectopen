@@ -18,7 +18,7 @@
 extends RefCounted
 
 const K := 0.5522847498   # Bézier de un cuarto de círculo
-const SKIP := ["ArtboardTitle", "TitleEdit", "Contorno_Stroke", "Render_Visual", "DisplayLabel", "VectorRichText"]
+const SKIP := ["ArtboardTitle", "TitleEdit", "Contorno_Stroke", "Render_Visual", "DisplayLabel", "VectorRichText", "TextFxBack", "TextFxFront"]
 
 # ── recogida ─────────────────────────────────────────────────────────────────
 ## {size, bg (Color o null), items: [...], warnings: PackedStringArray}
@@ -88,6 +88,8 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 ## círculo). Si la figura es máscara (`clip_children`), su contorno recorta a
 ## esas capas; en «solo recorte» la figura no se dibuja.
 static func _child_layers(n: Node, n0: int, inv: Transform2D, op: float, out: Dictionary) -> void:
+	if n.has_method("get_source_shapes"):   # booleano vivo: sus hijos son operandos
+		return
 	var items: Array = out["items"]
 	var n1 := items.size()
 	for ch in n.get_children():

@@ -706,7 +706,12 @@ func get_evaluated_geometry() -> Array[PackedVector2Array]:
 	var pts := curve.get_baked_points()
 	if pts.is_empty():
 		return []
-	return [pts]
+	var out: Array[PackedVector2Array] = [pts]
+	if closed:   # VAL-16: agujeros e islas también son geometría del objeto
+		for c in subpaths:
+			if c and c.point_count >= 3:
+				out.append(c.get_baked_points())
+	return out
 
 func get_effect_points() -> PackedVector2Array:
 	if not curve:

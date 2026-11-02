@@ -267,20 +267,39 @@ func _create_path_from_polygons(polys: Array[PackedVector2Array], style_source: 
 	new_path.closed = true
 	var curve := Curve2D.new()
 
-	var main_poly := polys[0]
-	for p in polys:
-		if p.size() > main_poly.size():
-			main_poly = p
-
-	for i in range(main_poly.size()):
-		var pt: Vector2 = main_poly[i]
-		if i == main_poly.size() - 1 and pt.distance_to(main_poly[0]) < 0.1:
-			continue
-		curve.add_point(pt)
+	# VAL-16: el contorno principal es el de MAYOR ÁREA (no el de más puntos) y
+	# el resto (agujeros, islas) van a `subpaths`, que se rellenan par-impar.
+	var main_i := 0
+	var best := -1.0
+	for i in polys.size():
+		var a := absf(_poly_area(polys[i]))
+		if a > best:
+			best = a
+			main_i = i
+	_fill_curve(curve, polys[main_i])
+	var extra: Array[Curve2D] = []
+	for i in polys.size():
+		if i != main_i and polys[i].size() >= 3:
+			var c := Curve2D.new()
+			_fill_curve(c, polys[i])
+			extra.append(c)
+	new_path.subpaths = extra
 
 	new_path.curve = curve
 	new_path.set_meta("evaluated_geometry", polys)
 	return new_path
+
+static func _poly_area(p: PackedVector2Array) -> float:
+	var s := 0.0
+	for i in p.size():
+		s += p[i].cross(p[(i + 1) % p.size()])
+	return s / 2.0
+
+static func _fill_curve(curve: Curve2D, poly: PackedVector2Array) -> void:
+	for i in poly.size():
+		if i == poly.size() - 1 and poly[i].distance_to(poly[0]) < 0.1:
+			continue
+		curve.add_point(poly[i])
 
 func release_boolean(target: Node = null, shapes: Array = []) -> Array[CanvasItem]:
 	var cand: Node = target
