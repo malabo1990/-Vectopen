@@ -310,6 +310,29 @@ var _overrides: Dictionary = {}
 func _ready() -> void:
 	_load_overrides()
 	_apply(_leer_modo_guardado())
+	# UX-17: ningún ColorPickerButton abre el ColorPicker genérico de Godot;
+	# todos abren el selector de color de Vectopen (TextColorPopover).
+	get_tree().node_added.connect(_on_node_added)
+
+func _on_node_added(n: Node) -> void:
+	if n is ColorPickerButton and not n.has_meta("keep_godot_picker"):
+		_attach_vectopen_picker.call_deferred(n)
+
+func _attach_vectopen_picker(cp: ColorPickerButton) -> void:
+	if not is_instance_valid(cp) or cp.has_meta("text_color_popover"):
+		return
+	TextColorPopover.attach(cp, _picker_title(cp))
+
+## Título del selector: el tooltip de la muestra o la etiqueta de su fila.
+func _picker_title(cp: ColorPickerButton) -> String:
+	if cp.tooltip_text.strip_edges() != "":
+		return cp.tooltip_text
+	var row := cp.get_parent()
+	if row:
+		for c in row.get_children():
+			if c is Label and (c as Label).text.strip_edges() != "":
+				return (c as Label).text
+	return tr("Color")
 
 func _leer_modo_guardado() -> String:
 	var cfg := ConfigFile.new()

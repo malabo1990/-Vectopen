@@ -581,6 +581,23 @@ FILTROS/SHADER/SCRIPT, cabecera de pestaña flotante…).
 
 ---
 
+## 15 ter. Incidencias nuevas del usuario (2026-11-02, tarde)
+
+Orden de trabajo: UX-17 → UX-19 → UX-20 → UX-16 → UX-18 → UX-21. Tras cada una,
+revisión proactiva con capturas propias (claro/oscuro, Smart/Modern/Pro): lo que
+se vea mal aunque no se haya pedido se registra como UX-nn nueva.
+
+| ID | Área | Incidencia | Severidad | Prueba |
+|---|---|---|---|---|
+| UX-16 | Pincel | Las muestras de los estilos (aerógrafo, caligráfico…) no parecen pinceles reales | Media | `brush_panel_theme_e2e.gd` |
+| UX-17 | Color | El color del trazo (también en textos) abre el ColorPicker original de Godot: debe abrir el selector de Vectopen en todos los paneles | Alta | `no_godot_colorpicker_e2e.gd` |
+| UX-18 | Trazos | Faltan paramétricos de trazo (comparar con Affinity/Illustrator: guiones personalizados con desfase, posición de puntas, etc.) | Media | `stroke_panel_parity_e2e.gd` |
+| UX-19 | Inspector | Script y Shader se muestran aunque no haya nada asignado: ocultas hasta pulsar su icono de la barra superior | Media | `inspector_action_icons_e2e.gd` |
+| UX-20 | Color | En el selector de color, la paleta no muestra su panel ni deja cambiar sus parámetros de forma interactiva | Alta | `palette_modes_e2e.gd` |
+| UX-21 | Pro | Con «Efectos» flotando, los iconos Shader/Script/Vectorizar no la traen a la vista | Baja | `inspector_action_icons_e2e.gd` |
+
+---
+
 ## 16. Protocolo de ejecución: corrección automática en bucle
 
 ```
@@ -682,8 +699,14 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-13 | 1 | Verde | `inspector_action_icons_e2e.gd` | Cuatro iconos junto a Exportar en los tres modos |
 | UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
 | UX-15 | 1 | Verde | `inspector_capas_style_e2e.gd` | El tema no llegaba a la UI (CanvasLayer corta la herencia): se aplica al Inspector y a Pro |
+| UX-16 | 0 | Abierta | `brush_panel_theme_e2e.gd` | Muestras de pincel poco realistas |
+| UX-17 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | Todo ColorPickerButton de la app abre el selector de Vectopen (enganche global en ThemeManager); 53 comprobaciones, cabe en pantalla |
+| UX-18 | 0 | Abierta | `stroke_panel_parity_e2e.gd` | Más paramétricos de trazo |
+| UX-19 | 0 | Abierta | `inspector_action_icons_e2e.gd` | Script/Shader visibles sin asignar |
+| UX-20 | 0 | Abierta | `palette_modes_e2e.gd` | Panel de paleta del selector no se muestra / no interactivo |
+| UX-21 | 0 | Abierta | `inspector_action_icons_e2e.gd` | Iconos no traen la pestaña flotante de Efectos |
 
-**Resumen Fase A:** 13 / 15 en verde · 2 pendientes de insumo (UX-05: panel
+**Resumen Fase A:** 14 / 21 en verde (abiertas: UX-16, UX-18, UX-19, UX-20, UX-21) · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
 **Resumen Fase B:** 0 / 30 proyectos aprobados.
