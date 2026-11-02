@@ -438,9 +438,13 @@ func _create_new_title_at(local_pos: Vector2, font_size: int = 24) -> Node2D:
 		vrt.name = "VectorRichText"
 		vrt.set_is_paragraph(false)
 		TextCore.apply_vrt_fonts(vrt, new_title)
+		# set_text() REINICIA el formato del nativo: primero el texto, después
+		# color y tamaño. Antes era al revés y el texto creado por arrastre se
+		# dibujaba a 24 aunque se hubiera previsualizado (y guardado) a otro
+		# tamaño; al moverlo se resincronizaba y «crecía» (UX-02).
+		vrt.set_text(new_title.get_meta("text"))
 		vrt.set_text_color(Color.BLACK)
 		vrt.set_font_size(float(font_size))
-		vrt.set_text(new_title.get_meta("text"))
 		new_title.add_child(vrt)
 		label.visible = false
 

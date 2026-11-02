@@ -87,9 +87,17 @@ dispara un nuevo reajuste, revelando la discrepancia acumulada.
 4. Impedir que mover el objeto reajuste el tamaño (solo lo hace el usuario).
 
 **Criterio de aceptación.**
-- [ ] El tamaño visible al arrastrar es idéntico al aplicado al soltar (±0 px).
-- [ ] Mover el texto después no altera su tamaño.
-- [ ] Repetible en los tres modos de interfaz (Smart, Modern, Pro).
+- [x] El tamaño visible al arrastrar es idéntico al aplicado al soltar (±0 px).
+- [x] Mover el texto después no altera su tamaño.
+- [x] Repetible en los tres modos de interfaz (Smart, Modern, Pro).
+
+**Resolución (2026-11-02).** La causa real no era el cálculo del tamaño (la
+previsualización y el valor guardado ya coincidían) sino el ORDEN al crear el
+editor nativo: se fijaba el tamaño y después `set_text()`, que reinicia el
+formato. El texto se guardaba a N pt pero se DIBUJABA a 24; al moverlo, una
+resincronización lo ponía a N («crecía»). Corregido en `TextTool.gd` y en dos
+puntos de `ParagraphTool.gd` (un párrafo de 40 pt sin tramos volvía a 24 al
+editarlo). Prueba: `test/e2e/text_drag_size_e2e.gd`.
 
 **Prueba de interfaz.** `test/e2e/text_drag_size_e2e.gd`: simular arrastre,
 comparar `font_size` y caja antes/después, mover y revalidar.
@@ -304,7 +312,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | ID | Archivos principales | Prueba asociada | Estado |
 |---|---|---|---|
 | UX-01 | `panel_paragraph.gd`, `text_core.gd` | `paragraph_panel_e2e.gd` | Abierta |
-| UX-02 | `tools/TextTool.gd` | `text_drag_size_e2e.gd` | Abierta |
+| UX-02 | `tools/TextTool.gd`, `ParagraphTool.gd` | `text_drag_size_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | Abierta |
 | UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | Abierta |

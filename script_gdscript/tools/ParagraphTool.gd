@@ -183,9 +183,10 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 			var w_init := float(hit.get_meta("width", 350.0))
 			var h_init := float(hit.get_meta("height", 100.0))
 			vrt.set_frame_size(Vector2(w_init, h_init))
+			# Primero el texto (set_text reinicia el formato), luego color y tamaño.
+			vrt.set_text(str(hit.get_meta("text", "")))
 			vrt.set_text_color(hit.get_meta("text_color", Color.BLACK))
 			vrt.set_font_size(float(hit.get_meta("font_size", 24)))
-			vrt.set_text(str(hit.get_meta("text", "")))
 			if hit.has_meta("runs"):
 				_safe_set_runs_meta(vrt, hit.get_meta("runs"))
 			hit.add_child(vrt)
@@ -199,9 +200,10 @@ func _check_and_trigger_edit_at(pos_or_local = null, explicit_shape: Node2D = nu
 			var w_init := float(hit.get_meta("width", 350.0))
 			var h_init := float(hit.get_meta("height", 100.0))
 			vrt.set_frame_size(Vector2(w_init, h_init))
+			# Primero el texto (set_text reinicia el formato), luego color y tamaño.
+			vrt.set_text(str(hit.get_meta("text", "")))
 			vrt.set_text_color(hit.get_meta("text_color", Color.BLACK))
 			vrt.set_font_size(float(hit.get_meta("font_size", 24)))
-			vrt.set_text(str(hit.get_meta("text", "")))
 			if hit.has_meta("runs"):
 				_safe_set_runs_meta(vrt, hit.get_meta("runs"))
 			if not vrt.text_changed.is_connected(_on_vrt_text_changed):
@@ -730,9 +732,10 @@ func _create_new_paragraph_at(local_pos: Vector2) -> Node2D:
 		vrt.set_is_paragraph(true)
 		TextCore.apply_vrt_fonts(vrt, new_para)
 		vrt.set_frame_size(Vector2(350, 100))
+		# Primero el texto (set_text reinicia el formato), luego color y tamaño.
+		vrt.set_text(new_para.get_meta("text"))
 		vrt.set_text_color(Color.BLACK)
 		vrt.set_font_size(24.0)
-		vrt.set_text(new_para.get_meta("text"))
 		new_para.add_child(vrt)
 		label.visible = true
 		label.self_modulate = Color(1, 1, 1, 0)
