@@ -396,11 +396,20 @@ func _build_ui() -> void:
 	_build_parametric_polygon_section()
 	_build_3d_model_section()
 
+	# Lo que el modelo tiene y Modern no mostraba (UX-06).
+	content_container.add_child(InspectorExtraProps.create(["name", "visible",
+		"is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle",
+		"drop_curvature", "text_align", "text_valign", "indent_left", "indent_right", "indent_first",
+		"columns", "column_gap", "light_rotation_x", "light_rotation_y"], "ExtraProps"))
+
 	# ── SECCION E: RELLENO (FILL - FILA COMPACTA) ──
 	_build_fill_section()
 
 	# ── SECCION F: TRAZO (STROKE - FILA COMPACTA) ──
 	_build_stroke_section()
+
+	# Puntas, remates, estilo y perfil del trazo (UX-06).
+	content_container.add_child(InspectorExtraProps.create(["stroke_details"], "StrokeDetails"))
 
 	# ── SECCION G: EFECTOS (SHADOW - FILA COMPACTA) ──
 	_build_effects_section()
@@ -415,6 +424,7 @@ func _build_ui() -> void:
 	_build_export_section()
 
 const InspectorFxSections = preload("res://script_gdscript/ui/components/inspector_fx_sections.gd")
+const InspectorExtraProps = preload("res://script_gdscript/ui/components/inspector_extra_props.gd")
 const SmartEmbed = preload("res://script_gdscript/ui/components/smart_embed.gd")
 
 ## Filas reducidas de antes: dentro de un contenedor OCULTO (siguen vivas para
@@ -1410,7 +1420,7 @@ func _build_fill_section() -> void:
 	row.add_child(_wrap_input_pill(lbl_fill_hex))
 
 	var btn_eye := _create_chip_button("👁", "Alternar relleno", Vector2(24, 24))
-	btn_eye.pressed.connect(_on_toggle_visibility_pressed)
+	btn_eye.pressed.connect(func(): _toggle_paint("fill_color"))
 	row.add_child(btn_eye)
 
 	var btn_minus := _create_chip_button("−", "Quitar relleno", Vector2(24, 24))
@@ -1450,9 +1460,15 @@ func _build_stroke_section() -> void:
 	opt_stroke_align.focus_mode = Control.FOCUS_NONE
 	opt_stroke_align.add_theme_font_size_override("font_size", 9)
 	_style_option_button(opt_stroke_align)
+	# Antes no estaba conectado: elegir Interior/Exterior no hacía nada.
+	opt_stroke_align.item_selected.connect(func(i: int) -> void:
+		if _syncing: return
+		var ic = get_node_or_null("/root/InspectorCore")
+		if ic: ic.apply("stroke_align", i))
 	row.add_child(opt_stroke_align)
 
 	var btn_eye := _create_chip_button("👁", "Alternar trazo", Vector2(24, 24))
+	btn_eye.pressed.connect(func(): _toggle_paint("stroke_color"))
 	row.add_child(btn_eye)
 
 	var btn_minus := _create_chip_button("−", "Quitar trazo", Vector2(24, 24))
@@ -1776,6 +1792,25 @@ func _on_stroke_color_changed(color: Color) -> void:
 	if ic and ic.has_method("apply"):
 		ic.apply("stroke_color", color)
 
+## Ojo de Relleno / Trazo: lo oculta (alfa 0) y lo vuelve a mostrar con el
+## alfa que tenía. Antes el de relleno ocultaba el OBJETO y el de trazo no
+## hacía nada.
+var _paint_alpha := {}
+func _toggle_paint(prop: String) -> void:
+	var ic = get_node_or_null("/root/InspectorCore")
+	if ic == null or ic.selection().is_empty():
+		return
+	var cur = ic._read(ic.selection()[0], prop)
+	if not (cur is Color):
+		return
+	var c: Color = cur
+	if c.a > 0.0:
+		_paint_alpha[prop] = c.a
+		c.a = 0.0
+	else:
+		c.a = float(_paint_alpha.get(prop, 1.0))
+	ic.apply(prop, c)
+
 func _on_stroke_width_changed(val: float) -> void:
 	if _syncing: return
 	var ic = get_node_or_null("/root/InspectorCore")
@@ -2049,6 +2084,8 @@ func _on_inspector_changed(props: Dictionary) -> void:
 		picker_stroke.color = props["stroke_color"]["value"]
 	if is_instance_valid(spin_stroke_width) and props.has("stroke_width") and not props["stroke_width"].get("mixed", false):
 		spin_stroke_width.value = float(props["stroke_width"]["value"])
+	if is_instance_valid(opt_stroke_align) and props.has("stroke_align") and not props["stroke_align"].get("mixed", false):
+		opt_stroke_align.select(clampi(int(props["stroke_align"]["value"]), 0, 2))
 	if props.has("visible") and not props["visible"].get("mixed", false):
 		_current_item_visible = bool(props["visible"]["value"])
 		if is_instance_valid(btn_toggle_visibility):

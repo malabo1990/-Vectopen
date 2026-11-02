@@ -750,6 +750,8 @@ func _snap_prop(prop: String) -> void:
 		_drag_snap[p] = {}
 		for shape in ic.selection():
 			_drag_snap[p][shape] = ic._read(shape, p)
+	if ("width" in props_to_snap or "height" in props_to_snap) and ic.has_method("snapshot_live_geom"):
+		ic.snapshot_live_geom(ic.selection())
 
 func _preview(prop: String, v: float) -> void:
 	if _sync_guard or not _has_selection or prop == "":

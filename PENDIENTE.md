@@ -243,9 +243,40 @@ divergencias entre modelo y panel; añadir una prueba que verifique que toda
 propiedad declarada tiene lector, escritor y control visible.
 
 **Criterio de aceptación.**
-- [ ] Cada propiedad de `PROPS` es editable desde la interfaz.
-- [ ] Ninguna propiedad del panel carece de efecto real.
-- [ ] Deshacer/rehacer cubre todas las nuevas propiedades.
+- [x] Cada propiedad de `PROPS` es editable desde la interfaz.
+- [x] Ninguna propiedad del panel carece de efecto real.
+- [x] Deshacer/rehacer cubre todas las nuevas propiedades.
+
+**Resolución (2026-11-02).** Prueba nueva `test/e2e/inspector_props_coverage_e2e.gd`:
+en Modern y Pro, con rectángulo, elipse, polígono, estrella, trazado y texto,
+usa todos los controles visibles del inspector (y de los desplegables que
+abren), apunta qué propiedades se escriben (`InspectorCore.prop_written`) y
+deshace todo comprobando que el objeto vuelve a como estaba. Lo que faltaba:
+- Componente nuevo `ui/components/inspector_extra_props.gd` (tabla de
+  propiedades → controles; cada modo elige las que le faltan): nombre,
+  opacidad, visibilidad, radios de esquina, lados/regular/giro/proporción,
+  puntas/radio interior/redondeo de valles/giro, forma y ángulos de la
+  elipse, curvatura de la gota, alineación horizontal y vertical, sangrías,
+  columnas, y botones Inicio / Fin / Estilo / Perfil que abren el desplegable
+  de trazo de Smart (puntas, remates, tamaño de puntas, guiones, perfil).
+- Modern: la alineación del trazo no estaba conectada; el ojo de Trazo no
+  hacía nada y el de Relleno ocultaba el OBJETO (ahora ocultan/muestran
+  trazo y relleno).
+- Deshacer W/H de trazados, polígonos libres, líneas e imágenes girados no
+  devolvía la forma (se reescalaba): ahora guarda y repone la geometría.
+- `VectopenAPI.add_text` no fijaba width/height (el inspector mostraba 350 × 65).
+- `filter_fx.gd`: un filtro (cristal…) sobre un texto daba miles de errores
+  por fotograma (leía mal los polígonos de las letras).
+
+**Seguimiento (no bloquea).** El alto de un texto autoajustado se recalcula
+de la maquetación del editor nativo y no se guarda en el paso de deshacer:
+tras deshacer muchos cambios puede quedar 4 px distinto (40 → 36) hasta el
+siguiente ajuste. La prueba admite ±6 px en el ancho/alto del texto.
+El modelo 3D también entra en la prueba: Pro no tenía ningún control 3D
+(ahora todos) y a Modern le faltaba el giro de la luz. Relleno y trazo ya no
+se ofrecen en modelos 3D (no los dibujan: eran controles sin efecto).
+`model_path` se elige con diálogo de archivo, `text` en el lienzo y
+`custom_shader` desde la sección Shader: excluidos de la prueba a propósito.
 
 **Prueba de interfaz.** `test/e2e/inspector_props_coverage_e2e.gd`.
 
@@ -347,7 +378,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 | UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-05 | `ui/adaptive_ui_manager.gd`, `PluginManager.gd` | `panels_script_plugins_e2e.gd` | **Cerrada** (2026-11-02) |
-| UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | Abierta |
+| UX-06 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_props_coverage_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-07 | `InspectorCore.gd`, `SelectionCore.gd`, `line_bounds.gd` | `brush_selection_perf.gd` | **Cerrada** (2026-11-02) |
 
 ---

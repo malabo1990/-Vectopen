@@ -459,8 +459,12 @@ func _silhouette() -> Array:
 	if dl != null and dl.has_method("_get_triangle_polys"):
 		var k := float(maxi(1, dl.get_theme_font_size("font_size"))) / float(maxi(1, int(dl.get("_outline_fs"))))
 		var xf: Transform2D = dl.get_transform() * Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO)
+		# Cada entrada es {"poly": PackedVector2Array, …} (no un array de
+		# puntos): construir con ella fallaba miles de veces por fotograma con
+		# un filtro (cristal…) sobre un texto.
 		for p in dl._get_triangle_polys():
-			out.append(xf * PackedVector2Array(p))
+			var pts = p.get("poly", PackedVector2Array()) if p is Dictionary else p
+			out.append(xf * PackedVector2Array(pts))
 		return out
 	if shape.has_method("get_evaluated_geometry"):
 		for p in shape.get_evaluated_geometry():

@@ -583,6 +583,8 @@ func _build_stroke_page() -> void:
 	_btn_align_center = aligns[0]
 	_btn_align_inside = aligns[1]
 	_btn_align_outside = aligns[2]
+	# Puntas, remates, estilo y perfil: el mismo desplegable que Smart (UX-06).
+	_sec_stroke.add_child(InspectorExtraProps.create(["stroke_details"], "StrokeDetails"))
 
 # ── 4. TRANSFORM ──
 func _build_transform_page() -> void:
@@ -660,6 +662,17 @@ func _build_transform_page() -> void:
 	var pad2 := Control.new()
 	pad2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row_r.add_child(pad2)
+	# Lo que el modelo tiene y Pro no mostraba (UX-06): objeto, esquinas,
+	# parámetros de la figura y columnas de texto.
+	_sec_transform.add_child(InspectorExtraProps.create(["name", "opacity", "visible",
+		"corner_radius", "corner_tl", "corner_tr", "corner_br", "corner_bl",
+		"sides", "is_regular", "poly_angle", "poly_aspect",
+		"points_count", "inner_radius_ratio", "inner_corner_radius", "star_angle",
+		"shape_mode", "start_angle_deg", "end_angle_deg", "drop_curvature",
+		"columns", "column_gap",
+		"model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov",
+		"camera_ortho", "light_preset", "light_energy", "light_rotation_x", "light_rotation_y",
+		"light_color", "ambient_energy", "model_shadows"], "ExtraProps"))
 
 # ── 5. TEXT ──
 func _build_typography_page() -> void:
@@ -869,6 +882,7 @@ func _build_typography_page() -> void:
 
 # ── 6. EFFECTS ──
 const InspectorFxSections = preload("res://script_gdscript/ui/components/inspector_fx_sections.gd")
+const InspectorExtraProps = preload("res://script_gdscript/ui/components/inspector_extra_props.gd")
 const SmartEmbed = preload("res://script_gdscript/ui/components/smart_embed.gd")
 
 ## Filas reducidas de antes: dentro de un contenedor OCULTO (siguen vivas para

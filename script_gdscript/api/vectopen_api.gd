@@ -505,7 +505,16 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 	var size := label.get_theme_font(&"font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size) \
 		if label.get_theme_font(&"font") else Vector2(text.length() * font_size * 0.6, font_size * 1.2)
 	t.set_meta("size", size)
-	return add(t)
+	t.set_meta("width", size.x)
+	t.set_meta("height", size.y)
+	var out := add(t)
+	# El Inspector lee width/height: ajustarlos al texto como hace la
+	# herramienta (antes mostraba 350 × 65 fijos).
+	var ic: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("InspectorCore") if Engine.get_main_loop() is SceneTree else null
+	if out and ic and ic.has_method("_refit_text_shape"):
+		ic._refit_text_shape(out)
+		# (InspectorCore repite el ajuste cuando el editor nativo ya ha maquetado.)
+	return out
 
 ## Importa un SVG (texto) como grupo de objetos editables (trazados Bézier,
 ## texto, imágenes). `pos` = esquina sup.-izq. del SVG en el artboard.

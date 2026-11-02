@@ -25,6 +25,9 @@ const TextCore = preload("res://script_gdscript/text/text_core.gd")
 ## mismos valores para la selección actual.
 
 signal changed(props: Dictionary)
+## Una propiedad se escribió desde la interfaz con su paso de deshacer
+## (apply, apply_multi, commit_live…). Lo usan las pruebas de cobertura.
+signal prop_written(prop: String)
 signal selection_size_changed(count: int)
 
 ## Propiedades expuestas. Cada una: {value, mixed, editable}.
@@ -181,6 +184,11 @@ func _text_label_color(shape, theme_key: String, def: Color) -> Color:
 func _read(shape, prop):
 	if not is_instance_valid(shape):
 		return null
+	# Un modelo 3D hereda relleno y trazo de VectorShape pero no los dibuja:
+	# no se ofrecen (eran controles sin efecto en el inspector).
+	if String(prop).begins_with("stroke_") or prop in ["fill_color", "fill_paint"]:
+		if shape.has_method("rotate_orbit"):
+			return null
 	match prop:
 		"name":       return String(shape.name)
 		"pos_x":
@@ -880,17 +888,26 @@ func apply(prop: String, value) -> void:
 		var rec := {"s": s, "before": before}
 		if prop == "stroke_color" and has_sgrad:
 			rec["before_paint"] = _read_stroke_paint(s)
+		if prop == "width" or prop == "height":
+			var g = _geom_state(s)
+			if g != null:
+				rec["geom"] = g
 		recs.append(rec)
 	if recs.is_empty():
 		return
 	var do_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], prop, value)
+			if r.has("geom_after"):
+				_set_geom_state(r["s"], r["geom_after"])
+			else:
+				_write(r["s"], prop, value)
 		_post_write()
 	var undo_fn := func() -> void:
 		for r in recs:
 			if r.has("before_paint"):
 				_write(r["s"], "stroke_paint", r["before_paint"])
+			elif r.has("geom"):
+				_set_geom_state(r["s"], r["geom"])
 			else:
 				_write(r["s"], prop, r["before"])
 		_post_write()
@@ -901,6 +918,11 @@ func apply(prop: String, value) -> void:
 		hm.add_undo(undo_fn)
 		hm.commit()
 	do_fn.call()
+	for r in recs:
+		if r.has("geom"):
+			r["geom_after"] = _geom_state(r["s"])
+			_geom_live.erase(r["s"])
+	prop_written.emit(prop)
 
 ## Aplica un conjunto de propiedades en UNA sola acción de undo.
 func apply_multi(props_values: Dictionary, action_name: String = "Inspector · transform") -> void:
@@ -923,13 +945,29 @@ func apply_multi(props_values: Dictionary, action_name: String = "Inspector · t
 			recs.append({"s": s, "prop": p, "before": before, "after": val})
 	if recs.is_empty():
 		return
+	# Geometría por figura (W/H): una sola foto antes y otra después.
+	var geo := {}
+	for r in recs:
+		if (r["prop"] == "width" or r["prop"] == "height") and not geo.has(r["s"]):
+			var g = _geom_state(r["s"])
+			if g != null:
+				geo[r["s"]] = {"before": g}
 	var do_fn := func() -> void:
 		for r in recs:
+			if geo.has(r["s"]) and geo[r["s"]].has("after") and (r["prop"] == "width" or r["prop"] == "height"):
+				continue
 			_write(r["s"], r["prop"], r["after"])
+		for s in geo:
+			if geo[s].has("after"):
+				_set_geom_state(s, geo[s]["after"])
 		_post_write()
 	var undo_fn := func() -> void:
 		for r in recs:
+			if geo.has(r["s"]) and (r["prop"] == "width" or r["prop"] == "height"):
+				continue
 			_write(r["s"], r["prop"], r["before"])
+		for s in geo:
+			_set_geom_state(s, geo[s]["before"])
 		_post_write()
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
@@ -938,6 +976,11 @@ func apply_multi(props_values: Dictionary, action_name: String = "Inspector · t
 		hm.add_undo(undo_fn)
 		hm.commit()
 	do_fn.call()
+	for s in geo:
+		geo[s]["after"] = _geom_state(s)
+		_geom_live.erase(s)
+	for r in recs:
+		prop_written.emit(String(r["prop"]))
 
 ## Registra UNA acción de undo para un cambio de propiedad YA aplicado en vivo
 ## (p.ej. arrastrar un dial). `before`: {figura: valor_previo}. El "after" se lee
@@ -953,17 +996,28 @@ func commit_live(prop: String, before: Dictionary) -> void:
 		var aft = _read(s, prop)
 		if aft == null or _approx_eq(before[s], aft):
 			continue
-		recs.append({"s": s, "before": before[s], "after": aft})
+		var rec := {"s": s, "before": before[s], "after": aft}
+		var g = _take_live_geom(s) if (prop == "width" or prop == "height") else null
+		if g != null:
+			rec["geom"] = g
+			rec["geom_after"] = _geom_state(s)
+		recs.append(rec)
 	if recs.is_empty():
 		_set_draft(false)
 		return
 	var do_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], prop, r["after"])
+			if r.has("geom_after"):
+				_set_geom_state(r["s"], r["geom_after"])
+			else:
+				_write(r["s"], prop, r["after"])
 		_post_write()
 	var undo_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], prop, r["before"])
+			if r.has("geom"):
+				_set_geom_state(r["s"], r["geom"])
+			else:
+				_write(r["s"], prop, r["before"])
 		_post_write()
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
@@ -972,6 +1026,7 @@ func commit_live(prop: String, before: Dictionary) -> void:
 		hm.add_undo(undo_fn)
 		hm.commit()
 	_post_write()   # fin del arrastre: ahora sí el aviso completo (calidad, capas…)
+	prop_written.emit(prop)
 
 ## Registra UNA acción de undo conjunta para múltiples propiedades YA aplicadas en vivo.
 ## `props_before`: {prop_name: {figura: valor_previo}}
@@ -988,15 +1043,31 @@ func commit_live_multi(props_before: Dictionary, action_name: String = "Inspecto
 			if aft == null or _approx_eq(before[s], aft):
 				continue
 			recs.append({"s": s, "prop": p, "before": before[s], "after": aft})
+	var geo := {}
+	for p in props_before:
+		if p == "width" or p == "height":
+			for s in props_before[p]:
+				if is_instance_valid(s) and not geo.has(s):
+					var g = _take_live_geom(s)
+					if g != null:
+						geo[s] = {"before": g, "after": _geom_state(s)}
 	if recs.is_empty():
 		return
+	var is_geo := func(r: Dictionary) -> bool:
+		return geo.has(r["s"]) and (r["prop"] == "width" or r["prop"] == "height")
 	var do_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], r["prop"], r["after"])
+			if not is_geo.call(r):
+				_write(r["s"], r["prop"], r["after"])
+		for s in geo:
+			_set_geom_state(s, geo[s]["after"])
 		_post_write()
 	var undo_fn := func() -> void:
 		for r in recs:
-			_write(r["s"], r["prop"], r["before"])
+			if not is_geo.call(r):
+				_write(r["s"], r["prop"], r["before"])
+		for s in geo:
+			_set_geom_state(s, geo[s]["before"])
 		_post_write()
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm and hm.has_method("register_action"):
@@ -1004,10 +1075,67 @@ func commit_live_multi(props_before: Dictionary, action_name: String = "Inspecto
 		hm.add_do(do_fn)
 		hm.add_undo(undo_fn)
 		hm.commit()
+	for r in recs:
+		prop_written.emit(String(r["prop"]))
 
 const LetterFx = preload("res://script_gdscript/text/letter_fx.gd")
 const TextFx = preload("res://script_gdscript/text/text_fx.gd")
 const FilterFx = preload("res://script_gdscript/shapes/filter_fx.gd")
+
+## ── W/H de figuras sin tamaño propio ──────────────────────────────────────
+## En trazados, polígonos libres, líneas e imágenes W/H se miden en la caja
+## GLOBAL y se escriben escalando la geometría local: con la figura girada,
+## volver a escribir el valor anterior no devuelve la misma forma. Deshacer
+## guarda y repone la geometría entera.
+var _geom_live := {}
+
+func _geom_state(s) -> Variant:
+	if not is_instance_valid(s) or _is_text(s) or "artboard_size" in s or "size" in s:
+		return null
+	for campo in ["vertices", "points", "polygon"]:
+		if campo in s:
+			var st := {"field": campo, "pts": PackedVector2Array(s.get(campo))}
+			if campo == "vertices" and s is VectorShape and s.has_doc_vertices():
+				st["doc"] = s.get_doc_vertices().duplicate()
+			return st
+	if s is Path2D and s.curve:
+		return {"curve": (s.curve as Curve2D).duplicate()}
+	if s is Sprite2D:
+		return {"scale": (s as Sprite2D).scale}
+	return null
+
+func _set_geom_state(s, st) -> void:
+	if not is_instance_valid(s) or not (st is Dictionary):
+		return
+	if st.has("doc"):
+		var dv: Array[DVec2] = []
+		dv.assign(st["doc"])
+		s.set_doc_vertices(dv)
+	elif st.has("field"):
+		s.set(st["field"], st["pts"])
+	elif st.has("curve"):
+		var cv: Curve2D = s.curve
+		var src: Curve2D = st["curve"]
+		cv.clear_points()
+		for i in src.point_count:
+			cv.add_point(src.get_point_position(i), src.get_point_in(i), src.get_point_out(i))
+	elif st.has("scale"):
+		s.scale = st["scale"]
+
+## Al EMPEZAR a arrastrar W/H: foto de la geometría para que commit_live
+## pueda deshacer exacto.
+func snapshot_live_geom(shapes: Array) -> void:
+	_geom_live.clear()
+	for s in shapes:
+		var g = _geom_state(s)
+		if g != null:
+			_geom_live[s] = g
+
+## Geometría de ANTES del arrastre (de snapshot_live_geom).
+func _take_live_geom(s) -> Variant:
+	var g = _geom_live.get(s, null)
+	_geom_live.erase(s)
+	return g
 
 ## Con efectos de letras activos, el editor nativo pinta runs DERIVADOS (por
 ## letra): antes de escribir se le dan los runs reales, para que lo que
@@ -1754,7 +1882,27 @@ func _write_columns(shape: Node2D, prop: String, value: Variant) -> void:
 		vrt.set_columns(cols, gap)
 		vrt.queue_redraw()
 
+## El editor nativo maqueta un par de fotogramas después de cambiar fuente o
+## tamaño: el ajuste inmediato puede leer la medida vieja (el recuadro quedaba
+## unos píxeles corto, también al deshacer). Se repite una vez más tarde.
+var _refit_pending := {}
+
+func _refit_text_later(shape: Node2D) -> void:
+	if _refit_pending.has(shape) or not is_inside_tree():
+		return
+	_refit_pending[shape] = true
+	for _i in 2:
+		await get_tree().process_frame
+	_refit_pending.erase(shape)
+	if is_instance_valid(shape):
+		_refit_text_now(shape)
+
 func _refit_text_shape(shape: Node2D) -> void:
+	_refit_text_now(shape)
+	if is_instance_valid(shape) and _is_text(shape):
+		_refit_text_later(shape)
+
+func _refit_text_now(shape: Node2D) -> void:
 	if not is_instance_valid(shape) or not _is_text(shape):
 		return
 	var vrt = shape.get_node_or_null("VectorRichText")
