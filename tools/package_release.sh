@@ -136,7 +136,7 @@ mkdir -p "$R"/{BUILD,RPMS,SOURCES,SPECS,SRPMS,BUILDROOT}
 cat > "$R/SPECS/vectopen.spec" <<EOF
 Name:           vectopen
 Version:        $NUM
-Release:        0.1${PRE:+.$PRE}
+Release:        ${RPM_RELEASE:-0.1}${PRE:+.$PRE}
 Summary:        Editor de graficos vectoriales (version alfa)
 License:        MIT
 URL:            $HOMEPAGE
