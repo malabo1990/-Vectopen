@@ -736,7 +736,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | REG-03 | 1 | Verde | `shader_script_sections_e2e.gd`, `panels_script_plugins_e2e.gd` | Actualizadas a UX-19: empiezan ocultas y se abren con su icono (PASS; 30) |
 | DBG-01 | 1 | Verde | `DebuggerHygiene_test.gd` | `get_meta(k, null)` no es valor por defecto en Godot 4: 3 lecturas protegidas con has_meta; de 85 errores a 0; la prueba revisa todo el código |
 | DBG-02 | 1 | Verde | `letter_fx_e2e.gd` | Los 41 eran de un registro antiguo (copia de la versión de la mañana); el código actual daba 0. Añadida la misma protección para la herramienta liberada |
-| DBG-03 | 0 | Abierta | — | Expression sin instancia en NumericField |
+| DBG-03 | 1 | Verde | `DebuggerHygiene_test.gd`, `inspector_keyboard_focus_e2e.gd` | eval_math solo evalúa texto numérico (letras → valor anterior); de 24 errores a 0 |
 | DBG-04 | 0 | Abierta | — | move_child en text_fx |
 | DBG-05 | 0 | Abierta | — | Capas: referencias muertas / cola sin vaciar |
 | DBG-06 | 0 | Abierta | — | move_to_foreground obsoleto |

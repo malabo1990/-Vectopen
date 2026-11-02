@@ -27,3 +27,13 @@ func test_no_get_meta_with_null_default_unguarded() -> void:
 			if re.search(l) and not l.contains("has_meta"):
 				bad.append("%s:%d" % [f, i + 1])
 	assert_array(bad).is_empty()
+
+## DBG-03: NumericField.eval_math con letras no debe evaluar nada (Expression
+## escribía «self can't be used because instance is null»); las cuentas sí.
+func test_numeric_field_eval_math_only_numbers() -> void:
+	assert_float(NumericField.eval_math("t", 5.0)).is_equal(5.0)
+	assert_float(NumericField.eval_math("abc", 7.0)).is_equal(7.0)
+	assert_float(NumericField.eval_math("+10", 5.0)).is_equal(15.0)
+	assert_float(NumericField.eval_math("2*3", 0.0)).is_equal(6.0)
+	assert_float(NumericField.eval_math("(4+4)/2", 0.0)).is_equal(4.0)
+	assert_float(NumericField.eval_math("1,5", 0.0)).is_equal(1.5)

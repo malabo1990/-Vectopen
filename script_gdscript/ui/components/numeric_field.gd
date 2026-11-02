@@ -323,6 +323,14 @@ static func eval_math(text: String, current: float) -> float:
 		t = str(current) + t
 	elif t.is_valid_float():
 		return float(t)
+	# DBG-03: solo expresiones numéricas. Un texto con letras («t», «abc») se
+	# tomaba por identificador y Expression escribía «self can't be used
+	# because instance is null» en el depurador.
+	var re := RegEx.new()
+	re.compile("^[0-9+\\-*/().,%\\s]+$")
+	if re.search(t) == null:
+		return current
+	t = t.replace(",", ".")
 	var expr := Expression.new()
 	var err := expr.parse(t)
 	if err == OK:
