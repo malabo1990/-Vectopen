@@ -8,6 +8,8 @@
 class_name ProTopBar
 extends PanelContainer
 
+const FxActionIcons = preload("res://script_gdscript/ui/components/fx_action_icons.gd")
+
 const BAR_HEIGHT := 30.0
 
 var _row: HBoxContainer
@@ -114,6 +116,11 @@ func _build() -> void:
 			if ge and ge.has_signal("request_floating_panel"):
 				ge.emit_safe("request_floating_panel", pname))
 		_row.add_child(fb)
+	# Shader · Script · Vectorizar · Complementos, junto a Exportar (UX-13).
+	_row.add_child(FxActionIcons.create(func(icon_path: String, tip: String) -> Button:
+		var b := ProUIStyle.action_button("", icon_path, tip)
+		b.custom_minimum_size = Vector2(24, 22)
+		return b, Vector2(24, 22)))
 	var btn_export := ProUIStyle.action_button("", "res://icon/UI/Export.svg", tr("Exportar"))
 	btn_export.custom_minimum_size = Vector2(24, 22)
 	btn_export.name = "BtnExport"

@@ -8,6 +8,8 @@
 class_name ModernTopBar
 extends PanelContainer
 
+const FxActionIcons = preload("res://script_gdscript/ui/components/fx_action_icons.gd")
+
 signal export_requested()
 
 var logo_rect: TextureRect
@@ -189,6 +191,25 @@ func _build_ui() -> void:
 	btn_redo = _create_chip_button("↷", "Rehacer (Ctrl+Y / Ctrl+Shift+Z)", Vector2(28, 24))
 	btn_redo.pressed.connect(_on_redo_pressed)
 	right_box.add_child(btn_redo)
+
+	# Shader · Script · Vectorizar · Complementos, junto a Exportar (UX-13).
+	var fx_icons := FxActionIcons.create(func(icon_path: String, tip: String) -> Button:
+		var b := _create_chip_button("", tip, Vector2(28, 24))
+		b.icon = ModernBottomToolbar._icon_blanco(icon_path)
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.expand_icon = false
+		# Activo = borde e icono de acento (antes, con el ratón encima, el
+		# estado «pulsado + encima» no tenía estilo: icono blanco sobre gris).
+		var tm = get_node_or_null("/root/ThemeManager")
+		var accent: Color = tm.get_color(tm.Slot.ACCENT) if tm and tm.get("Slot") else Color(0.2, 0.5, 0.95)
+		var on := (b.get_theme_stylebox("pressed") as StyleBoxFlat).duplicate() as StyleBoxFlat
+		on.border_color = accent
+		b.add_theme_stylebox_override("pressed", on)
+		b.add_theme_stylebox_override("hover_pressed", on)
+		b.add_theme_color_override("icon_pressed_color", accent)
+		b.add_theme_color_override("icon_hover_pressed_color", accent)
+		return b)
+	right_box.add_child(fx_icons)
 
 	btn_export = _create_chip_button(tr("Export"), "Exportar diseño (SVG, PNG, JPG)", Vector2(56, 24))
 	btn_export.visible = true

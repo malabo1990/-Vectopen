@@ -67,7 +67,10 @@ class MouseIndicator extends Control:
 		var wheel := Rect2(Vector2(mid_x - 1.5, body.position.y + 3), Vector2(3, 5))
 		draw_rect(wheel, yellow if middle_on else outline, true)
 
+const FxActionIcons = preload("res://script_gdscript/ui/components/fx_action_icons.gd")
+
 var _chip: PanelContainer
+var _fx_icons: Control = null
 var _btn_export: Button
 var _btn_keyboard: Button
 var _lbl_mods: Label
@@ -90,6 +93,18 @@ func _ready() -> void:
 		_btn_export.tooltip_text = tr("Exportar")
 		if not _btn_export.pressed.is_connected(_on_export):
 			_btn_export.pressed.connect(_on_export)
+		# Shader · Script · Vectorizar · Complementos, junto a Exportar (UX-13).
+		if not content.has_node("FxActionIcons"):
+			_fx_icons = FxActionIcons.create(func(icon_path: String, tip: String) -> Button:
+				var b := Button.new()
+				b.tooltip_text = tip
+				b.set_meta("hud_icon_path", icon_path)
+				b.icon = load(icon_path)
+				return b, Vector2(24, 24))
+			_fx_icons.add_theme_constant_override("separation", 2)
+			content.add_child(_fx_icons)
+			content.move_child(_fx_icons, _btn_export.get_index() + 1)
+			_fx_icons.ready.connect(_apply_theme)
 	if _btn_keyboard:
 		_btn_keyboard.set_meta("hud_icon_path", "res://icon/UI/menu/keyboard.svg")
 		_btn_keyboard.tooltip_text = tr("Atajos de teclado y ratón")
@@ -219,8 +234,11 @@ func _apply_theme() -> void:
 	var hov := ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 4)
 	var prs := ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 4, ProUIStyle.col("ACCENT"), 0, 0)
 	prs.set_border_width_all(1)
-	for b in [_btn_export, _btn_keyboard]:
-		if not is_instance_valid(b):
+	var hud_buttons: Array = [_btn_export, _btn_keyboard]
+	if is_instance_valid(_fx_icons):
+		hud_buttons.append_array(_fx_icons.get_children())
+	for b in hud_buttons:
+		if not is_instance_valid(b) or not (b is Button):
 			continue
 		b.expand_icon = false
 		b.custom_minimum_size = Vector2(24, 24)

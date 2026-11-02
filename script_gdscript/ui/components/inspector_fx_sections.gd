@@ -26,6 +26,15 @@ const CONTENT := {
 
 ## Plegado / desplegado por sección (compartido entre Modern y Pro).
 static var _open := {FILTERS: false, VECTORIZE: true, SHADER: false, SCRIPT: false}
+## Abiertas desde su icono junto a «Exportar» (UX-13): se ven aunque no haya
+## selección (o no sea una imagen), hasta que se cierran.
+static var _pinned := {}
+
+static func set_pinned(section_kind: String, on: bool) -> void:
+	if on:
+		_pinned[section_kind] = true
+	else:
+		_pinned.erase(section_kind)
 
 var kind := FILTERS
 var _btn: Button
@@ -83,6 +92,8 @@ func is_open() -> bool:
 
 func _toggle() -> void:
 	_open[kind] = not is_open()
+	if not is_open():
+		_pinned.erase(kind)
 	_refresh_header()
 
 func _refresh_header() -> void:
@@ -114,7 +125,9 @@ func _ensure_content() -> void:
 func _sync_visibility() -> void:
 	var ic := get_node_or_null("/root/InspectorCore")
 	var sel: Array = ic.selection() if ic and ic.has_method("selection") else []
-	if kind == SCRIPT:
+	if _pinned.get(kind, false):
+		visible = true
+	elif kind == SCRIPT:
 		visible = true          # los scripts trabajan con todo el documento
 	elif kind == FILTERS or kind == SHADER:
 		visible = not sel.is_empty()
