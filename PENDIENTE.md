@@ -733,7 +733,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-24 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | El menú se colocaba una vez con un alto estimado: al cambiar a una pestaña alta se salía por abajo (645+443 > 1080) y cerca de arriba quedaba bajo la regla. Ahora zona segura y se recoloca al cambiar de tamaño (99) |
 | REG-01 | 1 | Verde | `stroke_paint_e2e.gd` | La muestra del Trazo de Modern abre el selector COMPLETO del Inspector con destino trazo (degradados), no el sencillo (43) |
 | REG-02 | 1 | Verde | `inspector_resize_e2e.gd` | No es de la app: en la suite la ventana aún se maximizaba al empezar. La prueba espera a que el tamaño se estabilice (37, 4 de 4) |
-| REG-03 | 0 | Abierta | — | Pruebas antiguas vs UX-19 |
+| REG-03 | 1 | Verde | `shader_script_sections_e2e.gd`, `panels_script_plugins_e2e.gd` | Actualizadas a UX-19: empiezan ocultas y se abren con su icono (PASS; 30) |
 | DBG-01 | 0 | Abierta | — | Metas sin valor por defecto |
 | DBG-02 | 0 | Abierta | — | Instancia liberada en editing_context |
 | DBG-03 | 0 | Abierta | — | Expression sin instancia en NumericField |

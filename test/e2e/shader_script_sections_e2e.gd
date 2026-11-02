@@ -60,8 +60,15 @@ func _run() -> void:
 			if host.has_method("_select_tab_b"):
 				host._select_tab_b(2)
 			await frames(10)
-		check(sh.is_visible_in_tree(), "%s: SHADER visible con un objeto seleccionado" % mode)
-		check(sc.is_visible_in_tree(), "%s: SCRIPT visible" % mode)
+		# UX-19: sin nada asignado, ocultas; se abren con su icono de la barra.
+		check(not sh.is_visible_in_tree(), "%s: SHADER oculto sin shader asignado" % mode)
+		check(not sc.is_visible_in_tree(), "%s: SCRIPT oculto hasta pulsar su icono" % mode)
+		for id in ["shader", "script"]:
+			for b in current_scene.find_children("Fx_" + id, "Button", true, false):
+				if (b as Button).is_visible_in_tree():
+					(b as Button).button_pressed = true
+					break
+			await frames(12)
 		if not sh.is_open():
 			sh._toggle()
 		if not sc.is_open():
@@ -74,8 +81,10 @@ func _run() -> void:
 			check(cont.get_combined_minimum_size().x <= sec.get_parent_control().size.x + 1, "%s: %s cabe a lo ancho del panel (%.0f px)" % [mode, sec.name, cont.get_combined_minimum_size().x])
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("user://sections_%s.png" % mode)
-		sh._toggle()
-		sc._toggle()
+		for id in ["shader", "script"]:
+			for b in current_scene.find_children("Fx_" + id, "Button", true, false):
+				if (b as Button).is_visible_in_tree():
+					(b as Button).button_pressed = false
 		await frames(5)
 	api.select([])
 	await frames(5)

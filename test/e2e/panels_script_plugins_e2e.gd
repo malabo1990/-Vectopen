@@ -97,6 +97,11 @@ func any_named(name: String) -> Control:
 ## Hace visible la sección Script del inspector del modo (en Pro está en la
 ## pestaña «Efectos» del estudio).
 func reach_section(mode: String) -> Control:
+	# UX-19: la sección Script se abre con su icono de la barra superior.
+	for b in root.find_children("Fx_script", "Button", true, false):
+		if (b as Button).is_visible_in_tree() and not (b as Button).button_pressed:
+			await click(b, mode + ": icono Script")
+			break
 	var sec := visible_named("SecScript")
 	if sec == null and mode == "professional":
 		for b in root.find_children("*", "Button", true, false):
@@ -111,7 +116,7 @@ func test_mode(mode: String, first: bool) -> void:
 	gui.set_ui_mode(mode)
 	await frames(40)
 	var sec := await reach_section(mode)
-	check(mode + ": sección Script visible sin selección", sec != null)
+	check(mode + ": el icono Script abre su sección (sin selección)", sec != null)
 	if sec == null:
 		await shot(mode + "_sin_script")
 		return
