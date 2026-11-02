@@ -342,9 +342,11 @@ func _apply_btn_style(btn: Button, is_active: bool) -> void:
 	btn.add_theme_stylebox_override("pressed", sb)
 
 	btn.modulate = Color.WHITE
-	btn.remove_theme_color_override("icon_normal_color")
-	btn.remove_theme_color_override("icon_hover_color")
-	btn.remove_theme_color_override("icon_pressed_color")
+	# Los iconos de las pestañas son muestras de cada degradado EN COLOR: sin
+	# teñir (blanco = color original). Si se dejan al tema, éste los tiñe de un
+	# color plano y se ven como formas negras (regresión de UX-15).
+	for k in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color", "icon_disabled_color"]:
+		btn.add_theme_color_override(k, Color.WHITE)
 	btn.add_theme_color_override("font_color", text_col if is_active else muted_col)
 	btn.add_theme_font_size_override("font_size", 11)
 

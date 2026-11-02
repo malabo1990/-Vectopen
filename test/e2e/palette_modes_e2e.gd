@@ -125,6 +125,14 @@ func open_picker(mode: String) -> Control:
 func probe(mode: String) -> void:
 	var pk := await open_picker(mode)
 	check("%s: selector de color visible" % mode, pk != null)
+	if pk:
+		# Las pestañas de degradado muestran su degradado EN COLOR (sin teñir).
+		var tinted := []
+		for t in ["tab_linear", "tab_radial", "tab_conic", "tab_diamond"]:
+			var tb = pk.get(t)
+			if tb is Button and (tb as Button).icon and not (tb as Button).get_theme_color("icon_normal_color").is_equal_approx(Color.WHITE):
+				tinted.append(t)
+		check("%s: los iconos de degradado se ven en color" % mode, tinted.is_empty(), ", ".join(tinted))
 	if pk == null:
 		return
 	var grid := pk.find_child("GridContainer_palette_Color", true, false) as Control
