@@ -738,7 +738,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | DBG-02 | 1 | Verde | `letter_fx_e2e.gd` | Los 41 eran de un registro antiguo (copia de la versión de la mañana); el código actual daba 0. Añadida la misma protección para la herramienta liberada |
 | DBG-03 | 1 | Verde | `DebuggerHygiene_test.gd`, `inspector_keyboard_focus_e2e.gd` | eval_math solo evalúa texto numérico (letras → valor anterior); de 24 errores a 0 |
 | DBG-04 | 1 | Verde | `shadow_fx_e2e.gd`, `effects_perf_e2e.gd` | El primer montaje de capas de efectos se hace en diferido (en _ready el padre aún montaba sus hijos): 0 errores (antes 12 y 1400 en effects_perf); de paso `text_advanced_e2e`, que fallaba desde la mañana, pasa |
-| DBG-05 | 0 | Abierta | — | Capas: referencias muertas / cola sin vaciar |
+| DBG-05 | 1 | Verde | `layers_children_e2e.gd`, `pages_e2e.gd`, `delete_keys_matrix_e2e.gd` | Mapa nodo→fila: la entrada se quita al retirar el nodo (antes quedaba colgando si se liberaba antes del lote); el lote se reprograma si estaba bloqueado y tiene espera máxima de 300 ms; la consola avisa solo si el MISMO cambio sigue atascado. 0 avisos en 5 pruebas |
 | DBG-06 | 1 | Verde | `pro_float_effects_icons_e2e.gd` | Quitado move_to_foreground (ya se usa grab_focus): 0 avisos, 22 PASS |
 | DBG-07 | 1 | Verde | — | «RESULT 0 fallos» cuenta como éxito; los FAIL de verdad se siguen contando |
 | DBG-08 | 0 | Abierta | — | Leaked instance dependency |

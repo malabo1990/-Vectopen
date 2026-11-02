@@ -19,6 +19,7 @@ var _update_timer           : Timer = null
 var _watchdog_timer         : Timer = null
 var _watchdog_ticks_bloqueado : int = 0
 var _pending_changes        : Array[Dictionary] = []
+var _pending_since          : int = 0
 var _node_to_item_map       : Dictionary = {}  # Mapeo nodo → TreeItem
 
 ## Label "Numer layer" del panel (layout.tscn): muestra el nº total de
@@ -2221,7 +2222,12 @@ func _on_any_node_removed(nodo: Node) -> void:
 func _on_node_removed(nodo: Node) -> void:
 	# Se dispara cuando se quita un nodo
 	if nodo is Node2D:
-		_pending_changes.append({"node": nodo, "action": "removed"})
+		# DBG-05: la entrada del mapa se quita YA (el nodo aún es válido); la
+		# fila se borra en el lote. Antes, si el nodo se liberaba antes del
+		# lote, su entrada quedaba colgando (referencia muerta).
+		var item = _node_to_item_map.get(nodo)
+		_node_to_item_map.erase(nodo)
+		_pending_changes.append({"node": nodo, "action": "removed", "item": item})
 		_schedule_update()
 
 func _schedule_update() -> void:
@@ -2231,7 +2237,15 @@ func _schedule_update() -> void:
 	# arrancaba nunca y los cambios incrementales no se procesaban; todo caía
 	# en sincronizar_arbol_completo() = O(N²) al añadir figuras una a una.
 	if _update_timer:
-		_update_timer.start()
+		# DBG-05: espera MÁXIMA. Con cambios continuos (desplazar 500 páginas)
+		# cada uno reiniciaba la ventana y el lote no llegaba nunca: la cola
+		# crecía sin vaciarse. A los 300 ms del primero ya no se reinicia.
+		var now := Time.get_ticks_msec()
+		if _update_timer.is_stopped():
+			_pending_since = now
+			_update_timer.start()
+		elif now - _pending_since < 300:
+			_update_timer.start()
 
 func _setup_update_timer() -> void:
 	# Crear timer para actualizaciones batch
@@ -2269,7 +2283,12 @@ func _watchdog_sincronizacion() -> void:
 			sincronizar_arbol_completo.call_deferred()
 
 func _process_pending_changes() -> void:
-	if _pending_changes.is_empty() or _bloquear_sincronizacion:
+	if _pending_changes.is_empty():
+		return
+	if _bloquear_sincronizacion:
+		# DBG-05: sincronizando ahora mismo: reintentar luego (antes se salía
+		# sin reprogramar y la cola no se vaciaba hasta el siguiente cambio).
+		_schedule_update()
 		return
 	
 	_bloquear_sincronizacion = true
@@ -2278,6 +2297,19 @@ func _process_pending_changes() -> void:
 	for change in _pending_changes:
 		var nodo = change["node"]
 		var action = change["action"]
+		if action == "removed" and change.has("item"):
+			# Quitado: su fila (guardada al quitarlo) se borra aunque el nodo
+			# ya esté liberado.
+			# (Si se quitó y se volvió a añadir —mover—, su «added» posterior
+			# crea la fila nueva: la antigua se borra igual.)
+			var it = change["item"]
+			if it is TreeItem and is_instance_valid(it):
+				if (it as TreeItem).get_child_count() > 0:
+					necesita_full = true
+				var pi := (it as TreeItem).get_parent()
+				if pi:
+					pi.remove_child(it)
+			continue
 		if not is_instance_valid(nodo):
 			# Borrado y ya liberado antes del lote (abrir otro documento,
 			# queue_free): su fila seguía en el panel. Reconstruir una vez.

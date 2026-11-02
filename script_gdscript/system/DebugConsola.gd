@@ -28,6 +28,7 @@ var _movetool: Node = null
 
 var _t_acc: float = 0.0
 const _INTERVALO: float = 0.3          # s entre barridos de invariantes
+var _pend_first: Variant = null        # primer cambio de la cola de Capas (DBG-05)
 
 ## PUERTA TRASERA DE DEPURACIÓN. Se puede escribir por MCP
 ## (`modify_node_property /root/DebugConsola.cmd = "..."`) y se ejecuta en el
@@ -640,8 +641,15 @@ func _barrer_capas() -> void:
 		"[DBG:CAPAS] _bloquear_sincronizacion lleva bloqueado varios barridos (sync abortada a mitad?)")
 
 	if "_pending_changes" in _layersys:
-		var pend: int = (_layersys._pending_changes as Array).size()
-		_persistencia("capas_pending_no_drena", pend > 0, 4,
+		# DBG-05: atasco = el MISMO cambio sigue el primero de la cola en
+		# barridos seguidos. Con actividad continua la cola nunca está vacía
+		# aunque se procese a menudo (falsos avisos).
+		var q: Array = _layersys._pending_changes
+		var pend: int = q.size()
+		var first: Variant = q[0] if pend > 0 else null
+		var atascado: bool = pend > 0 and _pend_first != null and is_same(first, _pend_first)
+		_pend_first = first
+		_persistencia("capas_pending_no_drena", atascado, 4,
 			"[DBG:CAPAS] _pending_changes no se vacía (%d en cola)" % pend)
 
 	if "_node_to_item_map" in _layersys:
