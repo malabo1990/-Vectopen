@@ -769,7 +769,7 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
 puede empezar hasta que estas dos se cierren (puerta del §19.1).
-**Resumen Fase B:** 1 / 30 proyectos aprobados.
+**Resumen Fase B:** 2 / 30 proyectos aprobados.
 
 **Seguimiento (no mezclado):** con la pestaña «Efectos» de Pro flotando, los
 iconos Shader / Script / Vectorizar no la traen a la vista (visto al probar con
@@ -872,6 +872,11 @@ convierte el encargo en defecto `VAL-nn`.
 | VAL-03 | (app instalada) | Todos | Abrir la app instalada | Ventana dentro de la pantalla | Ventana desplazada: el lateral derecho fuera | Alta | Corregido (`972b0a3`) |
 | VAL-04 | 01 Libro | Pro | Vista Pliegos | Pliegos también en el lienzo (portada sola, luego 2-2) | Solo en el panel; el lienzo seguía en una fila | Media | Corregido |
 | VAL-05 | 01 Libro | Pro | Renombrar páginas | El rótulo sobre la página dice su nombre | Dice «Artboard» | Baja | Acumulado |
+| VAL-06 | 02 Revista | Pro | Pestaña Páginas: Sangrado, Márgenes | Retícula de márgenes, columnas, medianil y sangrado | «Sangrado» y «Márgenes» no estaban conectados a nada; no había retícula | Media | Corregido: retícula por página (guías que no se imprimen), editable para una o todas las páginas, con deshacer y guardada |
+| VAL-07 | 02 Revista | Pro | Color de página → guardar → reabrir | Se conserva | Volvía a blanco (no se guardaba) | Media | Corregido |
+| VAL-08 | 02 Revista | Pro | «Columnas» en un texto de punto | Solo en marcos de texto | Se ofrecía y no tenía efecto | Media | Corregido |
+| VAL-09 | 02 Revista | Script | Crear un marco de texto por script | `add_text_box` | La API solo creaba textos de punto | Media | Corregido (además: el marco se reajusta al cambiar columnas o ancho) |
+| VAL-10 | 02 Revista | Pro | Marco de varias columnas: editar y deshacer | Mismo alto | El alto medido cambia unos px (88 → 72) | Baja | Acumulado |
 
 ### 19.5. Automatización y materiales
 
@@ -901,7 +906,7 @@ convierte el encargo en defecto `VAL-nn`.
 | Encargo | Estado | Modos verificados | Defectos |
 |---|---|---|---|
 | 01 Libro 20 páginas | Aprobado | Pro | VAL-01, VAL-04 (corregidos); VAL-05 (baja) |
-| 02 Revista 8 páginas | Pendiente | — | — |
+| 02 Revista 8 páginas | Aprobado | Pro | VAL-06…VAL-09 (corregidos); VAL-10 (baja) |
 | 03 Cartel A1 | Pendiente | — | — |
 | 04 Flyer redes | Pendiente | — | — |
 | 05 Logo vectorial | Pendiente | — | — |
