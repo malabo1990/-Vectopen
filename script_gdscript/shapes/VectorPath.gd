@@ -174,9 +174,10 @@ func _draw() -> void:
 			return
 		draw_effects_shadows(pts)
 		if subpaths.is_empty():
-			if fill_color.a > 0.0 and pts.size() >= 3 \
-					and not Geometry2D.triangulate_polygon(pts).is_empty():
-				draw_colored_polygon(pts, fill_color)
+			var fc := _area_color()
+			if fc.a > 0.0 and pts.size() >= 3:
+				for poly in fill_polygons(pts):
+					draw_colored_polygon(poly, fc)
 			if stroke_width > 0.0:
 				_draw_stroke_mesh(pts, true)
 		else:
@@ -184,18 +185,51 @@ func _draw() -> void:
 			for c in subpaths:
 				if c and c.point_count >= 2:
 					rings.append(closed_points(c))
-			if fill_color.a > 0.0:
+			var fc2 := _area_color()
+			if fc2.a > 0.0:
 				for poly in StrokeGeom.evenodd_fill(rings):
-					draw_colored_polygon(poly, fill_color)
+					draw_colored_polygon(poly, fc2)
 			if stroke_width > 0.0:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
 		draw_effects_overlays(pts)
-	elif stroke_width > 0.0:
-		# Bajo una punta la línea acaba en su base (punta afilada, y con el
-		# estilo doble las dos líneas mueren dentro de la flecha).
-		_draw_stroke_mesh(_trim_for_pointers(pts), false)
-		_draw_pointers(pts)
+	else:
+		# Trazado ABIERTO usado como máscara: recorta su área implícita (como
+		# Illustrator), cerrando con una recta del último punto al primero.
+		if _is_mask() and pts.size() >= 3:
+			for poly in fill_polygons(pts):
+				draw_colored_polygon(poly, _area_color())
+		if stroke_width > 0.0:
+			# Bajo una punta la línea acaba en su base (punta afilada, y con el
+			# estilo doble las dos líneas mueren dentro de la flecha).
+			_draw_stroke_mesh(_trim_for_pointers(pts), false)
+			_draw_pointers(pts)
+
+## ¿Este trazado recorta a sus hijos (máscara de recorte)?
+func _is_mask() -> bool:
+	return clip_children != CanvasItem.CLIP_CHILDREN_DISABLED
+
+## Color del área. Una máscara SIN relleno recorta igual por su geometría
+## (el recorte de Godot usa el alfa de lo que dibuja el padre: sin nada
+## dibujado, los hijos se veían enteros, sin recortar).
+func _area_color() -> Color:
+	if fill_color.a <= 0.0 and _is_mask():
+		return Color(1, 1, 1, 1)
+	return fill_color
+
+## Polígonos que rellenan `pts` con la regla par-impar. Si el contorno se
+## cruza a sí mismo (dos Bézier que se cortan, una «S» cerrada) la
+## triangulación falla y antes no se dibujaba NADA: ni relleno ni recorte.
+## Se parte en piezas simples (con agujeros) y se rellenan esas.
+static func fill_polygons(pts: PackedVector2Array) -> Array:
+	if pts.size() < 3:
+		return []
+	if not Geometry2D.triangulate_polygon(pts).is_empty():
+		return [pts]
+	var pieces: Array = Geometry2D.merge_polygons(pts, PackedVector2Array())
+	if pieces.is_empty():
+		return []
+	return StrokeGeom.evenodd_fill(pieces)
 
 ## Puntos de una curva CERRADA incluyendo el tramo de cierre (último → primero)
 ## con sus asas. Curve2D no tiene ese tramo: antes se cerraba con una recta y

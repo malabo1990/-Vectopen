@@ -1523,7 +1523,7 @@ func _on_tree_button_clicked(item: TreeItem, _column: int, id: int, mouse_button
 				return
 			# Figura con geometría propia: recorte directo (recorta a su forma).
 			var antes: int = int(nodo.clip_children)
-			var despues: int = 0 if antes != 0 else _CLIP_ON
+			var despues: int = 0 if antes != 0 else _modo_clip(nodo)
 			_accion_undo("Máscara de recorte",
 				func(): _set_clip(item, nodo, despues),
 				func(): _set_clip(item, nodo, antes))
@@ -1549,9 +1549,19 @@ func _set_lock(item: TreeItem, nodo: Node, locked: bool) -> void:
 			item.set_button(2, idx, _ICON_LOCK if locked else _ICON_LOCK_OPEN)
 		_tintar_boton_id(item, _BTN_LOCK, locked)   # cerrado=negro, abierto=gris
 
+## Modo de recorte de una figura: con relleno se ve (recorta Y se dibuja);
+## sin relleno (p. ej. un trazado abierto) solo recorta, como en Illustrator:
+## si no, el área implícita se pintaría de blanco.
+func _modo_clip(nodo: Node) -> int:
+	if "fill_color" in nodo and (nodo.fill_color as Color).a <= 0.0:
+		return CanvasItem.CLIP_CHILDREN_ONLY
+	return _CLIP_ON
+
 func _set_clip(item: TreeItem, nodo: Node, modo: int) -> void:
 	if not is_instance_valid(nodo) or not ("clip_children" in nodo): return
 	nodo.clip_children = modo
+	if nodo is CanvasItem:
+		(nodo as CanvasItem).queue_redraw()   # el área de máscara depende del modo
 	nodo.set_meta("clip_mask", modo != 0)
 	if is_instance_valid(item):
 		_refrescar_boton_clip(item, nodo)
