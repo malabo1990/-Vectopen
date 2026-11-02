@@ -708,11 +708,11 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-19 | 1 | Verde | `fx_sections_hidden_e2e.gd` | SHADER solo con shader asignado; SCRIPT solo desde su icono; pulsar otra vez la oculta (22) |
 | UX-20 | 1 | Verde | `palette_modes_e2e.gd` | 5 causas: en Modern el selector se CERRABA al pulsar su paleta (clic «fuera»); la muestra iba siempre al relleno; pulsarla deseleccionaba el objeto; el color del trazo se filtraba al relleno (señal global); la paleta solo flotaba si la recortaban. Ahora flota siempre dentro de la pantalla, compacta y en español (55) |
 | UX-24 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | El menú se colocaba una vez con un alto estimado: al cambiar a una pestaña alta se salía por abajo (645+443 > 1080) y cerca de arriba quedaba bajo la regla. Ahora zona segura y se recoloca al cambiar de tamaño (99) |
-| UX-21 | 0 | Abierta | `inspector_action_icons_e2e.gd` | Iconos no traen la pestaña flotante de Efectos |
+| UX-21 | 1 | Verde | `pro_float_effects_icons_e2e.gd` | Si la sección vive en una pestaña flotante, el icono muestra la ventana (aunque estuviera oculta o minimizada), la trae al frente, la mete en pantalla y desplaza la sección a la vista cuando la disposición se asienta (22) |
 | UX-22 | 1 | Verde | `size_popup_style_e2e.gd` | Rediseño: cuadrícula de 3 columnas con miniatura proporcional (hoja, monitor con pie, móvil, red social, icono), nombre y medida; pestañas con icono, buscador con lupa, «Girar 90°» y cada formato en su orientación natural; todo con colores del tema y legible en claro/oscuro; dentro de la pantalla (41) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |
 
-**Resumen Fase A:** 21 / 24 en verde (abierta: UX-21)
+**Resumen Fase A:** 22 / 24 en verde · 2 pendientes de insumo (UX-05, UX-11)
 
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no

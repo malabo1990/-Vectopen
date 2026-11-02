@@ -97,6 +97,7 @@ func open(id: String) -> void:
 	var sec := host.find_child(SECTION_NODE[id], true, false) as Control
 	if sec == null:
 		return
+	_reveal_window(sec)
 	InspectorFxSections.set_pinned(sec.kind, true)
 	if not sec.is_open():
 		sec._toggle()
@@ -105,6 +106,34 @@ func open(id: String) -> void:
 	_select_module(sec.get("_content"), id)
 	await get_tree().process_frame
 	_scroll_to(sec)
+	# La sección recién abierta crea su contenido y cambia de alto: se vuelve
+	# a colocar arriba cuando la disposición se ha asentado (en la ventana
+	# flotante quedaba fuera de la vista).
+	for _i in 3:
+		await get_tree().process_frame
+	if is_instance_valid(sec):
+		_scroll_to(sec)
+
+## UX-21: si la sección vive en una pestaña FLOTANTE de Pro (Window), la
+## ventana se muestra, se trae al frente y se mete entera en la pantalla.
+func _reveal_window(sec: Control) -> void:
+	var n: Node = sec.get_parent()
+	while n and not (n is Window):
+		n = n.get_parent()
+	var win := n as Window
+	if win == null or win == get_tree().root:
+		return
+	if win.mode == Window.MODE_MINIMIZED:
+		win.mode = Window.MODE_WINDOWED
+	win.visible = true
+	var vp := get_viewport().get_visible_rect()
+	var sz := Vector2(win.size)
+	var pos := Vector2(win.position)
+	pos.x = clampf(pos.x, vp.position.x, maxf(vp.position.x, vp.end.x - sz.x))
+	pos.y = clampf(pos.y, vp.position.y + 28.0, maxf(vp.position.y + 28.0, vp.end.y - sz.y))
+	win.position = Vector2i(pos)
+	win.move_to_foreground()
+	win.grab_focus()
 
 func close(id: String) -> void:
 	if _mode() == "smart":
