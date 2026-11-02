@@ -127,15 +127,15 @@ func _on_preview_pressed() -> void:
 	
 	# Mostrar todos los estados en secuencia
 	var states = [
-		CursorState.NEUTRAL,
-		CursorState.ACTIVE,
-		CursorState.CREATIVE,
-		CursorState.CONFIRM,
-		CursorState.WARNING,
-		CursorState.DISABLED,
-		CursorState.TEXT_EDIT,
-		CursorState.DRAGGING,
-		CursorState.PRECISION
+		CursorStateMachine.CursorState.NEUTRAL,
+		CursorStateMachine.CursorState.ACTIVE,
+		CursorStateMachine.CursorState.CREATIVE,
+		CursorStateMachine.CursorState.CONFIRM,
+		CursorStateMachine.CursorState.WARNING,
+		CursorStateMachine.CursorState.DISABLED,
+		CursorStateMachine.CursorState.TEXT_EDIT,
+		CursorStateMachine.CursorState.DRAGGING,
+		CursorStateMachine.CursorState.PRECISION
 	]
 	
 	for i in range(states.size()):

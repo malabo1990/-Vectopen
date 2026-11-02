@@ -37,3 +37,15 @@ func test_numeric_field_eval_math_only_numbers() -> void:
 	assert_float(NumericField.eval_math("2*3", 0.0)).is_equal(6.0)
 	assert_float(NumericField.eval_math("(4+4)/2", 0.0)).is_equal(4.0)
 	assert_float(NumericField.eval_math("1,5", 0.0)).is_equal(1.5)
+
+## Todos los scripts compilan (un error de compilación solo salía al
+## exportar, p. ej. «CursorState» sin su clase en SmartCursorSettings.gd).
+func test_all_scripts_compile() -> void:
+	var files: Array = []
+	_gd_files("res://", files)
+	var bad: Array = []
+	for f in files:
+		var sc = load(f)
+		if not (sc is GDScript) or not (sc as GDScript).can_instantiate():
+			bad.append(f)
+	assert_array(bad).is_empty()
