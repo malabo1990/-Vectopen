@@ -122,7 +122,8 @@ func test_eps() -> void:
 	var eps := VX.to_eps(VX.collect(_ab))
 	assert_str(eps).starts_with("%!PS-Adobe-3.0 EPSF-3.0")
 	var sz := _api.artboard_size()
-	assert_str(eps).contains("%%%%BoundingBox: 0 0 %d %d" % [ceili(sz.x), ceili(sz.y)])
+	# En puntos (72/pulgada): px × 0,75 (VAL-12).
+	assert_str(eps).contains("%%%%BoundingBox: 0 0 %d %d" % [ceili(sz.x * 0.75), ceili(sz.y * 0.75)])
 	assert_str(eps).contains("curveto")
 	assert_str(eps).contains("colorimage")
 

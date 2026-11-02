@@ -186,6 +186,8 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 ## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
 ## El punteado se exporta como trazos de largo 0 con remate redondo.
 const StrokeGeomX = preload("res://script_gdscript/shapes/stroke_geom.gd")
+## Puntos (PDF/EPS, 72 por pulgada) por px del documento (96 por pulgada).
+const PT_PER_PX := 0.75
 const PageFieldsX = preload("res://script_gdscript/text/page_fields.gd")
 
 ## Guiones como texto: «a b c d».
@@ -822,7 +824,9 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 	# Tu fuente no está entre las 14 de un lector PDF: el texto va como curvas.
 	var data := texts_to_curves(data_in)
 	var size: Vector2 = data["size"]
-	var content := PackedStringArray(["1 0 0 -1 0 %s cm" % _n(size.y)])
+	# VAL-12: el documento está en px a 96 ppp; PDF mide en puntos (72 por
+	# pulgada). Antes 1 px = 1 pt: un A4 salía de 280 mm. Escala 0,75.
+	var content := PackedStringArray(["%s 0 0 -%s 0 %s cm" % [_n(PT_PER_PX), _n(PT_PER_PX), _n(size.y * PT_PER_PX)]])
 	var gstates := {}      # "ca|CA" -> nombre
 	var images: Array = []  # [Image, opacity]
 	if data["bg"] != null:
@@ -910,7 +914,7 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 		objs.append(_pdf_stream("/Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8%s" % [img.get_width(), img.get_height(), smask], rgb))
 		img_res += "/Im%d %d 0 R " % [i + 1, objs.size()]
 	objs[2] = ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >>%s%s >> >>" % [
-		_n(size.x), _n(size.y), (" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
+		_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX), (" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
 	var pdf := "%PDF-1.4\n%âãÏÓ\n".to_utf8_buffer()
 	var offsets := PackedInt64Array()
 	for i in objs.size():
@@ -982,15 +986,15 @@ static func to_eps(data_in: Dictionary) -> String:
 	var size: Vector2 = data["size"]
 	var o := PackedStringArray([
 		"%!PS-Adobe-3.0 EPSF-3.0",
-		"%%%%BoundingBox: 0 0 %d %d" % [ceili(size.x), ceili(size.y)],
-		"%%%%HiResBoundingBox: 0 0 %s %s" % [_n(size.x), _n(size.y)],
+		"%%%%BoundingBox: 0 0 %d %d" % [ceili(size.x * PT_PER_PX), ceili(size.y * PT_PER_PX)],
+		"%%%%HiResBoundingBox: 0 0 %s %s" % [_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)],
 		"%%Creator: Vectopen",
 		"%%EndComments",
 		# Helvetica con codificación Latin-1 (á, é, ñ…), no la estándar de PS.
 		"/reencode { findfont dup length dict begin { 1 index /FID ne { def } { pop pop } ifelse } forall /Encoding ISOLatin1Encoding def currentdict end definefont pop } bind def",
 		"/Helvetica-L1 /Helvetica reencode /Helvetica-Bold-L1 /Helvetica-Bold reencode",
 		"/Helvetica-Oblique-L1 /Helvetica-Oblique reencode /Helvetica-BoldOblique-L1 /Helvetica-BoldOblique reencode",
-		"gsave 0 %s translate 1 -1 scale 1 setlinejoin" % _n(size.y)])
+		"gsave 0 %s translate %s -%s scale 1 setlinejoin" % [_n(size.y * PT_PER_PX), _n(PT_PER_PX), _n(PT_PER_PX)]])
 	if data["bg"] != null:
 		var bg: Color = data["bg"]
 		o.append("%s %s %s setrgbcolor 0 0 %s %s rectfill" % [_n(bg.r), _n(bg.g), _n(bg.b), _n(size.x), _n(size.y)])
