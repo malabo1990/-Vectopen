@@ -28,7 +28,14 @@ var _btn_handle_large: Button
 
 var _chk_all_handles: CheckBox
 var _chk_closed: CheckBox
-var _spin_stroke_width: SpinBox
+var _spin_stroke_width: NumericField
+var _lbl_width: Label
+
+## Estilo común con el resto (colores del tema, como Capas) — UX-07.
+const TPS = preload("res://script_gdscript/ui/components/tool_panel_style.gd")
+var _cards: Array[PanelContainer] = []
+var _card_titles: Array[Label] = []
+var _actions: Array[Button] = []
 
 var _syncing: bool = false
 
@@ -104,7 +111,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(header)
 
 	_header_title = Label.new()
-	_header_title.text = "Bézier & Nodos"
+	_header_title.text = "Bézier y nodos"
 	_header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header_title.add_theme_font_size_override("font_size", 13)
 	header.add_child(_header_title)
@@ -116,11 +123,10 @@ func _build_ui() -> void:
 	_status_label = Label.new()
 	_status_label.text = "Selecciona un trazo o nodo"
 	_status_label.add_theme_font_size_override("font_size", 10)
-	_status_label.modulate = Color(1, 1, 1, 0.6)
 	root_vbox.add_child(_status_label)
 
 	# 2. Tarjeta: Acciones de Nodos (Eliminar, Unir, Romper)
-	var actions_card := _create_card("Acciones de Nodos")
+	var actions_card := _create_card("Acciones de nodos")
 	root_vbox.add_child(actions_card)
 	var actions_box := actions_card.get_child(0) as VBoxContainer
 
@@ -128,20 +134,20 @@ func _build_ui() -> void:
 	actions_row.add_theme_constant_override("separation", 6)
 	actions_box.add_child(actions_row)
 
-	_btn_delete = _create_action_button("🗑️ Eliminar (X)", "Elimina los nodos seleccionados (Atajo: X o Supr)")
+	_btn_delete = _create_action_button("Eliminar", "Elimina los nodos seleccionados (X, Supr o Retroceso)", "res://icon/UI/trash.svg")
 	_btn_delete.pressed.connect(_on_btn_delete_pressed)
 	actions_row.add_child(_btn_delete)
 
-	_btn_join = _create_action_button("🔗 Unir / Cerrar", "Une extremos abiertos o cierra/abre la figura")
+	_btn_join = _create_action_button("Unir", "Une extremos abiertos o cierra / abre la figura", "res://icon/UI/combine.svg")
 	_btn_join.pressed.connect(_on_btn_join_pressed)
 	actions_row.add_child(_btn_join)
 
-	_btn_split = _create_action_button("✂️ Romper", "Divide el trazo en los nodos seleccionados")
+	_btn_split = _create_action_button("Romper", "Divide el trazo en los nodos seleccionados", "res://icon/UI/txt_unlink.svg")
 	_btn_split.pressed.connect(_on_btn_split_pressed)
 	actions_row.add_child(_btn_split)
 
 	# 3. Tarjeta: Conversión de Nodos (Affinity / Illustrator)
-	var modes_card := _create_card("Tipo de Nodo")
+	var modes_card := _create_card("Tipo de nodo")
 	root_vbox.add_child(modes_card)
 	var modes_box := modes_card.get_child(0) as VBoxContainer
 
@@ -151,24 +157,24 @@ func _build_ui() -> void:
 	modes_grid.add_theme_constant_override("v_separation", 6)
 	modes_box.add_child(modes_grid)
 
-	_btn_mode_sharp = _create_action_button("📐 Cúspide (Sharp)", "Tiradores independientes en ángulo (esquinas pronunciadas)")
+	_btn_mode_sharp = _create_action_button("Cúspide", "Tiradores independientes en ángulo (esquinas pronunciadas)")
 	_btn_mode_sharp.pressed.connect(func(): _apply_node_mode("sharp"))
 	modes_grid.add_child(_btn_mode_sharp)
 
-	_btn_mode_smooth = _create_action_button("〰️ Suave (Smooth)", "Tiradores opuestos alineados en tangente continua")
+	_btn_mode_smooth = _create_action_button("Suave", "Tiradores opuestos alineados en tangente continua")
 	_btn_mode_smooth.pressed.connect(func(): _apply_node_mode("smooth"))
 	modes_grid.add_child(_btn_mode_smooth)
 
-	_btn_mode_symmetric = _create_action_button("⚖️ Simétrico", "Tiradores alineados con igual longitud y curvatura uniforme")
+	_btn_mode_symmetric = _create_action_button("Simétrico", "Tiradores alineados con igual longitud y curvatura uniforme")
 	_btn_mode_symmetric.pressed.connect(func(): _apply_node_mode("symmetric"))
 	modes_grid.add_child(_btn_mode_symmetric)
 
-	_btn_mode_retract = _create_action_button("📏 Recto / Retirar", "Retira todos los tiradores, dejando un vértice recto")
+	_btn_mode_retract = _create_action_button("Recto", "Retira todos los tiradores, dejando un vértice recto")
 	_btn_mode_retract.pressed.connect(func(): _apply_node_mode("retract"))
 	modes_grid.add_child(_btn_mode_retract)
 
 	# 4. Tarjeta: Ajustes de Tiradores y Visualización
-	var handles_card := _create_card("Visualización de Tiradores")
+	var handles_card := _create_card("Tiradores")
 	root_vbox.add_child(handles_card)
 	var handles_box := handles_card.get_child(0) as VBoxContainer
 
@@ -196,7 +202,7 @@ func _build_ui() -> void:
 	handles_box.add_child(_chk_all_handles)
 
 	# 5. Tarjeta: Propiedades Rápidas del Trazo
-	var stroke_card := _create_card("Trazo Activo")
+	var stroke_card := _create_card("Trazo")
 	root_vbox.add_child(stroke_card)
 	var stroke_box := stroke_card.get_child(0) as VBoxContainer
 
@@ -204,7 +210,7 @@ func _build_ui() -> void:
 	stroke_box.add_child(closed_row)
 
 	_chk_closed = CheckBox.new()
-	_chk_closed.text = "Trazo Cerrado (Relleno)"
+	_chk_closed.text = "Cerrado (con relleno)"
 	_chk_closed.focus_mode = Control.FOCUS_NONE
 	_chk_closed.toggled.connect(_on_closed_toggled)
 	closed_row.add_child(_chk_closed)
@@ -212,32 +218,24 @@ func _build_ui() -> void:
 	var stroke_w_row := HBoxContainer.new()
 	stroke_box.add_child(stroke_w_row)
 
-	var lbl_w := Label.new()
-	lbl_w.text = "Grosor:"
-	lbl_w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stroke_w_row.add_child(lbl_w)
+	_lbl_width = Label.new()
+	_lbl_width.text = "Grosor"
+	_lbl_width.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stroke_w_row.add_child(_lbl_width)
 
-	_spin_stroke_width = SpinBox.new()
-	_spin_stroke_width.min_value = 0.5
-	_spin_stroke_width.max_value = 100.0
-	_spin_stroke_width.step = 0.5
+	# Campo numérico común (arrastrar con el lápiz, escribir, Intro).
+	_spin_stroke_width = NumericField.new("", " px", 0.5, 100.0, 0.5)
 	_spin_stroke_width.value = 2.0
-	_spin_stroke_width.suffix = "px"
+	_spin_stroke_width.custom_minimum_size = Vector2(90, 24)
 	_spin_stroke_width.value_changed.connect(_on_stroke_width_changed)
 	stroke_w_row.add_child(_spin_stroke_width)
 
 # ── Helpers de Creación de Widgets ────────────────────────────────────────────
 
+## Grupo con cabecera (estilo del tema: superficie + borde fino).
 func _create_card(title: String) -> PanelContainer:
 	var pc := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0.08)
-	sb.set_corner_radius_all(8)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 10
-	pc.add_theme_stylebox_override("panel", sb)
+	_cards.append(pc)
 
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 6)
@@ -245,13 +243,12 @@ func _create_card(title: String) -> PanelContainer:
 
 	var lbl := Label.new()
 	lbl.text = title
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.modulate = Color(1, 1, 1, 0.75)
 	vb.add_child(lbl)
+	_card_titles.append(lbl)
 
 	return pc
 
-func _create_action_button(text: String, tooltip: String) -> Button:
+func _create_action_button(text: String, tooltip: String, icon_path: String = "") -> Button:
 	var b := Button.new()
 	b.text = text
 	b.tooltip_text = tooltip
@@ -259,6 +256,9 @@ func _create_action_button(text: String, tooltip: String) -> Button:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 11)
+	if icon_path != "":
+		b.set_meta("tps_icon", icon_path)
+	_actions.append(b)
 	return b
 
 func _create_toggle_button(text: String, is_active: bool) -> Button:
@@ -381,6 +381,7 @@ func _set_handle_size(size_name: String) -> void:
 	_btn_handle_small.button_pressed = (size_name == "small")
 	_btn_handle_medium.button_pressed = (size_name == "medium")
 	_btn_handle_large.button_pressed = (size_name == "large")
+	_style_handle_toggles()
 
 	var r: float = 3.2
 	match size_name:
@@ -420,28 +421,21 @@ func _on_stroke_width_changed(val: float) -> void:
 		if canvas: canvas.queue_redraw()
 
 # ── Aplicación de Tema ────────────────────────────────────────────────────────
-
+## Todo con los colores del tema actual (UX-07): antes el fondo y los textos
+## eran fijos y las tarjetas, gris al 8 % en claro y en oscuro.
 func _apply_theme() -> void:
-	var tm = get_node_or_null("/root/ThemeManager")
-	var is_dark: bool = true
-	# El método es is_dark() (antes se preguntaba por is_dark_theme(), que no
-	# existe: siempre «oscuro» y texto blanco con el tema claro).
-	if tm and tm.has_method("is_dark"):
-		is_dark = tm.is_dark()
+	TPS.apply_frame(self)
+	TPS.style_title(_header_title)
+	TPS.style_muted(_status_label)
+	for c in _cards:
+		TPS.style_card(c)
+	for l in _card_titles:
+		TPS.style_section_label(l)
+	for b in _actions:
+		TPS.style_action(b)
+	TPS.style_text(_lbl_width)
+	_style_handle_toggles()
 
-	var bg_col := Color(0.14, 0.14, 0.17, 0.98) if is_dark else Color(0.96, 0.96, 0.97, 0.98)
-	var border_col := Color(1, 1, 1, 0.12) if is_dark else Color(0, 0, 0, 0.12)
-	var text_col := Color(0.95, 0.95, 0.95) if is_dark else Color(0.1, 0.1, 0.12)
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg_col
-	sb.border_color = border_col
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(12)
-	sb.shadow_color = Color(0, 0, 0, 0.25)
-	sb.shadow_size = 14
-	sb.shadow_offset = Vector2(0, 4)
-	add_theme_stylebox_override("panel", sb)
-
-	if is_instance_valid(_header_title):
-		_header_title.add_theme_color_override("font_color", text_col)
+func _style_handle_toggles() -> void:
+	for b in [_btn_handle_small, _btn_handle_medium, _btn_handle_large]:
+		TPS.style_toggle(b, is_instance_valid(b) and b.button_pressed)
