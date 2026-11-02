@@ -512,6 +512,7 @@ func _apply_theme() -> void:
 		TPS.style_toggle(btn, btn.button_pressed)
 		var g := btn.get_node_or_null("Sample") as Control
 		if g:
+			g.call("refresh_color")
 			g.queue_redraw()
 	for cb in [_chk_pressure, _chk_speed]:
 		if is_instance_valid(cb):
@@ -519,61 +520,80 @@ func _apply_theme() -> void:
 				cb.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
 
 
-## Muestra del trazo de cada estilo (misma malla que el pincel: StrokeGeom),
-## con el color del tema.
+## Muestra de cada estilo (UX-16): un TRAZO REAL (Line2D) pintado por el mismo
+## render que el lienzo (BrushStrokeRender, con la textura del estilo), con su
+## grosor, opacidad, remates y presión. Lo que se ve es lo que se pinta.
 class _BrushGlyph extends Control:
-	const SG = preload("res://script_gdscript/shapes/stroke_geom.gd")
+	const BrushStrokeRender = preload("res://script_gdscript/shapes/brush_stroke_render.gd")
+	## grosor relativo al alto, opacidad, puntos de la curva de presión
+	const SPEC := {
+		"pencil": [0.10, 0.85, [[0.0, 0.55], [0.15, 1.0], [0.85, 0.9], [1.0, 0.5]]],
+		"pen": [0.16, 1.0, [[0.0, 0.15], [0.35, 1.0], [0.7, 0.85], [1.0, 0.1]]],
+		"marker": [0.55, 0.7, [[0.0, 1.0], [1.0, 1.0]]],
+		"calligraphy": [0.42, 1.0, [[0.0, 0.25], [0.2, 1.0], [0.45, 0.3], [0.7, 1.0], [1.0, 0.2]]],
+		"airbrush": [0.85, 0.55, [[0.0, 0.6], [0.5, 1.0], [1.0, 0.6]]],
+	}
 	var style_id := ""
+	var _line: Line2D = null
 	func _init(id: String) -> void:
 		style_id = id
+		clip_contents = true
+		resized.connect(_rebuild)
 	static func _a(c: Color, a: float) -> Color:
 		var out := c
 		out.a = a
 		return out
-	func _draw() -> void:
-		var r := Rect2(Vector2.ZERO, size)
-		if r.size.x < 8.0 or r.size.y < 4.0:
+	func _rebuild() -> void:
+		queue_redraw()
+		if not SPEC.has(style_id) or size.x < 10.0 or size.y < 6.0:
 			return
+		if _line == null:
+			_line = Line2D.new()
+			_line.name = "SampleStroke"
+			_line.set_meta("brush_style", style_id)
+			_line.begin_cap_mode = Line2D.LINE_CAP_BOX if style_id == "marker" else Line2D.LINE_CAP_ROUND
+			_line.end_cap_mode = _line.begin_cap_mode
+			_line.joint_mode = Line2D.LINE_JOINT_ROUND
+			var wc := Curve.new()
+			for pt in SPEC[style_id][2]:
+				wc.add_point(Vector2(pt[0], pt[1]))
+			_line.width_curve = wc
+			add_child(_line)
+			BrushStrokeRender.attach(_line)
+		var h := size.y
+		var spec: Array = SPEC[style_id]
+		_line.width = maxf(1.2, h * float(spec[0]))
+		_line.default_color = _a(ProUIStyle.col("PANEL_TEXT"), float(spec[1]))
+		var pad := _line.width * 0.6 + 2.0
+		var pts := PackedVector2Array()
+		var n := 40
+		for i in n:
+			var t := float(i) / float(n - 1)
+			pts.append(Vector2(pad + t * (size.x - pad * 2.0), h * 0.5 + sin(t * TAU) * (h * 0.5 - pad) * 0.8))
+		_line.points = pts
+		var r = _line.get_node_or_null(BrushStrokeRender.NODE_NAME)
+		if r:
+			r.queue_redraw()
+	func refresh_color() -> void:
+		if _line:
+			_line.default_color = _a(ProUIStyle.col("PANEL_TEXT"), float(SPEC[style_id][1]))
+	func _draw() -> void:
+		if style_id != "eraser":
+			return
+		# Borrador: un trazo que se borra (discontinuo y atenuado) y la goma.
 		var col := ProUIStyle.col("PANEL_TEXT")
+		var h := size.y
 		var n := 28
 		var pts := PackedVector2Array()
 		for i in n:
 			var t := float(i) / float(n - 1)
-			pts.append(Vector2(r.position.x + 4.0 + t * (r.size.x - 8.0), r.get_center().y + sin(t * TAU) * r.size.y * 0.28))
-		var h := r.size.y * 0.5
-		var half := PackedFloat32Array()
-		half.resize(n)
-		var alpha := 1.0
-		for i in n:
-			var t := float(i) / float(n - 1)
-			var w := 0.0
-			match style_id:
-				"pencil": w = 0.7
-				"pen": w = 0.6 + 1.4 * sin(t * PI)
-				"marker":
-					w = h * 0.55
-					alpha = 0.55
-				"calligraphy":
-					var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
-					w = 0.6 + absf(d.dot(Vector2(0.7, -0.7))) * h * 0.55
-				"airbrush":
-					w = h * 0.7
-					alpha = 0.18
-				_: w = 1.0
-			half[i] = maxf(0.5, w)
-		if style_id == "airbrush":
-			for k in 3:
-				var hh := half.duplicate()
-				for i in n:
-					hh[i] = half[i] * (1.0 - k * 0.3)
-				var m := SG.strip_mesh(pts, hh, 1, 1)
-				RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], PackedColorArray([_a(col, alpha)]))
-			return
-		if style_id == "eraser":
-			# Trazo punteado (lo que se borra) y la goma como un círculo hueco.
-			for i in range(0, n - 1, 3):
-				draw_line(pts[i], pts[i + 1], _a(col, 0.55), 1.5, true)
-			draw_arc(pts[n - 1] - Vector2(4, 0), h * 0.45, 0.0, TAU, 20, col, 1.5, true)
-			return
-		var mesh := SG.strip_mesh(pts, half, 1, 1)
-		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), mesh["indices"], mesh["points"], PackedColorArray([_a(col, alpha)]))
+			pts.append(Vector2(4.0 + t * (size.x - 22.0), h * 0.5 + sin(t * TAU) * h * 0.28))
+		for i in range(0, n - 1, 3):
+			draw_line(pts[i], pts[i + 1], _a(col, 0.45), 2.0, true)
+		var e := Rect2(Vector2(size.x - 18.0, h * 0.5 - 6.0), Vector2(14, 10))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = _a(col, 0.15)
+		sb.border_color = col
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
+		draw_style_box(sb, e)

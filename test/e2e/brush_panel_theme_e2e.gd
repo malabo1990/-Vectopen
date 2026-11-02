@@ -30,6 +30,23 @@ func extra_checks(panel: Control, theme: String, mode: String) -> void:
 				if g and g.is_visible_in_tree() and g.size.x > 20.0:
 					n_ok += 1
 	check("%s/%s: los 6 estilos con su muestra dibujada" % [theme, mode], n == 6 and n_ok == 6, "%d/%d" % [n_ok, n])
+	# UX-16: cada muestra (menos el borrador) es un trazo REAL pintado por el
+	# render del lienzo, con la textura de su estilo.
+	var real := 0
+	for id in ["pencil", "pen", "marker", "calligraphy", "airbrush"]:
+		var b := styles.get_node_or_null("Style_" + id) if styles else null
+		var ln := b.find_child("SampleStroke", true, false) as Line2D if b else null
+		if ln and ln.get_node_or_null("StrokeRender") and ln.points.size() > 10:
+			real += 1
+	check("%s/%s: muestras = trazos reales del pincel" % [theme, mode], real == 5, "%d/5" % real)
+	var BSR = load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var tex_ok := true
+	for id in ["pencil", "marker", "calligraphy", "airbrush"]:
+		var l := Line2D.new()
+		l.set_meta("brush_style", id)
+		tex_ok = tex_ok and BSR.style_texture(l) != null
+		l.free()
+	check("%s/%s: el render usa la textura de cada estilo" % [theme, mode], tex_ok)
 	for f in ["FieldSize", "FieldOpacity"]:
 		var c := panel.find_child(f, true, false)
 		check("%s/%s: %s es el campo numérico común" % [theme, mode, f], c is NumericField)

@@ -81,7 +81,45 @@ func _draw() -> void:
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
 		return
-	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, _colors(verts, pts, cum, total))
+	var cols := _colors(verts, pts, cum, total)
+	# UX-16: la TEXTURA del estilo (grano del lápiz, bordes del marcador,
+	# difuminado del aerógrafo, bisel caligráfico). Antes se ignoraba y todos
+	# los estilos salían como una banda lisa.
+	var tex := style_texture(line)
+	if tex:
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols,
+			_uvs(verts, pts, cum, total, half), PackedInt32Array(), PackedFloat32Array(), tex.get_rid())
+	else:
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols)
+
+## Textura del estilo del trazo (meta «brush_style»: también en documentos
+## guardados, que no conservan la textura del Line2D).
+static func style_texture(l: Line2D) -> Texture2D:
+	if not is_instance_valid(l):
+		return null
+	var st := String(l.get_meta("brush_style", ""))
+	if st in ["pencil", "marker", "airbrush", "calligraphy"]:
+		return BrushTool._get_brush_texture(st)
+	return null
+
+## UV de la tira (StrokeGeom.strip_mesh: 2 vértices por punto, a cada lado):
+## u a lo largo (en mosaico cada «grosor», o estirada en el aerógrafo) y v a
+## lo ancho. Remates y uniones (añadidos al final): v según la distancia al
+## eje (centro = 0,5; borde = 1), así un aerógrafo no deja manchas en las puntas.
+func _uvs(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32Array, total: float, half: PackedFloat32Array) -> PackedVector2Array:
+	var uv := PackedVector2Array()
+	uv.resize(verts.size())
+	var stretch := String(line.get_meta("brush_style", "")) == "airbrush"
+	var tile := maxf(line.width * 2.0, 1.0)
+	var n := pts.size()
+	for i in verts.size():
+		var k := i / 2 if i < n * 2 else _nearest(pts, verts[i])
+		var u := cum[k] / total if stretch else cum[k] / tile
+		var v := 0.0 if i % 2 == 0 else 1.0
+		if i >= n * 2:
+			v = 0.5 + 0.5 * clampf(verts[i].distance_to(pts[k]) / maxf(half[k], 0.001), 0.0, 1.0)
+		uv[i] = Vector2(u, v)
+	return uv
 
 static func _cap(mode: int) -> int:
 	match mode:
