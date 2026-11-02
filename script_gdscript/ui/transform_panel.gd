@@ -689,16 +689,19 @@ func _position_config_window() -> void:
 	if not is_instance_valid(_config_window):
 		return
 	_config_window.top_level = true
+	_config_window.z_index = 30
+	# UX-22: con su tamaño REAL y siempre entero dentro de la ventana (antes
+	# ancho fijo de 340 y sin límite por abajo: podía salirse de la pantalla).
 	var vp_rect := get_viewport_rect()
-	var vp_w := vp_rect.size.x if vp_rect.size.x > 0 else 1280.0
-	var win_w: float = 340.0
+	var safe := Rect2(vp_rect.position + Vector2(28, 28), vp_rect.size - Vector2(36, 36))
+	var win := _config_window.get_combined_minimum_size().max(_config_window.size)
 	var panel_global := global_position
-	if panel_global.x >= win_w + 10.0:
-		_config_window.global_position = Vector2(panel_global.x - win_w - 8.0, maxf(10.0, panel_global.y - 10.0))
-	elif (vp_w - (panel_global.x + size.x)) >= win_w + 10.0:
-		_config_window.global_position = Vector2(panel_global.x + size.x + 8.0, maxf(10.0, panel_global.y - 10.0))
-	else:
-		_config_window.global_position = Vector2(clampf(panel_global.x - win_w * 0.5, 10.0, vp_w - win_w - 10.0), panel_global.y + size.y + 10.0)
+	var x := panel_global.x - win.x - 8.0                 # a la izquierda del panel
+	if x < safe.position.x:
+		x = panel_global.x + size.x + 8.0                 # o a la derecha
+	x = clampf(x, safe.position.x, maxf(safe.position.x, safe.end.x - win.x))
+	var y := clampf(panel_global.y - 10.0, safe.position.y, maxf(safe.position.y, safe.end.y - win.y))
+	_config_window.global_position = Vector2(x, y)
 
 func _on_preset_size_applied(_w: float, _h: float, _name: String) -> void:
 	_refresh()

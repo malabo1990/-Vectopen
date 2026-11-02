@@ -33,11 +33,20 @@ var is_horizontal: bool:
 var preset_buttons: Array[Button]:
 	get:
 		var btns: Array[Button] = []
-		if presets_container:
-			for c in presets_container.get_children():
+		if is_instance_valid(_grid):
+			for c in _grid.get_children():
 				if c is Button and not c.is_queued_for_deletion():
 					btns.append(c)
 		return btns
+
+## UX-22: cuadrícula de tarjetas (miniatura proporcional + nombre + medida),
+## como el «Nuevo documento» de los editores profesionales.
+const COLUMNS := 3
+const PANEL_SIZE := Vector2(452, 560)
+const MODULE_ICONS := {"papel": "res://icon/UI/preset_paper.svg", "dispositivos": "res://icon/UI/preset_devices.svg",
+	"red_social": "res://icon/UI/preset_social.svg", "logo": "res://icon/UI/preset_logo.svg", "icono": "res://icon/UI/preset_icon.svg"}
+var _grid: GridContainer = null
+var _orient_glyph: Control = null
 
 var target_mode: int = 0 # 0 = Auto, 1 = Solo Elemento, 2 = Solo Página/Artboard
 var search_query: String = ""
@@ -109,6 +118,10 @@ const PRESETS := {
 }
 
 func _ready() -> void:
+	var tm0 := get_node_or_null("/root/ThemeManager")
+	if tm0 and tm0.has_method("adopt"):
+		tm0.adopt(self)   # tema de Vectopen (no el de Godot por defecto)
+	_build_layout()
 	_conectar_senales()
 	_configurar_target_dropdown()
 	_update_orientation_button()
@@ -126,23 +139,114 @@ func _on_theme_changed(_mode: String) -> void:
 	_populate_presets()
 
 func _apply_theme_colors() -> void:
-	var bg_col := Color(0.14, 0.15, 0.18, 0.98)
-	var border_col := Color(0.28, 0.3, 0.36, 1.0)
-	var tm := get_node_or_null("/root/ThemeManager")
-	if tm:
-		var S = tm.Slot
-		bg_col = tm.get_color(S.PANEL_BG)
-		border_col = tm.get_color(S.BORDER)
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg_col
-	sb.border_color = border_col
+	var sb := ProUIStyle.flat(ProUIStyle.col("PANEL_BG"), 12, ProUIStyle.col("BORDER"), 14, 14)
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(8)
-	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_size = 14
-	sb.shadow_offset = Vector2(0, 4)
+	sb.shadow_color = Color(0, 0, 0, 0.32 if ProUIStyle.is_dark() else 0.14)
+	sb.shadow_size = 18
+	sb.shadow_offset = Vector2(0, 6)
 	add_theme_stylebox_override("panel", sb)
+	if title_label:
+		title_label.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+		title_label.add_theme_font_size_override("font_size", 14)
+	for l in find_children("*", "Label", true, false):
+		if l == title_label or (is_instance_valid(_grid) and _grid.is_ancestor_of(l)):
+			continue
+		(l as Label).add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+		(l as Label).add_theme_font_size_override("font_size", 11)
+	var icon := find_child("Icon", true, false) as TextureRect
+	if icon:
+		icon.visible = false
+	if btn_close:
+		btn_close.text = ""
+		btn_close.flat = true
+		btn_close.icon = ProUIStyle.icon("res://icon/UI/close.svg", ProUIStyle.col("TEXT_SECONDARY"), 14)
+		btn_close.tooltip_text = tr("Cerrar")
+		btn_close.custom_minimum_size = Vector2(28, 28)
+		btn_close.focus_mode = Control.FOCUS_NONE
+		for st in ["normal", "hover", "pressed", "focus"]:
+			btn_close.add_theme_stylebox_override(st, ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER") if st == "hover" else Color(0, 0, 0, 0), 6, Color(0, 0, 0, 0)))
+	if search_edit:
+		search_edit.placeholder_text = tr("Buscar tamaño (A4, Instagram, 1080…)")
+		search_edit.right_icon = ProUIStyle.icon("res://icon/UI/input-search.svg", ProUIStyle.col("TEXT_SECONDARY"), 14)
+		search_edit.custom_minimum_size.y = 30
+		for k in ["theme_override_styles/normal", "theme_override_styles/focus"]:
+			pass
+		search_edit.remove_theme_stylebox_override("normal")
+		search_edit.remove_theme_stylebox_override("focus")
+		search_edit.remove_theme_color_override("font_color")
+	for le in [custom_w_edit, custom_h_edit]:
+		if le:
+			le.remove_theme_stylebox_override("normal")
+			le.remove_theme_stylebox_override("focus")
+			le.remove_theme_color_override("font_color")
+			le.custom_minimum_size = Vector2(76, 28)
+			le.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if target_option:
+		target_option.remove_theme_stylebox_override("normal")
+		target_option.remove_theme_color_override("font_color")
+	if btn_apply_custom:
+		btn_apply_custom.text = tr("Aplicar")
+		# Botón principal con los colores del tema: borde de acento y texto
+		# normal (en oscuro el acento no da 4,5:1 con texto blanco).
+		var acc := ProUIStyle.col("ACCENT")
+		for st in ["normal", "hover", "pressed"]:
+			var bg: String = {"normal": "BUTTON_BG", "hover": "BUTTON_HOVER", "pressed": "BUTTON_PRESSED"}[st]
+			var sbb := ProUIStyle.flat(ProUIStyle.col(bg), 6, acc, 14, 5)
+			sbb.set_border_width_all(2)
+			btn_apply_custom.add_theme_stylebox_override(st, sbb)
+		for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+			btn_apply_custom.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
+	var sc := find_child("ScrollContainer", true, false) as Control
+	if sc:
+		sc.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_update_orientation_button()
+
+## Estructura: tamaño fijo, la lista ocupa el alto libre y las tarjetas van
+## en una cuadrícula.
+func _build_layout() -> void:
+	custom_minimum_size = PANEL_SIZE
+	size = PANEL_SIZE
+	var vb := get_node_or_null("MarginContainer/VBoxContainer") as BoxContainer
+	if vb:
+		vb.add_theme_constant_override("separation", 10)
+	var mc := get_node_or_null("MarginContainer") as MarginContainer
+	if mc:
+		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			mc.add_theme_constant_override(side, 2)
+	var sc := find_child("ScrollContainer", true, false) as ScrollContainer
+	if sc:
+		sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if presets_container and not is_instance_valid(_grid):
+		presets_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_grid = GridContainer.new()
+		_grid.name = "PresetsGrid"
+		_grid.columns = COLUMNS
+		_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_grid.add_theme_constant_override("h_separation", 8)
+		_grid.add_theme_constant_override("v_separation", 8)
+		presets_container.add_child(_grid)
+	var bar := find_child("ModulesBar", true, false) as BoxContainer
+	if bar:
+		bar.add_theme_constant_override("separation", 4)
+	var cl := find_child("CustomLabel", true, false) as Label
+	if cl:
+		cl.text = tr("Personalizado")
+	var tl := find_child("TargetLabel", true, false) as Label
+	if tl:
+		tl.text = tr("Aplicar a")
+	if title_label:
+		title_label.text = tr("Tamaño de página o elemento")
+	if btn_orientation:
+		btn_orientation.flat = false
+		btn_orientation.focus_mode = Control.FOCUS_NONE
+		btn_orientation.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		btn_orientation.custom_minimum_size = Vector2(112, 28)
+		_orient_glyph = _PageThumb.new()
+		_orient_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_orient_glyph.position = Vector2(8, 5)
+		_orient_glyph.size = Vector2(18, 18)
+		btn_orientation.add_child(_orient_glyph)
 
 func _conectar_senales() -> void:
 	if btn_close and not btn_close.pressed.is_connected(close):
@@ -191,45 +295,20 @@ func _select_module(mod_name: String) -> void:
 	_populate_presets()
 
 func _update_tab_styles() -> void:
-	var tabs := {
-		"papel": tab_paper,
-		"dispositivos": tab_devices,
-		"red_social": tab_social,
-		"logo": tab_logo,
-		"icono": tab_icon,
-	}
-
-	var active_col := Color(0.35, 0.50, 0.68, 1.0)
-	var tm := get_node_or_null("/root/ThemeManager")
-	if tm:
-		active_col = tm.get_color(tm.Slot.ACCENT)
-
+	var tabs := {"papel": tab_paper, "dispositivos": tab_devices, "red_social": tab_social, "logo": tab_logo, "icono": tab_icon}
 	for k in tabs:
 		var btn: Button = tabs[k]
 		if not btn:
 			continue
-		var is_active: bool = (String(k) == current_module)
-		var sb := StyleBoxFlat.new()
-		sb.set_corner_radius_all(5)
-		if is_active:
-			sb.bg_color = active_col
-			sb.border_color = active_col.lightened(0.2)
-			sb.set_border_width_all(1)
-			btn.add_theme_color_override("font_color", Color.WHITE)
-			btn.add_theme_color_override("icon_normal_color", Color.WHITE)
-		else:
-			sb.bg_color = Color(1.0, 1.0, 1.0, 0.08)
-			sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
-			sb.set_border_width_all(1)
-			btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.88, 1.0))
-			btn.add_theme_color_override("icon_normal_color", Color(0.85, 0.85, 0.88, 1.0))
-		sb.content_margin_left = 6
-		sb.content_margin_right = 6
-		sb.content_margin_top = 4
-		sb.content_margin_bottom = 4
-		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_stylebox_override("hover", sb)
-		btn.add_theme_stylebox_override("pressed", sb)
+		var on := String(k) == current_module
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.expand_icon = false
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size.y = 30
+		btn.add_theme_font_size_override("font_size", 11)
+		btn.set_meta("pro_icon_path", MODULE_ICONS[k])
+		ProUIStyle.style_toggle(btn, on)
+		btn.icon = ProUIStyle.icon(MODULE_ICONS[k], ProUIStyle.col("ACCENT") if on else ProUIStyle.col("TEXT_SECONDARY"), 14)
 
 func _toggle_orientation() -> void:
 	is_landscape = !is_landscape
@@ -239,12 +318,20 @@ func _toggle_orientation() -> void:
 func _update_orientation_button() -> void:
 	if not btn_orientation:
 		return
-	if is_landscape:
-		btn_orientation.text = "↔ Horizontal"
-		btn_orientation.tooltip_text = "Orientación horizontal activa (Ancho > Alto)"
-	else:
-		btn_orientation.text = "↕ Vertical"
-		btn_orientation.tooltip_text = "Orientación vertical activa (Alto > Ancho)"
+	btn_orientation.text = tr("Girar 90°")
+	btn_orientation.tooltip_text = tr("Girar todos los formatos 90° (vertical ↔ horizontal)")
+	var on_sb := ProUIStyle.flat(ProUIStyle.col("SURFACE_RAISED"), 6, ProUIStyle.col("ACCENT"), 8, 4)
+	btn_orientation.add_theme_stylebox_override("normal", on_sb if is_landscape else ProUIStyle.flat(ProUIStyle.col("BUTTON_BG"), 6, ProUIStyle.col("BORDER"), 8, 4))
+	btn_orientation.add_theme_stylebox_override("hover", ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 6, ProUIStyle.col("BORDER_STRONG"), 8, 4))
+	btn_orientation.add_theme_stylebox_override("pressed", ProUIStyle.flat(ProUIStyle.col("BUTTON_PRESSED"), 6, ProUIStyle.col("ACCENT"), 8, 4))
+	for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+		btn_orientation.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
+	btn_orientation.add_theme_font_size_override("font_size", 11)
+	if is_instance_valid(_orient_glyph):
+		_orient_glyph.set("kind", "papel")
+		_orient_glyph.set("aspect", 1.414 if not is_landscape else 0.707)
+		_orient_glyph.set("small", true)
+		_orient_glyph.queue_redraw()
 
 func _on_search_changed(text: String) -> void:
 	search_query = text.strip_edges().to_lower()
@@ -253,9 +340,14 @@ func _on_search_changed(text: String) -> void:
 func _populate_presets() -> void:
 	if not presets_container:
 		return
-
+	if not is_instance_valid(_grid):
+		_build_layout()
 	for c in presets_container.get_children():
-		presets_container.remove_child(c)
+		if c != _grid:
+			presets_container.remove_child(c)
+			c.queue_free()
+	for c in _grid.get_children():
+		_grid.remove_child(c)
 		c.queue_free()
 
 	var list: Array = PRESETS.get(current_module, [])
@@ -273,7 +365,7 @@ func _populate_presets() -> void:
 		var empty_lbl := Label.new()
 		empty_lbl.text = "No se encontraron medidas coincidentes."
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65, 1.0))
+		empty_lbl.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
 		empty_lbl.add_theme_font_size_override("font_size", 11)
 		presets_container.add_child(empty_lbl)
 		return
@@ -284,87 +376,130 @@ func _populate_presets() -> void:
 		var final_w: float = raw_w
 		var final_h: float = raw_h
 
-		if is_landscape:
-			final_w = maxf(raw_w, raw_h)
-			final_h = minf(raw_w, raw_h)
-		else:
-			final_w = minf(raw_w, raw_h)
-			final_h = maxf(raw_w, raw_h)
+		# Cada formato en su orientación natural (un escritorio es apaisado,
+		# un A4 vertical); «Girar 90°» los rota todos.
+		var natural_land := bool(item.get("landscape", raw_w > raw_h))
+		var land := natural_land != is_landscape
+		final_w = maxf(raw_w, raw_h) if land else minf(raw_w, raw_h)
+		final_h = minf(raw_w, raw_h) if land else maxf(raw_w, raw_h)
 
 		var card := _create_preset_card(item["name"], item["sub"], final_w, final_h)
-		presets_container.add_child(card)
+		_grid.add_child(card)
 
 func _create_preset_card(title: String, subtitle: String, w: float, h: float) -> Button:
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(0, 44)
-	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.name = "Preset_" + title.validate_node_name()
+	btn.custom_minimum_size = Vector2(0, 128)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.tooltip_text = "%s
+%s" % [title, subtitle]
+	var acc := ProUIStyle.col("ACCENT")
+	var normal := ProUIStyle.flat(ProUIStyle.col("PANEL_SURFACE"), 8, ProUIStyle.col("BORDER"), 6, 6)
+	normal.set_border_width_all(1)
+	var hover := ProUIStyle.flat(ProUIStyle.col("BUTTON_HOVER"), 8, acc, 6, 6)
+	hover.set_border_width_all(2)
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", hover)
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
-	var sb_n := StyleBoxFlat.new()
-	sb_n.bg_color = Color(1.0, 1.0, 1.0, 0.05)
-	sb_n.border_color = Color(1.0, 1.0, 1.0, 0.1)
-	sb_n.set_border_width_all(1)
-	sb_n.set_corner_radius_all(6)
-	sb_n.set_content_margin_all(6)
-
-	var tm := get_node_or_null("/root/ThemeManager")
-	var accent_col: Color = tm.get_color(tm.Slot.ACCENT) if tm else Color(0.35, 0.50, 0.68, 1.0)
-
-	var sb_h := StyleBoxFlat.new()
-	sb_h.bg_color = Color(1.0, 1.0, 1.0, 0.12)
-	sb_h.border_color = accent_col
-	sb_h.set_border_width_all(1)
-	sb_h.set_corner_radius_all(6)
-	sb_h.set_content_margin_all(6)
-
-	btn.add_theme_stylebox_override("normal", sb_n)
-	btn.add_theme_stylebox_override("hover", sb_h)
-	btn.add_theme_stylebox_override("pressed", sb_h)
-
-	var hbox := HBoxContainer.new()
-	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_KEEP_SIZE, 6)
-	btn.add_child(hbox)
-
-	var vbox := VBoxContainer.new()
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 1)
-	hbox.add_child(vbox)
-
-	var lbl_title := Label.new()
-	lbl_title.text = title
-	lbl_title.add_theme_font_size_override("font_size", 11)
-	lbl_title.add_theme_color_override("font_color", Color.WHITE)
-	vbox.add_child(lbl_title)
-
-	var lbl_sub := Label.new()
-	lbl_sub.text = subtitle
-	lbl_sub.add_theme_font_size_override("font_size", 9)
-	lbl_sub.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78, 1.0))
-	vbox.add_child(lbl_sub)
-
-	var pill := PanelContainer.new()
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pill_sb := StyleBoxFlat.new()
-	pill_sb.bg_color = Color(0, 0, 0, 0.25)
-	pill_sb.set_corner_radius_all(4)
-	pill_sb.content_margin_left = 6
-	pill_sb.content_margin_right = 6
-	pill_sb.content_margin_top = 2
-	pill_sb.content_margin_bottom = 2
-	pill.add_theme_stylebox_override("panel", pill_sb)
-
-	var lbl_dim := Label.new()
-	lbl_dim.text = "%d × %d" % [int(w), int(h)]
-	lbl_dim.add_theme_font_size_override("font_size", 10)
-	lbl_dim.add_theme_color_override("font_color", accent_col)
-	pill.add_child(lbl_dim)
-	hbox.add_child(pill)
-
+	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+	vb.add_theme_constant_override("separation", 3)
+	btn.add_child(vb)
+	var thumb := _PageThumb.new()
+	thumb.name = "Thumb"
+	thumb.kind = current_module
+	thumb.aspect = h / maxf(w, 1.0)
+	thumb.custom_minimum_size = Vector2(0, 66)
+	thumb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(thumb)
+	var lt := Label.new()
+	lt.text = title
+	lt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lt.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lt.add_theme_font_size_override("font_size", 11)
+	lt.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+	lt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(lt)
+	var ls := Label.new()
+	var phys := subtitle.split("·")[0].strip_edges()
+	ls.text = phys if current_module == "papel" else "%d × %d px" % [int(w), int(h)]
+	ls.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ls.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	ls.add_theme_font_size_override("font_size", 10)
+	ls.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+	ls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(ls)
 	btn.pressed.connect(func(): apply_preset(w, h, title))
 	return btn
+
+## Miniatura proporcional del formato (hoja, pantalla, móvil, icono…).
+class _PageThumb extends Control:
+	var kind := "papel"
+	var aspect := 1.414          # alto / ancho
+	var small := false
+	func _draw() -> void:
+		var box := Rect2(Vector2.ZERO, size).grow(-2.0 if small else -4.0)
+		if box.size.x <= 2.0 or box.size.y <= 2.0:
+			return
+		var w := box.size.x
+		var h := w * aspect
+		if h > box.size.y:
+			h = box.size.y
+			w = h / maxf(aspect, 0.001)
+		var r := Rect2(box.get_center() - Vector2(w, h) * 0.5, Vector2(w, h))
+		var line := ProUIStyle.col("TEXT_SECONDARY")
+		var paper := ProUIStyle.col("INPUT_BG")
+		var acc := ProUIStyle.col("ACCENT")
+		var shadow := Color(0, 0, 0, 0.10)
+		match kind:
+			"dispositivos":
+				var rad := minf(w, h) * (0.16 if aspect > 1.0 else 0.06)
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = paper
+				sb.border_color = line
+				sb.set_border_width_all(2)
+				sb.set_corner_radius_all(int(rad))
+				draw_style_box(sb, r)
+				if aspect < 1.0 and not small:   # pantalla con pie
+					draw_line(Vector2(r.get_center().x, r.end.y), Vector2(r.get_center().x, r.end.y + 4), line, 2.0)
+					draw_line(Vector2(r.get_center().x - 8, r.end.y + 4), Vector2(r.get_center().x + 8, r.end.y + 4), line, 2.0)
+			"red_social":
+				var sb2 := StyleBoxFlat.new()
+				sb2.bg_color = paper
+				sb2.border_color = line
+				sb2.set_border_width_all(1)
+				sb2.set_corner_radius_all(4)
+				draw_style_box(sb2, r)
+				var band := Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, r.size.y * 0.55))
+				draw_rect(band, Color(acc, 0.35))
+			"logo", "icono":
+				var sb3 := StyleBoxFlat.new()
+				sb3.bg_color = paper
+				sb3.border_color = line
+				sb3.set_border_width_all(1)
+				sb3.set_corner_radius_all(int(minf(w, h) * 0.22) if kind == "icono" else 3)
+				draw_style_box(sb3, r)
+				draw_circle(r.get_center(), minf(w, h) * 0.22, Color(acc, 0.55))
+			_:
+				# Hoja con sombra y esquina doblada.
+				draw_rect(Rect2(r.position + Vector2(2, 2), r.size), shadow)
+				var fold := minf(w, h) * 0.2
+				var pts := PackedVector2Array([r.position, Vector2(r.end.x - fold, r.position.y),
+					Vector2(r.end.x, r.position.y + fold), r.end, Vector2(r.position.x, r.end.y)])
+				draw_colored_polygon(pts, paper)
+				pts.append(r.position)
+				draw_polyline(pts, line, 1.0, true)
+				draw_polyline(PackedVector2Array([Vector2(r.end.x - fold, r.position.y), Vector2(r.end.x - fold, r.position.y + fold), Vector2(r.end.x, r.position.y + fold)]), line, 1.0, true)
+				if not small:
+					for i in 3:
+						var yy := r.position.y + h * (0.35 + i * 0.14)
+						draw_line(Vector2(r.position.x + w * 0.18, yy), Vector2(r.end.x - w * 0.18, yy), Color(line, 0.35), 1.0)
 
 func apply_preset(w: float, h: float, preset_name: String) -> void:
 	var final_w := w
