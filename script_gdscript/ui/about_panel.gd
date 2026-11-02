@@ -53,8 +53,22 @@ func _ready() -> void:
 	logo.texture = load(LOGO)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	logo.custom_minimum_size = Vector2(40, 40)
-	head.add_child(logo)
+	logo.custom_minimum_size = Vector2(34, 34)
+	# Logo original (negro) sobre baldosa clara: se ve también en tema oscuro.
+	var tile := PanelContainer.new()
+	tile.name = "LogoTile"
+	var tsb := StyleBoxFlat.new()
+	tsb.bg_color = Color("#f4f5f8")
+	tsb.set_corner_radius_all(10)
+	tsb.border_color = Color(0, 0, 0, 0.08)
+	tsb.set_border_width_all(1)
+	tsb.content_margin_left = 5
+	tsb.content_margin_right = 5
+	tsb.content_margin_top = 4
+	tsb.content_margin_bottom = 4
+	tile.add_theme_stylebox_override("panel", tsb)
+	tile.add_child(logo)
+	head.add_child(tile)
 	var hv := VBoxContainer.new()
 	hv.add_theme_constant_override("separation", 0)
 	hv.alignment = BoxContainer.ALIGNMENT_CENTER
