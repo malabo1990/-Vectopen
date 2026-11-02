@@ -50,9 +50,18 @@ pérdida de selección y, en el peor caso, reentrada en el manejador de cambios.
    (guarda de reentrada).
 
 **Criterio de aceptación.**
-- [ ] Escribir 200 caracteres con el panel abierto no pierde el cursor.
-- [ ] Cambiar tamaño y color con el párrafo en edición no cancela la edición.
-- [ ] Sin parpadeos ni saltos de línea al aplicar cambios.
+- [x] Escribir 200 caracteres con el panel abierto no pierde el cursor.
+- [x] Cambiar tamaño y color con el párrafo en edición no cancela la edición.
+- [x] Sin parpadeos ni saltos de línea al aplicar cambios.
+
+**Resolución (2026-11-02).** En Smart y Modern el panel ya funcionaba (el
+deslizador cambia el tamaño sin cancelar la edición). El bloqueo estaba en los
+campos numéricos (`NumericField`, panel Pro y resto de la app): desde Godot 4.4
+tener el foco no implica estar editando, y sin `LineEdit.edit()` el campo
+ignoraba lo tecleado y el Intro; el foco se quedaba en el campo y el párrafo
+dejaba de recibir teclas. Corregido en `ui/components/numeric_field.gd`: entra
+en edición real y, tras Intro, devuelve el foco al texto en edición. Prueba:
+`test/e2e/paragraph_panel_e2e.gd` (tres modos).
 
 **Prueba de interfaz.** `test/e2e/paragraph_panel_e2e.gd`: abrir párrafo, editar
 texto, cambiar tamaño y color desde el panel, verificar contenido y foco.
@@ -311,7 +320,7 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 
 | ID | Archivos principales | Prueba asociada | Estado |
 |---|---|---|---|
-| UX-01 | `panel_paragraph.gd`, `text_core.gd` | `paragraph_panel_e2e.gd` | Abierta |
+| UX-01 | `panel_paragraph.gd`, `text_core.gd` | `paragraph_panel_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-02 | `tools/TextTool.gd`, `ParagraphTool.gd` | `text_drag_size_e2e.gd` | **Cerrada** (2026-11-02) |
 | UX-03 | `ui/panels/pages/pages_panel.gd` | `pages_panel_modes_e2e.gd` | Abierta |
 | UX-04 | `tools/CircleTool.gd` | `ring_full_circle_e2e.gd` | Abierta |

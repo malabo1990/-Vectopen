@@ -195,6 +195,10 @@ func _enter_edit() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_IBEAM
 	_line_edit.mouse_filter = Control.MOUSE_FILTER_STOP
 	_line_edit.grab_focus()
+	# Desde Godot 4.4 el foco no implica edición: sin edit() el LineEdit
+	# ignora las teclas (y el Intro) aunque tenga el foco.
+	if _line_edit.has_method("edit"):
+		_line_edit.call("edit")
 	_line_edit.select_all()
 
 func _exit_edit(commit: bool) -> void:
@@ -220,6 +224,12 @@ func _exit_edit(commit: bool) -> void:
 
 func _on_line_edit_submitted(_t: String) -> void:
 	_exit_edit(true)
+	# Si se estaba editando un texto del lienzo, el teclado vuelve a él para
+	# seguir escribiendo (como en InDesign tras confirmar un valor del panel).
+	var text_core: GDScript = load("res://script_gdscript/text/text_core.gd")
+	var ctx: Array = text_core.editing_context(get_tree()) if text_core else []
+	if ctx.size() >= 2 and is_instance_valid(ctx[1]):
+		(ctx[1] as Control).grab_focus()
 
 func _on_line_edit_focus_exited() -> void:
 	_exit_edit(true)
