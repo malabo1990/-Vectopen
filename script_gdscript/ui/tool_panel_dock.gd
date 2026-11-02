@@ -170,6 +170,11 @@ func release_all(target_parent: Node) -> void:
 			panel.add_theme_stylebox_override("panel", st["style"])
 		else:
 			panel.remove_theme_stylebox_override("panel")
+		# El marco guardado era del tema de cuando se acopló: si el tema cambió
+		# mientras estaba en el lateral, volvía con el fondo viejo (texto claro
+		# sobre fondo claro). Que se repinte con el tema actual.
+		if panel.has_method("_apply_theme"):
+			panel.call_deferred("_apply_theme")
 		var a: Array = st["anchors"]
 		var o: Array = st["offsets"]
 		panel.anchor_left = a[0]

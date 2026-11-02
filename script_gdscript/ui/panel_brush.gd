@@ -30,6 +30,12 @@ var _slider_psmooth: HSlider
 var _lbl_psmooth: Label
 var _chk_speed: CheckBox
 var _pressure_labels: Array[Label] = []
+
+## Estilo común con el resto (colores del tema, como Capas) — UX-06.
+const TPS = preload("res://script_gdscript/ui/components/tool_panel_style.gd")
+var _section_labels: Array[Label] = []
+var _row_labels: Array[Label] = []
+var _separators: Array[HSeparator] = []
 const _CURVES := [["Suave", 0.6], ["Lineal", 1.0], ["Firme", 1.7]]
 
 var _syncing: bool = false
@@ -101,7 +107,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(header)
 
 	_header_title = Label.new()
-	_header_title.text = "Pincel & Estilos"
+	_header_title.text = "Pincel y estilos"
 	_header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header_title.add_theme_font_size_override("font_size", 13)
 	header.add_child(_header_title)
@@ -125,6 +131,7 @@ func _build_ui() -> void:
 	lbl_size.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl_size.add_theme_font_size_override("font_size", 11)
 	size_header.add_child(lbl_size)
+	_row_labels.append(lbl_size)
 
 	_spin_size = SpinBox.new()
 	_spin_size.min_value = 0.5
@@ -156,6 +163,7 @@ func _build_ui() -> void:
 	lbl_op.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl_op.add_theme_font_size_override("font_size", 11)
 	op_header.add_child(lbl_op)
+	_row_labels.append(lbl_op)
 
 	_spin_opacity = SpinBox.new()
 	_spin_opacity.min_value = 5.0
@@ -184,6 +192,7 @@ func _build_ui() -> void:
 	lbl_smooth.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl_smooth.add_theme_font_size_override("font_size", 11)
 	smooth_row.add_child(lbl_smooth)
+	_row_labels.append(lbl_smooth)
 
 	_opt_smoothing = OptionButton.new()
 	_opt_smoothing.add_item("Rápido (Boceto)", 0)
@@ -202,9 +211,9 @@ func _build_ui() -> void:
 
 	# 5. Tabla / Grid de Estilos (Krita / Blender)
 	var lbl_styles := Label.new()
-	lbl_styles.text = "Estilos de Pincel (Krita / Blender)"
-	lbl_styles.add_theme_font_size_override("font_size", 11)
+	lbl_styles.text = "Estilos de pincel"
 	root_vbox.add_child(lbl_styles)
+	_section_labels.append(lbl_styles)
 
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -215,7 +224,7 @@ func _build_ui() -> void:
 	_style_buttons.clear()
 	for info in STYLES_INFO:
 		var btn := Button.new()
-		btn.text = "%s %s" % [info["icon_txt"], info["name"]]
+		btn.text = String(info["name"])
 		btn.tooltip_text = info["desc"]
 		btn.custom_minimum_size = Vector2(134, 30)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -239,9 +248,8 @@ func _build_ui() -> void:
 func _build_pressure_ui(parent: VBoxContainer) -> void:
 	var title := Label.new()
 	title.text = "Presión del lápiz"
-	title.add_theme_font_size_override("font_size", 11)
 	parent.add_child(title)
-	_pressure_labels.append(title)
+	_section_labels.append(title)
 
 	var meter := HBoxContainer.new()
 	meter.add_theme_constant_override("separation", 8)
@@ -375,6 +383,7 @@ func _process(_dt: float) -> void:
 func _create_h_separator() -> HSeparator:
 	var sep := HSeparator.new()
 	sep.add_theme_constant_override("separation", 6)
+	_separators.append(sep)
 	return sep
 
 # ── Manejadores de Interacción ────────────────────────────────────────────────
@@ -465,43 +474,27 @@ func _update_active_style_button(active_id: String) -> void:
 	for s_id in _style_buttons:
 		var btn: Button = _style_buttons[s_id]
 		btn.button_pressed = (s_id == active_id)
+		TPS.style_toggle(btn, btn.button_pressed)
 
 # ── Estilización y Adaptabilidad al Tema ──────────────────────────────────────
-
+## Todo con los colores del tema actual (UX-06): antes fondo, textos y
+## secundarios eran fijos (claro / oscuro escritos a mano).
 func _apply_theme() -> void:
-	var tm = get_node_or_null("/root/ThemeManager")
-	var is_dark := true
-	# El método es is_dark() (antes se preguntaba por is_dark_theme(), que no
-	# existe: siempre «oscuro» y texto blanco con el tema claro).
-	if tm and tm.has_method("is_dark"):
-		is_dark = tm.is_dark()
-	elif tm and tm.has_method("get_current_mode"):
-		is_dark = (tm.get_current_mode() == "dark")
-
-	var bg_col := Color(0.14, 0.14, 0.17, 0.98) if is_dark else Color(0.96, 0.96, 0.98, 0.98)
-	var border_col := Color(1, 1, 1, 0.12) if is_dark else Color(0, 0, 0, 0.15)
-	var text_col := Color(0.95, 0.95, 0.95, 1.0) if is_dark else Color(0.12, 0.12, 0.14, 1.0)
-	var sec_col := Color(0.70, 0.70, 0.75, 1.0) if is_dark else Color(0.40, 0.40, 0.45, 1.0)
-
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg_col
-	sb.border_color = border_col
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(12)
-	sb.shadow_color = Color(0, 0, 0, 0.25)
-	sb.shadow_size = 14
-	sb.shadow_offset = Vector2(0, 4)
-	add_theme_stylebox_override("panel", sb)
-
-	if is_instance_valid(_header_title):
-		_header_title.add_theme_color_override("font_color", text_col)
-	if is_instance_valid(_hint_label):
-		_hint_label.add_theme_color_override("font_color", sec_col)
+	TPS.apply_frame(self)
+	TPS.style_title(_header_title)
+	TPS.style_muted(_hint_label)
+	for l in _section_labels:
+		TPS.style_section_label(l)
+	for l in _row_labels:
+		TPS.style_text(l)
 	for l in _pressure_labels:
-		if is_instance_valid(l):
-			l.add_theme_color_override("font_color", sec_col if l != _pressure_labels[0] else text_col)
+		TPS.style_muted(l)
+	for sp in _separators:
+		TPS.style_separator(sp)
+	for s_id in _style_buttons:
+		var btn: Button = _style_buttons[s_id]
+		TPS.style_toggle(btn, btn.button_pressed)
 	for cb in [_chk_pressure, _chk_speed]:
 		if is_instance_valid(cb):
-			cb.add_theme_color_override("font_color", text_col)
-			cb.add_theme_color_override("font_hover_color", text_col)
-			cb.add_theme_color_override("font_pressed_color", text_col)
+			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+				cb.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
