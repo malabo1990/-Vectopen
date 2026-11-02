@@ -707,12 +707,12 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 | UX-18 | 0 | Abierta | `stroke_panel_parity_e2e.gd` | Más paramétricos de trazo |
 | UX-19 | 1 | Verde | `fx_sections_hidden_e2e.gd` | SHADER solo con shader asignado; SCRIPT solo desde su icono; pulsar otra vez la oculta (22) |
 | UX-20 | 1 | Verde | `palette_modes_e2e.gd` | 5 causas: en Modern el selector se CERRABA al pulsar su paleta (clic «fuera»); la muestra iba siempre al relleno; pulsarla deseleccionaba el objeto; el color del trazo se filtraba al relleno (señal global); la paleta solo flotaba si la recortaban. Ahora flota siempre dentro de la pantalla, compacta y en español (55) |
-| UX-24 | 0 | Abierta | `no_godot_colorpicker_e2e.gd` | Smart: el menú del clic derecho queda en parte bajo la regla superior (tapa la muestra de color del Trazo) |
+| UX-24 | 1 | Verde | `no_godot_colorpicker_e2e.gd` | El menú se colocaba una vez con un alto estimado: al cambiar a una pestaña alta se salía por abajo (645+443 > 1080) y cerca de arriba quedaba bajo la regla. Ahora zona segura y se recoloca al cambiar de tamaño (99) |
 | UX-21 | 0 | Abierta | `inspector_action_icons_e2e.gd` | Iconos no traen la pestaña flotante de Efectos |
-| UX-22 | 0 | Abierta | `size_popup_style_e2e.gd` | «Tamaño de Elemento / Página»: texto gris claro sobre blanco, botones grises, buscador negro: rediseño profesional (captura del usuario) |
+| UX-22 | 0 | Abierta | `size_popup_style_e2e.gd` | «Tamaño de Elemento / Página»: rediseño como los editores profesionales: cuadrícula de tarjetas con miniatura de página proporcional, nombre y medida; categorías con icono (petición del usuario) |
 | UX-23 | 1 | Verde | `palette_modes_e2e.gd` | Regresión de UX-15: los iconos de degradado del selector salían negros (el tema los teñía); vuelven a su color |
 
-**Resumen Fase A:** 17 / 24 en verde (abiertas: UX-16, UX-18, UX-21, UX-22, UX-24)
+**Resumen Fase A:** 18 / 24 en verde (abiertas: UX-16, UX-18, UX-21, UX-22)
 
 Nota: `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa; aislado pasa siempre: depende del orden de las pruebas. · 2 pendientes de insumo (UX-05: panel
 sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no

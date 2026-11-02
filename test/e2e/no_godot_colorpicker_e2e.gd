@@ -47,6 +47,26 @@ func press_at(at: Vector2) -> void:
 		await process_frame
 	await frames(4)
 
+## UX-24: el menú del clic derecho, entero en la ventana y por debajo de la
+## regla superior / a la derecha de la lateral (se dibujan por encima).
+func menu_inside(tag: String, tabs: Control) -> void:
+	var menu := tabs.owner as Control
+	var pc := menu.get_node_or_null("PanelContainer") as Control if menu else null
+	if pc == null:
+		return
+	var r := pc.get_global_rect()
+	var vp := Rect2(Vector2.ZERO, root.get_visible_rect().size)
+	var top := 0.0
+	var left := 0.0
+	for n in root.find_children("regla horizontal", "Control", true, false):
+		if (n as Control).is_visible_in_tree():
+			top = maxf(top, (n as Control).get_global_rect().end.y)
+	for n in root.find_children("regla vertical", "Control", true, false):
+		if (n as Control).is_visible_in_tree():
+			left = maxf(left, (n as Control).get_global_rect().end.x)
+	check("%s: el menú cabe en la pantalla" % tag, vp.grow(1.0).encloses(r), "%s en %s" % [r, vp.size])
+	check("%s: el menú no queda bajo las reglas" % tag, r.position.y >= top - 1.0 and r.position.x >= left - 1.0, "%s · regla h hasta %.0f, v hasta %.0f" % [r.position, top, left])
+
 func popover() -> Control:
 	for n in root.find_children("TextColorPopover", "", true, false):
 		return n
@@ -87,7 +107,8 @@ func probe(tag: String) -> void:
 		await process_frame
 		var hit := root.gui_get_hovered_control()
 		if hit != cp:
-			print("INFO %s: tapada por %s, se omite" % [label, hit])
+			# UX-24: algo de la propia interfaz (la regla…) la tapa.
+			check("%s: la muestra no está tapada" % label, false, "tapada por %s" % hit)
 			continue
 		await press_at(at)
 		var godot_open := (cp as ColorPickerButton).get_popup().visible
@@ -124,17 +145,26 @@ func _run() -> void:
 	rect.position = Vector2(300, 300)
 	var api = root.get_node("PluginManager").api
 	var txt = api.add_text(Vector2(400, 600), "Texto")
+	# Pegado al borde superior del lienzo: el clic derecho sale junto a la regla.
+	var top_rect: Node2D = load("res://script_gdscript/shapes/VectorRectangle.gd").new()
+	top_rect.name = "Arriba"
+	ab.add_child(top_rect)
+	top_rect.owner = ab
+	top_rect.size = Vector2(200, 60)
+	await frames(2)
+	# Su punto (100, 30) cae en la pantalla a 36 px del borde superior.
+	top_rect.position = (ab as CanvasItem).get_global_transform_with_canvas().affine_inverse() * Vector2(800, 36) - Vector2(100, 30)
 	var total := 0
 	for mode in ["smart", "modern", "professional"]:
 		gui.set_ui_mode(mode)
 		await frames(30)
-		for o in [txt, rect]:
+		for o in ([txt, rect, top_rect] if mode == "smart" else [txt, rect]):
 			sm.set_selection([o])
 			await frames(12)
 			if mode == "smart":
 				# Smart: clic derecho sobre el objeto y cada pestaña del menú
 				# (Trazos, Color, Tipografía…), como el usuario.
-				var local: Vector2 = Vector2(100, 70) if o == rect else Vector2(20, 10)
+				var local: Vector2 = Vector2(100, 70) if o == rect else (Vector2(100, 30) if o == top_rect else Vector2(20, 10))
 				var at: Vector2 = (o as CanvasItem).get_global_transform_with_canvas() * local
 				var mm := InputEventMouseMotion.new()
 				mm.position = at
@@ -157,6 +187,8 @@ func _run() -> void:
 					for b in tabs.get_children():
 						if b is Button and (b as Button).is_visible_in_tree():
 							await press_at((b as Button).get_global_rect().get_center())
+							await frames(4)
+							menu_inside("smart/%s/%s" % [o.name, b.name], tabs)
 							total += swatches().size()
 							await probe("smart/%s/%s" % [o.name, b.name])
 				# Cerrar el menú antes del siguiente objeto (Esc, como el usuario).

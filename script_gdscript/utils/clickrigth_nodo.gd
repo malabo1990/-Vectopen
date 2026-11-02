@@ -740,10 +740,12 @@ func _input(event: InputEvent) -> void:
 		else:
 			h = maxf(ctrl.size.y, 360.0)
 	var menu_size := Vector2(w, h)
-	mp.x = clampf(mp.x, 0.0, maxf(0.0, vp.x - menu_size.x))
-	mp.y = clampf(mp.y, 0.0, maxf(0.0, vp.y - menu_size.y))
+	var safe := _menu_safe_rect()
+	mp.x = clampf(mp.x, safe.position.x, maxf(safe.position.x, safe.end.x - menu_size.x))
+	mp.y = clampf(mp.y, safe.position.y, maxf(safe.position.y, safe.end.y - menu_size.y))
 	if target_node is Control:
 		target_node.global_position = mp
+		_watch_menu_size(target_node as Control)
 	var tcp = get_node_or_null("ThemeConfigPanel")
 	if tcp:
 		tcp.visible = false
@@ -762,6 +764,41 @@ func _input(event: InputEvent) -> void:
 	_aplicar_tema()
 	_actualizar_idioma()
 	target_node.visible = true
+
+## UX-24: zona donde puede estar el menú: dentro de la ventana y fuera de
+## las reglas (se dibujan por encima y tapaban la parte de arriba del menú).
+const _RULER_SAFE := 28.0
+func _menu_safe_rect() -> Rect2:
+	var vr := get_viewport_rect()
+	return Rect2(vr.position + Vector2(_RULER_SAFE, _RULER_SAFE), vr.size - Vector2(_RULER_SAFE + 6.0, _RULER_SAFE + 6.0))
+
+## El menú cambia de alto al cambiar de pestaña (Trazo, Tipografía…): se
+## recoloca para que nunca se salga por abajo ni quede bajo la regla.
+func _watch_menu_size(menu: Control) -> void:
+	var pc := menu.get_node_or_null("PanelContainer") as Control
+	var watched: Control = pc if pc else menu
+	if not watched.resized.is_connected(_clamp_menu):
+		watched.resized.connect(_clamp_menu)
+	_clamp_menu.call_deferred()
+
+func _clamp_menu() -> void:
+	var menu := target_node as Control
+	if not is_instance_valid(menu) or not menu.visible:
+		return
+	var pc := menu.get_node_or_null("PanelContainer") as Control
+	var r := pc.get_global_rect() if pc else menu.get_global_rect()
+	var safe := _menu_safe_rect()
+	var d := Vector2.ZERO
+	if r.end.y > safe.end.y:
+		d.y = safe.end.y - r.end.y
+	if r.position.y + d.y < safe.position.y:
+		d.y = safe.position.y - r.position.y
+	if r.end.x > safe.end.x:
+		d.x = safe.end.x - r.end.x
+	if r.position.x + d.x < safe.position.x:
+		d.x = safe.position.x - r.position.x
+	if d != Vector2.ZERO:
+		menu.global_position += d
 
 func _build_theme_switcher() -> void:
 	var menu_base := get_node_or_null(_MENU_BASE) as Control
