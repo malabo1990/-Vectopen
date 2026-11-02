@@ -168,11 +168,20 @@ guardar degradados en la paleta.
 3. Confirmar la eliminación solo si la muestra está en uso por algún objeto.
 
 **Criterio de aceptación.**
-- [ ] Clic derecho sobre una muestra permite eliminarla.
-- [ ] Se guarda un degradado y se reaplica idéntico tras reiniciar.
-- [ ] Deshacer recupera una muestra eliminada.
+- [x] Clic derecho sobre una muestra permite eliminarla.
+- [x] Se guarda un degradado y se reaplica idéntico tras reiniciar.
+- [x] Deshacer recupera una muestra eliminada.
 
 **Prueba de interfaz.** `test/e2e/palette_delete_gradient_e2e.gd`.
+
+**Resolución (2026-11-02).** `PaletteSaveGrid` guarda cada muestra como color
+plano **o** degradado (el «paint» de ColorCore: tipo, puntos, ángulo y centro);
+«+» guarda lo que esté activo. Clic derecho → menú Eliminar / Duplicar, con
+deshacer; si algún objeto usa la muestra (y no la tapa un degradado) pide
+confirmación. La muestra de degradado se dibuja como degradado y al pulsarla se
+aplica tal cual. Persistencia en `user://vectopen_palette.cfg` (compatible con
+las listas de colores antiguas) y los selectores de los tres modos se
+actualizan juntos. 25 comprobaciones con clics reales.
 
 ---
 
@@ -228,11 +237,22 @@ plegables, campos numéricos, iconografía), eliminar colores literales y tomar 
 del tema activo (`ThemeDB`/`theme_changed`).
 
 **Criterio de aceptación.**
-- [ ] Sin colores literales en el panel.
-- [ ] Legible en tema claro y oscuro.
-- [ ] Estructura y densidad equivalentes al panel de capas.
+- [x] Sin colores literales en el panel.
+- [x] Legible en tema claro y oscuro.
+- [x] Estructura y densidad equivalentes al panel de capas.
 
 **Prueba de interfaz.** `test/e2e/brush_panel_theme_e2e.gd` (captura en ambos temas).
+
+**Resolución (2026-11-02).** Componente común `ui/components/tool_panel_style.gd`
+(colores del tema vía `ProUIStyle.col`): marco flotante, título, cabeceras de
+sección en versalitas como Capas, textos secundarios con el color atenuado del
+tema (no `modulate`), separadores y botones-interruptor. Sin `Color(` en el
+script ni en la escena. Además: al soltar un panel del lateral (`ToolPanelDock`)
+volvía con el marco del tema de cuando se acopló (en oscuro: título claro sobre
+fondo claro, contraste 1,1:1); ahora se repinta. La prueba (base común
+`tool_panel_theme_common.gd`) recorre tema claro y oscuro × Smart, Modern y
+Pro: todos los colores salen del tema, contraste ≥ 4,5:1 (3:1 secundarios) y
+letra ≤ 13 px.
 
 ---
 
@@ -248,11 +268,17 @@ separadores, estados hover/activo), sustituir el gris por el color de superficie
 del tema y unificar la tipografía de etiquetas.
 
 **Criterio de aceptación.**
-- [ ] Ningún módulo con gris fijo.
-- [ ] Iconos y filas consistentes con el panel de capas.
-- [ ] Correcto en los tres modos.
+- [x] Ningún módulo con gris fijo.
+- [x] Iconos y filas consistentes con el panel de capas.
+- [x] Correcto en los tres modos.
 
 **Prueba de interfaz.** `test/e2e/bezier_panel_theme_e2e.gd`.
+
+**Resolución (2026-11-02).** Mismo componente que UX-06: las tarjetas
+(antes negro al 8 % fijo) usan la superficie y el borde del tema, cabeceras en
+versalitas, iconos SVG del tema (papelera, unir, romper) en lugar de emojis,
+tamaños de tirador como interruptores y el grosor con el campo numérico común.
+Prueba en claro y oscuro × tres modos.
 
 ---
 
@@ -305,11 +331,20 @@ Affinity.
 3. Persistir el orden y qué pestañas están flotando.
 
 **Criterio de aceptación.**
-- [ ] Reordenar sin perder la pestaña activa.
-- [ ] Flotar y reacoplar sin recrear el contenido.
-- [ ] La disposición se conserva entre sesiones.
+- [x] Reordenar sin perder la pestaña activa.
+- [x] Flotar y reacoplar sin recrear el contenido.
+- [x] La disposición se conserva entre sesiones.
 
 **Prueba de interfaz.** `test/e2e/pro_tabs_dock_float_e2e.gd`.
+
+**Resolución (2026-11-02).** Las pestañas de las dos tiras del lateral de Pro
+(Color/Muestras/Trazo y Transformar/Texto/Efectos) se arrastran para cambiar el
+orden, con una línea de acento donde caerán; soltadas fuera del lateral se abren
+en una ventana flotante con la MISMA página. Doble clic en su cabecera (o
+cerrarla) la vuelve a acoplar. Orden, flotantes, posición y tamaño se guardan en
+`user://vectopen_pro_tabs.cfg` y se restauran al reconstruir el lateral (cambio
+de tema) y al arrancar. Los índices de `_select_tab_a/_b` siguen siendo los de
+siempre (el orden es solo visual). Arrastre real de Godot en la prueba.
 
 ---
 
@@ -328,10 +363,20 @@ editores tradicionales.
 teclas de borrado en una constante compartida.
 
 **Criterio de aceptación.**
-- [ ] `X`, `Delete` y `Supr` borran de forma equivalente en cada contexto.
-- [ ] No interfieren al editar texto ni en campos numéricos.
+- [x] `X`, `Delete` y `Supr` borran de forma equivalente en cada contexto.
+- [x] No interfieren al editar texto ni en campos numéricos.
 
 **Prueba de interfaz.** `test/e2e/delete_keys_matrix_e2e.gd`.
+
+**Resolución (2026-11-02).** Causa real de que «Supr no borra»: el editor de
+degradado del selector de color (también el oculto) tenía siempre un punto
+seleccionado y se quedaba **Supr y Retroceso en toda la aplicación**; en el
+lienzo solo funcionaba la X. Ahora solo los usa si el último clic fue en él.
+Lista única `VectopenInput.DELETE_KEYS` (X, Supr/Delete, Retroceso) y
+`is_delete_event()` (sin Ctrl/Alt/Cmd y nunca escribiendo) en lienzo, nodos,
+mover, capas, páginas, puntos de degradado y guías (antes páginas solo Supr y
+degradado/guías sin X). La prueba cubre las tres teclas en los seis contextos
+y que no borran escribiendo en un campo (27 comprobaciones).
 
 ---
 
@@ -387,11 +432,23 @@ trazos, párrafos y relleno.
 falle si una propiedad declarada carece de control o de escritura efectiva.
 
 **Criterio de aceptación.**
-- [ ] Cero propiedades declaradas sin control.
-- [ ] Cero controles sin efecto real.
-- [ ] Undo/redo correcto en todas.
+- [x] Cero propiedades declaradas sin control.
+- [x] Cero controles sin efecto real.
+- [x] Undo/redo correcto en todas.
 
 **Prueba de interfaz.** `test/e2e/inspector_coverage_e2e.gd`.
+
+**Resolución (2026-11-02).** El arnés de UX-06 en modo estricto (8 tipos de
+objeto, Modern y Pro, página a página en Pro) detecta controles sin efecto
+(nada escrito, sin paso de historial, nada mostrado u ocultado, sin cambio
+propio), comprueba rehacer y que cada propiedad de `PROPS` la tenga algún
+objeto. Encontró y se corrigió: perfil y tamaño de punta ofrecidos a figuras que
+no los tienen; pestaña Texto de Pro activa sin texto seleccionado (mayúsculas,
+alinear…) y Color/Muestras/Trazo con un modelo 3D; «Romper enlace» y
+«Reorganizar» siempre activos (este redistribuía el texto **sin deshacer** y se
+perdía); «Restablecer vista 3D» y «Encuadrar» sin deshacer; la gota de agua
+tratada como polígono regular (sin su curvatura; «Regular» la rompía y deshacer
+no la devolvía). Resultado: 82 comprobaciones en verde.
 
 ---
 
@@ -412,11 +469,19 @@ contenido mostrado en el Inspector.
 3. Estado activo visible y conmutable.
 
 **Criterio de aceptación.**
-- [ ] Los cuatro iconos visibles en los tres modos.
-- [ ] Cada uno abre su panel en el Inspector sin cerrar la selección.
-- [ ] Sin duplicar editores ya existentes.
+- [x] Los cuatro iconos visibles en los tres modos.
+- [x] Cada uno abre su panel en el Inspector sin cerrar la selección.
+- [x] Sin duplicar editores ya existentes.
 
 **Prueba de interfaz.** `test/e2e/inspector_action_icons_e2e.gd`.
+
+**Resolución (2026-11-02).** Componente `ui/components/fx_action_icons.gd`
+junto a Exportar en la barra de Modern, la de Pro y el chip de Smart: Shader,
+Script, Vectorizar y Complementos (icono de pieza de puzle nuevo). Abren SU
+sección (Inspector en Modern, pestaña Efectos en Pro, ventana Efectos en Smart),
+la llevan a la vista y el icono queda resaltado (borde e icono de acento);
+volver a pulsar la cierra. Script y Complementos abren su página. Una sección
+abierta desde el icono se ve aunque no haya selección. 177 comprobaciones.
 
 ---
 
@@ -436,11 +501,18 @@ ya existente y reutilizable), `script_gdscript/ui/docked_inspector.gd`.
 3. En Pro, permitir desacoplar el Inspector a ventana flotante redimensionable.
 
 **Criterio de aceptación.**
-- [ ] Arrastre fluido, sin saltos, con límites razonables.
-- [ ] El ancho se conserva entre sesiones y por modo.
-- [ ] En Pro, flotar y reacoplar conserva contenido y tamaño.
+- [x] Arrastre fluido, sin saltos, con límites razonables.
+- [x] El ancho se conserva entre sesiones y por modo.
+- [x] En Pro, flotar y reacoplar conserva contenido y tamaño.
 
 **Prueba de interfaz.** `test/e2e/inspector_resize_e2e.gd`.
+
+**Resolución (2026-11-02).** `panel_edge_resizer.gd` en el borde izquierdo del
+lateral derecho (Modern y Pro): 240 px mínimo, 60 % de la ventana máximo, la
+regla y el lienzo se apartan, doble clic = ancho por defecto, guardado por modo.
+En Pro, botón «Inspector flotante» en la barra superior: el lateral (el mismo
+nodo, con su pestaña) pasa a una ventana redimensionable; cerrarla lo acopla con
+su ancho; la ventana recuerda su tamaño; cambiar de modo lo reacopla.
 
 ---
 
@@ -507,18 +579,18 @@ godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --run-tests res
 |---|---|---|---|
 | UX-01 | `ui/layers_system.gd`, `canvas_serializer.gd` | `clip_mask_bezier_e2e.gd` | Verde |
 | UX-02 | `autoloads/VectopenInput.gd`, `docked_inspector.gd` | `inspector_keyboard_focus_e2e.gd` | Verde |
-| UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Abierta |
+| UX-03 | `PaletteSaveGrid.gd`, `ListaColor.gd` | `palette_delete_gradient_e2e.gd` | Verde |
 | UX-04 | `adaptive_ui_manager.gd`, `ListaColor.gd` | `palette_modes_e2e.gd` | Verde |
 | UX-05 | — | — | Por aclarar |
-| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Abierta |
-| UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Abierta |
+| UX-06 | `panel_brush.gd` | `brush_panel_theme_e2e.gd` | Verde |
+| UX-07 | `panel_bezier.gd` | `bezier_panel_theme_e2e.gd` | Verde |
 | UX-08 | `panel_trazos.gd` | `stroke_panel_parity_e2e.gd` | Verde |
-| UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Abierta |
-| UX-10 | `move_tool_keyboard.gd`, `NodeSelectionTool.gd` | `delete_keys_matrix_e2e.gd` | Abierta |
+| UX-09 | `docked_inspector.gd`, `panel_edge_resizer.gd` | `pro_tabs_dock_float_e2e.gd` | Verde |
+| UX-10 | `move_tool_keyboard.gd`, `NodeSelectionTool.gd` | `delete_keys_matrix_e2e.gd` | Verde |
 | UX-11 | `panel_trazos.gd`, `adaptive_ui_manager.gd` | `modern_strokes_visible_e2e.gd` | Pendiente de insumo |
-| UX-12 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_coverage_e2e.gd` | Abierta |
-| UX-13 | `docked_inspector.gd`, `vectorize_panel.gd` | `inspector_action_icons_e2e.gd` | Abierta |
-| UX-14 | `panel_edge_resizer.gd`, `docked_inspector.gd` | `inspector_resize_e2e.gd` | Abierta |
+| UX-12 | `InspectorCore.gd`, `docked_inspector.gd` | `inspector_coverage_e2e.gd` | Verde |
+| UX-13 | `docked_inspector.gd`, `vectorize_panel.gd` | `inspector_action_icons_e2e.gd` | Verde |
+| UX-14 | `panel_edge_resizer.gd`, `docked_inspector.gd` | `inspector_resize_e2e.gd` | Verde |
 
 ---
 
@@ -531,20 +603,22 @@ Actualizar en cada iteración. Estados: `Abierta` · `En curso` · `Verde` ·
 |---|---:|---|---|---|
 | UX-01 | 1 | Verde | `clip_mask_bezier_e2e.gd` | Máscara sin dibujo = contenido sin recortar; relleno par-impar y área implícita |
 | UX-02 | 1 | Verde | `inspector_keyboard_focus_e2e.gd` | Guarda `is_typing()`; Escape suelta el campo (fallaba en Pro) |
-| UX-03 | 0 | Abierta | `palette_delete_gradient_e2e.gd` | — |
+| UX-03 | 1 | Verde | `palette_delete_gradient_e2e.gd` | Color o degradado; clic derecho Eliminar/Duplicar con deshacer |
 | UX-04 | 1 | Verde | `palette_modes_e2e.gd` | En Pro la recortaba el lateral; ahora flota junto al selector |
 | UX-05 | 0 | Pendiente de insumo | — | Falta identificar el panel |
-| UX-06 | 0 | Abierta | `brush_panel_theme_e2e.gd` | — |
-| UX-07 | 0 | Abierta | `bezier_panel_theme_e2e.gd` | — |
+| UX-06 | 1 | Verde | `brush_panel_theme_e2e.gd` | Colores del tema (componente común); marco repintado al soltar del lateral |
+| UX-07 | 1 | Verde | `bezier_panel_theme_e2e.gd` | Tarjetas con superficie del tema, iconos SVG, campo numérico común |
 | UX-08 | 1 | Verde | `stroke_panel_parity_e2e.gd` | Paridad comprobada (vino con UX-06 anterior); uniones = función nueva |
-| UX-09 | 0 | Abierta | `pro_tabs_dock_float_e2e.gd` | — |
-| UX-10 | 0 | Abierta | `delete_keys_matrix_e2e.gd` | — |
+| UX-09 | 1 | Verde | `pro_tabs_dock_float_e2e.gd` | Arrastrar = reordenar; soltar fuera = flotar; doble clic = acoplar; persistente |
+| UX-10 | 1 | Verde | `delete_keys_matrix_e2e.gd` | El editor de degradado se quedaba Supr/Retroceso; lista única de teclas |
 | UX-11 | 1 | Pendiente de insumo | `modern_strokes_visible_e2e.gd` | No reproducible (43/43 verde en los 3 modos); faltan pasos o archivo |
-| UX-12 | 0 | Abierta | `inspector_coverage_e2e.gd` | — |
-| UX-13 | 0 | Abierta | `inspector_action_icons_e2e.gd` | — |
-| UX-14 | 0 | Abierta | `inspector_resize_e2e.gd` | — |
+| UX-12 | 1 | Verde | `inspector_coverage_e2e.gd` | Modo estricto: 82 comprobaciones; 7 defectos corregidos |
+| UX-13 | 1 | Verde | `inspector_action_icons_e2e.gd` | Cuatro iconos junto a Exportar en los tres modos |
+| UX-14 | 1 | Verde | `inspector_resize_e2e.gd` | Borde arrastrable por modo; Pro flotante |
 
-**Resumen Fase A:** 0 / 14 en verde · 1 pendiente de insumo.
+**Resumen Fase A:** 12 / 14 en verde · 2 pendientes de insumo (UX-05: panel
+sin identificar; UX-11: no reproducible, faltan pasos o archivo). La Fase B no
+puede empezar hasta que estas dos se cierren (puerta del §19.1).
 **Resumen Fase B:** 0 / 30 proyectos aprobados.
 
 ---

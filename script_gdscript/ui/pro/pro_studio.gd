@@ -233,6 +233,16 @@ func _rebuild() -> void:
 		if is_instance_valid(_tool_dock) and is_instance_valid(_tool_dock.get_parent()):
 			_tool_dock.get_parent().remove_child(_tool_dock)
 		_root.queue_free()
+	# Las ventanas de pestañas flotantes llevan páginas del árbol viejo: se
+	# cierran sin tocar lo guardado y se vuelven a abrir tras reconstruir.
+	for t in _float_wins.keys():
+		var w = _float_wins[t]["win"]
+		if is_instance_valid(w):
+			# Fuera del árbol YA: si no, la nueva no puede llamarse igual.
+			if w.get_parent():
+				w.get_parent().remove_child(w)
+			w.queue_free()
+	_float_wins.clear()
 	_build_ui()
 	_connect_cores()
 
@@ -260,7 +270,7 @@ func _build_ui() -> void:
 	_build_swatches_page()
 	_build_stroke_page()
 	_pages_a = [_sec_color, _sec_swatches, _sec_stroke]
-	_vbox.add_child(_tab_group(["Color", "Muestras", "Trazo"], _pages_a, _tabs_a, _tab_a, _select_tab_a))
+	_vbox.add_child(_tab_group(TAB_TITLES["a"], _pages_a, _tabs_a, _tab_a, _select_tab_a, "a"))
 
 	_build_transform_page()
 	_build_typography_page()
@@ -275,7 +285,8 @@ func _build_ui() -> void:
 	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.SHADER, "SecShader"))
 	_sec_effects.add_child(InspectorFxSections.create(InspectorFxSections.SCRIPT, "SecScript"))
 	_pages_b = [_sec_transform, _sec_typography, _sec_effects]
-	_vbox.add_child(_tab_group(["Transformar", "Texto", "Efectos"], _pages_b, _tabs_b, _tab_b, _select_tab_b))
+	_vbox.add_child(_tab_group(TAB_TITLES["b"], _pages_b, _tabs_b, _tab_b, _select_tab_b, "b"))
+	_restore_tab_layout.call_deferred()
 
 func _setup_panel_style() -> void:
 	var sb := ProUIStyle.flat(ProUIStyle.col("PANEL_BG"))
@@ -335,7 +346,7 @@ func release_tool_panels(target_parent: Node) -> void:
 		_tool_dock.release_all(target_parent)
 
 # ── TABBED STUDIO GROUP ──
-func _tab_group(titles: Array, pages: Array[Control], out_tabs: Array[Button], active: int, on_select: Callable) -> Control:
+func _tab_group(titles: Array, pages: Array[Control], out_tabs: Array[Button], active: int, on_select: Callable, gid: String = "") -> Control:
 	var group := VBoxContainer.new()
 	group.add_theme_constant_override("separation", 0)
 
@@ -359,8 +370,17 @@ func _tab_group(titles: Array, pages: Array[Control], out_tabs: Array[Button], a
 		t.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE)
 		var idx: int = i
 		t.pressed.connect(func(): on_select.call(idx))
+		if gid != "":
+			# Arrastrar para reordenar; soltar fuera del lateral = flotar (UX-09).
+			t.name = "Tab_" + String(titles[i])
+			t.set_meta("pro_tab", [gid, String(titles[i])])
+			t.tooltip_text = tr("Arrastra para reordenar · suéltala fuera para que flote")
+			t.set_drag_forwarding(_tab_get_drag.bind(gid, String(titles[i])),
+				_tab_can_drop.bind(gid, String(titles[i])), _tab_drop.bind(gid, String(titles[i])))
 		tabs.add_child(t)
 		out_tabs.append(t)
+	if gid != "":
+		_strips[gid] = tabs
 
 	var body := MarginContainer.new()
 	body.add_theme_constant_override("margin_left", 8)
@@ -370,6 +390,8 @@ func _tab_group(titles: Array, pages: Array[Control], out_tabs: Array[Button], a
 	group.add_child(body)
 	var stack := VBoxContainer.new()
 	body.add_child(stack)
+	if gid != "":
+		_stacks[gid] = stack
 	for p in pages:
 		stack.add_child(p)
 	_apply_tab_state(out_tabs, pages, active)
@@ -395,7 +417,264 @@ func _apply_tab_state(tabs: Array[Button], pages: Array[Control], active: int) -
 		tabs[i].add_theme_color_override("font_pressed_color", fc)
 	for i in pages.size():
 		if is_instance_valid(pages[i]):
+			# Pestaña flotante: su página se ve en su ventana; su botón, no.
+			if pages[i].has_meta("pro_floating"):
+				pages[i].visible = true
+				if i < tabs.size():
+					tabs[i].visible = false
+				continue
+			if i < tabs.size():
+				tabs[i].visible = true
 			pages[i].visible = i == active
+
+# ── PESTAÑAS REORDENABLES Y FLOTANTES (UX-09) ──────────────────────────────
+## Como en Affinity: se arrastran para cambiar el orden (con marca de dónde
+## caen) y, soltadas fuera del lateral, se abren en una ventana flotante con
+## su página (el MISMO nodo: conserva estado). Doble clic en la cabecera de la
+## ventana (o cerrarla) la vuelve a acoplar. El orden y las flotantes se
+## guardan entre sesiones. Los índices de _select_tab_a/_b no cambian: son
+## los de TAB_TITLES (el orden es solo visual).
+const TABS_CFG := "user://vectopen_pro_tabs.cfg"
+const TAB_TITLES := {"a": ["Color", "Muestras", "Trazo"], "b": ["Transformar", "Texto", "Efectos"]}
+var _strips := {}          # gid → HBoxContainer de pestañas
+var _stacks := {}          # gid → contenedor de páginas
+var _float_wins := {}      # título → {"win": Window, "gid": String}
+var _drag_tab := {}
+var _drop_marker: ColorRect = null
+
+func _tab_button(gid: String, title: String) -> Button:
+	var strip: Node = _strips.get(gid)
+	return strip.get_node_or_null("Tab_" + title) as Button if is_instance_valid(strip) else null
+
+func _page_of(gid: String, title: String) -> Control:
+	var i: int = (TAB_TITLES[gid] as Array).find(title)
+	var pages: Array[Control] = _pages_a if gid == "a" else _pages_b
+	return pages[i] if i >= 0 and i < pages.size() else null
+
+## Orden visual de una tira de pestañas (títulos).
+func tab_order(gid: String) -> Array:
+	var out: Array = []
+	var strip: Node = _strips.get(gid)
+	if is_instance_valid(strip):
+		for c in strip.get_children():
+			if c.has_meta("pro_tab"):
+				out.append(String(c.get_meta("pro_tab")[1]))
+	return out
+
+func _apply_order(gid: String, order: Array) -> void:
+	var strip: Node = _strips.get(gid)
+	if not is_instance_valid(strip):
+		return
+	var k := 0
+	for title in order:
+		var b := _tab_button(gid, String(title))
+		if b:
+			strip.move_child(b, k)
+			k += 1
+
+func _tab_get_drag(_at: Vector2, gid: String, title: String) -> Variant:
+	var b := _tab_button(gid, title)
+	if b == null:
+		return null
+	var prev := Label.new()
+	prev.text = b.text
+	prev.add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+	set_drag_preview(prev)
+	_drag_tab = {"gid": gid, "title": title}
+	return {"pro_tab": title, "gid": gid}
+
+func _tab_can_drop(at: Vector2, data: Variant, gid: String, title: String) -> bool:
+	var ok: bool = data is Dictionary and String(data.get("gid", "")) == gid and String(data.get("pro_tab", "")) != title
+	if ok:
+		var b := _tab_button(gid, title)
+		_show_drop_marker(b, at.x < b.size.x * 0.5)
+	return ok
+
+func _tab_drop(at: Vector2, data: Variant, gid: String, title: String) -> void:
+	_hide_drop_marker()
+	var moving := String(data["pro_tab"])
+	var order := tab_order(gid)
+	order.erase(moving)
+	var i := order.find(title)
+	var b := _tab_button(gid, title)
+	if b and at.x >= b.size.x * 0.5:
+		i += 1
+	order.insert(clampi(i, 0, order.size()), moving)
+	_apply_order(gid, order)
+	_save_tab_layout()
+
+## Marca de inserción: una línea de acento a un lado de la pestaña destino.
+func _show_drop_marker(b: Button, before: bool) -> void:
+	if b == null:
+		return
+	if not is_instance_valid(_drop_marker):
+		_drop_marker = ColorRect.new()
+		_drop_marker.name = "TabDropMarker"
+		_drop_marker.top_level = true
+		_drop_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_drop_marker.z_index = 100
+		add_child(_drop_marker)
+	_drop_marker.color = ProUIStyle.col("ACCENT")
+	var r := b.get_global_rect()
+	_drop_marker.global_position = Vector2((r.position.x if before else r.end.x) - 1.0, r.position.y)
+	_drop_marker.size = Vector2(2, r.size.y)
+	_drop_marker.visible = true
+
+func _hide_drop_marker() -> void:
+	if is_instance_valid(_drop_marker):
+		_drop_marker.visible = false
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END:
+		_hide_drop_marker()
+		if _drag_tab.is_empty():
+			return
+		var d := _drag_tab
+		_drag_tab = {}
+		var vp := get_viewport()
+		if vp and not vp.gui_is_drag_successful():
+			var mp := vp.get_mouse_position()
+			if not get_global_rect().has_point(mp):
+				float_tab(String(d["gid"]), String(d["title"]), Vector2i(mp))
+	elif what == NOTIFICATION_VISIBILITY_CHANGED:
+		# Las ventanas flotantes van con el lateral (fuera de Pro, ocultas).
+		for t in _float_wins:
+			var w = _float_wins[t]["win"]
+			if is_instance_valid(w):
+				w.visible = is_visible_in_tree()
+
+func is_tab_floating(title: String) -> bool:
+	return _float_wins.has(title)
+
+## Saca la pestaña `title` a una ventana flotante.
+func float_tab(gid: String, title: String, at: Vector2i = Vector2i(-1, -1), wsize: Vector2i = Vector2i.ZERO) -> void:
+	if _float_wins.has(title):
+		return
+	var page := _page_of(gid, title)
+	if page == null:
+		return
+	var win := Window.new()
+	win.name = "ProTab_" + title
+	win.title = tr(title)
+	win.wrap_controls = false
+	win.min_size = Vector2i(240, 180)
+	var h := int(clampf(page.get_combined_minimum_size().y + 60.0, 240.0, 720.0))
+	if wsize == Vector2i.ZERO:
+		var cf := ConfigFile.new()
+		if cf.load(TABS_CFG) == OK:
+			wsize = cf.get_value("size", title, Vector2i.ZERO)   # tamaño de la última vez
+	win.size = wsize if wsize != Vector2i.ZERO else Vector2i(int(maxf(size.x, 260.0)), h)
+	var vp := get_viewport().get_visible_rect().size
+	if at == Vector2i(-1, -1):
+		at = Vector2i(int(get_global_rect().position.x) - win.size.x - 16, int(get_global_rect().position.y) + 40)
+	win.position = Vector2i(clampi(at.x, 0, maxi(0, int(vp.x) - win.size.x)), clampi(at.y, 0, maxi(0, int(vp.y) - win.size.y)))
+	var bg := Panel.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.add_theme_stylebox_override("panel", ProUIStyle.flat(ProUIStyle.col("PANEL_BG")))
+	win.add_child(bg)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	win.add_child(box)
+	var header := Button.new()
+	header.name = "DockHeader"
+	header.flat = true
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.text = "⇲  " + tr("Doble clic para acoplar")
+	header.tooltip_text = tr("Doble clic: volver a acoplar en el lateral")
+	header.focus_mode = Control.FOCUS_NONE
+	header.add_theme_font_size_override("font_size", ProUIStyle.FONT_SIZE_SMALL)
+	header.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+	header.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.double_click and ev.button_index == MOUSE_BUTTON_LEFT:
+			dock_tab.call_deferred(title))
+	box.add_child(header)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.name = "PageHost"
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 8)
+	scroll.add_child(margin)
+	win.close_requested.connect(func() -> void: dock_tab(title))
+	add_child(win)
+	page.set_meta("pro_floating", true)
+	page.reparent(margin, false)
+	page.visible = true
+	_float_wins[title] = {"win": win, "gid": gid}
+	# Si era la activa, se activa otra que siga acoplada.
+	var cur := _tab_a if gid == "a" else _tab_b
+	var titles: Array = TAB_TITLES[gid]
+	if titles[cur] == title:
+		for k in titles.size():
+			if not _float_wins.has(String(titles[k])):
+				cur = k
+				break
+	if gid == "a":
+		_select_tab_a(cur)
+	else:
+		_select_tab_b(cur)
+	win.visible = is_visible_in_tree()
+	_save_tab_layout()
+
+## Vuelve a acoplar la pestaña flotante `title` (mismo nodo de página).
+func dock_tab(title: String) -> void:
+	if not _float_wins.has(title):
+		return
+	var info: Dictionary = _float_wins[title]
+	var gid := String(info["gid"])
+	var win: Window = info["win"]
+	var page := _page_of(gid, title)
+	_float_wins.erase(title)
+	if is_instance_valid(win):
+		_save_float_size(title, win.size)
+	if page and is_instance_valid(_stacks.get(gid)):
+		page.remove_meta("pro_floating")
+		page.reparent(_stacks[gid], false)
+	if is_instance_valid(win):
+		if win.get_parent():
+			win.get_parent().remove_child(win)
+		win.queue_free()
+	var idx: int = (TAB_TITLES[gid] as Array).find(title)
+	if gid == "a":
+		_select_tab_a(idx)
+	else:
+		_select_tab_b(idx)
+	_save_tab_layout()
+
+func _save_float_size(title: String, sz: Vector2i) -> void:
+	var cf := ConfigFile.new()
+	cf.load(TABS_CFG)
+	cf.set_value("size", title, sz)
+	cf.save(TABS_CFG)
+
+func _save_tab_layout() -> void:
+	var cf := ConfigFile.new()
+	cf.load(TABS_CFG)
+	for gid in ["a", "b"]:
+		cf.set_value("order", gid, tab_order(gid))
+	var fl := {}
+	for t in _float_wins:
+		var w: Window = _float_wins[t]["win"]
+		fl[t] = [String(_float_wins[t]["gid"]), w.position if is_instance_valid(w) else Vector2i(-1, -1), w.size if is_instance_valid(w) else Vector2i.ZERO]
+	cf.set_value("float", "tabs", fl)
+	cf.save(TABS_CFG)
+
+func _restore_tab_layout() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(TABS_CFG) != OK:
+		return
+	for gid in ["a", "b"]:
+		var order: Array = cf.get_value("order", gid, [])
+		if not order.is_empty():
+			_apply_order(gid, order)
+	var fl: Dictionary = cf.get_value("float", "tabs", {})
+	for t in fl:
+		var e: Array = fl[t]
+		if e.size() >= 3 and not _float_wins.has(t):
+			float_tab(String(e[0]), String(t), e[1], e[2])
 
 func _select_tab_a(idx: int) -> void:
 	_tab_a = idx
