@@ -193,6 +193,15 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 		return
 	var closed: bool = bool(p.get("closed")) if "closed" in p else false
 	var subs: Array = [_curve(xf, p.curve, closed)]
+	# VAL-20: con puntas de flecha, el cuerpo sale recortado bajo la punta
+	# (como en el lienzo) y las puntas se añaden después como figuras.
+	var ptr_s: int = int(p.get("stroke_pointer_start")) if "stroke_pointer_start" in p else 0
+	var ptr_e: int = int(p.get("stroke_pointer_end")) if "stroke_pointer_end" in p else 0
+	var has_ptr := not closed and (ptr_s > 0 or ptr_e > 0) and p.has_method("_trim_for_pointers")
+	var line_pts := PackedVector2Array()
+	if has_ptr:
+		line_pts = StrokeGeomX.curve_points(p.curve)
+		subs = _lines(xf, [p._trim_for_pointers(line_pts)], false)
 	var evenodd := false
 	if "subpaths" in p:
 		for c in p.get("subpaths"):
@@ -214,10 +223,24 @@ static func _path2d(p: Path2D, xf: Transform2D, op: float, out: Dictionary) -> v
 	_add_dash(pit, p, _scale_of(xf))
 	_add_join(pit, p)
 	out["items"].append(pit)
+	if has_ptr and stroke != null and line_pts.size() >= 2:
+		var sz: float = p._pointer_size()
+		var col: Color = p._render_width_color()[1] if p.has_method("_render_width_color") else sc
+		var k := _scale_of(xf)
+		for end in [[ptr_s, true], [ptr_e, false]]:
+			if int(end[0]) <= 0:
+				continue
+			var at: Vector2 = line_pts[0] if end[1] else line_pts[line_pts.size() - 1]
+			for m in StrokeMarkersX.outline(at, p._end_dir(line_pts, end[1], sz), int(end[0]), sz, p._pointer_line_width(end[1])):
+				if m["fill"]:
+					out["items"].append(_item(_lines(xf, [m["pts"]], true), col, null, 0.0, op, 0, false))
+				else:
+					out["items"].append(_item(_lines(xf, [m["pts"]], m["closed"]), null, col, float(m["w"]) * k, op, 1, false))
 
 ## Trazo discontinuo (1) o punteado (2) → "dash": [trazo, hueco] ya escalados.
 ## El punteado se exporta como trazos de largo 0 con remate redondo.
 const StrokeGeomX = preload("res://script_gdscript/shapes/stroke_geom.gd")
+const StrokeMarkersX = preload("res://script_gdscript/shapes/stroke_markers.gd")
 ## Puntos (PDF/EPS, 72 por pulgada) por px del documento (96 por pulgada).
 const PT_PER_PX := 0.75
 const PageFieldsX = preload("res://script_gdscript/text/page_fields.gd")

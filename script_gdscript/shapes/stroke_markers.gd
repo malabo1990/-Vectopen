@@ -77,6 +77,45 @@ static func draw(ci: CanvasItem, pos: Vector2, dir: Vector2, type: int, sz: floa
 			var b2 := pos - t * sz - n * (sz * 0.5)
 			ci.draw_polyline(PackedVector2Array([pos, a2, b2, pos]), col, lw, true)
 
+## La misma punta que `draw()` como geometría, para exportar (SVG/PDF/EPS):
+## [{"pts": PackedVector2Array, "fill": bool, "closed": bool, "w": grosor}].
+static func outline(pos: Vector2, dir: Vector2, type: int, sz: float, line_w: float) -> Array:
+	if type <= 0:
+		return []
+	var t := dir.normalized()
+	var n := Vector2(-t.y, t.x)
+	var lw := maxf(1.5, line_w)
+	match type:
+		1:
+			return [{"pts": PackedVector2Array([pos - t * sz + n * (sz * 0.5), pos, pos - t * sz - n * (sz * 0.5)]), "fill": false, "closed": false, "w": lw}]
+		2:
+			return [{"pts": PackedVector2Array([pos, pos - t * sz + n * (sz * 0.5), pos - t * sz - n * (sz * 0.5)]), "fill": true, "closed": true, "w": 0.0}]
+		3:
+			return [{"pts": _circle(pos - t * (sz * 0.35), sz * 0.4), "fill": true, "closed": true, "w": 0.0}]
+		4:
+			var h := sz * 0.35
+			var c := pos - t * h
+			return [{"pts": PackedVector2Array([c + t * h + n * h, c - t * h + n * h, c - t * h - n * h, c + t * h - n * h]), "fill": true, "closed": true, "w": 0.0}]
+		5:
+			return [{"pts": PackedVector2Array([pos, pos - t * sz + n * (sz * 0.5), pos - t * (sz * 0.7), pos - t * sz - n * (sz * 0.5)]), "fill": true, "closed": true, "w": 0.0}]
+		6:
+			var h2 := sz * 0.5
+			return [{"pts": PackedVector2Array([pos, pos - t * h2 + n * (sz * 0.35), pos - t * sz, pos - t * h2 - n * (sz * 0.35)]), "fill": true, "closed": true, "w": 0.0}]
+		7:
+			return [{"pts": PackedVector2Array([pos + n * (sz * 0.5), pos - n * (sz * 0.5)]), "fill": false, "closed": false, "w": lw}]
+		8:
+			return [{"pts": _circle(pos - t * (sz * 0.35), sz * 0.35), "fill": false, "closed": true, "w": lw}]
+		9:
+			return [{"pts": PackedVector2Array([pos, pos - t * sz + n * (sz * 0.5), pos - t * sz - n * (sz * 0.5)]), "fill": false, "closed": true, "w": lw}]
+	return []
+
+static func _circle(c: Vector2, r: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in 32:
+		var a := TAU * i / 32.0
+		out.append(c + Vector2(cos(a), sin(a)) * r)
+	return out
+
 ## Acorta `pts` por el inicio (from_start) o el final una longitud `d`.
 static func trim_points(pts: PackedVector2Array, d: float, from_start: bool) -> PackedVector2Array:
 	if d <= 0.0 or pts.size() < 2:

@@ -595,3 +595,27 @@ func test_pdf_con_sangrado() -> void:
 	assert_float(b.position.x).is_equal_approx(-8.0, 1.5)   # + medio trazo
 	# Sin sangrado, sin cajas de corte.
 	assert_str(VX.to_pdf(VX.collect(_ab)).get_string_from_ascii()).not_contains("/TrimBox")
+
+## VAL-20: las puntas de flecha de un trazo salen en SVG/PDF/EPS (antes se
+## perdían) y la línea se acorta bajo una punta rellena, como en el lienzo.
+func test_puntas_de_flecha_se_exportan() -> void:
+	var ln := _api.add_line(Vector2(100, 300), Vector2(100, 100), 4.0, Color.BLACK)
+	_api.set_prop(ln, "stroke_pointer_end", 2)     # triángulo relleno
+	_api.set_prop(ln, "stroke_pointer_start", 1)   # flecha abierta
+	var items: Array = VX.collect(_ab)["items"]
+	var tri := items.filter(func(i) -> bool: return i["t"] == "path" and i["fill"] != null)
+	assert_int(tri.size()).is_equal(1)
+	# La punta del triángulo está en el extremo (100, 100).
+	var pts: Array = []
+	for o in tri[0]["subs"][0]["ops"]:
+		for k in range(1, o.size()):
+			pts.append(o[k])
+	assert_bool(pts.any(func(p) -> bool: return (p as Vector2).distance_to(Vector2(100, 100)) < 0.5)).is_true()
+	# La flecha abierta es un trazo de 3 puntos en el inicio.
+	var open := items.filter(func(i) -> bool: return i["t"] == "path" and i["fill"] == null and i["subs"][0]["ops"].size() == 3)
+	assert_int(open.size()).is_equal(1)
+	# El cuerpo termina antes del vértice (recortado bajo el triángulo).
+	var body: Dictionary = items[0]
+	var last: Vector2 = body["subs"][0]["ops"].back().back()
+	assert_float(last.y).is_greater(105.0)
+	assert_str(VX.to_svg(VX.collect(_ab))).contains("Z")
