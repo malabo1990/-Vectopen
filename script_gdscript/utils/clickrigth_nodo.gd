@@ -871,8 +871,11 @@ func _build_theme_switcher() -> void:
 		hov_sb.set_corner_radius_all(4)
 		b.add_theme_stylebox_override("hover", hov_sb)
 		var tid: String = t["id"]
+		# BUG: llamaba a tm.apply_preset(), que no existe → error de script
+		# (al jugar desde el editor, el depurador pausaba: «se congela»).
 		b.pressed.connect(func():
-			tm.apply_preset(tid)
+			tm.set_mode(tid)
+			_close_context_menus()
 		)
 		hbox.add_child(b)
 

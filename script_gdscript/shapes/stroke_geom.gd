@@ -42,10 +42,16 @@ static func curve_points(curve: Curve2D) -> PackedVector2Array:
 ## m["v"]: coordenada ATRAVÉS del trazo por vértice (borde = 0 ó 1, eje =
 ## 0,5; en uniones y remates, centro 0,5 y borde 1) — el sombreador la usa
 ## para el antialias del borde (1 px de pantalla a cualquier zoom).
-static func strip_mesh(pts: PackedVector2Array, half: PackedFloat32Array, cap_s: int, cap_e: int) -> Dictionary:
+## `joined`: uniones redondas SIN solapes (piezas que comparten arista con los
+## tramos): imprescindible para los estilos con transparencia variable
+## (aerógrafo, rotulador, lápiz), que si no marcan rayos en las curvas.
+static func strip_mesh(pts: PackedVector2Array, half: PackedFloat32Array, cap_s: int, cap_e: int, joined := false) -> Dictionary:
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "v": PackedFloat32Array()}
 	if pts.size() >= 2:
-		_strip(m, pts, half, false, cap_s, cap_e)
+		if joined:
+			_halves(m, pts, half, cap_s, cap_e)
+		else:
+			_strip(m, pts, half, false, cap_s, cap_e)
 	elif pts.size() == 1 and half.size() > 0:
 		_disc(m, pts[0], half[0])
 	return m
@@ -511,7 +517,7 @@ static func _strip_joined(m: Dictionary, pts_in: PackedVector2Array, half_in: Pa
 			r_out[i] = b
 			l_in[i] = inner
 			l_out[i] = inner
-		var poly := [inner, a]
+		var poly := [p, inner, a]   # p (eje) = centro del abanico
 		match join:
 			JOIN_ROUND:
 				var a0 := (a - p).angle()
@@ -524,22 +530,39 @@ static func _strip_joined(m: Dictionary, pts_in: PackedVector2Array, half_in: Pa
 				if mlen <= h * limit:
 					poly.append(p + mdir * s_out * mlen)
 		poly.append(b)
-		patches.append(poly)
+		patches.append([poly, s_out])
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
+	var want_v := m.has("v")
+	var vv: PackedFloat32Array = m["v"] if want_v else PackedFloat32Array()
 	for k in (n if closed else n - 1):
 		var j := (k + 1) % n
 		var v := verts.size()
 		verts.append_array([l_out[k], r_out[k], l_in[j], r_in[j]])
 		idx.append_array([v, v + 1, v + 2, v + 1, v + 3, v + 2])
-	for poly in patches:
+		if want_v:
+			vv.append_array([0.0, 1.0, 0.0, 1.0])
+	for pe in patches:
+		var poly: Array = pe[0]
 		var c := verts.size()
 		for q in poly:
 			verts.append(q)
-		for k in range(1, poly.size() - 1):
-			idx.append_array([c, c + k, c + k + 1])
+		# Abanico desde el eje (p) por todo el contorno de la pieza: el punto
+		# interior y el arco exterior; así la pieza encaja con los dos tramos.
+		var cnt := poly.size()
+		for k in range(1, cnt):
+			idx.append_array([c, c + k, c + 1 + (k % (cnt - 1))])
+		if want_v:
+			# p = eje (0,5); interior = borde del lado de dentro; arco = borde de fuera.
+			var outer_v := 0.0 if float(pe[1]) > 0.0 else 1.0
+			vv.append(0.5)
+			vv.append(1.0 - outer_v)
+			for k in range(2, cnt):
+				vv.append(outer_v)
 	m["points"] = verts
 	m["indices"] = idx
+	if want_v:
+		m["v"] = vv
 	if not closed:
 		if cap_s == 1:
 			_fan(m, pts[0], pts[0] - pts[1], half[0])
@@ -825,3 +848,120 @@ static func _area(p: PackedVector2Array) -> float:
 	for i in p.size():
 		a += p[i].cross(p[(i + 1) % p.size()])
 	return a * 0.5
+
+
+# ── trazo en dos mitades sin solapes (VGSE fase 1: cúspides y pliegues) ──────
+## Malla del trazo como DOS MITADES: del eje (v = 0,5) a cada borde (v = 0 a
+## la izquierda, 1 a la derecha). En cada borde:
+##   · lado exterior de un giro cerrado → arco redondo (todos sus puntos
+##     «cuelgan» del mismo punto del eje: abanico);
+##   · lado interior con un giro más cerrado que el grosor → el borde se
+##     cruza consigo mismo: se corta el lazo en el cruce.
+## Ningún triángulo pisa a otro: el aerógrafo, el rotulador y el lápiz (con
+## transparencia que varía a lo ancho) no marcan rayos ni pajaritas.
+static func _halves(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFloat32Array, cap_s: int, cap_e: int) -> void:
+	var pts := pts_in.duplicate()
+	var half := half_in.duplicate()
+	var n := pts.size()
+	if cap_s == 2:
+		pts[0] = pts[0] + (pts[0] - pts[1]).normalized() * half[0]
+	if cap_e == 2:
+		pts[n - 1] = pts[n - 1] + (pts[n - 1] - pts[n - 2]).normalized() * half[n - 1]
+	var cum := _cumulative(pts)
+	var sides := [_side(pts, half, 1.0), _side(pts, half, -1.0)]
+	var verts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	var vv: PackedFloat32Array = m["v"] if m.has("v") else PackedFloat32Array()
+	var axis0 := verts.size()
+	for p in pts:
+		verts.append(p)
+		vv.append(0.5)
+	for si in 2:
+		var side: Array = _cut_loops(sides[si], cum, half)
+		var sv := 0.0 if si == 0 else 1.0
+		var base := verts.size()
+		for e in side:
+			verts.append(e[0])
+			vv.append(sv)
+		# Cremallera eje ↔ borde (los dueños del borde no decrecen).
+		var k := 0
+		var o: int = side[0][1]
+		var last := side.size() - 1
+		while true:
+			if k < last and int(side[k + 1][1]) <= o:
+				idx.append_array([axis0 + o, base + k, base + k + 1])
+				k += 1
+			elif o < n - 1:
+				idx.append_array([base + k, axis0 + o, axis0 + o + 1])
+				o += 1
+			elif k < last:
+				idx.append_array([axis0 + o, base + k, base + k + 1])
+				k += 1
+			else:
+				break
+	m["points"] = verts
+	m["indices"] = idx
+	if m.has("v"):
+		m["v"] = vv
+	if cap_s == 1:
+		_fan(m, pts[0], pts[0] - pts[1], half[0])
+	if cap_e == 1:
+		_fan(m, pts[n - 1], pts[n - 1] - pts[n - 2], half[n - 1])
+
+## Un borde: [[punto, índice del eje]]. `sgn` +1 izquierda (+n), -1 derecha.
+static func _side(pts: PackedVector2Array, half: PackedFloat32Array, sgn: float) -> Array:
+	var n := pts.size()
+	var out: Array = []
+	for i in n:
+		var d0 := (pts[i] - pts[i - 1]).normalized() if i > 0 else (pts[1] - pts[0]).normalized()
+		var d1 := (pts[i + 1] - pts[i]).normalized() if i < n - 1 else d0
+		var n0 := Vector2(-d0.y, d0.x) * sgn
+		var n1 := Vector2(-d1.y, d1.x) * sgn
+		var h := half[i]
+		var mdir := n0 + n1
+		var outer := d0.cross(d1) * sgn < 0.0
+		if mdir.length_squared() < 1e-8:
+			out.append([pts[i] + n0 * h, i])
+			out.append([pts[i] + n1 * h, i])
+			continue
+		mdir = mdir.normalized()
+		var mlen := h / maxf(mdir.dot(n1), 0.0001)
+		if outer and mlen > h * 1.02:
+			# Exterior de un giro: arco redondo colgado del punto del eje.
+			for q in _arc(pts[i], n0 * h, n1 * h):
+				out.append([q, i])
+		else:
+			# Recto o interior: inglete (si se pasa, lo corta _cut_loops).
+			out.append([pts[i] + mdir * minf(mlen, h * 16.0), i])
+	return out
+
+## Quita los lazos de un borde (lado interior de un giro más cerrado que el
+## grosor): busca cruces con tramos cercanos y los sustituye por el punto de
+## cruce, que hereda el dueño del primer punto quitado (abanico en el eje).
+static func _cut_loops(side: Array, cum: PackedFloat32Array, half: PackedFloat32Array) -> Array:
+	var out: Array = side.duplicate()
+	var i := 0
+	while i < out.size() - 3:
+		var a: Vector2 = out[i][0]
+		var b: Vector2 = out[i + 1][0]
+		var reach := half[int(out[i][1])] * 4.0 + 1.0
+		var hit := -1
+		var x := Vector2.ZERO
+		var c0 := cum[int(out[i][1])]
+		var j := i + 2
+		# Solo los tramos cercanos (a pocos grosores); el cruce más lejano corta
+		# el lazo entero de una vez.
+		while j < out.size() - 1 and cum[int(out[j][1])] - c0 <= reach:
+			var r = Geometry2D.segment_intersects_segment(a, b, out[j][0], out[j + 1][0])
+			if r != null:
+				hit = j
+				x = r
+			j += 1
+		if hit >= 0:
+			var owner: int = out[i + 1][1]
+			var cut: Array = out.slice(0, i + 1)
+			cut.append([x, owner])
+			cut.append_array(out.slice(hit + 1))
+			out = cut
+		i += 1
+	return out

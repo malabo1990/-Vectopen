@@ -59,7 +59,9 @@ void fragment() {
 		c.a *= 0.8 + 0.2 * pow(1.0 - e, 3.0);
 	} else if (style == 3) {
 		// Aerógrafo: caída gaussiana a lo ancho con un poco de pulverizado.
-		c.a *= exp(-3.6 * (1.0 - e) * (1.0 - e)) * (0.88 + 0.12 * hash(floor(local_pos * 1.7)));
+		// Pulverizado por píxel de pantalla (antes en cuadros del lienzo, que
+		// con mucho zoom se veían como un damero).
+		c.a *= exp(-3.6 * (1.0 - e) * (1.0 - e)) * (0.9 + 0.1 * hash(floor(FRAGCOORD.xy)));
 	}
 	c.a *= clamp(e / w + 0.5, 0.0, 1.0);
 	COLOR = c;

@@ -69,12 +69,13 @@ func stroke(pts: Array, pr: Array) -> Node:
 	await frames(6)
 	return ab.get_child(ab.get_child_count() - 1) if ab.get_child_count() > before else null
 
-func crop(name: String, rect: Rect2) -> void:
+func crop(name: String, rect: Rect2, scale := 3) -> void:
 	await RenderingServer.frame_post_draw
 	var img := root.get_texture().get_image()
 	var r := Rect2i(rect).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 	var c := img.get_region(r)
-	c.resize(c.get_width() * 3, c.get_height() * 3, Image.INTERPOLATE_NEAREST)
+	if scale > 1:
+		c.resize(c.get_width() * scale, c.get_height() * scale, Image.INTERPOLATE_NEAREST)
 	c.save_png(OUT.path_join(name + ".png"))
 
 ## Picos de alfa a lo largo de un trazo semitransparente: con solapes se ven
@@ -229,6 +230,43 @@ func _run() -> void:
 		root.get_node("SelectionManager").clear()
 		await frames(4)
 		await crop("estilo_%s" % st, Rect2(o6 - Vector2(20, 50), Vector2(340, 100)))
+	# 7) Zoom ×8 en un giro cerrado (como en la prueba del usuario a 1071 %):
+	#    sin rayos ni costuras en rotulador, aerógrafo y lápiz.
+	var zooms := []
+	var ox := vs.x * 0.30
+	for st in ["marker", "airbrush", "pencil"]:
+		bt.apply_brush_style(st)
+		bt.brush_width = 24.0
+		var a7 := Vector2(ox, vs.y * 0.55)
+		var p7 := []
+		var r7 := []
+		for i in 30:
+			p7.append(a7 + Vector2(i * 2.0, -i * 3.0))
+			r7.append(0.9)
+		for i in 30:
+			p7.append(a7 + Vector2(60.0 + i * 2.0, -90.0 + i * 3.0))
+			r7.append(0.9)
+		await stroke(p7, r7)
+		zooms.append([st, a7 + Vector2(60, -90)])
+		ox += 170.0
+	root.get_node("SelectionManager").clear()
+	canvas.switch_tool("move")
+	await frames(4)
+	var cam: Camera2D = canvas.camera
+	var keep_pos := cam.position
+	var keep_zoom := cam.zoom
+	for z in zooms:
+		var world: Vector2 = canvas.get_viewport().get_canvas_transform().affine_inverse() * (z[1] as Vector2)
+		cam.position = world
+		cam.zoom = keep_zoom * 8.0
+		await frames(8)
+		await crop("zoom_%s" % z[0], Rect2(vs / 2.0 - Vector2(300, 200), Vector2(600, 400)), 1)
+		cam.position = keep_pos
+		cam.zoom = keep_zoom
+		await frames(4)
+	canvas.switch_tool("brush")
+	await frames(2)
+	bt = canvas.current_tool
 	bt.apply_brush_style("pen")
 	bt.brush_width = 16.0
 	canvas.switch_tool("move")

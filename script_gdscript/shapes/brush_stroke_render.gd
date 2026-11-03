@@ -115,7 +115,7 @@ func _draw() -> void:
 	var cum: PackedFloat32Array = ax[2]
 	var n := pts.size()
 	var total := maxf(cum[n - 1], 0.0001)
-	var m := StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode))
+	var m := StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
