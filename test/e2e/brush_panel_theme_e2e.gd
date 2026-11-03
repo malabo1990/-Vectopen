@@ -47,7 +47,21 @@ func extra_checks(panel: Control, theme: String, mode: String) -> void:
 		tex_ok = tex_ok and BSR.style_id(l) > 0
 		l.free()
 	check("%s/%s: el render pinta el estilo de cada pincel (sombreador)" % [theme, mode], tex_ok)
-	for f in ["FieldSize", "FieldOpacity"]:
+	# USR-09: compacto, sin deslizadores, y nunca tapado por el borde.
+	check("%s/%s: sin deslizadores (solo casillas numéricas)" % [theme, mode], panel.find_children("*", "HSlider", true, false).is_empty())
+	await frames(4)
+	var vp: Vector2 = root.get_visible_rect().size
+	var pr: Rect2 = panel.get_global_rect()
+	check("%s/%s: el panel cabe entero en la ventana" % [theme, mode], pr.position.y >= 0.0 and pr.end.y <= vp.y + 0.5 and pr.position.x >= 0.0 and pr.end.x <= vp.x + 0.5, "%s en %s" % [pr, vp])
+	var last := panel.find_child("FieldPressureSmooth", true, false) as Control
+	var sc := panel.find_child("Scroll", true, false) as ScrollContainer
+	var reach := last != null and (pr.encloses(last.get_global_rect()) or (sc != null and sc.get_v_scroll_bar().visible))
+	check("%s/%s: lo de abajo se ve o se llega desplazando" % [theme, mode], reach)
+	var bt = panel._get_brush_tool()
+	var pm := panel.find_child("FieldPressureMin", true, false)
+	if bt and pm:
+		check("%s/%s: el panel muestra los valores del pincel" % [theme, mode], absf(pm.value - bt.pressure_min * 100.0) < 0.6 and absf(panel.find_child("FieldSize", true, false).value - bt.brush_width) < 0.01, "mín %s vs %s" % [pm.value, bt.pressure_min * 100.0])
+	for f in ["FieldSize", "FieldOpacity", "FieldPressureMin", "FieldPressureSmooth"]:
 		var c := panel.find_child(f, true, false)
 		check("%s/%s: %s es el campo numérico común" % [theme, mode, f], c is NumericField)
 	if theme == "light" and mode == "modern" and styles:

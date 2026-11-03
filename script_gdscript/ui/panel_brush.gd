@@ -13,9 +13,7 @@ var _header_title: Label
 @warning_ignore("unused_private_class_variable")
 var _btn_close: Button
 var _spin_size: NumericField
-var _slider_size: HSlider
 var _spin_opacity: NumericField
-var _slider_opacity: HSlider
 var _opt_smoothing: OptionButton
 var _style_buttons: Dictionary = {}
 var _hint_label: Label
@@ -24,11 +22,9 @@ var _hint_label: Label
 var _pressure_bar: ProgressBar
 var _pressure_status: Label
 var _chk_pressure: CheckBox
-var _slider_pmin: HSlider
-var _lbl_pmin: Label
+var _spin_pmin: NumericField
 var _opt_pcurve: OptionButton
-var _slider_psmooth: HSlider
-var _lbl_psmooth: Label
+var _spin_psmooth: NumericField
 var _chk_speed: CheckBox
 var _pressure_labels: Array[Label] = []
 
@@ -60,6 +56,7 @@ func _ready() -> void:
 	_connect_theme()
 	_apply_theme()
 	_sync_from_tool()
+	get_viewport().size_changed.connect(func() -> void: _keep_on_screen.call_deferred())
 
 # ── Conexión con Eventos y Tema ───────────────────────────────────────────────
 
@@ -86,145 +83,55 @@ func _on_request_brush_panel() -> void:
 	visible = true
 	move_to_front()
 	_sync_from_tool()
+	_keep_on_screen.call_deferred()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and is_visible_in_tree():
+		# Al mostrarse lee los valores de la herramienta (antes enseñaba los
+		# de fábrica del panel: «Mínimo 0 %», presión desmarcada).
+		(func() -> void:
+			_sync_from_tool()
+			_keep_on_screen()).call_deferred()
 
 # ── Construcción de la Interfaz Gráfica ─────────────────────────────────────────
 
+## USR-09: diseño COMPACTO. Sin deslizadores (las casillas numéricas ya
+## permiten escribir, arrastrar y la rueda): primero el estilo, luego
+## grosor y opacidad en una fila, suavizado y la presión resumida. Si no
+## cabe en la pantalla se desplaza dentro del panel y nunca queda tapado.
 func _build_ui() -> void:
 	for child in get_children():
 		child.queue_free()
 
+	_scroll = ScrollContainer.new()
+	_scroll.name = "Scroll"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(_scroll)
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_right", 14)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 14)
-	add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for k in ["margin_left", "margin_right"]:
+		margin.add_theme_constant_override(k, 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	_scroll.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", 10)
+	root_vbox.name = "Content"
+	root_vbox.add_theme_constant_override("separation", 7)
 	margin.add_child(root_vbox)
 
-	# 1. Cabecera (Header)
-	var header := HBoxContainer.new()
-	header.alignment = BoxContainer.ALIGNMENT_CENTER
-	root_vbox.add_child(header)
-
 	_header_title = Label.new()
-	_header_title.text = "Pincel y estilos"
-	_header_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_header_title.text = tr("Pincel y estilos")
 	_header_title.add_theme_font_size_override("font_size", 13)
-	header.add_child(_header_title)
+	root_vbox.add_child(_header_title)
 
-	# Sin botón de cerrar: ocultaba el panel y no había forma de volver a abrirlo
-	# (se muestra solo con su herramienta).
-
-	# Separador
-	root_vbox.add_child(_create_h_separator())
-
-	# 2. Control de Tamaño (Grosor)
-	var size_box := VBoxContainer.new()
-	size_box.add_theme_constant_override("separation", 4)
-	root_vbox.add_child(size_box)
-
-	var size_header := HBoxContainer.new()
-	size_box.add_child(size_header)
-
-	var lbl_size := Label.new()
-	lbl_size.text = "Grosor"
-	lbl_size.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl_size.add_theme_font_size_override("font_size", 11)
-	size_header.add_child(lbl_size)
-	_row_labels.append(lbl_size)
-
-	_spin_size = NumericField.new("", " px", 0.5, 100.0, 0.5)
-	_spin_size.name = "FieldSize"
-	_spin_size.decimals = 1
-	_spin_size.value = 4.0
-	_spin_size.custom_minimum_size = Vector2(72, 24)
-	_spin_size.value_changed.connect(_on_size_spin_changed)
-	size_header.add_child(_spin_size)
-
-	_slider_size = HSlider.new()
-	_slider_size.min_value = 0.5
-	_slider_size.max_value = 100.0
-	_slider_size.step = 0.5
-	_slider_size.value = 4.0
-	_slider_size.value_changed.connect(_on_size_slider_changed)
-	size_box.add_child(_slider_size)
-
-	# 3. Control de Opacidad
-	var op_box := VBoxContainer.new()
-	op_box.add_theme_constant_override("separation", 4)
-	root_vbox.add_child(op_box)
-
-	var op_header := HBoxContainer.new()
-	op_box.add_child(op_header)
-
-	var lbl_op := Label.new()
-	lbl_op.text = "Opacidad"
-	lbl_op.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl_op.add_theme_font_size_override("font_size", 11)
-	op_header.add_child(lbl_op)
-	_row_labels.append(lbl_op)
-
-	_spin_opacity = NumericField.new("", " %", 5.0, 100.0, 1.0)
-	_spin_opacity.name = "FieldOpacity"
-	_spin_opacity.decimals = 0
-	_spin_opacity.value = 100.0
-	_spin_opacity.custom_minimum_size = Vector2(72, 24)
-	_spin_opacity.value_changed.connect(_on_opacity_spin_changed)
-	op_header.add_child(_spin_opacity)
-
-	_slider_opacity = HSlider.new()
-	_slider_opacity.min_value = 5.0
-	_slider_opacity.max_value = 100.0
-	_slider_opacity.step = 1.0
-	_slider_opacity.value = 100.0
-	_slider_opacity.value_changed.connect(_on_opacity_slider_changed)
-	op_box.add_child(_slider_opacity)
-
-	# 4. Suavizado / Estabilizador
-	var smooth_row := HBoxContainer.new()
-	smooth_row.add_theme_constant_override("separation", 8)
-	root_vbox.add_child(smooth_row)
-
-	var lbl_smooth := Label.new()
-	lbl_smooth.text = "Suavizado"
-	lbl_smooth.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl_smooth.add_theme_font_size_override("font_size", 11)
-	smooth_row.add_child(lbl_smooth)
-	_row_labels.append(lbl_smooth)
-
-	_opt_smoothing = OptionButton.new()
-	_opt_smoothing.add_item("Rápido (Boceto)", 0)
-	_opt_smoothing.add_item("Equilibrado", 1)
-	_opt_smoothing.add_item("Alto (Preciso)", 2)
-	_opt_smoothing.add_item("Ultra Suave", 3)
-	_opt_smoothing.select(1)
-	_opt_smoothing.custom_minimum_size = Vector2(130, 26)
-	_opt_smoothing.item_selected.connect(_on_smoothing_selected)
-	smooth_row.add_child(_opt_smoothing)
-
-	# Separador
-	root_vbox.add_child(_create_h_separator())
-	_build_pressure_ui(root_vbox)
-	root_vbox.add_child(_create_h_separator())
-
-	# 5. Tabla / Grid de Estilos (Krita / Blender)
-	var lbl_styles := Label.new()
-	lbl_styles.text = "Estilos de pincel"
-	root_vbox.add_child(lbl_styles)
-	_section_labels.append(lbl_styles)
-
-	# Dos columnas (como antes, el panel no crece): nombre a la izquierda y
-	# muestra del trazo a la derecha.
+	# 1. Estilos (dos columnas: nombre + muestra real del trazo)
 	var grid := GridContainer.new()
 	grid.name = "BrushStyles"
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("v_separation", 5)
 	root_vbox.add_child(grid)
-
 	_style_buttons.clear()
 	for info in STYLES_INFO:
 		var btn := Button.new()
@@ -232,17 +139,17 @@ func _build_ui() -> void:
 		btn.text = tr(String(info["name"]))
 		btn.tooltip_text = tr(String(info["desc"]))
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size = Vector2(0, 30)
+		btn.custom_minimum_size = Vector2(0, 28)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.toggle_mode = true
+		btn.add_theme_font_size_override("font_size", 11)
 		var glyph := _BrushGlyph.new(String(info["id"]))
 		glyph.name = "Sample"
 		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		glyph.anchor_left = 0.56
 		glyph.anchor_right = 1.0
 		glyph.anchor_bottom = 1.0
-		glyph.offset_left = 0
 		glyph.offset_right = -6
 		glyph.offset_top = 4
 		glyph.offset_bottom = -4
@@ -252,112 +159,168 @@ func _build_ui() -> void:
 		grid.add_child(btn)
 		_style_buttons[s_id] = btn
 
-	# 6. Atajos y Ayuda Rápida
+	root_vbox.add_child(_create_h_separator())
+
+	# 2. Grosor y opacidad en una fila; suavizado debajo
+	var fields := GridContainer.new()
+	fields.name = "Fields"
+	fields.columns = 4
+	fields.add_theme_constant_override("h_separation", 6)
+	fields.add_theme_constant_override("v_separation", 6)
+	root_vbox.add_child(fields)
+	_spin_size = NumericField.new("", " px", 0.5, 100.0, 0.5)
+	_spin_size.name = "FieldSize"
+	_spin_size.decimals = 1
+	_spin_size.value = 4.0
+	_spin_size.value_changed.connect(_on_size_spin_changed)
+	_field_pair(fields, "Grosor", _spin_size)
+	_spin_opacity = NumericField.new("", " %", 5.0, 100.0, 1.0)
+	_spin_opacity.name = "FieldOpacity"
+	_spin_opacity.decimals = 0
+	_spin_opacity.value = 100.0
+	_spin_opacity.value_changed.connect(_on_opacity_spin_changed)
+	_field_pair(fields, "Opacidad", _spin_opacity)
+
+	var smooth_row := HBoxContainer.new()
+	smooth_row.add_theme_constant_override("separation", 6)
+	root_vbox.add_child(smooth_row)
+	var lbl_smooth := Label.new()
+	lbl_smooth.text = tr("Suavizado")
+	lbl_smooth.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl_smooth.add_theme_font_size_override("font_size", 11)
+	smooth_row.add_child(lbl_smooth)
+	_row_labels.append(lbl_smooth)
+	_opt_smoothing = OptionButton.new()
+	_opt_smoothing.add_item(tr("Rápido (Boceto)"), 0)
+	_opt_smoothing.add_item(tr("Equilibrado"), 1)
+	_opt_smoothing.add_item(tr("Alto (Preciso)"), 2)
+	_opt_smoothing.add_item(tr("Ultra Suave"), 3)
+	_opt_smoothing.select(1)
+	_opt_smoothing.custom_minimum_size = Vector2(150, 24)
+	_opt_smoothing.focus_mode = Control.FOCUS_NONE
+	_opt_smoothing.item_selected.connect(_on_smoothing_selected)
+	smooth_row.add_child(_opt_smoothing)
+
+	root_vbox.add_child(_create_h_separator())
+	_build_pressure_ui(root_vbox)
+
 	_hint_label = Label.new()
-	_hint_label.text = "Shift: Grosor  |  Ctrl: Eje recto  |  Alt: Línea continua"
+	_hint_label.text = tr("Mayús: grosor  ·  Ctrl: recta  ·  Alt: continuar")
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label.add_theme_font_size_override("font_size", 9)
 	root_vbox.add_child(_hint_label)
+	_keep_on_screen.call_deferred()
 
-## Sección "Presión del lápiz": medidor en vivo (para ver si llega la
-## presión de la tableta) + sensor de tamaño: mínimo, curva, estabilizado y
-## presión simulada por velocidad para el ratón.
+var _scroll: ScrollContainer
+
+## Etiqueta + casilla numérica dentro de una rejilla de 4 columnas.
+func _field_pair(grid: GridContainer, text: String, field: NumericField) -> void:
+	var l := Label.new()
+	l.text = tr(text)
+	l.add_theme_font_size_override("font_size", 11)
+	grid.add_child(l)
+	_row_labels.append(l)
+	field.custom_minimum_size = Vector2(76, 24)
+	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(field)
+
+## Presión del lápiz, resumida: medidor en la misma fila que el título,
+## mínimo y estabilizado como casillas numéricas.
 func _build_pressure_ui(parent: VBoxContainer) -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	parent.add_child(head)
 	var title := Label.new()
-	title.text = "Presión del lápiz"
-	parent.add_child(title)
+	title.text = tr("Presión del lápiz")
+	head.add_child(title)
 	_section_labels.append(title)
-
-	var meter := HBoxContainer.new()
-	meter.add_theme_constant_override("separation", 8)
-	parent.add_child(meter)
 	_pressure_bar = ProgressBar.new()
 	_pressure_bar.min_value = 0.0
 	_pressure_bar.max_value = 100.0
 	_pressure_bar.show_percentage = false
-	_pressure_bar.custom_minimum_size = Vector2(70, 8)
+	_pressure_bar.custom_minimum_size = Vector2(40, 6)
 	_pressure_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pressure_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_pressure_bar.tooltip_text = "Presión que llega ahora mismo del lápiz"
-	meter.add_child(_pressure_bar)
+	_pressure_bar.tooltip_text = tr("Presión que llega ahora mismo del lápiz")
+	head.add_child(_pressure_bar)
 	_pressure_status = Label.new()
 	_pressure_status.add_theme_font_size_override("font_size", 10)
-	_pressure_status.custom_minimum_size = Vector2(118, 0)
-	meter.add_child(_pressure_status)
+	head.add_child(_pressure_status)
 	_pressure_labels.append(_pressure_status)
 
 	_chk_pressure = CheckBox.new()
-	_chk_pressure.text = "Grosor según la presión"
+	_chk_pressure.text = tr("Grosor según la presión")
 	_chk_pressure.focus_mode = Control.FOCUS_NONE
 	_chk_pressure.add_theme_font_size_override("font_size", 11)
 	_chk_pressure.toggled.connect(func(on: bool) -> void: _set_pressure("pressure_size_enabled", on))
 	parent.add_child(_chk_pressure)
 
-	var r1 := _pressure_row(parent, "Grosor mínimo")
-	_slider_pmin = HSlider.new()
-	_slider_pmin.min_value = 0
-	_slider_pmin.max_value = 100
-	_slider_pmin.step = 1
-	_slider_pmin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_slider_pmin.tooltip_text = "Grosor con la presión mínima (porcentaje del grosor del pincel)"
-	r1.add_child(_slider_pmin)
-	_lbl_pmin = _value_label(r1)
-	_slider_pmin.value_changed.connect(func(v: float) -> void:
-		_lbl_pmin.text = "%d %%" % int(v)
-		_set_pressure("pressure_min", v / 100.0))
+	var g := GridContainer.new()
+	g.name = "PressureFields"
+	g.columns = 4
+	g.add_theme_constant_override("h_separation", 6)
+	g.add_theme_constant_override("v_separation", 6)
+	parent.add_child(g)
+	_spin_pmin = NumericField.new("", " %", 0.0, 100.0, 1.0)
+	_spin_pmin.name = "FieldPressureMin"
+	_spin_pmin.decimals = 0
+	_spin_pmin.tooltip_text = tr("Grosor con la presión mínima (porcentaje del grosor del pincel)")
+	_spin_pmin.value_changed.connect(func(v: float) -> void: _set_pressure("pressure_min", v / 100.0))
+	_field_pair(g, "Mínimo", _spin_pmin)
+	_spin_psmooth = NumericField.new("", " %", 0.0, 90.0, 5.0)
+	_spin_psmooth.name = "FieldPressureSmooth"
+	_spin_psmooth.decimals = 0
+	_spin_psmooth.tooltip_text = tr("Filtra el temblor de la presión (más = grosor más uniforme)")
+	_spin_psmooth.value_changed.connect(func(v: float) -> void: _set_pressure("pressure_smoothing", v / 100.0))
+	_field_pair(g, "Estabilizar", _spin_psmooth)
 
-	var r2 := _pressure_row(parent, "Curva")
+	var r2 := HBoxContainer.new()
+	r2.add_theme_constant_override("separation", 6)
+	parent.add_child(r2)
+	var lc := Label.new()
+	lc.text = tr("Curva")
+	lc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lc.add_theme_font_size_override("font_size", 11)
+	r2.add_child(lc)
+	_row_labels.append(lc)
 	_opt_pcurve = OptionButton.new()
 	for c in _CURVES:
-		_opt_pcurve.add_item(c[0])
-	_opt_pcurve.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_opt_pcurve.add_item(tr(c[0]))
+	_opt_pcurve.custom_minimum_size = Vector2(150, 24)
 	_opt_pcurve.focus_mode = Control.FOCUS_NONE
-	_opt_pcurve.tooltip_text = "Suave: poca fuerza ya engorda · Firme: hay que apretar más"
+	_opt_pcurve.tooltip_text = tr("Suave: poca fuerza ya engorda · Firme: hay que apretar más")
 	_opt_pcurve.item_selected.connect(func(i: int) -> void: _set_pressure("pressure_gamma", float(_CURVES[i][1])))
 	r2.add_child(_opt_pcurve)
 
-	var r3 := _pressure_row(parent, "Estabilizar")
-	_slider_psmooth = HSlider.new()
-	_slider_psmooth.min_value = 0
-	_slider_psmooth.max_value = 90
-	_slider_psmooth.step = 5
-	_slider_psmooth.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_slider_psmooth.tooltip_text = "Filtra el temblor de la presión (más = grosor más uniforme)"
-	r3.add_child(_slider_psmooth)
-	_lbl_psmooth = _value_label(r3)
-	_slider_psmooth.value_changed.connect(func(v: float) -> void:
-		_lbl_psmooth.text = "%d %%" % int(v)
-		_set_pressure("pressure_smoothing", v / 100.0))
-
 	_chk_speed = CheckBox.new()
-	_chk_speed.text = "Sin lápiz: simular con la velocidad"
-	_chk_speed.tooltip_text = "Con ratón: rápido = fino, lento = grueso"
+	_chk_speed.text = tr("Sin lápiz: simular con la velocidad")
+	_chk_speed.tooltip_text = tr("Con ratón: rápido = fino, lento = grueso")
 	_chk_speed.focus_mode = Control.FOCUS_NONE
 	_chk_speed.add_theme_font_size_override("font_size", 11)
 	_chk_speed.toggled.connect(func(on: bool) -> void: _set_pressure("speed_pressure", on))
 	parent.add_child(_chk_speed)
 	set_process(true)
 
-func _pressure_row(parent: Control, text: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	parent.add_child(row)
-	var l := Label.new()
-	l.text = text
-	l.custom_minimum_size = Vector2(84, 0)
-	l.add_theme_font_size_override("font_size", 11)
-	row.add_child(l)
-	_pressure_labels.append(l)
-	return row
-
-func _value_label(row: Control) -> Label:
-	var l := Label.new()
-	l.custom_minimum_size = Vector2(36, 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	l.add_theme_font_size_override("font_size", 10)
-	row.add_child(l)
-	_pressure_labels.append(l)
-	return l
+## Que el panel quepa siempre en la ventana: si sobresale por abajo (o por
+## arriba) se sube, y si es más alto que la ventana se limita y se desplaza
+## por dentro. Antes la parte de abajo quedaba tapada por el borde.
+func _keep_on_screen() -> void:
+	if not is_inside_tree() or not visible or _scroll == null:
+		return
+	var vp := get_viewport_rect().size
+	var content := _scroll.get_child(0) as Control
+	var want := content.get_combined_minimum_size().y if content else size.y
+	var room := vp.y - 16.0
+	_scroll.custom_minimum_size.y = minf(want, room - 4.0)
+	reset_size()
+	var r := get_global_rect()
+	var dy := 0.0
+	if r.end.y > vp.y - 8.0:
+		dy = vp.y - 8.0 - r.end.y
+	if r.position.y + dy < 8.0:
+		dy = 8.0 - r.position.y
+	if dy != 0.0:
+		global_position.y += dy
 
 func _set_pressure(prop: String, v: Variant) -> void:
 	if _syncing:
@@ -371,15 +334,13 @@ func _sync_pressure_ui(tool) -> void:
 	if not is_instance_valid(_chk_pressure) or tool == null:
 		return
 	_chk_pressure.button_pressed = tool.pressure_size_enabled
-	_slider_pmin.value = tool.pressure_min * 100.0
-	_lbl_pmin.text = "%d %%" % int(round(tool.pressure_min * 100.0))
+	_spin_pmin.set_value_silent(round(tool.pressure_min * 100.0))
 	var best := 0
 	for i in _CURVES.size():
 		if absf(float(_CURVES[i][1]) - tool.pressure_gamma) < absf(float(_CURVES[best][1]) - tool.pressure_gamma):
 			best = i
 	_opt_pcurve.select(best)
-	_slider_psmooth.value = tool.pressure_smoothing * 100.0
-	_lbl_psmooth.text = "%d %%" % int(round(tool.pressure_smoothing * 100.0))
+	_spin_psmooth.set_value_silent(round(tool.pressure_smoothing * 100.0))
 	_chk_speed.button_pressed = tool.speed_pressure
 
 ## Medidor en vivo: así se ve al momento si la tableta manda presión.
@@ -388,14 +349,14 @@ func _process(_dt: float) -> void:
 		return
 	var tool = _get_brush_tool()
 	if tool == null:
-		_pressure_status.text = "Pincel no activo"
+		_pressure_status.text = tr("Pincel no activo")
 		_pressure_bar.value = 0.0
 		return
 	_pressure_bar.value = clampf(tool.live_pressure, 0.0, 1.0) * 100.0
 	if tool.pen_detected:
 		_pressure_status.text = tr("Lápiz: %d %%") % int(round(tool.live_pressure * 100.0))
 	else:
-		_pressure_status.text = "Sin lápiz (ratón)"
+		_pressure_status.text = tr("Sin lápiz (ratón)")
 
 func _create_h_separator() -> HSeparator:
 	var sep := HSeparator.new()
@@ -425,51 +386,23 @@ func _sync_from_tool() -> void:
 	if tool:
 		if is_instance_valid(_spin_size):
 			_spin_size.set_value_silent(tool.brush_width)
-		if is_instance_valid(_slider_size):
-			_slider_size.value = tool.brush_width
 		if is_instance_valid(_spin_opacity):
 			_spin_opacity.set_value_silent(tool.brush_opacity * 100.0)
-		if is_instance_valid(_slider_opacity):
-			_slider_opacity.value = tool.brush_opacity * 100.0
 		_update_active_style_button(tool.brush_style)
 		_sync_pressure_ui(tool)
 	_syncing = false
 
-func _on_size_slider_changed(val: float) -> void:
-	if _syncing: return
-	_syncing = true
-	_spin_size.set_value_silent(val)
-	var tool = _get_brush_tool()
-	if tool:
-		tool.brush_width = val
-	_syncing = false
-
 func _on_size_spin_changed(val: float) -> void:
 	if _syncing: return
-	_syncing = true
-	_slider_size.value = val
 	var tool = _get_brush_tool()
 	if tool:
 		tool.brush_width = val
-	_syncing = false
-
-func _on_opacity_slider_changed(val: float) -> void:
-	if _syncing: return
-	_syncing = true
-	_spin_opacity.set_value_silent(val)
-	var tool = _get_brush_tool()
-	if tool:
-		tool.brush_opacity = val / 100.0
-	_syncing = false
 
 func _on_opacity_spin_changed(val: float) -> void:
 	if _syncing: return
-	_syncing = true
-	_slider_opacity.value = val
 	var tool = _get_brush_tool()
 	if tool:
 		tool.brush_opacity = val / 100.0
-	_syncing = false
 
 func _on_smoothing_selected(idx: int) -> void:
 	var tool = _get_brush_tool()
