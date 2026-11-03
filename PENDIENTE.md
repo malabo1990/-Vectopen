@@ -1,7 +1,7 @@
 # PENDIENTE — Lo que queda por hacer
 
 **Proyecto:** Vectopen (Godot 4.7, GDScript)
-**Fecha:** 2026-11-03 · versión publicada: **0.2.1-beta**
+**Fecha:** 2026-11-03 · versión publicada: **0.2.2-beta**
 **Solo trabajo abierto.** Lo terminado sale de este documento: la versión
 completa anterior (Fase A UX-01…UX-24, REG-01…03, DBG-01…11 y la Fase B
 hasta el encargo 10, con todas sus resoluciones) está en
@@ -23,7 +23,20 @@ Un encargo o incidencia por iteración:
 
 ---
 
-## 1. Funciones nuevas para la 0.2.2
+## 0 bis. Tanda del usuario (2026-11-03) — en curso
+
+| ID | Petición | Estado |
+|---|---|---|
+| USR-01 | Smart: quitar abajo-izquierda Shader/Script/Vectorizar/Complementos (repetidos en Efectos) | Hecho (`c2ea826`) |
+| USR-02 | Texto y párrafo: duplicar con Alt + arrastrar (y Ctrl+D / pegar) | Hecho (`c905ecc`) |
+| USR-03 | Panel «Teclado y ratón»: corregir y mejorar la UI | Pendiente |
+| USR-04 | Teclado simulado: ver qué teclas tienen atajo y cuáles están libres | Pendiente |
+| USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Pendiente |
+| USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Pendiente |
+
+---
+
+## 1. Funciones nuevas para la 0.2.3
 
 Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.
 
