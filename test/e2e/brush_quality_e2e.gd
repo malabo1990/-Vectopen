@@ -194,6 +194,45 @@ func _run() -> void:
 	var tones := await alpha_spots(Rect2(c4 - Vector2(120, 55), Vector2(240, 110)), Color.BLACK)
 	check("lazo semitransparente sin manchas de solape", tones <= 2, "%d tonos" % tones)
 	check("borde con antialias (tonos intermedios)", aa_levels >= 6, "%d niveles" % aa_levels)
+	# 6) Estilos (lápiz, rotulador, aerógrafo, caligráfico): mismo render
+	#    mientras se dibuja y al soltar; recortes en vivo y final.
+	var oy := vs.y * 0.12
+	canvas.switch_tool("brush")
+	await frames(4)
+	bt = canvas.current_tool
+	for st in ["pencil", "marker", "airbrush", "calligraphy"]:
+		bt.apply_brush_style(st)
+		bt.brush_width = 18.0
+		var o6 := Vector2(vs.x * 0.62, oy)
+		oy += 110.0
+		var p6 := []
+		var r6 := []
+		for i in 70:
+			var t := i / 69.0
+			p6.append(o6 + Vector2(t * 300.0, sin(t * TAU) * 30.0))
+			r6.append(clampf(0.3 + 0.7 * sin(t * PI), 0.1, 1.0))
+		var ab6 = canvas.get_node("manager_script").get_active_artboard()
+		await move(p6[0], false, 0.0)
+		await btn(p6[0], true)
+		var live_ok := false
+		for i in p6.size():
+			await move(p6[i], true, r6[i])
+			if i == 45:
+				var cur: Node = ab6.get_child(ab6.get_child_count() - 1)
+				live_ok = cur is Line2D and cur.get_node_or_null("StrokeRender") != null
+				await crop("estilo_%s_vivo" % st, Rect2(o6 - Vector2(20, 50), Vector2(340, 100)))
+		await btn(p6[p6.size() - 1], false)
+		await frames(6)
+		var fin: Node = ab6.get_child(ab6.get_child_count() - 1)
+		check("%s: se ve con el render de calidad mientras se dibuja" % st, live_ok)
+		check("%s: el trazo final también" % st, fin is Line2D and fin.get_node_or_null("StrokeRender") != null and (fin as Line2D).texture == null)
+		root.get_node("SelectionManager").clear()
+		await frames(4)
+		await crop("estilo_%s" % st, Rect2(o6 - Vector2(20, 50), Vector2(340, 100)))
+	bt.apply_brush_style("pen")
+	bt.brush_width = 16.0
+	canvas.switch_tool("move")
+	await frames(4)
 	# Convertir trazo en contorno (Ctrl+Mayús+O real): se ve igual.
 	for pair in [[s1, Rect2(o - Vector2(30, 90), Vector2(400, 180)), "presion"], [s4, Rect2(c4 - Vector2(130, 65), Vector2(260, 130)), "lazo"]]:
 		var line: Node = pair[0]

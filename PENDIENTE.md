@@ -39,7 +39,7 @@ Un encargo o incidencia por iteración:
 | ID | Petición | Estado |
 |---|---|---|
 | USR-07 | Doble clic / «Abrir con» abre en Vectopen: vtp, svg, eps, ai, pdf, Affinity…; Vectopen el primero de la lista (por encima de Inkscape) | Hecho: la app abre el archivo que recibe al arrancar (`LaunchFiles`); paquetes con tipos de archivo (.desktop + `vectopen.xml`, Info.plist en macOS); Ajustes ▸ Archivos ▸ «Hacer Vectopen la app predeterminada» (Linux: xdg-mime; Windows: «Abrir con» + .vtp) |
-| USR-08 | Estilos del pincel (lápiz, rotulador, aerógrafo, caligráfico) se ven mal mientras se dibuja | Pendiente |
+| USR-08 | Estilos del pincel (lápiz, rotulador, aerógrafo, caligráfico) se ven mal mientras se dibuja | Hecho: todos con el render de calidad (en vivo y al soltar); grano, tinta y aerógrafo en el sombreador, sin imágenes; caligráfico = geometría por ángulo de plumilla |
 | USR-09 | Panel Pincel: diseño compacto, sin deslizadores (ya hay casillas numéricas); que no quede tapado por abajo | Pendiente |
 | USR-10 | Al salir (o apagar) avisar si hay cambios sin guardar | Hecho: cada paso del historial marca el documento; al cerrar (X, Alt+F4, cerrar sesión) guarda solo o pregunta Guardar / No guardar / Cancelar, y antes deja copia en Recuperar |
 | USR-11 | Guardado automático continuo de los proyectos .vtp (como Figma / Penpot) | Hecho: .vtp con nombre se guarda solo 2 s después de cada cambio (espera a soltar el ratón); sin nombre → copia en Recuperar. Ajustes ▸ Archivos |

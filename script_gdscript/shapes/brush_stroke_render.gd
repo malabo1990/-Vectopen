@@ -21,7 +21,12 @@ const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
 const STROKE_SHADER := preload("res://shaders/brush_stroke.gdshader")
 ## Material compartido de los trazos sin degradado (no rompe el agrupado de
 ## dibujo); con degradado cada trazo tiene el suyo (uniformes propios).
-static var _shared_mat: ShaderMaterial = null
+static var _shared_mats: Dictionary = {}   # estilo → material compartido
+## Estilo del pincel → uniforme `style` del sombreador.
+const STYLE_IDS := {"pencil": 1, "marker": 2, "airbrush": 3}
+## Caligrafía: ángulo de la plumilla (grados) y anchura mínima relativa.
+const NIB_ANGLE_DEG := 45.0
+const NIB_MIN := 0.12
 const NODE_NAME := "StrokeRender"
 
 var line: Line2D = null
@@ -125,10 +130,10 @@ func _draw() -> void:
 	# UX-16: la TEXTURA del estilo (grano del lápiz, bordes del marcador,
 	# difuminado del aerógrafo, bisel caligráfico). Antes se ignoraba y todos
 	# los estilos salían como una banda lisa.
-	var tex := style_texture(line)
-	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), tex != null)
-	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols,
-		uvs, PackedInt32Array(), PackedFloat32Array(), tex.get_rid() if tex else RID())
+	# El estilo (grano del lápiz, tinta del rotulador, aerógrafo) lo pinta el
+	# sombreador sin imágenes; antes eran texturas repetidas en el Line2D.
+	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), false)
+	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols, uvs)
 
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).
@@ -143,20 +148,35 @@ static func centerline(l: Line2D) -> Array:
 		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
 	var total := maxf(cum[n - 1], 0.0001) if n > 0 else 1.0
 	var wc := l.width_curve
+	var nib := String(l.get_meta("brush_style", "")) == "calligraphy"
+	var nib_dir := Vector2.from_angle(deg_to_rad(float(l.get_meta("nib_angle", NIB_ANGLE_DEG))))
 	for i in n:
 		var f := wc.sample_baked(cum[i] / total) if wc else 1.0
+		if nib and n > 1:
+			# Plumilla plana: el trazo es ancho de través y fino a lo largo
+			# del ángulo de la plumilla (geometría pura: se exporta y se
+			# puede convertir en contorno).
+			# Dirección medida en un tramo de longitud (no entre puntos
+			# vecinos: en la vista previa están muy juntos y el grosor
+			# salía dentado).
+			var win := maxf(l.width * 0.6, 2.0)
+			var a := i
+			while a > 0 and cum[i] - cum[a] < win:
+				a -= 1
+			var b := i
+			while b < n - 1 and cum[b] - cum[i] < win:
+				b += 1
+			var t := (pts[b] - pts[a]).normalized()
+			f *= NIB_MIN + (1.0 - NIB_MIN) * absf(t.cross(nib_dir))
 		half[i] = maxf(l.width * 0.5 * f, 0.05)
 	return [pts, half, cum]
 
-## Textura del estilo del trazo (meta «brush_style»: también en documentos
-## guardados, que no conservan la textura del Line2D).
-static func style_texture(l: Line2D) -> Texture2D:
+## Estilo del trazo para el sombreador (meta «brush_style»: también en
+## documentos guardados). 0 = pluma / caligráfico.
+static func style_id(l: Line2D) -> int:
 	if not is_instance_valid(l):
-		return null
-	var st := String(l.get_meta("brush_style", ""))
-	if st in ["pencil", "marker", "airbrush", "calligraphy"]:
-		return BrushTool._get_brush_texture(st)
-	return null
+		return 0
+	return int(STYLE_IDS.get(String(l.get_meta("brush_style", "")), 0))
 
 ## UV de la tira (StrokeGeom.strip_mesh: 2 vértices por punto, a cada lado):
 ## u a lo largo (en mosaico cada «grosor», o estirada en el aerógrafo) y v a
@@ -235,18 +255,22 @@ func _update_material() -> void:
 	if not is_instance_valid(line):
 		return
 	var g := fill_gradient
+	var sid := style_id(line)
 	if g == null or g.get_point_count() < 2:
-		if _shared_mat == null:
-			_shared_mat = ShaderMaterial.new()
-			_shared_mat.shader = STROKE_SHADER
-		_use_material(_shared_mat)
+		if not _shared_mats.has(sid):
+			var sm := ShaderMaterial.new()
+			sm.shader = STROKE_SHADER
+			sm.set_shader_parameter("style", sid)
+			_shared_mats[sid] = sm
+		_use_material(_shared_mats[sid])
 		return
 	var mat := stroke_material
-	if mat == null or mat == _shared_mat:
+	if mat == null or _shared_mats.values().has(mat):
 		mat = ShaderMaterial.new()
 		mat.shader = STROKE_SHADER
 		mat.set_shader_parameter("use_grad", true)
 		_use_material(mat)
+	mat.set_shader_parameter("style", sid)
 	if _grad_tex == null:
 		_grad_tex = GradientTexture1D.new()
 		_grad_tex.width = 256

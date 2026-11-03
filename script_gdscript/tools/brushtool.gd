@@ -119,66 +119,6 @@ func apply_brush_style(style_id: String) -> void:
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
 
-static var _brush_textures: Dictionary = {}
-
-static func _get_brush_texture(style_id: String) -> Texture2D:
-	if _brush_textures.has(style_id):
-		return _brush_textures[style_id]
-	var tex: Texture2D = null
-	match style_id:
-		"pencil":
-			# Textura granular de grafito/papel nítida y periódica en X (64x64)
-			var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-			for y in 64:
-				var ny: float = float(y) / 64.0
-				var edge_fade: float = sin(ny * PI)
-				for x in 64:
-					var fx := float(x) / 64.0 * TAU
-					var p_noise := sin(fx * 3.0 + float(y) * 0.4) * cos(fx * 5.0 - float(y) * 0.7)
-					var p_grain := sin(fx * 11.0 + float(y) * 2.3) * sin(fx * 7.0 - float(y) * 3.1)
-					var raw_val := (p_noise * 0.5 + p_grain * 0.5 + 1.0) * 0.5
-					var alpha := clampf(pow(raw_val, 1.8) * edge_fade * 1.5, 0.0, 1.0)
-					if alpha < 0.12:
-						alpha = 0.04
-					img.set_pixel(x, y, Color(1, 1, 1, alpha))
-			tex = ImageTexture.create_from_image(img)
-		"marker":
-			# Marcador con bordes de tinta y cuerpo translúcido
-			var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-			for y in 64:
-				var ny: float = float(y) / 64.0
-				var edge_factor: float = absf(ny - 0.5) * 2.0
-				var alpha: float = lerpf(0.65, 0.95, pow(edge_factor, 2.0))
-				for x in 64:
-					var streak: float = 1.0 - 0.08 * sin(float(x) * 0.3)
-					img.set_pixel(x, y, Color(1, 1, 1, alpha * streak))
-			tex = ImageTexture.create_from_image(img)
-		"airbrush":
-			# Aerógrafo con caída gaussiana suave
-			var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-			for y in 64:
-				var dist: float = absf(float(y - 32) / 32.0)
-				var alpha: float = exp(-dist * dist * 4.0)
-				for x in 64:
-					var n: float = (sin(float(x) * 9.2 + float(y) * 5.4) * 1234.5)
-					n = n - floorf(n)
-					var spray_noise: float = 0.92 + 0.08 * n
-					img.set_pixel(x, y, Color(1, 1, 1, alpha * spray_noise))
-			tex = ImageTexture.create_from_image(img)
-		"calligraphy":
-			# Bisel caligráfico
-			var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-			for y in 64:
-				var ny: float = float(y) / 64.0
-				for x in 64:
-					var nx: float = float(x) / 64.0
-					var bevel: float = clampf(1.0 - absf(ny - nx * 0.5), 0.2, 1.0)
-					img.set_pixel(x, y, Color(1, 1, 1, bevel))
-			tex = ImageTexture.create_from_image(img)
-
-	_brush_textures[style_id] = tex
-	return tex
-
 func _apply_line_style(line: Line2D) -> void:
 	# Remates y uniones redondas con más segmentos (8 por defecto: en trazos
 	# gruesos se veían poligonales).
@@ -190,29 +130,29 @@ func _apply_line_style(line: Line2D) -> void:
 	line.set_meta("brush_style", brush_style)
 	match brush_style:
 		"pencil":
-			line.texture = _get_brush_texture("pencil")
+			line.texture = null   # lo pinta el sombreador (brush_stroke.gdshader)
 			line.texture_mode = Line2D.LINE_TEXTURE_TILE
 			line.joint_mode = Line2D.LINE_JOINT_ROUND
 			line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 			line.end_cap_mode = Line2D.LINE_CAP_ROUND
 		"marker":
-			line.texture = _get_brush_texture("marker")
+			line.texture = null   # lo pinta el sombreador (brush_stroke.gdshader)
 			line.texture_mode = Line2D.LINE_TEXTURE_TILE
 			line.joint_mode = Line2D.LINE_JOINT_SHARP
 			line.begin_cap_mode = Line2D.LINE_CAP_BOX
 			line.end_cap_mode = Line2D.LINE_CAP_BOX
 		"airbrush":
-			line.texture = _get_brush_texture("airbrush")
+			line.texture = null   # lo pinta el sombreador (brush_stroke.gdshader)
 			line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
 			line.joint_mode = Line2D.LINE_JOINT_ROUND
 			line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 			line.end_cap_mode = Line2D.LINE_CAP_ROUND
 		"calligraphy":
-			line.texture = _get_brush_texture("calligraphy")
-			line.texture_mode = Line2D.LINE_TEXTURE_TILE
+			line.texture = null   # plumilla plana: geometría (brush_stroke_render.centerline)
+			line.texture_mode = Line2D.LINE_TEXTURE_NONE
 			line.joint_mode = Line2D.LINE_JOINT_ROUND
-			line.begin_cap_mode = Line2D.LINE_CAP_ROUND
-			line.end_cap_mode = Line2D.LINE_CAP_ROUND
+			line.begin_cap_mode = Line2D.LINE_CAP_NONE
+			line.end_cap_mode = Line2D.LINE_CAP_NONE
 		_:
 			line.texture = null
 			line.texture_mode = Line2D.LINE_TEXTURE_NONE
@@ -498,8 +438,7 @@ func handle_input(event: InputEvent) -> bool:
 			# Vista previa con el MISMO render que el trazo final (borde liso
 			# con antialias): antes se veía el Line2D festoneado y el trazo
 			# «cambiaba» al soltar el lápiz.
-			if current_line.texture == null:
-				BrushStrokeRender.attach(current_line)
+			BrushStrokeRender.attach(current_line)
 
 			if drawing_layer:
 				drawing_layer.add_child(current_line)
@@ -684,10 +623,9 @@ func _finalizar_trazo_actual() -> void:
 			_store_pressure_profile(current_line)
 		# Trazo sin textura (pluma…): render de calidad (borde liso con la
 		# presión y degradado 2D con la G). Los de textura siguen con Line2D.
-		if current_line.texture == null:
-			BrushStrokeRender.attach(current_line)
-		else:
-			final_points = raw_points
+		# Todos los estilos con el render de calidad (los de textura salían
+		# con el Line2D festoneado y los puntos crudos).
+		BrushStrokeRender.attach(current_line)
 		current_line.points = final_points
 
 		# Registrar en HistoryManager para soporte de Ctrl+Z

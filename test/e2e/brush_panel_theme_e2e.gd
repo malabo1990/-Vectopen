@@ -41,12 +41,12 @@ func extra_checks(panel: Control, theme: String, mode: String) -> void:
 	check("%s/%s: muestras = trazos reales del pincel" % [theme, mode], real == 5, "%d/5" % real)
 	var BSR = load("res://script_gdscript/shapes/brush_stroke_render.gd")
 	var tex_ok := true
-	for id in ["pencil", "marker", "calligraphy", "airbrush"]:
+	for id in ["pencil", "marker", "airbrush"]:
 		var l := Line2D.new()
 		l.set_meta("brush_style", id)
-		tex_ok = tex_ok and BSR.style_texture(l) != null
+		tex_ok = tex_ok and BSR.style_id(l) > 0
 		l.free()
-	check("%s/%s: el render usa la textura de cada estilo" % [theme, mode], tex_ok)
+	check("%s/%s: el render pinta el estilo de cada pincel (sombreador)" % [theme, mode], tex_ok)
 	for f in ["FieldSize", "FieldOpacity"]:
 		var c := panel.find_child(f, true, false)
 		check("%s/%s: %s es el campo numérico común" % [theme, mode, f], c is NumericField)
