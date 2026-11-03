@@ -85,8 +85,9 @@ func _run() -> void:
 			continue
 		check("%s: muestra la versión real (%s)" % [mode, ProjectSettings.get_setting("application/config/version")],
 			(panel.find_child("Version", true, false) as Label).text.contains(String(ProjectSettings.get_setting("application/config/version"))))
-		check("%s: GitHub, Telegram y Reddit; sin Facebook" % mode, panel.find_child("Social_reddit", true, false) != null
+		check("%s: GitHub, Telegram, Reddit y X; sin Facebook" % mode, panel.find_child("Social_reddit", true, false) != null
 			and panel.find_child("Social_github", true, false) != null and panel.find_child("Social_telegram", true, false) != null
+			and panel.find_child("Social_x", true, false) != null
 			and str(panel.find_children("*", "", true, false)).to_lower().find("facebook") < 0)
 		var r := panel.get_global_rect()
 		var vp := root.get_visible_rect()

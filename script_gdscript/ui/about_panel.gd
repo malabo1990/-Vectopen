@@ -12,6 +12,7 @@ const SOCIAL := [
 	["github", "GitHub", "res://icon/UI/github-circle.svg", "https://github.com/malabo1990/-Vectopen"],
 	["telegram", "Telegram", "res://icon/UI/telegram-circle.svg", "https://t.me/vectopen"],
 	["reddit", "Reddit", "res://icon/UI/reddit-circle.svg", "https://www.reddit.com/r/Vectopen_editor/"],
+	["x", "X · @malabo_6", "res://icon/UI/x.svg", "https://x.com/malabo_6"],
 ]
 const LOGO := "res://icon/logo/logo_vectopen.png"
 
@@ -109,8 +110,10 @@ func _ready() -> void:
 	_sep(v)
 	# Comunidad.
 	_section(v, tr("COMUNIDAD"))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
+	var row := GridContainer.new()
+	row.columns = 2
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
 	v.add_child(row)
 	for s in SOCIAL:
 		var b := Button.new()
