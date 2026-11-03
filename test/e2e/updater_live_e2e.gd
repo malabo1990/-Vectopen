@@ -48,15 +48,15 @@ func click(c: Control) -> void:
 func _run() -> void:
 	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
+	var real := String(ProjectSettings.get_setting("application/config/version"))
+	var fake := OS.get_environment("UPD_FAKE_VERSION") if OS.has_environment("UPD_FAKE_VERSION") else "0.2.0"
+	ProjectSettings.set_setting("application/config/version", fake)   # desde el arranque
 	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
 	for _w in 600:
 		if Engine.has_meta(&"vectopen_startup_done"):
 			break
 		await process_frame
 	await frames(30)
-	var real := String(ProjectSettings.get_setting("application/config/version"))
-	var fake := OS.get_environment("UPD_FAKE_VERSION") if OS.has_environment("UPD_FAKE_VERSION") else "0.2.0"
-	ProjectSettings.set_setting("application/config/version", fake)
 	root.get_node("GlobalUI").set_ui_mode("smart")
 	await frames(20)
 	var up = root.get_node("Updater")
@@ -94,6 +94,13 @@ func _run() -> void:
 	check("la ventana dice que hay versión nueva", status != null and status.text.contains(String(info.get("version", "?"))), status.text if status else "-")
 	var inst := panel.find_child("InstallUpdate", true, false) as Button
 	check("aparece «Descargar e instalar»", inst != null and inst.is_visible_in_tree())
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://about"))
+	root.get_node("ThemeManager").set_mode("dark")
+	await frames(20)
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("user://about/live_dark.png")
+	root.get_node("ThemeManager").set_mode("light")
+	await frames(6)
 	check("punto rojo en el logo", logo.find_child("UpdateBadge", true, false) != null and (logo.find_child("UpdateBadge", true, false) as Control).visible)
 	# Descargar el .rpm (sin instalar).
 	var rpm: Dictionary = up.asset_for(info.get("assets", []), "rpm")
