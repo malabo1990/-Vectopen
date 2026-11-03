@@ -154,6 +154,25 @@ func _run() -> void:
 			sm.set_selection([rect])
 			await frames(8)
 			var ic := icons()
+			if mode == "smart":
+				# En Smart no se repiten abajo: están en la ventana Efectos.
+				check("smart: sin iconos repetidos en la barra de abajo", ic == null)
+				var fx_btn: Control = null
+				for n in root.find_children("Button2", "Button", true, false):
+					if (n as Button).tooltip_text == "Efectos" and (n as Control).is_visible_in_tree():
+						fx_btn = n
+				check("smart: botón Efectos arriba a la derecha", fx_btn != null)
+				if fx_btn:
+					await click(fx_btn, "smart: Efectos")
+					await frames(10)
+					var win := root.find_child("panel__effects", true, false) as Control
+					var tabs_ok := win != null and win.is_visible_in_tree()
+					for tab in ["ButtonShader", "ButtonScript", "ButtonVectorize"]:
+						tabs_ok = tabs_ok and win.find_child(tab, true, false) != null
+					check("smart: Efectos tiene Shader, Script (con Complementos) y Vectorizar", tabs_ok)
+					await click(fx_btn, "smart: cerrar Efectos")
+					await frames(6)
+				continue
 			check("%s: hay iconos de acciones" % mode, ic != null)
 			if ic == null:
 				continue
@@ -179,7 +198,7 @@ func _run() -> void:
 				check("%s: %s se cierra y el icono se apaga" % [mode, id], not target_visible(mode, id) and not b.button_pressed,
 					"visible=%s activo=%s" % [target_visible(mode, id), b.button_pressed])
 			counts["%s_%d" % [mode, round_i]] = editors()
-	for mode in ["smart", "modern", "professional"]:
+	for mode in ["modern", "professional"]:
 		check("%s: no se crean editores nuevos al repetir" % mode, counts.get("%s_0" % mode, -1) == counts.get("%s_1" % mode, -2) or counts.get("professional_1", 0) == counts.get("professional_0", 0),
 			"%s → %s" % [counts.get("%s_0" % mode), counts.get("%s_1" % mode)])
 	rect.queue_free()

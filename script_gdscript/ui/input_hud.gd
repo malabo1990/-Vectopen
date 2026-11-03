@@ -93,18 +93,8 @@ func _ready() -> void:
 		_btn_export.tooltip_text = tr("Exportar")
 		if not _btn_export.pressed.is_connected(_on_export):
 			_btn_export.pressed.connect(_on_export)
-		# Shader · Script · Vectorizar · Complementos, junto a Exportar (UX-13).
-		if not content.has_node("FxActionIcons"):
-			_fx_icons = FxActionIcons.create(func(icon_path: String, tip: String) -> Button:
-				var b := Button.new()
-				b.tooltip_text = tip
-				b.set_meta("hud_icon_path", icon_path)
-				b.icon = load(icon_path)
-				return b, Vector2(24, 24))
-			_fx_icons.add_theme_constant_override("separation", 2)
-			content.add_child(_fx_icons)
-			content.move_child(_fx_icons, _btn_export.get_index() + 1)
-			_fx_icons.ready.connect(_apply_theme)
+		# Shader · Script · Vectorizar · Complementos: en Smart ya están en la
+		# ventana Efectos (arriba a la derecha), así que aquí no se repiten.
 	if _btn_keyboard:
 		_btn_keyboard.set_meta("hud_icon_path", "res://icon/UI/menu/keyboard.svg")
 		_btn_keyboard.tooltip_text = tr("Atajos de teclado y ratón")
