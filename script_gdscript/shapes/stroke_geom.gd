@@ -975,8 +975,14 @@ static func _side(pts: PackedVector2Array, half: PackedFloat32Array, sgn: float)
 			for q in _arc(pts[i], n0 * h, n1 * h):
 				out.append([q, i])
 		else:
-			# Recto o interior: inglete (si se pasa, lo corta _cut_loops).
-			out.append([pts[i] + mdir * minf(mlen, h * 16.0), i])
+			# Recto o interior: inglete, como mucho hasta donde llegan los
+			# tramos vecinos (si no, en una vuelta casi de 180° —el «gancho»
+			# de un lápiz real— el inglete salía como un pincho de cientos de
+			# píxeles).
+			var reach := minf(pts[i].distance_to(pts[maxi(i - 1, 0)]), pts[i].distance_to(pts[mini(i + 1, n - 1)]))
+			if i == 0 or i == n - 1:
+				reach = h
+			out.append([pts[i] + mdir * minf(mlen, sqrt(h * h + reach * reach)), i])
 	return out
 
 ## Quita los lazos de un borde (lado interior de un giro más cerrado que el
@@ -1039,3 +1045,62 @@ static func _next_backtrack(side: Array, axis: PackedVector2Array) -> PackedInt3
 			nextr = q
 		nxt[q] = nextr
 	return nxt
+
+
+# ── aerógrafo por sellos (VGSE fase 2: pincel de patrón a lo largo) ─────────
+## Malla del aerógrafo: SELLOS (discos de caída suave) cada ~¼ de radio a lo
+## largo del eje, como un aerógrafo de verdad: la pintura se acumula donde se
+## insiste y los garabatos más cerrados que el grosor, las vueltas de 180° y
+## las puntas salen bien sin pliegues ni aletas.
+## Devuelve {points, indices, v, a} (a = opacidad de cada vértice por sello,
+## ya con el flujo por presión).
+static func stamps(pts: PackedVector2Array, half: PackedFloat32Array, flow: PackedFloat32Array) -> Dictionary:
+	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "v": PackedFloat32Array(), "a": PackedFloat32Array()}
+	var n := pts.size()
+	if n == 0:
+		return m
+	var cum := _cumulative(pts)
+	var total := cum[n - 1]
+	var hmax := 0.0
+	for h in half:
+		hmax = maxf(hmax, h)
+	var step := maxf(hmax * 0.25, 0.25)
+	var count := int(total / step) + 1
+	if count > 3000:
+		step = total / 3000.0
+		count = 3001
+	# Opacidad por sello: en el centro de un tramo recto se acumulan unos
+	# 2r/paso sellos → casi opaco (95 %) con la opacidad del pincel.
+	var per := 1.0 - pow(0.05, step / maxf(2.0 * hmax, 0.001))
+	var j := 0
+	var verts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	var vv: PackedFloat32Array = m["v"]
+	var aa: PackedFloat32Array = m["a"]
+	for s_i in count:
+		var d := minf(s_i * step, total)
+		while j < n - 2 and cum[j + 1] < d:
+			j += 1
+		var seg := maxf(cum[mini(j + 1, n - 1)] - cum[j], 1e-6)
+		var f := clampf((d - cum[j]) / seg, 0.0, 1.0)
+		var j2 := mini(j + 1, n - 1)
+		var c := pts[j].lerp(pts[j2], f)
+		var r := lerpf(half[j], half[j2], f)
+		var fl := lerpf(flow[j] if j < flow.size() else 1.0, flow[j2] if j2 < flow.size() else 1.0, f)
+		var segs := clampi(int(r * 0.6) + 12, 12, 32)
+		var ci := verts.size()
+		verts.append(c)
+		vv.append(0.5)
+		aa.append(per * fl)
+		for k in segs:
+			var t := TAU * float(k) / float(segs)
+			verts.append(c + Vector2(cos(t), sin(t)) * r)
+			vv.append(1.0)
+			aa.append(per * fl)
+		for k in segs:
+			idx.append_array([ci, ci + 1 + k, ci + 1 + (k + 1) % segs])
+	m["points"] = verts
+	m["indices"] = idx
+	m["v"] = vv
+	m["a"] = aa
+	return m

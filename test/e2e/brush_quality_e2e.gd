@@ -16,6 +16,7 @@ var aa_levels := 0
 var _proc_acc := 0.0
 var _proc_n := 0
 var _measuring := false
+var _ev_us := 0
 
 func _process(_d: float) -> bool:
 	if _measuring:
@@ -52,7 +53,10 @@ func move(at: Vector2, held: bool, p: float) -> void:
 	mm.relative = at - _prev
 	mm.pressure = p if held else 0.0
 	mm.button_mask = MOUSE_BUTTON_MASK_LEFT if held else 0
+	var _ts := Time.get_ticks_usec()
 	_send(mm)
+	if _measuring:
+		_ev_us += Time.get_ticks_usec() - _ts
 	_prev = at
 	await process_frame
 
@@ -192,6 +196,7 @@ func _run() -> void:
 	_measuring = true
 	var s5 = await stroke(pts, pr)
 	_measuring = false
+	print("INFO evento del lápiz: %.1f ms de media" % (_ev_us / 1000.0 / 700.0))
 	print("INFO por fotograma: proceso %.1f ms, dibujo %d llamadas" % [_proc_acc / maxf(1.0, _proc_n), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 	var per_ms := (Time.get_ticks_usec() - t0) / 1000.0 / 700.0
 	print("INFO trazo largo: %.2f ms por movimiento (incluye el fotograma)" % per_ms)

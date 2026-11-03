@@ -395,3 +395,32 @@ func test_roundtrip_relleno_degradado() -> void:
 	assert_object(c_b).is_not_null()
 	assert_bool(c_b.has_gradient_fill()).is_true()
 	assert_int(int(c_b.fill_gradient_type)).is_equal(1)
+
+## El estilo del pincel y sus remates sobreviven a guardar y abrir (antes el
+## aerógrafo, el rotulador… volvían como pluma).
+func test_estilo_del_pincel_se_guarda() -> void:
+	var holder := Node2D.new()
+	add_child(holder)
+	auto_free(holder)
+	for st in ["airbrush", "marker", "calligraphy", "pencil"]:
+		var l := Line2D.new()
+		l.name = "L_" + st
+		l.points = PackedVector2Array([Vector2(0, 0), Vector2(50, 10), Vector2(90, 0)])
+		l.width = 12.0
+		l.set_meta("brush_style", st)
+		if st == "marker":
+			l.begin_cap_mode = Line2D.LINE_CAP_BOX
+			l.end_cap_mode = Line2D.LINE_CAP_BOX
+		holder.add_child(l)
+	var els: Array = CS.serialize_elements(holder)
+	var back := Node2D.new()
+	add_child(back)
+	auto_free(back)
+	CS.instantiate_elements(back, els)
+	for st in ["airbrush", "marker", "calligraphy", "pencil"]:
+		var l := back.get_node("L_" + st) as Line2D
+		assert_str(String(l.get_meta("brush_style", ""))).is_equal(st)
+		assert_object(l.get_node_or_null("StrokeRender")).is_not_null()
+	assert_int((back.get_node("L_marker") as Line2D).begin_cap_mode).is_equal(Line2D.LINE_CAP_BOX)
+	var air = back.get_node("L_airbrush").get_node("StrokeRender")
+	assert_int(int(air.stroke_material.get_shader_parameter("style"))).is_equal(3)

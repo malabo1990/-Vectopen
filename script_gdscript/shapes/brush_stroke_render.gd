@@ -115,12 +115,26 @@ func _draw() -> void:
 	var cum: PackedFloat32Array = ax[2]
 	var n := pts.size()
 	var total := maxf(cum[n - 1], 0.0001)
-	var m := StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
+	var air := String(line.get_meta("brush_style", "")) == "airbrush"
+	var m := StrokeGeom.stamps(pts, half, ax[3]) if air \
+		else StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
 		return
 	var cols := _colors(verts, pts, cum, total, m, half, ax[3] if ax.size() > 3 else PackedFloat32Array())
+	if m.has("a"):
+		# Aerógrafo por sellos: cada sello con su opacidad (flujo por presión).
+		var sa: PackedFloat32Array = m["a"]
+		var c0: Color = cols[0]
+		cols = PackedColorArray()
+		cols.resize(verts.size())
+		for i in verts.size():
+			var c := c0
+			if line.gradient and not has_gradient_fill():
+				c = line.gradient.sample(clampf(float(i) / maxf(1.0, verts.size() - 1.0), 0.0, 1.0))
+			c.a *= sa[i]
+			cols[i] = c
 	# Opacidad del pincel → del grupo; la malla, opaca (sin solapes visibles).
 	var alpha := line.default_color.a
 	_set_group(alpha)

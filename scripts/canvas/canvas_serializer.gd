@@ -392,6 +392,13 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			base["brush_grad_b"] = [float(node.get_meta("brush_grad_b", Vector2.ZERO).x), float(node.get_meta("brush_grad_b", Vector2.ZERO).y)]
 		if node.has_node("StrokeRender"):
 			base["hq"] = true
+		# Estilo del pincel (lápiz, rotulador, aerógrafo, caligráfico) y sus
+		# remates: antes no se guardaban y al reabrir todo salía como pluma.
+		var bst := String(node.get_meta("brush_style", ""))
+		if bst != "" and bst != "pen":
+			base["brush_style"] = bst
+		if node.begin_cap_mode != Line2D.LINE_CAP_ROUND or node.end_cap_mode != Line2D.LINE_CAP_ROUND:
+			base["caps"] = [int(node.begin_cap_mode), int(node.end_cap_mode)]
 		if node.has_meta("stroke_profile") and not StrokeProfile.is_uniform(node.get_meta("stroke_profile")):
 			base["stroke_profile"] = _pv2_to_arr(StrokeProfile.normalize(node.get_meta("stroke_profile")))
 		return base
@@ -1074,7 +1081,12 @@ static func _element_from(d: Dictionary) -> Node2D:
 				var gb: Array = d.get("brush_grad_b", [0, 0])
 				l.set_meta("brush_grad_a", Vector2(float(ga[0]), float(ga[1])))
 				l.set_meta("brush_grad_b", Vector2(float(gb[0]), float(gb[1])))
-			if bool(d.get("hq", false)) or l.has_meta("brush_grad"):
+			if d.has("brush_style"):
+				l.set_meta("brush_style", String(d["brush_style"]))
+			if d.get("caps") is Array and (d["caps"] as Array).size() == 2:
+				l.begin_cap_mode = int(d["caps"][0]) as Line2D.LineCapMode
+				l.end_cap_mode = int(d["caps"][1]) as Line2D.LineCapMode
+			if bool(d.get("hq", false)) or l.has_meta("brush_grad") or d.has("brush_style"):
 				load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(l)
 			if d.has("stroke_profile"):
 				var lp := StrokeProfile.normalize(_arr_to_pv2(d["stroke_profile"]))

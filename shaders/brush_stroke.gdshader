@@ -55,8 +55,10 @@ void fragment() {
 		c.a *= mix(0.22, 1.0, smoothstep(0.28, 0.72, g));
 		e -= (0.5 - g) * 0.35;
 	} else if (style == 2) {
-		// Rotulador: cuerpo translúcido, la tinta se acumula en los bordes.
-		c.a *= 0.8 + 0.2 * pow(1.0 - e, 3.0);
+		// Rotulador: la tinta se acumula en los bordes (más oscuro). Con el
+		// color y no con la transparencia: así donde el trazo se pisa a sí
+		// mismo (vueltas) no salen manchas; la opacidad la pone el grupo.
+		c.rgb *= 1.0 - 0.22 * pow(1.0 - clamp(e, 0.0, 1.0), 3.0);
 	} else if (style == 3) {
 		// Aerógrafo: caída gaussiana a lo ancho con un poco de pulverizado.
 		// Pulverizado por píxel de pantalla (antes en cuadros del lienzo, que
