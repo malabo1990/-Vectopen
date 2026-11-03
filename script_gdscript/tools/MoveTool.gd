@@ -580,6 +580,9 @@ func _on_release(gm: Vector2) -> bool:
 			_accion = "Redimensionar"
 		elif is_rotating: _accion = "Rotar"
 		_commit_transform(_accion, selected_shapes.duplicate(), is_resizing or is_rotating or _is_stroke_adjusting)
+		# Alt + arrastrar: duplicar y mover son UN paso de deshacer.
+		if _alt_drag_duplicated:
+			HistoryManager.merge_last_two("Duplicar por arrastre (Alt)", "Duplicar por arrastre (Alt)")
 		for s in selected_shapes:
 			if is_instance_valid(s):
 				if s.has_method("capture_high_quality"):

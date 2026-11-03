@@ -36,6 +36,21 @@ func add_undo_method(callable: Callable) -> void:
 func commit_action() -> void:
 	version_changed.emit(can_undo(), can_redo())
 
+## Une las dos últimas acciones en una (p. ej. «duplicar con Alt» + el
+## movimiento que la sigue): un solo Ctrl+Z las deshace juntas. Solo si la
+## penúltima se llama `first_name`. Devuelve true si las unió.
+func merge_last_two(first_name: String, new_name: String = "") -> bool:
+	if undo_stack.size() < 2 or undo_stack[-2].name != first_name:
+		return false
+	var b: Action = undo_stack.pop_back()
+	var a: Action = undo_stack[-1]
+	a.do_callables.append_array(b.do_callables)
+	a.undo_callables.append_array(b.undo_callables)   # se ejecutan al revés: primero las de b
+	if new_name != "":
+		a.name = new_name
+	version_changed.emit(can_undo(), can_redo())
+	return true
+
 func undo() -> void:
 	if undo_stack.is_empty():
 		return

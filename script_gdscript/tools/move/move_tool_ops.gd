@@ -75,7 +75,7 @@ func copy_selected() -> void:
 			# Los clones del portapapeles no entran en ningún árbol todavía —
 			# el nombre no necesita ser único aquí, solo cuando de verdad se
 			# inserten (paste_clipboard, contra target_artboard).
-			clones.append(s.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS))
+			clones.append(_dup(s))
 	SessionManager.session.clipboard_shapes = clones
 
 func cut_selected() -> void:
@@ -92,7 +92,7 @@ func paste_clipboard() -> void:
 	var new_nodes: Array = []
 	for original in clipboard:
 		if is_instance_valid(original):
-			var clone: Node2D = original.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+			var clone: Node2D = _dup(original)
 			clone.name = _unique_sibling_name(original.name, target_artboard)
 			clone.position = original.position + Vector2(20, 20)
 			new_nodes.append(clone)
@@ -115,8 +115,16 @@ func paste_clipboard() -> void:
 ## los del portapapeles en paste_clipboard), `original.get_parent()` es null
 ## y la comprobación de unicidad no serviría de nada.
 func _duplicate_named(original: Node2D, insert_parent: Node) -> Node2D:
-	var clone: Node2D = original.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+	var clone: Node2D = _dup(original)
 	clone.name = _unique_sibling_name(original.name, insert_parent)
+	return clone
+
+## Copia de un objeto. Los TEXTOS rehacen su texto nativo desde sus metas:
+## duplicate() no copia su estado interno y la copia salía vacía o diminuta
+## (Alt + arrastrar, Ctrl+D, pegar).
+func _dup(original: Node) -> Node2D:
+	var clone: Node2D = original.duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+	VectopenAPI._resync_texts(clone)
 	return clone
 
 func _unique_sibling_name(base_name: String, parent: Node) -> String:

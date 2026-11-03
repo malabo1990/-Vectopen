@@ -28,6 +28,10 @@ func add_undo(callable: Callable) -> void:
 func commit() -> void:
 	_undo_redo.commit_action()
 
+## Ver UndoRedoManager.merge_last_two.
+func merge_last_two(first_name: String, new_name: String = "") -> bool:
+	return _undo_redo.merge_last_two(first_name, new_name)
+
 func undo() -> void:
 	if _undo_redo.can_undo():
 		_undo_redo.undo()
