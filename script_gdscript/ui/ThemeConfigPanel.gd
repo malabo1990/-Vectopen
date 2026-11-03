@@ -32,6 +32,7 @@ func _ready() -> void:
 	_populate_theme_preset()
 	_populate_language()
 	_populate_ui_colors()
+	_populate_files_section()
 	_populate_mcp_section()
 	_connect_signals()
 	_connect_theme()
@@ -439,6 +440,59 @@ func _populate_ui_colors() -> void:
 			_style_color_picker(picker)
 		)
 		row.add_child(picker)
+
+## Archivos: guardado automático, pasos de deshacer y app predeterminada.
+func _populate_files_section() -> void:
+	if not _slot_container:
+		return
+	var sm := get_node_or_null("/root/SaveManager")
+	if sm == null:
+		return
+	_slot_container.add_child(HSeparator.new())
+	var head := Label.new()
+	head.name = "SecFiles"
+	head.text = tr("Archivos")
+	_slot_container.add_child(head)
+	var r1 := HBoxContainer.new()
+	_slot_container.add_child(r1)
+	var l1 := Label.new()
+	l1.text = tr("Guardado automático")
+	l1.tooltip_text = tr("Los proyectos .vtp se guardan solos a los 2 s de cada cambio. Los que aún no tienen nombre dejan una copia en Recuperar.")
+	l1.mouse_filter = Control.MOUSE_FILTER_STOP
+	l1.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
+	r1.add_child(l1)
+	var ck := CheckBox.new()
+	ck.name = "AutosaveCheck"
+	ck.button_pressed = sm.autosave_enabled
+	ck.toggled.connect(func(on: bool) -> void: sm.set_autosave(on))
+	r1.add_child(ck)
+	var r2 := HBoxContainer.new()
+	_slot_container.add_child(r2)
+	var l2 := Label.new()
+	l2.text = tr("Pasos de deshacer")
+	l2.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
+	r2.add_child(l2)
+	var sp := SpinBox.new()
+	sp.name = "UndoStepsSpin"
+	sp.min_value = 10
+	sp.max_value = 5000
+	sp.step = 10
+	sp.value = sm.undo_steps
+	sp.value_changed.connect(func(v: float) -> void: sm.set_undo_steps(int(v)))
+	r2.add_child(sp)
+	var b := Button.new()
+	b.name = "BtnDefaultApp"
+	b.text = tr("Hacer Vectopen la app predeterminada")
+	b.tooltip_text = tr("Doble clic en .vtp, SVG, EPS, AI y Affinity abre Vectopen, y sale el primero en «Abrir con».")
+	_slot_container.add_child(b)
+	var st := Label.new()
+	st.name = "DefaultAppStatus"
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD
+	st.add_theme_font_size_override("font_size", 10)
+	_slot_container.add_child(st)
+	b.pressed.connect(func() -> void:
+		var res: Dictionary = DefaultApp.make_default()
+		st.text = String(res.get("message", "")))
 
 func _populate_mcp_section() -> void:
 	if not _slot_container:

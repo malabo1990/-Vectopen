@@ -76,7 +76,7 @@ var is_project_modified: bool = false     # Proyecto con cambios sin guardar
 
 var settings: Dictionary = {
 	"auto_save_interval": 300,      # segundos (5 minutos)
-	"max_undo_steps": 100,
+	"max_undo_steps": 1000,
 	"grid_size": 20.0,
 	"snap_enabled": true,
 	"snap_threshold": 10.0,

@@ -18,6 +18,9 @@ func before_test() -> void:
 	_ab = _api.artboard()
 	HistoryManager.clear()
 
+func after_test() -> void:
+	HistoryManager.clear()
+
 func _inside(polys: Array, q: Vector2) -> bool:
 	var c := 0
 	for p in polys:

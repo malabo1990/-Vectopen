@@ -142,6 +142,8 @@ func _finish() -> void:
 	Engine.set_meta(DONE_META, true)
 	_fit_window_to_screen.call_deferred()
 	all_done.emit()
+	# Doble clic / «Abrir con»: abrir el archivo que pasó el sistema.
+	(func() -> void: LaunchFiles.open_startup_files(get_tree())).call_deferred()
 
 ## VAL-03: la ventana debe caber en la pantalla. El proyecto pide «maximizada»,
 ## pero el gestor de ventanas no siempre lo aplica al arrancar: quedaba una

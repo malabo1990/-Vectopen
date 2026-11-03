@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tipos de archivo de Vectopen para el escritorio Linux (shared-mime-info). -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-vectopen">
+    <comment>Vectopen project</comment>
+    <comment xml:lang="es">Proyecto de Vectopen</comment>
+    <icon name="vectopen"/>
+    <glob pattern="*.vtp"/>
+    <glob pattern="*.vtc"/>
+  </mime-type>
+  <mime-type type="application/x-affinity-designer">
+    <comment>Affinity Designer document</comment>
+    <glob pattern="*.afdesign"/>
+    <glob pattern="*.af"/>
+  </mime-type>
+  <mime-type type="application/x-affinity-photo">
+    <comment>Affinity Photo document</comment>
+    <glob pattern="*.afphoto"/>
+  </mime-type>
+  <mime-type type="application/x-affinity-publisher">
+    <comment>Affinity Publisher document</comment>
+    <glob pattern="*.afpub"/>
+  </mime-type>
+</mime-info>

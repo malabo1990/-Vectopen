@@ -13,7 +13,7 @@ class Action:
 
 var undo_stack: Array[Action] = []
 var redo_stack: Array[Action] = []
-var max_history: int = 100
+var max_history: int = 1000
 
 func create_action(name: String) -> void:
 	var action = Action.new(name)

@@ -95,8 +95,14 @@ Exec=vectopen %F
 Icon=vectopen
 Terminal=false
 Categories=Graphics;VectorGraphics;
-StartupWMClass=Vectopen'
+StartupWMClass=Vectopen
+MimeType=application/x-vectopen;image/svg+xml;image/svg+xml-compressed;application/postscript;image/x-eps;application/eps;application/illustrator;application/pdf;application/x-affinity-designer;application/x-affinity-photo;application/x-affinity-publisher;image/png;image/jpeg;image/webp;
+InitialPreference=9'
 echo "$DESKTOP" > "$L/usr/share/applications/vectopen.desktop"
+# Tipo de archivo .vtp (y Affinity, que shared-mime-info no siempre conoce):
+# así el doble clic y «Abrir con» los reconocen y ofrecen Vectopen.
+mkdir -p "$L/usr/share/mime/packages"
+cp packaging/linux/vectopen-mime.xml "$L/usr/share/mime/packages/vectopen.xml"
 SIZE_KB=$(du -sk "$L" | cut -f1)
 
 # .tar.gz portátil
@@ -124,6 +130,13 @@ Description: Editor de gráficos vectoriales (versión alfa)
  Vectopen: editor vectorial con modos Smart, Modern y Pro.
 EOF
 (cd "$L" && find . -type f -exec md5sum {} + | sed 's| \./| |') > "$D/control/md5sums"
+cat > "$D/control/postinst" <<'EOF2'
+#!/bin/sh
+command -v update-mime-database >/dev/null && update-mime-database /usr/share/mime || true
+command -v update-desktop-database >/dev/null && update-desktop-database -q /usr/share/applications || true
+EOF2
+chmod 755 "$D/control/postinst"
+cp "$D/control/postinst" "$D/control/postrm"
 (cd "$D/control" && tar --owner=0 --group=0 -czf ../control.tar.gz .)
 (cd "$L" && tar --owner=0 --group=0 -cJf "$D/data.tar.xz" .)
 echo "2.0" > "$D/debian-binary"
@@ -147,10 +160,17 @@ Vectopen: editor vectorial con modos Smart, Modern y Pro.
 %install
 mkdir -p %{buildroot}
 cp -a $L/. %{buildroot}/
+%post
+update-mime-database /usr/share/mime >/dev/null 2>&1 || :
+update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || :
+%postun
+update-mime-database /usr/share/mime >/dev/null 2>&1 || :
+update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || :
 %files
 /opt/vectopen
 /usr/bin/vectopen
 /usr/share/applications/vectopen.desktop
+/usr/share/mime/packages/vectopen.xml
 /usr/share/icons/hicolor/256x256/apps/vectopen.png
 /usr/share/doc/vectopen
 EOF

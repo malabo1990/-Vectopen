@@ -34,6 +34,17 @@ Un encargo o incidencia por iteración:
 | USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Hecho: borde con antialias por sombreador (1 px a cualquier zoom), opacidad del trazo compuesta en grupo (sin manchas en cruces, uniones ni puntas), vista previa con el mismo render que el trazo final (`brush_quality_e2e`) |
 | USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Plan escrito (§0 ter); fase 1 en curso |
 
+**Tanda 2 (2026-11-03, prueba de un cliente):**
+
+| ID | Petición | Estado |
+|---|---|---|
+| USR-07 | Doble clic / «Abrir con» abre en Vectopen: vtp, svg, eps, ai, pdf, Affinity…; Vectopen el primero de la lista (por encima de Inkscape) | Hecho: la app abre el archivo que recibe al arrancar (`LaunchFiles`); paquetes con tipos de archivo (.desktop + `vectopen.xml`, Info.plist en macOS); Ajustes ▸ Archivos ▸ «Hacer Vectopen la app predeterminada» (Linux: xdg-mime; Windows: «Abrir con» + .vtp) |
+| USR-08 | Estilos del pincel (lápiz, rotulador, aerógrafo, caligráfico) se ven mal mientras se dibuja | Pendiente |
+| USR-09 | Panel Pincel: diseño compacto, sin deslizadores (ya hay casillas numéricas); que no quede tapado por abajo | Pendiente |
+| USR-10 | Al salir (o apagar) avisar si hay cambios sin guardar | Hecho: cada paso del historial marca el documento; al cerrar (X, Alt+F4, cerrar sesión) guarda solo o pregunta Guardar / No guardar / Cancelar, y antes deja copia en Recuperar |
+| USR-11 | Guardado automático continuo de los proyectos .vtp (como Figma / Penpot) | Hecho: .vtp con nombre se guarda solo 2 s después de cada cambio (espera a soltar el ratón); sin nombre → copia en Recuperar. Ajustes ▸ Archivos |
+| USR-12 | Historial de deshacer hasta 1000 pasos | Hecho (configurable en Ajustes ▸ Archivos, 10–5000) |
+
 ## 0 ter. VGSE — Vectopen Geometric Stroke Engine (plan por fases)
 
 Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
