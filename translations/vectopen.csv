@@ -941,3 +941,90 @@ Inspector,Inspector,Inspector,Inspecteur,Inspektor,Inspetor,Инспектор,�
 ¿Eliminar «%s» de la biblioteca?,Delete “%s” from the library?,¿Eliminar «%s» de la biblioteca?,Supprimer « %s » de la bibliothèque ?,„%s“ aus der Bibliothek löschen?,Excluir “%s” da biblioteca?,Удалить «%s» из библиотеки?,从库中删除「%s」？,「%s」をライブラリから削除しますか？,حذف «%s» من المكتبة؟,“%s” को लाइब्रेरी से हटाएँ?
 Esos archivos no se pueden usar como recurso,Those files can't be used as assets,Esos archivos no se pueden usar como recurso,Ces fichiers ne peuvent pas servir de ressources,Diese Dateien können nicht als Assets verwendet werden,Esses arquivos não podem ser usados como recurso,Эти файлы нельзя использовать как ресурсы,这些文件不能用作素材,これらのファイルはアセットとして使えません,لا يمكن استخدام هذه الملفات كموارد,इन फ़ाइलों को संसाधन के रूप में उपयोग नहीं किया जा सकता
  · %d fuera, · %d outside, · %d fuera, · %d à l'extérieur, · %d außerhalb, · %d fora, · снаружи: %d, · %d 个在外部, · %d 個が外側, · %d بالخارج, · %d बाहर
+Teclado y ratón,Keyboard & mouse,Teclado y ratón,Clavier et souris,Tastatur & Maus,Teclado e mouse,Клавиатура и мышь,键盘和鼠标,キーボードとマウス,لوحة المفاتيح والفأرة,कीबोर्ड और माउस
+Atajos,Shortcuts,Atajos,Raccourcis,Kurzbefehle,Atalhos,Сочетания,快捷键,ショートカット,الاختصارات,शॉर्टकट
+Teclado,Keyboard,Teclado,Clavier,Tastatur,Teclado,Клавиатура,键盘,キーボード,لوحة المفاتيح,कीबोर्ड
+Ratón,Mouse,Ratón,Souris,Maus,Mouse,Мышь,鼠标,マウス,الفأرة,माउस
+Buscar atajo…,Search shortcut…,Buscar atajo…,Rechercher un raccourci…,Kurzbefehl suchen…,Buscar atalho…,Найти сочетание…,搜索快捷键…,ショートカットを検索…,ابحث عن اختصار…,शॉर्टकट खोजें…
+Herramientas,Tools,Herramientas,Outils,Werkzeuge,Ferramentas,Инструменты,工具,ツール,الأدوات,टूल
+Vista,View,Vista,Affichage,Ansicht,Visualização,Вид,视图,表示,العرض,दृश्य
+Archivo,File,Archivo,Fichier,Datei,Arquivo,Файл,文件,ファイル,ملف,फ़ाइल
+Edición,Edit,Edición,Édition,Bearbeiten,Edição,Правка,编辑,編集,تحرير,संपादन
+Objeto,Object,Objeto,Objet,Objekt,Objeto,Объект,对象,オブジェクト,كائن,ऑब्जेक्ट
+Otros,Other,Otros,Autres,Sonstige,Outros,Прочее,其他,その他,أخرى,अन्य
+Seleccionar / mover,Select / move,Seleccionar / mover,Sélectionner / déplacer,Auswählen / verschieben,Selecionar / mover,Выделение / перемещение,选择 / 移动,選択 / 移動,تحديد / نقل,चुनें / खिसकाएँ
+Bézier,Bézier,Bézier,Bézier,Bézier,Bézier,Безье,贝塞尔,ベジェ,بيزيه,बेज़ियर
+Pincel,Brush,Pincel,Pinceau,Pinsel,Pincel,Кисть,画笔,ブラシ,فرشاة,ब्रश
+Texto artístico,Artistic text,Texto artístico,Texte artistique,Grafiktext,Texto artístico,Фигурный текст,美术文本,アート文字,نص فني,कलात्मक टेक्स्ट
+Mesa de trabajo,Artboard,Mesa de trabajo,Plan de travail,Zeichenfläche,Prancheta,Монтажная область,画板,アートボード,لوح الرسم,आर्टबोर्ड
+Mano (desplazar la vista),Hand (pan the view),Mano (desplazar la vista),Main (déplacer la vue),Hand (Ansicht verschieben),Mão (mover a vista),Рука (сдвиг вида),抓手（平移视图）,手のひら（表示を移動）,اليد (تحريك العرض),हाथ (दृश्य खिसकाएँ)
+Acercar,Zoom in,Acercar,Zoom avant,Vergrößern,Aproximar,Приблизить,放大,ズームイン,تكبير,ज़ूम इन
+Alejar,Zoom out,Alejar,Zoom arrière,Verkleinern,Afastar,Отдалить,缩小,ズームアウト,تصغير,ज़ूम आउट
+Restablecer el zoom,Reset zoom,Restablecer el zoom,Réinitialiser le zoom,Zoom zurücksetzen,Redefinir zoom,Сбросить масштаб,重置缩放,ズームをリセット,إعادة ضبط التكبير,ज़ूम रीसेट करें
+Documento nuevo,New document,Documento nuevo,Nouveau document,Neues Dokument,Novo documento,Новый документ,新建文档,新規ドキュメント,مستند جديد,नया दस्तावेज़
+Deshacer,Undo,Deshacer,Annuler,Rückgängig,Desfazer,Отменить,撤销,元に戻す,تراجع,पूर्ववत करें
+Rehacer,Redo,Rehacer,Rétablir,Wiederholen,Refazer,Повторить,重做,やり直し,إعادة,फिर से करें
+Copiar,Copy,Copiar,Copier,Kopieren,Copiar,Копировать,复制,コピー,نسخ,कॉपी करें
+Pegar,Paste,Pegar,Coller,Einfügen,Colar,Вставить,粘贴,貼り付け,لصق,पेस्ट करें
+Cortar,Cut,Cortar,Couper,Ausschneiden,Recortar,Вырезать,剪切,切り取り,قص,काटें
+Seleccionar todo,Select all,Seleccionar todo,Tout sélectionner,Alles auswählen,Selecionar tudo,Выделить всё,全选,すべて選択,تحديد الكل,सब चुनें
+Agrupar,Group,Agrupar,Grouper,Gruppieren,Agrupar,Сгруппировать,编组,グループ化,تجميع,समूह बनाएँ
+Opacidad de la selección,Selection opacity,Opacidad de la selección,Opacité de la sélection,Deckkraft der Auswahl,Opacidade da seleção,Непрозрачность выделения,所选对象不透明度,選択範囲の不透明度,عتامة التحديد,चयन की अपारदर्शिता
+Mover la selección 1 px,Move selection 1 px,Mover la selección 1 px,Déplacer la sélection de 1 px,Auswahl um 1 px verschieben,Mover a seleção 1 px,Сдвинуть выделение на 1 px,移动所选 1 像素,選択範囲を 1 px 移動,تحريك التحديد 1 بكسل,चयन को 1 px खिसकाएँ
+Mover la selección 10 px,Move selection 10 px,Mover la selección 10 px,Déplacer la sélection de 10 px,Auswahl um 10 px verschieben,Mover a seleção 10 px,Сдвинуть выделение на 10 px,移动所选 10 像素,選択範囲を 10 px 移動,تحريك التحديد 10 بكسل,चयन को 10 px खिसकाएँ
+Mantener: desplazar la vista con el ratón,Hold: pan the view with the mouse,Mantener: desplazar la vista con el ratón,Maintenir : déplacer la vue à la souris,Halten: Ansicht mit der Maus verschieben,Manter: mover a vista com o mouse,Удерживать: сдвиг вида мышью,按住：用鼠标平移视图,押したまま：マウスで表示を移動,اضغط مطولًا: حرّك العرض بالفأرة,दबाए रखें: माउस से दृश्य खिसकाएँ
+Cancelar · devolver el teclado al lienzo,Cancel · give the keyboard back to the canvas,Cancelar · devolver el teclado al lienzo,Annuler · rendre le clavier au canevas,Abbrechen · Tastatur zurück an die Zeichenfläche,Cancelar · devolver o teclado à tela,Отмена · вернуть клавиатуру холсту,取消 · 将键盘还给画布,キャンセル · キーボードをキャンバスに戻す,إلغاء · إعادة لوحة المفاتيح إلى اللوحة,रद्द करें · कीबोर्ड कैनवास को लौटाएँ
+Modo degradado,Gradient mode,Modo degradado,Mode dégradé,Verlaufsmodus,Modo degradê,Режим градиента,渐变模式,グラデーションモード,وضع التدرج,ग्रेडिएंट मोड
+Mover con el teclado,Move with the keyboard,Mover con el teclado,Déplacer au clavier,Mit der Tastatur verschieben,Mover com o teclado,Перемещать с клавиатуры,用键盘移动,キーボードで移動,النقل بلوحة المفاتيح,कीबोर्ड से खिसकाएँ
+Rotar con el teclado,Rotate with the keyboard,Rotar con el teclado,Faire pivoter au clavier,Mit der Tastatur drehen,Girar com o teclado,Вращать с клавиатуры,用键盘旋转,キーボードで回転,التدوير بلوحة المفاتيح,कीबोर्ड से घुमाएँ
+Escalar con el teclado,Scale with the keyboard,Escalar con el teclado,Mettre à l'échelle au clavier,Mit der Tastatur skalieren,Escalar com o teclado,Масштабировать с клавиатуры,用键盘缩放,キーボードで拡大縮小,التحجيم بلوحة المفاتيح,कीबोर्ड से स्केल करें
+Fuente más gruesa,Heavier font weight,Fuente más gruesa,Police plus grasse,Schrift fetter,Fonte mais grossa,Более жирный шрифт,字体加粗,フォントを太く,خط أعرض,मोटा फ़ॉन्ट
+Fuente más fina,Lighter font weight,Fuente más fina,Police plus fine,Schrift dünner,Fonte mais fina,Более тонкий шрифт,字体变细,フォントを細く,خط أرفع,पतला फ़ॉन्ट
+Consola de diagnóstico: informe,Diagnostic console: report,Consola de diagnóstico: informe,Console de diagnostic : rapport,Diagnosekonsole: Bericht,Console de diagnóstico: relatório,Консоль диагностики: отчёт,诊断控制台：报告,診断コンソール：レポート,وحدة التشخيص: تقرير,निदान कंसोल: रिपोर्ट
+Sin modificador,No modifier,Sin modificador,Sans modificateur,Ohne Modifikator,Sem modificador,Без модификатора,无修饰键,修飾キーなし,بدون مفتاح تعديل,बिना संशोधक
+Mayús,Shift,Mayús,Maj,Umschalt,Shift,Shift,Shift,Shift,Shift,Shift
+Ctrl + Mayús,Ctrl + Shift,Ctrl + Mayús,Ctrl + Maj,Strg + Umschalt,Ctrl + Shift,Ctrl + Shift,Ctrl + Shift,Ctrl + Shift,Ctrl + Shift,Ctrl + Shift
+Ctrl + Alt,Ctrl + Alt,Ctrl + Alt,Ctrl + Alt,Strg + Alt,Ctrl + Alt,Ctrl + Alt,Ctrl + Alt,Ctrl + Alt,Ctrl + Alt,Ctrl + Alt
+Supr,Del,Supr,Suppr,Entf,Del,Del,Del,Del,Del,Del
+Configurable,Configurable,Configurable,Configurable,Anpassbar,Configurável,Настраиваемая,可自定义,変更可能,قابل للتخصيص,बदलने योग्य
+Fijo,Fixed,Fijo,Fixe,Fest,Fixo,Фиксированная,固定,固定,ثابت,स्थिर
+Repetido,Duplicate,Repetido,En double,Doppelt,Repetido,Повтор,重复,重複,مكرر,दोहराया गया
+Libre,Free,Libre,Libre,Frei,Livre,Свободна,空闲,空き,متاح,खाली
+fijo,fixed,fijo,fixe,fest,fixo,фиксированная,固定,固定,ثابت,स्थिर
+libre,free,libre,libre,frei,livre,свободна,空闲,空き,متاح,खाली
+con selección,with a selection,con selección,avec une sélection,mit Auswahl,com seleção,при выделении,有选中时,選択時,مع وجود تحديد,चयन होने पर
+Pasa el ratón por una tecla para ver qué hace. Clic en una tecla ocupada: la busca en Atajos.,Hover a key to see what it does. Click a used key to find it in Shortcuts.,Pasa el ratón por una tecla para ver qué hace. Clic en una tecla ocupada: la busca en Atajos.,Survolez une touche pour voir son rôle. Cliquez sur une touche utilisée pour la trouver dans Raccourcis.,"Fahre über eine Taste, um ihre Funktion zu sehen. Klicke auf eine belegte Taste, um sie in Kurzbefehle zu finden.",Passe o mouse sobre uma tecla para ver o que faz. Clique numa tecla ocupada para encontrá-la em Atalhos.,"Наведите на клавишу, чтобы увидеть её действие. Щелчок по занятой клавише находит её в «Сочетаниях».",将鼠标悬停在按键上查看其作用。点击已占用的按键可在“快捷键”中找到它。,キーにマウスを重ねると機能が表示されます。使用中のキーをクリックするとショートカットで探します。,مرّر الفأرة على مفتاح لمعرفة وظيفته. انقر مفتاحًا مستخدمًا للعثور عليه في الاختصارات.,कुंजी पर माउस ले जाएँ और देखें वह क्या करती है। इस्तेमाल हो रही कुंजी पर क्लिक करें तो वह शॉर्टकट में मिलेगी।
+Esta tecla también la usa otra acción.,This key is also used by another action.,Esta tecla también la usa otra acción.,Cette touche est aussi utilisée par une autre action.,Diese Taste wird auch von einer anderen Aktion verwendet.,Esta tecla também é usada por outra ação.,Эта клавиша используется и другим действием.,此按键也被其他操作使用。,このキーは別の操作でも使われています。,هذا المفتاح يستخدمه إجراء آخر أيضًا.,यह कुंजी किसी दूसरी क्रिया में भी इस्तेमाल होती है।
+Añadir atajo,Add shortcut,Añadir atajo,Ajouter un raccourci,Kurzbefehl hinzufügen,Adicionar atalho,Добавить сочетание,添加快捷键,ショートカットを追加,إضافة اختصار,शॉर्टकट जोड़ें
+Quitar atajo,Remove shortcut,Quitar atajo,Retirer le raccourci,Kurzbefehl entfernen,Remover atalho,Убрать сочетание,移除快捷键,ショートカットを削除,إزالة الاختصار,शॉर्टकट हटाएँ
+Clic para cambiar la tecla,Click to change the key,Clic para cambiar la tecla,Cliquez pour changer la touche,"Klicken, um die Taste zu ändern",Clique para mudar a tecla,"Щёлкните, чтобы сменить клавишу",点击以更改按键,クリックしてキーを変更,انقر لتغيير المفتاح,कुंजी बदलने के लिए क्लिक करें
+Pulsa la tecla o el botón del ratón para «%s»… (Esc cancela),Press the key or mouse button for “%s”… (Esc cancels),Pulsa la tecla o el botón del ratón para «%s»… (Esc cancela),Appuyez sur la touche ou le bouton de souris pour « %s »… (Échap annule),Drücke die Taste oder Maustaste für „%s“… (Esc bricht ab),Pressione a tecla ou o botão do mouse para “%s”… (Esc cancela),Нажмите клавишу или кнопку мыши для «%s»… (Esc — отмена),为“%s”按下按键或鼠标按钮…（Esc 取消）,「%s」に割り当てるキーかマウスボタンを押してください…（Esc でキャンセル）,اضغط المفتاح أو زر الفأرة لـ «%s»… (Esc للإلغاء),“%s” के लिए कुंजी या माउस बटन दबाएँ… (Esc रद्द करता है)
+Clic izquierdo,Left click,Clic izquierdo,Clic gauche,Linksklick,Clique esquerdo,Левый щелчок,左键单击,左クリック,نقرة يسرى,बायाँ क्लिक
+Clic derecho,Right click,Clic derecho,Clic droit,Rechtsklick,Clique direito,Правый щелчок,右键单击,右クリック,نقرة يمنى,दायाँ क्लिक
+Botón central,Middle button,Botón central,Bouton central,Mittlere Maustaste,Botão do meio,Средняя кнопка,中键,中ボタン,الزر الأوسط,बीच वाला बटन
+Rueda arriba,Wheel up,Rueda arriba,Molette vers le haut,Mausrad hoch,Roda para cima,Колесо вверх,滚轮向上,ホイール上,العجلة لأعلى,व्हील ऊपर
+Rueda abajo,Wheel down,Rueda abajo,Molette vers le bas,Mausrad runter,Roda para baixo,Колесо вниз,滚轮向下,ホイール下,العجلة لأسفل,व्हील नीचे
+Clic,Click,Clic,Clic,Klick,Clique,Щелчок,单击,クリック,نقرة,क्लिक
+Doble clic en un texto,Double-click a text,Doble clic en un texto,Double-clic sur un texte,Doppelklick auf einen Text,Clique duplo num texto,Двойной щелчок по тексту,双击文本,テキストをダブルクリック,نقر مزدوج على نص,टेक्स्ट पर डबल-क्लिक
+Editar el texto,Edit the text,Editar el texto,Modifier le texte,Text bearbeiten,Editar o texto,Редактировать текст,编辑文本,テキストを編集,تحرير النص,टेक्स्ट संपादित करें
+Menú contextual,Context menu,Menú contextual,Menu contextuel,Kontextmenü,Menu de contexto,Контекстное меню,上下文菜单,コンテキストメニュー,القائمة السياقية,संदर्भ मेनू
+Mover la selección,Move the selection,Mover la selección,Déplacer la sélection,Auswahl verschieben,Mover a seleção,Переместить выделение,移动所选,選択範囲を移動,نقل التحديد,चयन खिसकाएँ
+Alt + arrastrar,Alt + drag,Alt + arrastrar,Alt + glisser,Alt + ziehen,Alt + arrastar,Alt + перетаскивание,Alt + 拖动,Alt + ドラッグ,Alt + سحب,Alt + खींचें
+Duplicar y mover (un solo paso de deshacer),Duplicate and move (a single undo step),Duplicar y mover (un solo paso de deshacer),Dupliquer et déplacer (une seule annulation),Duplizieren und verschieben (ein Rückgängig-Schritt),Duplicar e mover (um só passo de desfazer),Дублировать и переместить (одна отмена),复制并移动（一步撤销）,複製して移動（取り消しは 1 回）,تكرار ونقل (خطوة تراجع واحدة),डुप्लिकेट करके खिसकाएँ (एक ही पूर्ववत चरण)
+Ctrl + arrastrar,Ctrl + drag,Ctrl + arrastrar,Ctrl + glisser,Strg + ziehen,Ctrl + arrastar,Ctrl + перетаскивание,Ctrl + 拖动,Ctrl + ドラッグ,Ctrl + سحب,Ctrl + खींचें
+Mover solo en horizontal o vertical (y ajustar a la rejilla),Move only horizontally or vertically (and snap to the grid),Mover solo en horizontal o vertical (y ajustar a la rejilla),Déplacer seulement à l'horizontale ou à la verticale (et aimanter à la grille),Nur waagerecht oder senkrecht verschieben (und am Raster ausrichten),Mover só na horizontal ou vertical (e ajustar à grade),Только по горизонтали или вертикали (с привязкой к сетке),仅水平或垂直移动（并吸附网格）,水平または垂直にのみ移動（グリッドに吸着）,النقل أفقيًا أو رأسيًا فقط (مع المحاذاة للشبكة),सिर्फ़ क्षैतिज या ऊर्ध्वाधर खिसकाएँ (और ग्रिड पर जमाएँ)
+Mayús + arrastrar la caja,Shift + drag the box,Mayús + arrastrar la caja,Maj + glisser le cadre,Umschalt + Rahmen ziehen,Shift + arrastar a caixa,Shift + перетаскивание рамки,Shift + 拖动边框,Shift + ボックスをドラッグ,Shift + سحب الإطار,Shift + बॉक्स खींचें
+Cambiar el grosor del trazo,Change the stroke width,Cambiar el grosor del trazo,Changer l'épaisseur du contour,Strichstärke ändern,Mudar a espessura do traço,Изменить толщину обводки,更改描边粗细,線幅を変更,تغيير سُمك الحد,स्ट्रोक की मोटाई बदलें
+Rueda,Wheel,Rueda,Molette,Mausrad,Roda,Колесо,滚轮,ホイール,العجلة,व्हील
+Zoom en el punto del ratón,Zoom at the mouse position,Zoom en el punto del ratón,Zoom sous la souris,Zoom an der Mausposition,Zoom no ponto do mouse,Масштаб в точке курсора,在鼠标位置缩放,マウス位置でズーム,التكبير عند موضع الفأرة,माउस की जगह पर ज़ूम
+Ctrl + rueda,Ctrl + wheel,Ctrl + rueda,Ctrl + molette,Strg + Mausrad,Ctrl + roda,Ctrl + колесо,Ctrl + 滚轮,Ctrl + ホイール,Ctrl + العجلة,Ctrl + व्हील
+Zoom más rápido,Faster zoom,Zoom más rápido,Zoom plus rapide,Schnellerer Zoom,Zoom mais rápido,Быстрый масштаб,更快缩放,高速ズーム,تكبير أسرع,तेज़ ज़ूम
+Botón central + arrastrar,Middle button + drag,Botón central + arrastrar,Bouton central + glisser,Mittlere Maustaste + ziehen,Botão do meio + arrastar,Средняя кнопка + перетаскивание,中键 + 拖动,中ボタン + ドラッグ,الزر الأوسط + سحب,बीच वाला बटन + खींचें
+Desplazar la vista,Pan the view,Desplazar la vista,Déplacer la vue,Ansicht verschieben,Mover a vista,Сдвинуть вид,平移视图,表示を移動,تحريك العرض,दृश्य खिसकाएँ
+Espacio + arrastrar,Space + drag,Espacio + arrastrar,Espace + glisser,Leertaste + ziehen,Espaço + arrastar,Пробел + перетаскивание,空格 + 拖动,スペース + ドラッグ,مسافة + سحب,स्पेस + खींचें
+Pincel · Mayús + arrastrar,Brush · Shift + drag,Pincel · Mayús + arrastrar,Pinceau · Maj + glisser,Pinsel · Umschalt + ziehen,Pincel · Shift + arrastar,Кисть · Shift + перетаскивание,画笔 · Shift + 拖动,ブラシ · Shift + ドラッグ,الفرشاة · Shift + سحب,ब्रश · Shift + खींचें
+Cambiar el grosor del pincel,Change the brush size,Cambiar el grosor del pincel,Changer la taille du pinceau,Pinselgröße ändern,Mudar o tamanho do pincel,Изменить размер кисти,更改画笔大小,ブラシサイズを変更,تغيير حجم الفرشاة,ब्रश का आकार बदलें
+Pincel · Ctrl,Brush · Ctrl,Pincel · Ctrl,Pinceau · Ctrl,Pinsel · Strg,Pincel · Ctrl,Кисть · Ctrl,画笔 · Ctrl,ブラシ · Ctrl,الفرشاة · Ctrl,ब्रश · Ctrl
+Trazo en línea recta,Straight-line stroke,Trazo en línea recta,Trait en ligne droite,Gerader Strich,Traço em linha reta,Прямая линия,直线笔画,直線で描く,خط مستقيم,सीधी रेखा
+Pincel · Alt,Brush · Alt,Pincel · Alt,Pinceau · Alt,Pinsel · Alt,Pincel · Alt,Кисть · Alt,画笔 · Alt,ブラシ · Alt,الفرشاة · Alt,ब्रश · Alt
+Continuar desde el último trazo,Continue from the last stroke,Continuar desde el último trazo,Continuer depuis le dernier trait,Vom letzten Strich weiterzeichnen,Continuar do último traço,Продолжить от последнего штриха,从上一笔继续,前のストロークから続ける,المتابعة من آخر ضربة,पिछले स्ट्रोक से जारी रखें
