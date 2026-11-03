@@ -52,12 +52,6 @@ encargo 10.
 
 ## 3. Publicación y actualizaciones
 
-- [ ] Comprobar la release **v0.2.1-beta** que crea el Action «Release»
-      (`.github/workflows/release.yml`): paquetes de los 3 sistemas.
-- [ ] `test/e2e/updater_live_e2e.gd` contra la release real: encuentra la
-      versión, muestra «Descargar e instalar», descarga el `.rpm` completo
-      (`rpm -qp` lo reconoce).
-- [ ] Publicar el post del blog (`vectopen-web/web/blog/posts/2026-11-vectopen-0-2-1-beta*.md`).
 - [ ] Mac Intel: el vectorizador IA no existe (ONNX Runtime no tiene binarios
       para `x86_64-apple-darwin`); valorar compilarlo desde fuente o avisarlo
       en la app.
