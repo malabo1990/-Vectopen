@@ -408,7 +408,8 @@ func test_mover_el_degradado_no_reconstruye_la_malla() -> void:
 		r.set_gradient_points(Vector2(0.1 + i * 0.02, 0.5), Vector2(0.9, 0.5))
 		await get_tree().process_frame
 	assert_int(draws[0]).is_equal(0)
-	assert_object(r.material).is_not_null()   # lo pinta el shader (GPU)
+	assert_object(r.stroke_material).is_not_null()   # lo pinta el shader (GPU)
+	assert_bool(r.stroke_material.get_shader_parameter("use_grad")).is_true()
 
 
 ## BUG real: tras perder el foco con Ctrl / Super pulsado (Super abre las

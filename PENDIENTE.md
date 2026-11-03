@@ -31,7 +31,7 @@ Un encargo o incidencia por iteración:
 | USR-02 | Texto y párrafo: duplicar con Alt + arrastrar (y Ctrl+D / pegar) | Hecho (`c905ecc`) |
 | USR-03 | Panel «Teclado y ratón»: corregir y mejorar la UI | Hecho: pestañas Atajos/Teclado/Ratón, categorías, nombres traducidos (10 idiomas), aviso ⚠ de tecla repetida, tema claro y oscuro (`keyboard_panel_e2e` 28/0) |
 | USR-04 | Teclado simulado: ver qué teclas tienen atajo y cuáles están libres | Hecho: teclado simulado con modificadores; colores configurable/fijo/repetido/libre; clic en una tecla ocupada la busca en Atajos |
-| USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Pendiente |
+| USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Hecho: borde con antialias por sombreador (1 px a cualquier zoom), opacidad del trazo compuesta en grupo (sin manchas en cruces, uniones ni puntas), vista previa con el mismo render que el trazo final (`brush_quality_e2e`) |
 | USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Pendiente |
 
 ---

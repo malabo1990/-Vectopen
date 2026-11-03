@@ -39,8 +39,11 @@ static func curve_points(curve: Curve2D) -> PackedVector2Array:
 
 ## Tira de grosor variable (half = medio grosor por punto) con uniones y
 ## remates (0 plano, 1 redondo, 2 cuadrado). La usa el render del pincel.
+## m["v"]: coordenada ATRAVÉS del trazo por vértice (borde = 0 ó 1, eje =
+## 0,5; en uniones y remates, centro 0,5 y borde 1) — el sombreador la usa
+## para el antialias del borde (1 px de pantalla a cualquier zoom).
 static func strip_mesh(pts: PackedVector2Array, half: PackedFloat32Array, cap_s: int, cap_e: int) -> Dictionary:
-	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array()}
+	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "v": PackedFloat32Array()}
 	if pts.size() >= 2:
 		_strip(m, pts, half, false, cap_s, cap_e)
 	elif pts.size() == 1 and half.size() > 0:
@@ -417,6 +420,12 @@ static func _strip(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFlo
 		idx.append_array([a, a + 1, a + 2, a + 1, a + 3, a + 2])
 	m["points"] = verts
 	m["indices"] = idx
+	if m.has("v"):
+		var vv: PackedFloat32Array = m["v"]
+		for k in count:
+			vv.append(0.0)
+			vv.append(1.0)
+		m["v"] = vv
 	for j in joins:
 		_disc(m, j[0], j[1])
 	if not closed:
@@ -553,6 +562,7 @@ static func _fan(m: Dictionary, c: Vector2, dir: Vector2, r: float) -> void:
 		idx.append_array([ci, ci + 1 + k, ci + 2 + k])
 	m["points"] = verts
 	m["indices"] = idx
+	_radial_v(m, segs + 1)
 
 static func _disc(m: Dictionary, c: Vector2, r: float) -> void:
 	if r < 0.01:
@@ -569,6 +579,17 @@ static func _disc(m: Dictionary, c: Vector2, r: float) -> void:
 		idx.append_array([ci, ci + 1 + k, ci + 1 + (k + 1) % segs])
 	m["points"] = verts
 	m["indices"] = idx
+	_radial_v(m, segs)
+
+## Centro (0,5) + `rim` vértices de borde (1) en m["v"], si se pide.
+static func _radial_v(m: Dictionary, rim: int) -> void:
+	if not m.has("v"):
+		return
+	var vv: PackedFloat32Array = m["v"]
+	vv.append(0.5)
+	for k in rim:
+		vv.append(1.0)
+	m["v"] = vv
 
 # ── desplazamiento, guiones, puntos ──────────────────────────────────────────
 ## Polilínea paralela a `d` (con inglete, para que las dos líneas del doble

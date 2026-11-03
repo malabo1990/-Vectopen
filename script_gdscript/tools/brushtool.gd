@@ -495,6 +495,11 @@ func handle_input(event: InputEvent) -> bool:
 			# del viewport suaviza el borde igual.
 			current_line.antialiased = false
 			_apply_line_style(current_line)
+			# Vista previa con el MISMO render que el trazo final (borde liso
+			# con antialias): antes se veía el Line2D festoneado y el trazo
+			# «cambiaba» al soltar el lápiz.
+			if current_line.texture == null:
+				BrushStrokeRender.attach(current_line)
 
 			if drawing_layer:
 				drawing_layer.add_child(current_line)

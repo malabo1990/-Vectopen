@@ -18,10 +18,20 @@
 extends Node2D
 
 const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
-const GRAD_SHADER := preload("res://shaders/brush_gradient.gdshader")
+const STROKE_SHADER := preload("res://shaders/brush_stroke.gdshader")
+## Material compartido de los trazos sin degradado (no rompe el agrupado de
+## dibujo); con degradado cada trazo tiene el suyo (uniformes propios).
+static var _shared_mat: ShaderMaterial = null
 const NODE_NAME := "StrokeRender"
 
 var line: Line2D = null
+## Sombreador del trazo (antialias + textura + degradado). Va en el elemento
+## hijo que pinta la malla, no en este nodo: este, si el trazo es
+## semitransparente, es un GRUPO (se compone entero y luego se le aplica la
+## opacidad), así un trazo que se cruza consigo mismo no se oscurece en el
+## cruce, en las uniones ni en los remates.
+var stroke_material: ShaderMaterial = null
+var _mesh_ci := RID()
 var _internal_point_update := false
 var _grad_tex: GradientTexture1D = null
 
@@ -52,12 +62,35 @@ func _ready() -> void:
 		# El Line2D se redibuja al cambiar puntos / grosor / curva / color.
 		line.draw.connect(queue_redraw)
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and _mesh_ci.is_valid():
+		RenderingServer.free_rid(_mesh_ci)
+		_mesh_ci = RID()
+
+func _mesh_item() -> RID:
+	if not _mesh_ci.is_valid():
+		_mesh_ci = RenderingServer.canvas_item_create()
+		RenderingServer.canvas_item_set_parent(_mesh_ci, get_canvas_item())
+		if stroke_material:
+			RenderingServer.canvas_item_set_material(_mesh_ci, stroke_material.get_rid())
+	return _mesh_ci
+
+## Opacidad del trazo como grupo (ver stroke_material).
+func _set_group(alpha: float) -> void:
+	var translucent := alpha < 0.999
+	RenderingServer.canvas_item_set_canvas_group_mode(get_canvas_item(),
+		RenderingServer.CANVAS_GROUP_MODE_TRANSPARENT if translucent else RenderingServer.CANVAS_GROUP_MODE_DISABLED,
+		4.0, false, 0.0, false)
+	modulate.a = alpha if translucent else 1.0
+
 func _hide_native() -> void:
 	if is_instance_valid(line):
 		line.self_modulate.a = 0.0
 
 # ── dibujo ───────────────────────────────────────────────────────────────────
 func _draw() -> void:
+	var ci := _mesh_item()
+	RenderingServer.canvas_item_clear(ci)
 	if not is_instance_valid(line):
 		return
 	var pts := line.points
@@ -82,15 +115,19 @@ func _draw() -> void:
 	if idx.is_empty():
 		return
 	var cols := _colors(verts, pts, cum, total)
+	# Opacidad del pincel → del grupo; la malla, opaca (sin solapes visibles).
+	var alpha := line.default_color.a
+	_set_group(alpha)
+	if alpha < 0.999 and alpha > 0.0:
+		for i in cols.size():
+			cols[i].a = clampf(cols[i].a / alpha, 0.0, 1.0)
 	# UX-16: la TEXTURA del estilo (grano del lápiz, bordes del marcador,
 	# difuminado del aerógrafo, bisel caligráfico). Antes se ignoraba y todos
 	# los estilos salían como una banda lisa.
 	var tex := style_texture(line)
-	if tex:
-		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols,
-			_uvs(verts, pts, cum, total, half), PackedInt32Array(), PackedFloat32Array(), tex.get_rid())
-	else:
-		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols)
+	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), tex != null)
+	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols,
+		uvs, PackedInt32Array(), PackedFloat32Array(), tex.get_rid() if tex else RID())
 
 ## Textura del estilo del trazo (meta «brush_style»: también en documentos
 ## guardados, que no conservan la textura del Line2D).
@@ -106,18 +143,32 @@ static func style_texture(l: Line2D) -> Texture2D:
 ## u a lo largo (en mosaico cada «grosor», o estirada en el aerógrafo) y v a
 ## lo ancho. Remates y uniones (añadidos al final): v según la distancia al
 ## eje (centro = 0,5; borde = 1), así un aerógrafo no deja manchas en las puntas.
-func _uvs(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32Array, total: float, half: PackedFloat32Array) -> PackedVector2Array:
+## `across`: la v que da StrokeGeom (exacta y sin buscar el punto más
+## cercano); `textured`: solo entonces hace falta la u.
+func _uvs(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32Array, total: float,
+		half: PackedFloat32Array, across: PackedFloat32Array = PackedFloat32Array(), textured: bool = true) -> PackedVector2Array:
 	var uv := PackedVector2Array()
 	uv.resize(verts.size())
 	var stretch := String(line.get_meta("brush_style", "")) == "airbrush"
 	var tile := maxf(line.width * 2.0, 1.0)
 	var n := pts.size()
+	var has_v := across.size() == verts.size()
 	for i in verts.size():
-		@warning_ignore("integer_division")
-		var k := i / 2 if i < n * 2 else _nearest(pts, verts[i])
-		var u := cum[k] / total if stretch else cum[k] / tile
-		var v := 0.0 if i % 2 == 0 else 1.0
-		if i >= n * 2:
+		var k := -1
+		if i < n * 2:
+			@warning_ignore("integer_division")
+			k = i / 2
+		elif textured or not has_v:
+			k = _nearest(pts, verts[i])
+		var u := 0.0
+		if textured and k >= 0:
+			u = cum[k] / total if stretch else cum[k] / tile
+		var v: float
+		if has_v:
+			v = across[i]
+		elif i < n * 2:
+			v = 0.0 if i % 2 == 0 else 1.0
+		else:
 			v = 0.5 + 0.5 * clampf(verts[i].distance_to(pts[k]) / maxf(half[k], 0.001), 0.0, 1.0)
 		uv[i] = Vector2(u, v)
 	return uv
@@ -166,13 +217,17 @@ func _update_material() -> void:
 		return
 	var g := fill_gradient
 	if g == null or g.get_point_count() < 2:
-		material = null
+		if _shared_mat == null:
+			_shared_mat = ShaderMaterial.new()
+			_shared_mat.shader = STROKE_SHADER
+		_use_material(_shared_mat)
 		return
-	var mat := material as ShaderMaterial
-	if mat == null:
+	var mat := stroke_material
+	if mat == null or mat == _shared_mat:
 		mat = ShaderMaterial.new()
-		mat.shader = GRAD_SHADER
-		material = mat
+		mat.shader = STROKE_SHADER
+		mat.set_shader_parameter("use_grad", true)
+		_use_material(mat)
 	if _grad_tex == null:
 		_grad_tex = GradientTexture1D.new()
 		_grad_tex.width = 256
@@ -182,6 +237,10 @@ func _update_material() -> void:
 	mat.set_shader_parameter("p0", _a())
 	mat.set_shader_parameter("p1", _b())
 	mat.set_shader_parameter("gtype", fill_gradient_type)
+
+func _use_material(mat: ShaderMaterial) -> void:
+	stroke_material = mat
+	RenderingServer.canvas_item_set_material(_mesh_item(), mat.get_rid())
 
 func _set_ends(a: Variant, b: Variant) -> void:
 	if a != null:
