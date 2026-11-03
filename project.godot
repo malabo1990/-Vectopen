@@ -18,11 +18,11 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Vectopen"
-config/version="0.2.1-beta"
+config/version="0.2.1-beta.2"
 run/main_scene="uid://dq780ohbvwe87"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0.9569, 0.9608, 0.9843, 1)
-boot_splash/image="uid://da0xph4mywp4d"
+boot_splash/image="res://icon/logo/Splash.png"
 config/icon="res://icon/app/vectopen_app_icon.png"
 vectopen/locale="es"
 
