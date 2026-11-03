@@ -213,7 +213,7 @@ func refresh() -> void:
 	var a := active()
 	var idx := ps.find(a)
 	if _count:
-		_count.text = ("%d páginas" % ps.size()) if idx < 0 else ("%d de %d" % [idx + 1, ps.size()])
+		_count.text = (tr("%d páginas") % ps.size()) if idx < 0 else (tr("%d de %d") % [idx + 1, ps.size()])
 	_relayout()
 
 ## Algo cambió en el documento: rehacer la miniatura de la página activa.

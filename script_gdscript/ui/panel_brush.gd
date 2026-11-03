@@ -393,7 +393,7 @@ func _process(_dt: float) -> void:
 		return
 	_pressure_bar.value = clampf(tool.live_pressure, 0.0, 1.0) * 100.0
 	if tool.pen_detected:
-		_pressure_status.text = "Lápiz: %d %%" % int(round(tool.live_pressure * 100.0))
+		_pressure_status.text = tr("Lápiz: %d %%") % int(round(tool.live_pressure * 100.0))
 	else:
 		_pressure_status.text = "Sin lápiz (ratón)"
 

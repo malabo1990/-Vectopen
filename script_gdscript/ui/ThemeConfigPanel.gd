@@ -508,7 +508,7 @@ func _update_mcp_status(srv: Node) -> void:
 	if not _mcp_status:
 		return
 	if srv.is_listening():
-		_mcp_status.text = "Escuchando en http://127.0.0.1:%d/mcp (solo este equipo). Requiere el token en Authorization: Bearer <token>." % srv.get_port()
+		_mcp_status.text = tr("Escuchando en http://127.0.0.1:%d/mcp (solo este equipo). Requiere el token en Authorization: Bearer <token>.") % srv.get_port()
 	else:
 		_mcp_status.text = "Desactivado. Al activarlo, un agente de IA podrá leer y editar el lienzo vía MCP."
 

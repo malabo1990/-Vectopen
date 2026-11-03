@@ -569,7 +569,7 @@ func _build() -> void:
 	_corners_container = null
 	for spec in [["corner_tl", "TL"], ["corner_tr", "TR"], ["corner_bl", "BL"], ["corner_br", "BR"]]:
 		var d := _make_dial(Dial.Kind.RADIUS, spec[1], 400.0)
-		d.tooltip_text = "Radio de esquina %s" % spec[1]
+		d.tooltip_text = tr("Radio de esquina %s") % spec[1]
 		_corners[spec[0]] = d
 		corners_grid.add_child(d)
 

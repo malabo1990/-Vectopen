@@ -465,7 +465,7 @@ func _get_drag_data(pos_mouse: Vector2) -> Variant:
 	panel.add_theme_stylebox_override("panel", sb)
 
 	var lbl := Label.new()
-	lbl.text = ("    Moviendo %d capas" % nodos.size()) if nodos.size() > 1 \
+	lbl.text = (tr("    Moviendo %d capas") % nodos.size()) if nodos.size() > 1 \
 		else ("    Moviendo: " + str(item.get_text(COL_VIS)))
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.add_theme_font_size_override("font_size", 12)

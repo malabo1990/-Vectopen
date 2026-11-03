@@ -319,7 +319,7 @@ func add_files(paths: PackedStringArray, sub_id: String = "") -> int:
 		if not it.is_empty():
 			n += 1
 	refresh()
-	_status.text = "✓ %d recurso(s) añadido(s)" % n if n > 0 else "Esos archivos no se pueden usar como recurso"
+	_status.text = tr("✓ %d recurso(s) añadido(s)") % n if n > 0 else tr("Esos archivos no se pueden usar como recurso")
 	return n
 
 ## Filas de Exportar soltadas en una sección → recursos.

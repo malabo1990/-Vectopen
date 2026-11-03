@@ -2410,6 +2410,11 @@ func _repintar_canvas() -> void:
 
 ## Cuenta los Node2D dibujables dentro de cada artboard (sin contar el propio
 ## artboard ni los auxiliares de las herramientas) y lo escribe en el label.
+## El contador se compone con números: al cambiar de idioma hay que rehacerlo.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_instance_valid(_contador_label) and is_inside_tree():
+		_actualizar_contador.call_deferred()
+
 func _actualizar_contador() -> void:
 	if not is_instance_valid(_contador_label) or not is_instance_valid(artboard_container):
 		return
@@ -2423,11 +2428,11 @@ func _actualizar_contador() -> void:
 		elif ab is Node2D and ab.name != "Contorno_Stroke":
 			sueltos += 1
 			total += 1 + _contar_descendientes(ab)
-	var txt := "%d capas" % total
+	var txt := tr("%d capas") % total
 	if artboards > 1:
-		txt += " · %d artboards" % artboards
+		txt += tr(" · %d artboards") % artboards
 	if sueltos > 0:
-		txt += " · %d fuera" % sueltos
+		txt += tr(" · %d fuera") % sueltos
 	_contador_label.text = txt
 
 

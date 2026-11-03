@@ -289,7 +289,7 @@ func _validate_now() -> void:
 			_apply_live()
 		return
 	var first: Dictionary = errs[0]
-	_status.text = "Línea %d: %s" % [int(first["line"]), String(first["msg"])] \
+	_status.text = tr("Línea %d: %s") % [int(first["line"]), String(first["msg"])] \
 		+ (("  (+%d)" % (errs.size() - 1)) if errs.size() > 1 else "")
 	_status.add_theme_color_override("font_color", FxUI.c("NEGATIVE") if _has_slot("NEGATIVE") else Color(0.9, 0.3, 0.3))
 	for e in errs:
@@ -387,7 +387,7 @@ func _on_save() -> void:
 		_name.text = nm
 	Lib.save(nm, _code.text)
 	refresh_list()
-	_status.text = "Guardado «%s»" % nm
+	_status.text = tr("Guardado «%s»") % nm
 
 func refresh_list() -> void:
 	for c in _list.get_children():
@@ -441,7 +441,7 @@ func _on_row_menu(id: int) -> void:
 			refresh_list()
 		3:
 			var dlg := ConfirmationDialog.new()
-			dlg.dialog_text = "¿Eliminar «%s» de la biblioteca?" % _name_of(path)
+			dlg.dialog_text = tr("¿Eliminar «%s» de la biblioteca?") % _name_of(path)
 			dlg.ok_button_text = "Eliminar"
 			dlg.confirmed.connect(func() -> void:
 				Lib.remove(path)

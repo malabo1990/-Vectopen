@@ -313,7 +313,7 @@ func _sync_from_selection() -> void:
 	if is_instance_valid(path) and is_instance_valid(path.curve):
 		var n_pts = path.curve.point_count
 		var n_sel = node_tool.selected_nodes.size() if is_instance_valid(node_tool) else 0
-		_status_label.text = "%s: %d puntos (%d seleccionados)" % [path.name, n_pts, n_sel]
+		_status_label.text = tr("%s: %d puntos (%d seleccionados)") % [path.name, n_pts, n_sel]
 
 		if "closed" in path:
 			_chk_closed.button_pressed = path.closed

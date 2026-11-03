@@ -310,7 +310,7 @@ func refresh() -> void:
 		var nodes: Array = t[1]
 		var node: Node = ab if nodes.is_empty() else nodes[0]
 		if nodes.size() > 1:
-			_list.add_child(_make_row(ab, nodes, "Selección · %d objetos" % nodes.size(), "group"))
+			_list.add_child(_make_row(ab, nodes, tr("Selección · %d objetos") % nodes.size(), "group"))
 		else:
 			_list.add_child(_make_row(ab, nodes, String(node.name), "artboard" if nodes.is_empty() else (api.kind_of(node) if api else "group")))
 	if _list.get_child_count() == 0:
@@ -375,7 +375,7 @@ func _update_count() -> void:
 	var all := rows()
 	var n := all.filter(func(r) -> bool: return r.checked).size()
 	if _count:
-		_count.text = "%d de %d" % [n, all.size()]
+		_count.text = tr("%d de %d") % [n, all.size()]
 	if _chk_all:
 		_chk_all.set_pressed_no_signal(n > 0 and n == all.size())
 	if _export_btn:
@@ -592,7 +592,7 @@ func _dir_label(dir: String) -> String:
 
 func _update_dest() -> void:
 	_dest_btn.text = _dir_label(dest_dir)
-	_dest_btn.tooltip_text = "Destino: %s\n(clic para cambiar)" % dest_dir
+	_dest_btn.tooltip_text = tr("Destino: %s\n(clic para cambiar)") % dest_dir
 
 func _show_dest_menu() -> void:
 	_dest_menu.clear()
@@ -814,7 +814,7 @@ class ExportRow extends PanelContainer:
 		var sel: Array = owner_panel.rows().filter(func(r) -> bool: return r.checked)
 		var list: Array = sel if (checked and sel.size() > 1) else [self]
 		var prev := Label.new()
-		prev.text = "  ⇩ %s  (%s)" % [label() if list.size() == 1 else "%d elementos" % list.size(), format]
+		prev.text = "  ⇩ %s  (%s)" % [label() if list.size() == 1 else tr("%d elementos") % list.size(), format]
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = FxUI.c("ACCENT")
 		sb.set_corner_radius_all(4)
