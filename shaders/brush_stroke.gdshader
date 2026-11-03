@@ -29,9 +29,10 @@ void fragment() {
 		}
 		c *= texture(grad_tex, vec2(clamp(t, 0.0, 1.0), 0.5));
 	}
-	// 1 en el eje, 0 en el borde.
+	// 1 en el eje, 0 en el borde. Cobertura del píxel centrada en el borde
+	// real (+0,5): el trazo no adelgaza medio píxel por lado.
 	float e = 1.0 - abs(2.0 * UV.y - 1.0);
 	float w = max(fwidth(e), 1e-6);
-	c.a *= clamp(e / w, 0.0, 1.0);
+	c.a *= clamp(e / w + 0.5, 0.0, 1.0);
 	COLOR = c;
 }

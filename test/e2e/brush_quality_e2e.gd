@@ -194,5 +194,54 @@ func _run() -> void:
 	var tones := await alpha_spots(Rect2(c4 - Vector2(120, 55), Vector2(240, 110)), Color.BLACK)
 	check("lazo semitransparente sin manchas de solape", tones <= 2, "%d tonos" % tones)
 	check("borde con antialias (tonos intermedios)", aa_levels >= 6, "%d niveles" % aa_levels)
+	# Convertir trazo en contorno (Ctrl+Mayús+O real): se ve igual.
+	for pair in [[s1, Rect2(o - Vector2(30, 90), Vector2(400, 180)), "presion"], [s4, Rect2(c4 - Vector2(130, 65), Vector2(260, 130)), "lazo"]]:
+		var line: Node = pair[0]
+		var rect: Rect2 = pair[1]
+		await RenderingServer.frame_post_draw
+		var before_img := root.get_texture().get_image().get_region(Rect2i(rect))
+		root.get_node("SelectionManager").set_selection([line])
+		await frames(4)
+		var k := InputEventKey.new()
+		k.keycode = KEY_O
+		k.physical_keycode = KEY_O
+		k.ctrl_pressed = true
+		k.shift_pressed = true
+		k.pressed = true
+		_send(k)
+		k = k.duplicate()
+		k.pressed = false
+		_send(k)
+		await frames(8)
+		check("Ctrl+Mayús+O convierte el trazo «%s» en contorno" % pair[2], line.get_parent() == null)
+		root.get_node("SelectionManager").clear()
+		await frames(6)
+		await RenderingServer.frame_post_draw
+		var after_img := root.get_texture().get_image().get_region(Rect2i(rect))
+		var diff := 0
+		var ink := 0
+		var cov_a := 0.0
+		var cov_b := 0.0
+		for y in before_img.get_height():
+			for x in before_img.get_width():
+				var a := before_img.get_pixel(x, y)
+				var b := after_img.get_pixel(x, y)
+				cov_a += 1.0 - a.get_luminance()
+				cov_b += 1.0 - b.get_luminance()
+				if a.get_luminance() < 0.95 or b.get_luminance() < 0.95:
+					ink += 1
+					# Solo diferencias fuertes (trazo en una, fondo en la otra): el
+					# antialias del borde puede variar medio píxel.
+					if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.45:
+						diff += 1
+		var frac := float(diff) / maxf(1.0, float(ink))
+		var bp := Vector2i(before_img.get_width() / 2, before_img.get_height() / 2)
+		print("INFO %s centro antes=%s después=%s" % [pair[2], before_img.get_pixelv(bp), after_img.get_pixelv(bp)])
+		# Solo píxeles sueltos del borde pueden diferir (antialias distinto).
+		check("el contorno «%s» se ve igual que el trazo" % pair[2], frac < 0.08, "%.1f %% de píxeles del borde" % (frac * 100.0))
+		var ratio := cov_b / maxf(cov_a, 0.001)
+		check("el contorno «%s» cubre la misma superficie" % pair[2], absf(ratio - 1.0) < 0.05, "%.3f" % ratio)
+		after_img.save_png(OUT.path_join("contorno_%s.png" % pair[2]))
+		before_img.save_png(OUT.path_join("antes_%s.png" % pair[2]))
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))
 	quit(1 if fails else 0)

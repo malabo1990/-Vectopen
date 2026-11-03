@@ -32,7 +32,43 @@ Un encargo o incidencia por iteración:
 | USR-03 | Panel «Teclado y ratón»: corregir y mejorar la UI | Hecho: pestañas Atajos/Teclado/Ratón, categorías, nombres traducidos (10 idiomas), aviso ⚠ de tecla repetida, tema claro y oscuro (`keyboard_panel_e2e` 28/0) |
 | USR-04 | Teclado simulado: ver qué teclas tienen atajo y cuáles están libres | Hecho: teclado simulado con modificadores; colores configurable/fijo/repetido/libre; clic en una tecla ocupada la busca en Atajos |
 | USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Hecho: borde con antialias por sombreador (1 px a cualquier zoom), opacidad del trazo compuesta en grupo (sin manchas en cruces, uniones ni puntas), vista previa con el mismo render que el trazo final (`brush_quality_e2e`) |
-| USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Pendiente |
+| USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Plan escrito (§0 ter); fase 1 en curso |
+
+## 0 ter. VGSE — Vectopen Geometric Stroke Engine (plan por fases)
+
+Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
+Proyecto grande: se avanza por fases, cada una con pruebas propias, sin
+romper documentos existentes (el Line2D sigue siendo el modelo guardado).
+
+**Fase 1 — Núcleo geométrico** (en curso)
+
+| Punto | Estado |
+|---|---|
+| Anchura variable + perfiles de presión (meta `stroke_profile`, editable en Trazos) | Existía |
+| Remates (plano / redondo / cuadrado) y uniones (inglete / redonda / bisel) | Existía (`StrokeGeom`) |
+| Offsets (`offset_line`, doble / triple / vía) | Existía |
+| Cúspides: giro cerrado → unión redonda sin pico infinito | Existía |
+| Borde con antialias a cualquier zoom (sombreador) | Hecho (`c996e1b`) |
+| Autointersecciones al pintar: trazo semitransparente sin manchas | Hecho (`c996e1b`) |
+| Vista previa = render final | Hecho (`c996e1b`) |
+| Convertir trazo en contorno (Ctrl+Mayús+O / menú): figura rellena editable con la misma forma | Hecho |
+| Perfil de anchura medido sobre el trazado ajustado (no sobre las muestras crudas) | Pendiente |
+| Modelo Stroke: fuente / derivado / caché separados (sin cambiar el formato) | Pendiente |
+
+**Fase 2 — Pinceles vectoriales**: básico, caligráfico, anchura variable,
+patrón, objeto, multiobjeto; distribución y orientación por longitud de arco.
+**Fase 3 — Trazado y texto**: trazado como pincel, texto en trazado, texto
+como pincel, referencias a objetos del documento.
+**Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y
+shaders con parámetros editables por trazo.
+**Fase 5 — Máscaras y efectos**: máscaras, recortes, efectos geométricos,
+filtros, composición, caché incremental.
+**Fase 6 — Optimización y extensiones**: CPU/GPU, pruebas de rendimiento,
+serialización y compatibilidad, pinceles personalizados.
+
+Validación (§13 del documento): rectas, círculos, Bézier, cerradas, cúspides,
+cambios bruscos de anchura, autointersecciones, presión; deshacer/rehacer,
+cambiar anchura y pincel después de dibujar, guardar y recuperar.
 
 ---
 

@@ -77,6 +77,8 @@ func _get_selected_kind() -> String:
 		return "group"
 	if shape is Sprite2D or shape.has_meta("image_path"):
 		return "image"
+	if shape is Line2D:
+		return "brush"
 	return "shape"
 
 func _create_vertical_micro_divider(color: Color) -> Control:
@@ -203,6 +205,9 @@ func _build_level_2_contextual_items(kind: String) -> void:
 			_add_menu_item("align_text_center", "Centrar texto", "")
 			_add_menu_item("align_text_right", "Alinear texto derecha", "")
 			_add_menu_item("text_to_curves", "Convertir a curvas", "Ctrl+Shift+O")
+			_add_separator()
+		"brush":
+			_add_menu_item("text_to_curves", "Convertir trazo en contorno", "Ctrl+Shift+O")
 			_add_separator()
 		"group":
 			_add_menu_item("ungroup_all", "Desagrupar todo", "Ctrl+Shift+G")

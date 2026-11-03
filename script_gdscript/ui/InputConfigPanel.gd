@@ -44,7 +44,7 @@ const NAMES := {
 	"save": "Guardar", "new_project": "Documento nuevo",
 	"undo": "Deshacer", "redo": "Rehacer", "copy": "Copiar", "paste": "Pegar", "cut": "Cortar",
 	"select_all": "Seleccionar todo", "duplicate": "Duplicar", "delete": "Borrar",
-	"group": "Agrupar", "ungroup": "Desagrupar", "text_to_curves": "Convertir texto a curvas",
+	"group": "Agrupar", "ungroup": "Desagrupar", "text_to_curves": "Convertir a curvas / contorno",
 }
 ## Atajos FIJOS (no se reasignan aquí): combinación → descripción.
 ## Clave: "<mods>|<keycode>", mods en orden ctrl+shift+alt.

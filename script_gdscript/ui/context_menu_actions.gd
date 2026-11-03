@@ -163,6 +163,8 @@ static func selected_kind(host: Node) -> String:
 		return "group"
 	if shape is Sprite2D or shape.has_meta("image_path"):
 		return "image"
+	if shape is Line2D:
+		return "brush"
 	return "shape"
 
 ## Z-order change for every selected shape, as one undoable step.
@@ -358,6 +360,11 @@ static func text_to_curves(host: Node) -> void:
 			var g = api.text_to_curves(n)
 			if g:
 				groups.append(g)
+		elif n is Line2D:
+			# Trazo de pincel → figura rellena editable (mismo atajo).
+			var o = api.stroke_to_outline(n)
+			if o:
+				groups.append(o)
 	var sm := host.get_node_or_null("/root/SelectionManager")
 	if sm and not groups.is_empty() and sm.has_method("select"):
 		sm.select(groups[0])

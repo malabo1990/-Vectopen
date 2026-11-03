@@ -71,6 +71,7 @@ const REFERENCE := [
 	["Organizar", "duplicate(objeto, desplazamiento = (20,20)) -> Node2D", "Copia"],
 	["Organizar", "group(lista, nombre = \"Grupo\") -> Node2D", "Agrupa"],
 	["Texto", "text_to_curves(texto) -> Node2D", "Convierte un texto en curvas: un grupo con una forma por letra (Ctrl+Mayús+O)"],
+	["Trazo", "stroke_to_outline(trazo) -> Node2D", "Convierte un trazo de pincel en una figura rellena editable con su misma forma (Ctrl+Mayús+O)"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
 	["Organizar", "align(lista, modo)", "left, center_h, right, top, middle, bottom ([] = selección)"],
 	["Organizar", "distribute(lista, eje)", "Reparte 3+ objetos: \"h\" o \"v\""],
@@ -766,6 +767,72 @@ func text_to_curves(node: Node2D) -> Node2D:
 	if sm and sm.has_method("select"):
 		sm.select(g)
 	return g
+
+## «Convertir trazo en contorno» (VGSE fase 1): el trazo de pincel pasa a
+## una figura RELLENA editable (Bézier) con la forma exacta que se ve —
+## anchura por presión, remates, uniones, cruces—. Con deshacer.
+func stroke_to_outline(line: Node2D) -> Node2D:
+	if not (line is Line2D) or line.get_parent() == null or (line as Line2D).points.size() < 1:
+		return null
+	var l := line as Line2D
+	var R := load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var SG := load("res://script_gdscript/shapes/stroke_geom.gd")
+	var CF := load("res://script_gdscript/shapes/curve_fit.gd")
+	var ax: Array = R.centerline(l)
+	var caps := {Line2D.LINE_CAP_ROUND: 1, Line2D.LINE_CAP_BOX: 2}
+	var rings: Array = SG.outline(ax[0], ax[1], caps.get(l.begin_cap_mode, 0), caps.get(l.end_cap_mode, 0))
+	if rings.is_empty():
+		return null
+	# Primero el anillo exterior más grande (curva principal), el resto subtrazados.
+	rings.sort_custom(func(a, b): return absf(SG._area(a)) > absf(SG._area(b)))
+	var err := clampf(l.width * 0.02, 0.05, 0.4)
+	var curves: Array[Curve2D] = []
+	for ring in rings:
+		var closed_pts: PackedVector2Array = ring.duplicate()
+		closed_pts.append(ring[0])
+		var c: Curve2D = CF.fit(closed_pts, err)
+		if c == null or c.point_count < 2:
+			c = Curve2D.new()
+			for q in ring:
+				c.add_point(q)
+		elif c.point_count > 2 and c.get_point_position(0).distance_to(c.get_point_position(c.point_count - 1)) < 0.01:
+			# el cierre lo pone «closed»: sin nodo repetido
+			c.set_point_in(0, c.get_point_in(c.point_count - 1))
+			c.remove_point(c.point_count - 1)
+		curves.append(c)
+	var parent := l.get_parent()
+	var idx := l.get_index()
+	var p := Path2D.new()
+	p.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
+	p.name = NameUtils.unique_child_name(parent, String(l.name) + " (contorno)")
+	p.transform = l.transform
+	p.modulate = l.modulate
+	p.curve = curves[0]
+	p.closed = true
+	if curves.size() > 1:
+		p.subpaths = curves.slice(1)
+	p.fill_color = l.default_color
+	p.stroke_width = 0.0
+	p.stroke_color = Color(0, 0, 0, 0)
+	var do_fn := func() -> void:
+		if l.get_parent() == parent:
+			parent.remove_child(l)
+		if p.get_parent() == null:
+			parent.add_child(p)
+			parent.move_child(p, mini(idx, parent.get_child_count() - 1))
+			p.owner = parent if "artboard_size" in parent else parent.owner
+	var undo_fn := func() -> void:
+		if p.get_parent() == parent:
+			parent.remove_child(p)
+		if l.get_parent() == null:
+			parent.add_child(l)
+			parent.move_child(l, mini(idx, parent.get_child_count() - 1))
+	do_fn.call()
+	_record("Convertir trazo en contorno", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and sm.has_method("select"):
+		sm.select(p)
+	return p
 
 # ── orden (capas) ────────────────────────────────────────────────────────────
 ## Cambia el orden de apilado: "front" (arriba del todo), "back", "up", "down".

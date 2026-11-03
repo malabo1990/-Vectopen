@@ -75,13 +75,21 @@ func _mesh_item() -> RID:
 			RenderingServer.canvas_item_set_material(_mesh_ci, stroke_material.get_rid())
 	return _mesh_ci
 
-## Opacidad del trazo como grupo (ver stroke_material).
+var _group: CanvasGroup = null
+
+## Opacidad del trazo como grupo (ver stroke_material): la malla se pinta
+## opaca dentro de un CanvasGroup interno y el grupo lleva la opacidad.
 func _set_group(alpha: float) -> void:
 	var translucent := alpha < 0.999
-	RenderingServer.canvas_item_set_canvas_group_mode(get_canvas_item(),
-		RenderingServer.CANVAS_GROUP_MODE_TRANSPARENT if translucent else RenderingServer.CANVAS_GROUP_MODE_DISABLED,
-		4.0, false, 0.0, false)
-	modulate.a = alpha if translucent else 1.0
+	if translucent and _group == null:
+		_group = CanvasGroup.new()
+		_group.name = "OpacityGroup"
+		add_child(_group, false, Node.INTERNAL_MODE_FRONT)
+	if _group:
+		_group.visible = translucent
+		_group.self_modulate.a = alpha
+	var host := _group.get_canvas_item() if translucent else get_canvas_item()
+	RenderingServer.canvas_item_set_parent(_mesh_item(), host)
 
 func _hide_native() -> void:
 	if is_instance_valid(line):
@@ -96,19 +104,12 @@ func _draw() -> void:
 	var pts := line.points
 	if pts.is_empty() or line.width <= 0.0:
 		return
-	pts = StrokeGeom.clean(pts, clampf(line.width * 0.05, 0.05, 2.0), false)
+	var ax := centerline(line)
+	pts = ax[0]
+	var half: PackedFloat32Array = ax[1]
+	var cum: PackedFloat32Array = ax[2]
 	var n := pts.size()
-	var half := PackedFloat32Array()
-	half.resize(n)
-	var cum := PackedFloat32Array()
-	cum.resize(n)
-	for i in range(1, n):
-		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
 	var total := maxf(cum[n - 1], 0.0001)
-	var wc := line.width_curve
-	for i in n:
-		var f := wc.sample_baked(cum[i] / total) if wc else 1.0
-		half[i] = maxf(line.width * 0.5 * f, 0.05)
 	var m := StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode))
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
@@ -128,6 +129,24 @@ func _draw() -> void:
 	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), tex != null)
 	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols,
 		uvs, PackedInt32Array(), PackedFloat32Array(), tex.get_rid() if tex else RID())
+
+## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
+## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).
+static func centerline(l: Line2D) -> Array:
+	var pts := StrokeGeom.clean(l.points, clampf(l.width * 0.05, 0.05, 2.0), false)
+	var n := pts.size()
+	var half := PackedFloat32Array()
+	half.resize(n)
+	var cum := PackedFloat32Array()
+	cum.resize(n)
+	for i in range(1, n):
+		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
+	var total := maxf(cum[n - 1], 0.0001) if n > 0 else 1.0
+	var wc := l.width_curve
+	for i in n:
+		var f := wc.sample_baked(cum[i] / total) if wc else 1.0
+		half[i] = maxf(l.width * 0.5 * f, 0.05)
+	return [pts, half, cum]
 
 ## Textura del estilo del trazo (meta «brush_style»: también en documentos
 ## guardados, que no conservan la textura del Line2D).

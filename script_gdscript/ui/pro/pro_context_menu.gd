@@ -68,6 +68,9 @@ func rebuild() -> void:
 		"shape":
 			_add(self, "invert_fill_stroke", "Intercambiar relleno y trazo", KEY_X | KEY_MASK_SHIFT)
 			add_separator()
+		"brush":
+			_add(self, "text_to_curves", "Convertir trazo en contorno", KEY_O | KEY_MASK_CTRL | KEY_MASK_SHIFT)
+			add_separator()
 		"group":
 			_add(self, "ungroup", "Desagrupar", KEY_G | KEY_MASK_CTRL | KEY_MASK_SHIFT)
 			add_separator()

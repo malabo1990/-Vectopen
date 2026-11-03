@@ -67,6 +67,7 @@ func _register_default_commands() -> void:
 		{"id": "ui_modern", "name": "Switch UI: Modern Panel", "shortcut": "", "category": "Interface", "action": func(): _set_ui_mode("modern")},
 		{"id": "ui_pro", "name": "Switch UI: Pro Panel", "shortcut": "", "category": "Interface", "action": func(): _set_ui_mode("professional")},
 		{"id": "text_to_curves", "name": "Convertir texto a curvas", "shortcut": "Ctrl + Shift + O", "category": "Texto", "action": func(): ContextMenuActions.text_to_curves(self)},
+		{"id": "stroke_to_outline", "name": "Convertir trazo en contorno", "shortcut": "Ctrl + Shift + O", "category": "Trazo", "action": func(): ContextMenuActions.text_to_curves(self)},
 		{"id": "export", "name": "Export Document / Artboard", "shortcut": "", "category": "File", "action": func(): _export_doc()},
 		{"id": "import_3d", "name": "Import 3D Model (GLB / GLTF)...", "shortcut": "", "category": "File", "action": func(): _import_3d_model()},
 	]

@@ -716,3 +716,112 @@ static func dots(pts: PackedVector2Array, closed: bool, width: float, gap: float
 	for k in count:
 		out.append(point_at(pts, cum, total * float(k) / float(n)))
 	return out
+
+# ── contorno del trazo (VGSE fase 1: geometría derivada → trazado) ───────────
+## Contorno de un trazo de anchura variable como polígonos (Geometry2D: los
+## agujeros van en sentido horario). Se recorre un lado, el remate final, el
+## otro lado al revés y el remate inicial, con uniones redondas en el lado
+## EXTERIOR de los giros cerrados; luego Clipper une con regla «positiva»:
+## los cruces del trazo consigo mismo quedan rellenos, los pliegues del lado
+## interior de las curvas cerradas desaparecen y lo que el trazo encierra
+## (un lazo) queda como agujero.
+static func outline(pts_in: PackedVector2Array, half_in: PackedFloat32Array, cap_s: int, cap_e: int) -> Array:
+	var pts := PackedVector2Array()
+	var half := PackedFloat32Array()
+	for i in pts_in.size():
+		if pts.is_empty() or pts_in[i].distance_squared_to(pts[pts.size() - 1]) > 1e-6:
+			pts.append(pts_in[i])
+			half.append(maxf(half_in[mini(i, half_in.size() - 1)], 0.01))
+	var n := pts.size()
+	if n == 0:
+		return []
+	if n == 1:
+		var d := {"points": PackedVector2Array(), "indices": PackedInt32Array()}
+		_disc(d, pts[0], half[0])
+		var ring: PackedVector2Array = d["points"].slice(1)
+		return [ring]
+	if cap_s == 2:
+		pts[0] = pts[0] + (pts[0] - pts[1]).normalized() * half[0]
+	if cap_e == 2:
+		pts[n - 1] = pts[n - 1] + (pts[n - 1] - pts[n - 2]).normalized() * half[n - 1]
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	for i in n:
+		var d0 := (pts[i] - pts[i - 1]).normalized() if i > 0 else (pts[1] - pts[0]).normalized()
+		var d1 := (pts[i + 1] - pts[i]).normalized() if i < n - 1 else d0
+		var n0 := Vector2(-d0.y, d0.x)
+		var n1 := Vector2(-d1.y, d1.x)
+		var h := half[i]
+		var mdir := n0 + n1
+		var mlen := INF
+		if mdir.length_squared() > 1e-8:
+			mdir = mdir.normalized()
+			mlen = h / maxf(mdir.dot(n1), 0.0001)
+		if mlen <= h * MITER_LIMIT:
+			left.append(pts[i] + mdir * mlen)
+			right.append(pts[i] - mdir * mlen)
+			continue
+		# Giro cerrado: arco por fuera, punto del eje por dentro (lo cubre
+		# el resto del trazo; la unión positiva limpia el solape).
+		var turn := d0.cross(d1)
+		var arc := _arc(pts[i], (n0 if turn <= 0.0 else -n0) * h, (n1 if turn <= 0.0 else -n1) * h)
+		if turn <= 0.0:
+			left.append_array(arc)
+			right.append(pts[i])
+		else:
+			left.append(pts[i])
+			right.append_array(arc)
+	var ring := PackedVector2Array()
+	if cap_s == 1:
+		ring.append_array(_arc(pts[0], -Vector2(-(pts[1] - pts[0]).normalized().y, (pts[1] - pts[0]).normalized().x) * half[0],
+			Vector2(-(pts[1] - pts[0]).normalized().y, (pts[1] - pts[0]).normalized().x) * half[0], true))
+	ring.append_array(left)
+	if cap_e == 1:
+		var de := (pts[n - 1] - pts[n - 2]).normalized()
+		var ne := Vector2(-de.y, de.x)
+		ring.append_array(_arc(pts[n - 1], ne * half[n - 1], -ne * half[n - 1], true))
+	var rr := right.duplicate()
+	rr.reverse()
+	ring.append_array(rr)
+	return union_positive(ring)
+
+## Arco de `a` a `b` (vectores desde `c`, mismo radio) por el lado corto;
+## `half_turn`: media vuelta por delante (remates redondos).
+static func _arc(c: Vector2, a: Vector2, b: Vector2, half_turn: bool = false) -> PackedVector2Array:
+	var r := a.length()
+	var a0 := a.angle()
+	var sweep := -PI if half_turn else wrapf(b.angle() - a0, -PI, PI)
+	var segs := clampi(int(absf(sweep) / PI * clampf(r * 0.8 + 8.0, 8.0, 48.0)), 2, 48)
+	var out := PackedVector2Array()
+	for k in segs + 1:
+		var t := a0 + sweep * float(k) / float(segs)
+		out.append(c + Vector2(cos(t), sin(t)) * r)
+	return out
+
+## Unión con regla «positiva» de un polígono que se corta a sí mismo (la
+## orientación del recorrido decide qué es dentro). Clipper la aplica al
+## desplazar: se desplaza una fracción ínfima.
+static func union_positive(ring: PackedVector2Array) -> Array:
+	if ring.size() < 3:
+		return []
+	var res: Array = Geometry2D.offset_polygon(ring, 0.001, Geometry2D.JOIN_MITER)
+	var area := 0.0
+	for p in res:
+		area += absf(_area(p))
+	if area < 1e-6 or not _has_outer(res):
+		var rev := ring.duplicate()
+		rev.reverse()
+		res = Geometry2D.offset_polygon(rev, 0.001, Geometry2D.JOIN_MITER)
+	return res
+
+static func _has_outer(polys: Array) -> bool:
+	for p in polys:
+		if not Geometry2D.is_polygon_clockwise(p):
+			return true
+	return false
+
+static func _area(p: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in p.size():
+		a += p[i].cross(p[(i + 1) % p.size()])
+	return a * 0.5
