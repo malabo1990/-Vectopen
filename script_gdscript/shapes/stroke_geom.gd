@@ -867,22 +867,37 @@ static func _halves(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFl
 		pts[0] = pts[0] + (pts[0] - pts[1]).normalized() * half[0]
 	if cap_e == 2:
 		pts[n - 1] = pts[n - 1] + (pts[n - 1] - pts[n - 2]).normalized() * half[n - 1]
+	# Puntas: fuera los micro-puntos a menos de ¾ de grosor del extremo (el
+	# «gancho» al apoyar / levantar el lápiz): giraban el remate y dejaban una
+	# costura. El extremo se conserva.
+	var trimmed := _trim_ends(pts, half)
+	pts = trimmed[0]
+	half = trimmed[1]
+	n = pts.size()
 	var cum := _cumulative(pts)
+	var d_s := (pts[1] - pts[0]).normalized()
+	var d_e := (pts[n - 1] - pts[n - 2]).normalized()
 	var sides := [_side(pts, half, 1.0), _side(pts, half, -1.0)]
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	var vv: PackedFloat32Array = m["v"] if m.has("v") else PackedFloat32Array()
+	# m["k"]: punto del eje de cada vértice; m["beyond"]: cuánto pasa del
+	# extremo (remates). Con ellos el render hace el desvanecido de las
+	# puntas y el flujo por presión del aerógrafo.
+	var kk: PackedInt32Array = PackedInt32Array()
 	var axis0 := verts.size()
-	for p in pts:
-		verts.append(p)
+	for i in n:
+		verts.append(pts[i])
 		vv.append(0.5)
+		kk.append(i)
 	for si in 2:
-		var side: Array = _cut_loops(sides[si], cum, half)
+		var side: Array = _cut_loops(sides[si], cum, half, pts)
 		var sv := 0.0 if si == 0 else 1.0
 		var base := verts.size()
 		for e in side:
 			verts.append(e[0])
 			vv.append(sv)
+			kk.append(int(e[1]))
 		# Cremallera eje ↔ borde (los dueños del borde no decrecen).
 		var k := 0
 		var o: int = side[0][1]
@@ -903,10 +918,39 @@ static func _halves(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFl
 	m["indices"] = idx
 	if m.has("v"):
 		m["v"] = vv
-	if cap_s == 1:
-		_fan(m, pts[0], pts[0] - pts[1], half[0])
-	if cap_e == 1:
-		_fan(m, pts[n - 1], pts[n - 1] - pts[n - 2], half[n - 1])
+	var beyond := PackedFloat32Array()
+	beyond.resize(kk.size())
+	for cap in [[cap_s, 0, -d_s], [cap_e, n - 1, d_e]]:
+		if int(cap[0]) != 1:
+			continue
+		var c0 := (m["points"] as PackedVector2Array).size()
+		var ki: int = cap[1]
+		var dir: Vector2 = (cap[2] as Vector2).normalized()
+		_fan(m, pts[ki], cap[2], half[ki])
+		var vs: PackedVector2Array = m["points"]
+		for q in range(c0, vs.size()):
+			kk.append(ki)
+			beyond.append(maxf(0.0, (vs[q] - pts[ki]).dot(dir)))
+	m["k"] = kk
+	m["beyond"] = beyond
+
+static func _trim_ends(pts: PackedVector2Array, half: PackedFloat32Array) -> Array:
+	var n := pts.size()
+	if n <= 3:
+		return [pts, half]
+	var cum := _cumulative(pts)
+	var total := cum[n - 1]
+	var ws := minf(half[0] * 1.5, total * 0.25)
+	var we := minf(half[n - 1] * 1.5, total * 0.25)
+	var op := PackedVector2Array([pts[0]])
+	var oh := PackedFloat32Array([half[0]])
+	for i in range(1, n - 1):
+		if cum[i] >= ws and total - cum[i] >= we:
+			op.append(pts[i])
+			oh.append(half[i])
+	op.append(pts[n - 1])
+	oh.append(half[n - 1])
+	return [op, oh] if op.size() >= 2 else [pts, half]
 
 ## Un borde: [[punto, índice del eje]]. `sgn` +1 izquierda (+n), -1 derecha.
 static func _side(pts: PackedVector2Array, half: PackedFloat32Array, sgn: float) -> Array:
@@ -938,24 +982,33 @@ static func _side(pts: PackedVector2Array, half: PackedFloat32Array, sgn: float)
 ## Quita los lazos de un borde (lado interior de un giro más cerrado que el
 ## grosor): busca cruces con tramos cercanos y los sustituye por el punto de
 ## cruce, que hereda el dueño del primer punto quitado (abanico en el eje).
-static func _cut_loops(side: Array, cum: PackedFloat32Array, half: PackedFloat32Array) -> Array:
+static func _cut_loops(side: Array, cum: PackedFloat32Array, half: PackedFloat32Array, axis: PackedVector2Array = PackedVector2Array()) -> Array:
 	var out: Array = side.duplicate()
+	# Un lazo solo existe donde el borde va HACIA ATRÁS respecto al eje: se
+	# busca solo cerca de esos retrocesos (antes en cada punto: con los miles
+	# de puntos de la vista previa costaba decenas de ms por fotograma).
+	var nxt := _next_backtrack(out, axis)
 	var i := 0
 	while i < out.size() - 3:
+		var c0 := cum[int(out[i][1])]
+		var reach := half[int(out[i][1])] * 4.0 + 1.0
+		var r: int = nxt[i]
+		if r < 0:
+			break
+		if cum[int(out[r][1])] - c0 > reach:
+			i += 1
+			continue
 		var a: Vector2 = out[i][0]
 		var b: Vector2 = out[i + 1][0]
-		var reach := half[int(out[i][1])] * 4.0 + 1.0
 		var hit := -1
 		var x := Vector2.ZERO
-		var c0 := cum[int(out[i][1])]
 		var j := i + 2
-		# Solo los tramos cercanos (a pocos grosores); el cruce más lejano corta
-		# el lazo entero de una vez.
+		# el cruce más lejano corta el lazo entero de una vez
 		while j < out.size() - 1 and cum[int(out[j][1])] - c0 <= reach:
-			var r = Geometry2D.segment_intersects_segment(a, b, out[j][0], out[j + 1][0])
-			if r != null:
+			var rr = Geometry2D.segment_intersects_segment(a, b, out[j][0], out[j + 1][0])
+			if rr != null:
 				hit = j
-				x = r
+				x = rr
 			j += 1
 		if hit >= 0:
 			var owner: int = out[i + 1][1]
@@ -963,5 +1016,26 @@ static func _cut_loops(side: Array, cum: PackedFloat32Array, half: PackedFloat32
 			cut.append([x, owner])
 			cut.append_array(out.slice(hit + 1))
 			out = cut
+			nxt = _next_backtrack(out, axis)
 		i += 1
 	return out
+
+## nxt[q] = primer tramo ≥ q del borde que retrocede respecto al eje (-1 si
+## no hay ninguno más). Sin eje: todos cuentan (búsqueda completa).
+static func _next_backtrack(side: Array, axis: PackedVector2Array) -> PackedInt32Array:
+	var n := side.size()
+	var nxt := PackedInt32Array()
+	nxt.resize(n)
+	var nextr := -1
+	for q in range(n - 1, -1, -1):
+		var back := true
+		if axis.size() >= 2 and q < n - 1:
+			var o: int = side[q][1]
+			var ad := axis[mini(o + 1, axis.size() - 1)] - axis[maxi(o - 1, 0)]
+			back = ((side[q + 1][0] as Vector2) - (side[q][0] as Vector2)).dot(ad) < 0.0
+		elif q == n - 1:
+			back = false
+		if back:
+			nextr = q
+		nxt[q] = nextr
+	return nxt

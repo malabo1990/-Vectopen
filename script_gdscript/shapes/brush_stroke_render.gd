@@ -120,7 +120,7 @@ func _draw() -> void:
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
 		return
-	var cols := _colors(verts, pts, cum, total)
+	var cols := _colors(verts, pts, cum, total, m, half, ax[3] if ax.size() > 3 else PackedFloat32Array())
 	# Opacidad del pincel → del grupo; la malla, opaca (sin solapes visibles).
 	var alpha := line.default_color.a
 	_set_group(alpha)
@@ -148,6 +148,8 @@ static func centerline(l: Line2D) -> Array:
 		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
 	var total := maxf(cum[n - 1], 0.0001) if n > 0 else 1.0
 	var wc := l.width_curve
+	var flow := PackedFloat32Array()
+	var air := String(l.get_meta("brush_style", "")) == "airbrush"
 	var nib := String(l.get_meta("brush_style", "")) == "calligraphy"
 	var nib_dir := Vector2.from_angle(deg_to_rad(float(l.get_meta("nib_angle", NIB_ANGLE_DEG))))
 	for i in n:
@@ -168,8 +170,13 @@ static func centerline(l: Line2D) -> Array:
 				b += 1
 			var t := (pts[b] - pts[a]).normalized()
 			f *= NIB_MIN + (1.0 - NIB_MIN) * absf(t.cross(nib_dir))
+		if air:
+			# La presión en el aerógrafo es sobre todo flujo: poco cambio de
+			# anchura (si no, con poca presión quedaba una línea dura y fina).
+			flow.append(clampf(pow(f, 0.8), 0.0, 1.0))
+			f = 0.6 + 0.4 * f
 		half[i] = maxf(l.width * 0.5 * f, 0.05)
-	return [pts, half, cum]
+	return [pts, half, cum, flow]
 
 ## Estilo del trazo para el sombreador (meta «brush_style»: también en
 ## documentos guardados). 0 = pluma / caligráfico.
@@ -222,22 +229,37 @@ static func _cap(mode: int) -> int:
 
 ## Color por vértice: degradado 2D, el degradado a lo largo del Line2D, o
 ## el color liso.
-func _colors(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32Array, total: float) -> PackedColorArray:
+func _colors(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloat32Array, total: float,
+		m: Dictionary = {}, half: PackedFloat32Array = PackedFloat32Array(), flow: PackedFloat32Array = PackedFloat32Array()) -> PackedColorArray:
 	var base := line.default_color
-	if has_gradient_fill():
-		# El color lo pone el shader (GPU): aquí solo la opacidad del pincel.
-		return PackedColorArray([Color(1, 1, 1, base.a)])
-	if line.gradient:
-		# Degradado a lo largo del trazo (el del Line2D): por el punto más
-		# cercano de la línea central.
-		var out2 := PackedColorArray()
-		out2.resize(verts.size())
-		for i in verts.size():
+	var ks: PackedInt32Array = m.get("k", PackedInt32Array())
+	var has_k := ks.size() == verts.size()
+	var air := String(line.get_meta("brush_style", "")) == "airbrush" and has_k
+	var c_base := Color(1, 1, 1, base.a) if has_gradient_fill() else base
+	if not air and not line.gradient:
+		# El color lo pone el shader (degradado 2D) o es liso.
+		return PackedColorArray([c_base])
+	var bey: PackedFloat32Array = m.get("beyond", PackedFloat32Array())
+	var out2 := PackedColorArray()
+	out2.resize(verts.size())
+	for i in verts.size():
+		var k: int
+		if has_k:
+			k = ks[i]
+		else:
 			@warning_ignore("integer_division")
-			var k := mini(i / 2, pts.size() - 1) if i < pts.size() * 2 else _nearest(pts, verts[i])
-			out2[i] = line.gradient.sample(cum[k] / total)
-		return out2
-	return PackedColorArray([base])
+			k = mini(i / 2, pts.size() - 1) if i < pts.size() * 2 else _nearest(pts, verts[i])
+		var c := c_base
+		if line.gradient and not has_gradient_fill():
+			c = line.gradient.sample(cum[k] / total)
+		if air:
+			# Aerógrafo: la presión es FLUJO (más o menos pintura) y las puntas
+			# se desvanecen a lo largo ~1,5 grosores, como un spray de verdad.
+			var h := half[k]
+			var d := minf(cum[k], total - cum[k]) - (bey[i] if i < bey.size() else 0.0)
+			c.a *= smoothstep(-h, h * 1.5, d) * (flow[k] if k < flow.size() else 1.0)
+		out2[i] = c
+	return out2
 
 static func _nearest(pts: PackedVector2Array, v: Vector2) -> int:
 	var best := 0

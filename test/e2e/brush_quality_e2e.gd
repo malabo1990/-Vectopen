@@ -13,6 +13,15 @@ var fails := 0
 var canvas
 var bt
 var aa_levels := 0
+var _proc_acc := 0.0
+var _proc_n := 0
+var _measuring := false
+
+func _process(_d: float) -> bool:
+	if _measuring:
+		_proc_acc += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		_proc_n += 1
+	return false
 
 func _init() -> void:
 	_run.call_deferred()
@@ -178,9 +187,16 @@ func _run() -> void:
 		pts.append(o5 + Vector2(i * 1.0, sin(i * 0.05) * 40.0))
 		pr.append(0.5 + 0.5 * sin(i * 0.02))
 	var t0 := Time.get_ticks_usec()
+	_proc_acc = 0.0
+	_proc_n = 0
+	_measuring = true
 	var s5 = await stroke(pts, pr)
+	_measuring = false
+	print("INFO por fotograma: proceso %.1f ms, dibujo %d llamadas" % [_proc_acc / maxf(1.0, _proc_n), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 	var per_ms := (Time.get_ticks_usec() - t0) / 1000.0 / 700.0
 	print("INFO trazo largo: %.2f ms por movimiento (incluye el fotograma)" % per_ms)
+	# Con la vista previa de calidad, dibujar no debe bajar de ~30 fps.
+	check("dibujar un trazo largo va fluido", per_ms < 34.0, "%.1f ms" % per_ms)
 	check("trazo largo dibujado", s5 != null)
 	root.get_node("SelectionManager").clear()
 	canvas.switch_tool("move")
