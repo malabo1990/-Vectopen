@@ -300,6 +300,9 @@ const BRUSH_CURSOR_HOTSPOT := Vector2(16, 16)
 
 func activate() -> void:
 	_load_pressure_settings()
+	# El panel puede haberse mostrado ANTES de que esta herramienta cargara
+	# los ajustes (estilo, grosor…): que vuelva a leerlos.
+	_sync_panels.call_deferred()
 	# Cada muestra del lápiz cuenta (Godot juntaba todos los movimientos de un
 	# frame en uno y se perdían posiciones y presiones).
 	_prev_accumulated = Input.use_accumulated_input
@@ -311,6 +314,10 @@ func activate() -> void:
 	var pm := _find_performance_manager()
 	if pm and not pm.quality_changed.is_connected(_on_quality_changed):
 		pm.quality_changed.connect(_on_quality_changed)
+
+func _sync_panels() -> void:
+	if is_inside_tree():
+		get_tree().call_group("brush_panel", "_sync_from_tool")
 
 func deactivate() -> void:
 	if _settings_dirty:
@@ -643,7 +650,15 @@ func use_selection_as_object(combine: bool = true) -> bool:
 	var sm = get_node_or_null("/root/SelectionManager") if is_inside_tree() else null
 	if sm == null:
 		return false
-	var src: Array = ObjectBrush.from_shapes(sm.get_selected(), combine)
+	# Primero lo que estaba seleccionado al ELEGIR el pincel (seleccionar con
+	# Mover → botón del pincel → «Selección»); al entrar en el pincel la
+	# selección puede cambiar (p. ej. vuelve el último trazo dibujado).
+	var sel: Array = []
+	if is_instance_valid(canvas) and "selection_before_tool_change" in canvas:
+		sel = canvas.selection_before_tool_change.filter(func(n) -> bool: return is_instance_valid(n) and n.is_inside_tree())
+	if sel.is_empty():
+		sel = sm.get_selected()
+	var src: Array = ObjectBrush.from_shapes(sel, combine)
 	if src.is_empty():
 		return false
 	object_source = src

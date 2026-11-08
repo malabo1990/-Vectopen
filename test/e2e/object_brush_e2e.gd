@@ -176,9 +176,7 @@ func _run() -> void:
 	await click(tb)
 	await frames(10)
 	var bt = canvas.current_tool
-	# El clic en la barra no debe perder la selección
-	api.select([r1, e1])
-	await frames(4)
+	# (sin volver a seleccionar: «Selección» usa lo seleccionado al elegir el pincel)
 	var so := root.find_child("Style_object", true, false) as Button
 	check("estilo Objeto en el panel", so != null and so.is_visible_in_tree())
 	await click(so)
@@ -189,7 +187,8 @@ func _run() -> void:
 	var fs := root.find_child("ObjFromSelection", true, false) as Button
 	await click(fs)
 	await frames(4)
-	check("la selección pasa a ser el pincel (2 figuras juntas)", bt.object_source.size() == 1 and (bt.object_source[0] as Array).size() == 2, str(bt.object_source.size()))
+	# 2 figuras juntas = 1 estampa; cada figura aporta relleno y borde
+	check("la selección pasa a ser el pincel (2 figuras juntas, con relleno y borde)", bt.object_source.size() == 1 and (bt.object_source[0] as Array).size() == 4, "%d estampas, %d piezas" % [bt.object_source.size(), (bt.object_source[0] as Array).size() if bt.object_source.size() > 0 else 0])
 	bt.brush_width = 26.0
 	var o := vs * Vector2(0.2, 0.45)
 	var wv: Array = wave(o, 600.0, 50.0)
@@ -306,7 +305,8 @@ func _run() -> void:
 	var g = api.stroke_to_outline(l4)
 	await frames(6)
 	var nfig: int = g.get_child_count() if g else 0
-	check("patrón → grupo de figuras (%d figuras de %d teselas)" % [nfig, stamps4], g != null and nfig == stamps4 * 2 and not is_instance_valid(l4.get_parent()))
+	var per_tile: int = (bt.object_source[0] as Array).size()
+	check("patrón → grupo de figuras (%d figuras de %d teselas × %d piezas)" % [nfig, stamps4, per_tile], g != null and nfig == stamps4 * per_tile and l4.get_parent() == null)
 	await RenderingServer.frame_post_draw
 	var img5 := root.get_texture().get_image()
 	img5.save_png(OUT.path_join("patron_figuras.png"))

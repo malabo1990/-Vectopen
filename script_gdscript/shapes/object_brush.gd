@@ -54,29 +54,15 @@ static func _circle(r: float, n: int) -> PackedVector2Array:
 		p.append(Vector2(cos(t), sin(t)) * r)
 	return p
 
-## Fuente a partir de figuras del lienzo (en espacio global). `combine`:
-## todas juntas como UN objeto (conservan su colocación); si no, cada figura
-## es un objeto (pincel multiobjeto).
+## Fuente a partir de objetos del lienzo (en espacio global): figuras,
+## trazados Bézier (abiertos: su trazo), trazos de pincel (su forma real) y
+## grupos (sus figuras). `combine`: todo junto como UN objeto (conserva la
+## colocación); si no, cada objeto seleccionado es una estampa distinta.
 static func from_shapes(shapes: Array, combine: bool = true) -> Array:
 	var objs: Array = []
 	for sh in shapes:
-		if not is_instance_valid(sh) or not (sh is CanvasItem):
-			continue
-		var polys: Array = GeomCore.get_evaluated_geometry(sh)
-		var xf: Transform2D = (sh as CanvasItem).get_global_transform()
-		var col := Color(0.15, 0.15, 0.18)
-		if "fill_color" in sh:
-			col = sh.fill_color
-		elif "default_color" in sh:
-			col = sh.default_color
 		var pieces: Array = []
-		for poly in polys:
-			if poly.size() < 3:
-				continue
-			var g := PackedVector2Array()
-			for q in poly:
-				g.append(xf * q)
-			pieces.append({"pts": g, "col": col})
+		_collect(sh, pieces)
 		if not pieces.is_empty():
 			objs.append(pieces)
 	if objs.is_empty():
@@ -91,10 +77,88 @@ static func from_shapes(shapes: Array, combine: bool = true) -> Array:
 		out.append(_normalize(o))
 	return out
 
-static func _normalize_all(src: Array) -> Array:
+## Piezas {pts (global), col} de un objeto y, si es un grupo, de sus hijos.
+static func _collect(node, pieces: Array) -> void:
+	if not is_instance_valid(node) or not (node is CanvasItem) or not (node as CanvasItem).visible:
+		return
+	var xf: Transform2D = (node as CanvasItem).get_global_transform()
+	if node is Line2D:
+		_collect_brush_stroke(node as Line2D, xf, pieces)
+		return
+	var polys: Array = GeomCore.get_evaluated_geometry(node)
+	var closed: bool = not ("closed" in node) or bool(node.closed)
+	var fill := Color(0, 0, 0, 0)
+	if "fill_color" in node:
+		fill = node.fill_color
+	elif "color" in node and node is Polygon2D:
+		fill = node.color
+	var sw: float = float(node.stroke_width) if "stroke_width" in node else 0.0
+	var sc: Color = node.stroke_color if "stroke_color" in node else Color(0, 0, 0, 0)
+	for poly in polys:
+		if poly.size() < 2:
+			continue
+		var g := PackedVector2Array()
+		for q in poly:
+			g.append(xf * q)
+		var scale := maxf(xf.get_scale().x, 0.0001)
+		if closed and g.size() >= 3 and fill.a > 0.01:
+			pieces.append({"pts": g, "col": fill})
+		if sw > 0.001 and sc.a > 0.01:
+			for ring in _stroke_rings(g, sw * scale * 0.5, closed):
+				pieces.append({"pts": ring, "col": sc})
+		elif not closed and fill.a <= 0.01:
+			# trazado abierto sin borde visible: al menos una línea fina
+			for ring in _stroke_rings(g, 1.0 * scale, false):
+				pieces.append({"pts": ring, "col": Color(0.15, 0.15, 0.18)})
+	# Grupo (o figura con hijos): también sus figuras
+	for c in (node as Node).get_children():
+		if c is CanvasItem and not String(c.name).begins_with("_") and not (c.get_script() and String(c.get_script().resource_path).ends_with("brush_stroke_render.gd")):
+			_collect(c, pieces)
+
+## Trazo de pincel: su forma REAL (anchura por presión, remates); si es un
+## trazo de objeto, sus estampas.
+static func _collect_brush_stroke(l: Line2D, xf: Transform2D, pieces: Array) -> void:
+	if l.points.size() < 1:
+		return
+	var R = load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
+	var ax: Array = R.centerline(l)
+	var col := l.default_color
+	col.a = maxf(col.a, 0.2)
+	if String(l.get_meta("brush_style", "")) == "object":
+		var bo: Dictionary = l.get_meta("brush_obj", {})
+		var src: Array = from_data(bo.get("src", []))
+		if src.is_empty():
+			src = preset("star")
+		for r in outlines(ax[0], ax[1], src, bo.get("params", {})):
+			pieces.append({"pts": xf * (r["pts"] as PackedVector2Array), "col": r["col"]})
+		return
+	var caps := {Line2D.LINE_CAP_ROUND: 1, Line2D.LINE_CAP_BOX: 2}
+	for ring in SG.outline(ax[0], ax[1], caps.get(l.begin_cap_mode, 0), caps.get(l.end_cap_mode, 0)):
+		if (ring as PackedVector2Array).size() >= 3 and not Geometry2D.is_polygon_clockwise(ring):
+			pieces.append({"pts": xf * (ring as PackedVector2Array), "col": col})
+
+## Contorno de un borde de grosor 2·h: en una figura cerrada, un anillo
+## (puenteado para poder rellenarlo); en un trazado abierto, su contorno.
+static func _stroke_rings(pts: PackedVector2Array, h: float, closed: bool) -> Array:
+	var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
 	var out: Array = []
-	for o in src:
-		out.append(_normalize(o))
+	if closed:
+		var outer := Geometry2D.offset_polygon(pts, h, Geometry2D.JOIN_MITER)
+		var inner := Geometry2D.offset_polygon(pts, -h, Geometry2D.JOIN_MITER)
+		if outer.is_empty():
+			return out
+		if inner.is_empty():
+			out.append(outer[0])
+		else:
+			out.append(SG.bridge(outer[0], inner[0]))
+		return out
+	var half := PackedFloat32Array()
+	half.resize(pts.size())
+	half.fill(h)
+	for ring in SG.outline(pts, half, 1, 1):
+		if (ring as PackedVector2Array).size() >= 3 and not Geometry2D.is_polygon_clockwise(ring):
+			out.append(ring)
 	return out
 
 ## Centro (0,0) y lado mayor 1.

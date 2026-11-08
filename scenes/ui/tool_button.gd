@@ -74,10 +74,19 @@ func _on_pressed() -> void:
 		_find_canvas_editor()
 	if not is_instance_valid(canvas_editor):
 		return
+	var before = canvas_editor.get_current_tool() if canvas_editor.has_method("get_current_tool") else null
+	var before_script = before.get_script() if is_instance_valid(before) else null
 	if canvas_editor.has_method("switch_tool"):
 		canvas_editor.switch_tool(tool_name)
 	if is_instance_valid(target_node) and "visible" in target_node:
-		target_node.visible = not target_node.visible
+		# Al CAMBIAR a esta herramienta su panel se abre; solo se alterna al
+		# pulsar el botón de la herramienta que ya estaba activa. Antes
+		# siempre se alternaba: si el panel quedó abierto (p. ej. al pasar
+		# del pincel a Mover para seleccionar), al volver al pincel se cerraba
+		# y no se podía pulsar «Selección».
+		var after = canvas_editor.get_current_tool() if canvas_editor.has_method("get_current_tool") else null
+		var same_tool: bool = before_script != null and is_instance_valid(after) and after.get_script() == before_script
+		target_node.visible = (not target_node.visible) if same_tool else true
 	if create_at_center:
 		if canvas_editor.has_method("get_current_tool"):
 			var tool_instance = canvas_editor.get_current_tool()

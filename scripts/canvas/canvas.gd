@@ -192,6 +192,9 @@ func _new_tool(script: Script):
 		tool.canvas = self
 	return tool
 
+## Ver change_tool: lo último que estaba seleccionado al cambiar de herramienta.
+var selection_before_tool_change: Array = []
+
 func change_tool(new_tool) -> void:
 	# Cambiar a la MISMA herramienta no hace nada: si no, _free_orphan_tool la
 	# liberaba y quedaba asignada ya liberada (p.ej. al salir del modo borrador
@@ -199,6 +202,12 @@ func change_tool(new_tool) -> void:
 	# paneles fallaban con "previously freed instance".
 	if new_tool != null and new_tool == current_tool:
 		return
+	# La selección justo ANTES de cambiar de herramienta (la herramienta
+	# Mover la borra al dejarla). La usa, p. ej., «Selección» del pincel de
+	# objeto: seleccionar con Mover → elegir el pincel → usarla como pincel.
+	var sm_node := get_node_or_null("/root/SelectionManager")
+	if sm_node and sm_node.has_method("get_selected"):
+		selection_before_tool_change = (sm_node.get_selected() as Array).duplicate()
 	if current_tool and current_tool.has_method("deactivate"):
 		current_tool.deactivate()
 

@@ -50,6 +50,7 @@ const STYLES_INFO := [
 ]
 
 func _ready() -> void:
+	add_to_group("brush_panel")
 	custom_minimum_size = Vector2(310, 0)
 	ToolPanelDock.normalize_fonts(self)
 	_build_ui()
