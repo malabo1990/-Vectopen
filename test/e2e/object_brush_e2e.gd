@@ -267,6 +267,54 @@ func _run() -> void:
 	var img3 := root.get_texture().get_image()
 	img3.save_png(OUT.path_join("estrellas.png"))
 	check("figura de serie (estrella) estampada", count_color(img3, Rect2(o3 - Vector2(30, 70), Vector2(660, 140)), Color(0.95, 0.7, 0.15)) > 40)
+	# Patrón: la selección (juntas) DOBLADA a lo largo de la curva
+	api.select([r1, e1])
+	await frames(4)
+	each.button_pressed = false
+	await click(fs)
+	var pat := root.find_child("ObjPattern", true, false) as CheckBox
+	await click(pat)
+	await frames(4)
+	check("modo patrón activado desde el panel", String(bt.object_params.get("mode", "")) == "pattern")
+	var o4 := o + Vector2(0, -170)
+	var wv4: Array = wave(o4, 600.0, 60.0)
+	var l4 := await draw(wv4[0], wv4[1])
+	root.get_node("SelectionManager").clear()
+	await frames(8)
+	await RenderingServer.frame_post_draw
+	var img4 := root.get_texture().get_image()
+	img4.save_png(OUT.path_join("patron.png"))
+	var r4 = l4.get_node_or_null(load("res://script_gdscript/shapes/brush_stroke_render.gd").NODE_NAME) if l4 else null
+	var inside := true
+	if r4:
+		var ax4: Array = r4._geom["ax"]
+		var axis: PackedVector2Array = ax4[0]
+		var hmax := 0.0
+		for hh in ax4[1]:
+			hmax = maxf(hmax, hh)
+		for q in r4._geom["m"]["points"]:
+			var best := INF
+			for k in range(0, axis.size() - 1):
+				best = minf(best, Geometry2D.get_closest_point_to_segment(q, axis[k], axis[k + 1]).distance_to(q))
+			if best > hmax * 1.05 + 0.5:
+				inside = false
+				break
+	check("patrón doblado: toda la figura dentro del grosor del trazo", r4 != null and inside)
+	check("patrón: salen las dos figuras", count_color(img4, Rect2(o4 - Vector2(30, 100), Vector2(660, 200)), RED) > 40 and count_color(img4, Rect2(o4 - Vector2(30, 100), Vector2(660, 200)), BLUE) > 20)
+	# Convertir el trazo de patrón en figuras sueltas (Ctrl+Mayús+O)
+	var stamps4: int = int(r4._geom["m"]["stamps"]) if r4 else 0
+	var g = api.stroke_to_outline(l4)
+	await frames(6)
+	var nfig: int = g.get_child_count() if g else 0
+	check("patrón → grupo de figuras (%d figuras de %d teselas)" % [nfig, stamps4], g != null and nfig == stamps4 * 2 and not is_instance_valid(l4.get_parent()))
+	await RenderingServer.frame_post_draw
+	var img5 := root.get_texture().get_image()
+	img5.save_png(OUT.path_join("patron_figuras.png"))
+	check("las figuras se ven igual (rojas y azules)", count_color(img5, Rect2(o4 - Vector2(30, 100), Vector2(660, 200)), RED) > 40 and count_color(img5, Rect2(o4 - Vector2(30, 100), Vector2(660, 200)), BLUE) > 20)
+	root.get_node("HistoryManager").undo()
+	await frames(4)
+	check("deshacer devuelve el trazo", l4.get_parent() != null and (g == null or g.get_parent() == null))
+	await click(pat)   # volver a copias rígidas
 	# El grosor no cambió al elegir Objeto
 	check("el grosor se conserva (26)", is_equal_approx(bt.brush_width, 26.0), str(bt.brush_width))
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))

@@ -101,3 +101,56 @@ func _extent(pts: PackedVector2Array) -> Rect2:
 	for q in pts:
 		r = r.expand(q)
 	return r
+
+# ── Pincel de patrón ─────────────────────────────────────────────────────────
+## Rectángulo 2:1 a lo largo de un trazo recto: teselas que encajan justas
+## de principio a fin y del grosor del trazo.
+func test_patron_en_recta_encaja_de_extremo_a_extremo() -> void:
+	var src := [[{"pts": PackedVector2Array([Vector2(0, 0), Vector2(2, 0), Vector2(2, 1), Vector2(0, 1)]), "col": Color.RED}]]
+	var p := _line(2, 100.0)   # 100 de largo
+	var m: Dictionary = OB.build(p, _const(2, 5.0), OB._normalize_all(src), {"mode": "pattern", "spacing": 1.0})
+	# grosor 10 → tesela de 20 → 5 teselas
+	assert_int(int(m["stamps"])).is_equal(5)
+	var e := _extent(m["points"])
+	assert_float(e.position.x).is_equal_approx(0.0, 0.01)
+	assert_float(e.end.x).is_equal_approx(100.0, 0.01)
+	assert_float(e.size.y).is_equal_approx(10.0, 0.01)
+
+## En un arco de circunferencia la figura se DOBLA: sus puntos quedan entre
+## los radios r ± grosor/2 (no en cuerdas rectas que se salen).
+func test_patron_se_dobla_con_la_curva() -> void:
+	var p := PackedVector2Array()
+	for i in 91:
+		var a := deg_to_rad(float(i))
+		p.append(Vector2(cos(a), sin(a)) * 100.0)
+	var src := [[{"pts": PackedVector2Array([Vector2(0, 0), Vector2(6, 0), Vector2(6, 1), Vector2(0, 1)]), "col": Color.RED}]]
+	var m: Dictionary = OB.build(p, _const(91, 4.0), OB._normalize_all(src), {"mode": "pattern", "spacing": 1.0})
+	var lo := INF
+	var hi := 0.0
+	for q in m["points"]:
+		lo = minf(lo, q.length())
+		hi = maxf(hi, q.length())
+	assert_float(lo).is_greater(95.9)
+	assert_float(hi).is_less(104.1)
+	# las franjas tienen puntos en medio de cada tesela (no solo en sus extremos)
+	assert_int((m["points"] as PackedVector2Array).size()).is_greater(int(m["stamps"]) * 40)
+
+## Contornos para «convertir en figuras»: uno por estampa y pieza; en
+## patrón, doblados con la curva (dentro del grosor).
+func test_contornos_por_estampa_y_doblados_en_patron() -> void:
+	var src: Array = OB.preset("star")
+	var p := _line(2, 100.0)
+	var m: Dictionary = OB.build(p, _const(2, 5.0), src, {"spacing": 1.0})
+	var rings: Array = OB.outlines(p, _const(2, 5.0), src, {"spacing": 1.0})
+	assert_int(rings.size()).is_equal(int(m["stamps"]))
+	var arc := PackedVector2Array()
+	for i in 91:
+		var a := deg_to_rad(float(i))
+		arc.append(Vector2(cos(a), sin(a)) * 100.0)
+	var rect := [[{"pts": PackedVector2Array([Vector2(0, 0), Vector2(6, 0), Vector2(6, 1), Vector2(0, 1)]), "col": Color.RED}]]
+	var pr := {"mode": "pattern", "spacing": 1.0}
+	var pr_rings: Array = OB.outlines(arc, _const(91, 4.0), OB._normalize_all(rect), pr)
+	assert_int(pr_rings.size()).is_equal(int(OB.build(arc, _const(91, 4.0), OB._normalize_all(rect), pr)["stamps"]))
+	for r in pr_rings:
+		for q in r["pts"]:
+			assert_float(q.length()).is_between(95.9, 104.1)

@@ -266,6 +266,7 @@ var _obj_scatter: NumericField
 var _obj_rotate: CheckBox
 var _obj_random: CheckBox
 var _obj_each: CheckBox
+var _obj_pattern: CheckBox
 
 ## Opciones del pincel de objeto (solo con ese estilo): qué figura se
 ## estampa (la selección o una de serie), separación, dispersión, giro y,
@@ -337,6 +338,14 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 		cb.focus_mode = Control.FOCUS_NONE
 		cb.add_theme_font_size_override("font_size", 10)
 		checks.add_child(cb)
+	_obj_pattern = CheckBox.new()
+	_obj_pattern.name = "ObjPattern"
+	_obj_pattern.text = tr("Patrón: doblar con la curva")
+	_obj_pattern.tooltip_text = tr("La figura se repite y se dobla siguiendo el trazo (cenefas, marcos); si no, copias rígidas")
+	_obj_pattern.focus_mode = Control.FOCUS_NONE
+	_obj_pattern.add_theme_font_size_override("font_size", 10)
+	_obj_pattern.toggled.connect(func(on: bool) -> void: _set_obj("mode", "pattern" if on else "stamp"))
+	_object_box.add_child(_obj_pattern)
 
 func _set_obj(key: String, value) -> void:
 	if _syncing:
@@ -551,6 +560,7 @@ func _sync_from_tool() -> void:
 				_obj_scatter.set_value_silent(float(op.get("scatter", 0.0)) * 100.0)
 				_obj_rotate.set_pressed_no_signal(bool(op.get("rotate", true)))
 				_obj_random.set_pressed_no_signal(String(op.get("multi", "sequence")) == "random")
+				_obj_pattern.set_pressed_no_signal(String(op.get("mode", "stamp")) == "pattern")
 		_sync_pressure_ui(tool)
 	_syncing = false
 

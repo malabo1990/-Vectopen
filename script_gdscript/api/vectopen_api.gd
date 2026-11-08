@@ -779,6 +779,8 @@ func stroke_to_outline(line: Node2D) -> Node2D:
 	var SG := load("res://script_gdscript/shapes/stroke_geom.gd")
 	var CF := load("res://script_gdscript/shapes/curve_fit.gd")
 	var ax: Array = R.centerline(l)
+	if String(l.get_meta("brush_style", "")) == "object":
+		return _object_stroke_to_shapes(l, ax)
 	var caps := {Line2D.LINE_CAP_ROUND: 1, Line2D.LINE_CAP_BOX: 2}
 	var rings: Array = SG.outline(ax[0], ax[1], caps.get(l.begin_cap_mode, 0), caps.get(l.end_cap_mode, 0))
 	if rings.is_empty():
@@ -833,6 +835,66 @@ func stroke_to_outline(line: Node2D) -> Node2D:
 	if sm and sm.has_method("select"):
 		sm.select(p)
 	return p
+
+## Trazo de pincel de OBJETO / PATRÓN → grupo de figuras sueltas, una por
+## estampa y pieza, con su color (en patrón, ya dobladas con la curva).
+func _object_stroke_to_shapes(l: Line2D, ax: Array) -> Node2D:
+	var OB := load("res://script_gdscript/shapes/object_brush.gd")
+	var bo: Dictionary = l.get_meta("brush_obj", {})
+	var src: Array = OB.from_data(bo.get("src", []))
+	if src.is_empty():
+		src = OB.preset("star")
+	var rings: Array = OB.outlines(ax[0], ax[1], src, bo.get("params", {}))
+	if rings.is_empty():
+		return null
+	var parent := l.get_parent()
+	var idx := l.get_index()
+	var g := Node2D.new()
+	g.name = NameUtils.unique_child_name(parent, String(l.name) + " (figuras)")
+	g.set_meta("shape_type", "group")
+	g.transform = l.transform
+	g.modulate = l.modulate
+	var taken := {}
+	for r in rings:
+		var ring: PackedVector2Array = r["pts"]
+		if ring.size() < 3:
+			continue
+		var p := Path2D.new()
+		p.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
+		p.name = NameUtils.unique_name_in(taken, "Figura")
+		var c := Curve2D.new()
+		for q in ring:
+			c.add_point(q)
+		p.curve = c
+		p.closed = true
+		var col: Color = r["col"]
+		col.a *= l.default_color.a
+		p.fill_color = col
+		p.stroke_width = 0.0
+		p.stroke_color = Color(0, 0, 0, 0)
+		g.add_child(p)
+	if g.get_child_count() == 0:
+		g.free()
+		return null
+	var do_fn := func() -> void:
+		if l.get_parent() == parent:
+			parent.remove_child(l)
+		if g.get_parent() == null:
+			parent.add_child(g)
+			parent.move_child(g, mini(idx, parent.get_child_count() - 1))
+			g.owner = parent if "artboard_size" in parent else parent.owner
+	var undo_fn := func() -> void:
+		if g.get_parent() == parent:
+			parent.remove_child(g)
+		if l.get_parent() == null:
+			parent.add_child(l)
+			parent.move_child(l, mini(idx, parent.get_child_count() - 1))
+	do_fn.call()
+	_record("Convertir trazo en figuras", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and sm.has_method("select"):
+		sm.select(g)
+	return g
 
 # ── orden (capas) ────────────────────────────────────────────────────────────
 ## Cambia el orden de apilado: "front" (arriba del todo), "back", "up", "down".

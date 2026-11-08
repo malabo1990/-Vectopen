@@ -25,6 +25,7 @@ const DEFAULTS := {
 	"angle_jitter": 0.0,# variación aleatoria del giro (grados)
 	"multi": "sequence",# con varias figuras: "sequence" | "random"
 	"seed": 1,
+	"mode": "stamp",    # "stamp" (copias rígidas) | "pattern" (se doblan con la curva)
 }
 
 ## Figuras de serie (si aún no se ha elegido ninguna de la selección).
@@ -90,6 +91,12 @@ static func from_shapes(shapes: Array, combine: bool = true) -> Array:
 		out.append(_normalize(o))
 	return out
 
+static func _normalize_all(src: Array) -> Array:
+	var out: Array = []
+	for o in src:
+		out.append(_normalize(o))
+	return out
+
 ## Centro (0,0) y lado mayor 1.
 static func _normalize(pieces: Array) -> Array:
 	var r := Rect2()
@@ -145,23 +152,41 @@ static func build(pts: PackedVector2Array, half: PackedFloat32Array, src: Array,
 		return m
 	var pr := DEFAULTS.duplicate()
 	pr.merge(params, true)
+	if String(pr["mode"]) == "pattern" and n >= 2:
+		return build_pattern(pts, half, src, pr)
 	var tris := _triangulate(src)
-	var cum := PackedFloat32Array()
-	cum.resize(n)
-	for i in range(1, n):
-		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
-	var total := cum[n - 1]
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	var cols: PackedColorArray = m["colors"]
+	var lay := _stamp_layout(pts, half, tris.size(), pr)
+	for st in lay:
+		var xf: Transform2D = st["xf"]
+		for pc in tris[int(st["oi"])]:
+			var base := verts.size()
+			for q in pc["pts"]:
+				verts.append(xf * q)
+				cols.append(pc["col"])
+			for t in pc["idx"]:
+				idx.append(base + t)
+	m["points"] = verts
+	m["indices"] = idx
+	m["colors"] = cols
+	m["stamps"] = lay.size()
+	return m
+
+## Dónde va cada estampa: [{xf: Transform2D (figura normalizada → eje), oi}]
+## repartidas por LONGITUD DE ARCO; separación según el tamaño en cada sitio.
+static func _stamp_layout(pts: PackedVector2Array, half: PackedFloat32Array, n_objs: int, pr: Dictionary) -> Array:
+	var out: Array = []
+	var n := pts.size()
+	var cum := _cum(pts)
+	var total := cum[n - 1]
 	var seed := int(pr["seed"])
 	var spacing := maxf(float(pr["spacing"]), 0.05)
 	var d := 0.0
 	var j := 0
 	var s_i := 0
-	var guard := 0
-	while d <= total + 0.0001 and guard < 20000:
-		guard += 1
+	while d <= total + 0.0001 and s_i < 20000:
 		while j < n - 2 and cum[j + 1] < d:
 			j += 1
 		var j2 := mini(j + 1, n - 1)
@@ -172,31 +197,203 @@ static func build(pts: PackedVector2Array, half: PackedFloat32Array, src: Array,
 		var dir := (pts[j2] - pts[j]).normalized() if j2 != j else Vector2.RIGHT
 		if dir == Vector2.ZERO:
 			dir = Vector2.RIGHT
-		var sz := size * (1.0 + float(pr["size_jitter"]) * (_rand(seed, s_i, 1) * 2.0 - 1.0))
-		sz = maxf(sz, 0.0)
+		var sz := maxf(size * (1.0 + float(pr["size_jitter"]) * (_rand(seed, s_i, 1) * 2.0 - 1.0)), 0.0)
 		var ang := dir.angle() if bool(pr["rotate"]) else 0.0
 		ang += deg_to_rad(float(pr["angle_jitter"])) * (_rand(seed, s_i, 2) * 2.0 - 1.0)
 		var normal := Vector2(-dir.y, dir.x)
 		var pos := c + normal * size * float(pr["scatter"]) * (_rand(seed, s_i, 3) * 2.0 - 1.0)
-		var oi := 0
-		if tris.size() > 1:
-			oi = int(_rand(seed, s_i, 4) * tris.size()) % tris.size() if String(pr["multi"]) == "random" else s_i % tris.size()
-		var xf := Transform2D(ang, Vector2(sz, sz), 0.0, pos)
-		for pc in tris[oi]:
+		out.append({"xf": Transform2D(ang, Vector2(sz, sz), 0.0, pos), "oi": _pick(n_objs, s_i, seed, pr)})
+		s_i += 1
+		d += maxf(size * spacing, total / 5000.0 + 0.0001)
+	return out
+
+static func _pick(n_objs: int, i: int, seed: int, pr: Dictionary) -> int:
+	if n_objs <= 1:
+		return 0
+	if String(pr["multi"]) == "random":
+		return int(_rand(seed, i, 4) * n_objs) % n_objs
+	return i % n_objs
+
+static func _cum(pts: PackedVector2Array) -> PackedFloat32Array:
+	var cum := PackedFloat32Array()
+	cum.resize(pts.size())
+	for i in range(1, pts.size()):
+		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
+	return cum
+
+# ── Pincel de PATRÓN: la figura se dobla siguiendo la curva ─────────────────
+const STRIPS_PER_TILE := 24
+
+## Rectángulo de la figura y su proporción (largo / alto).
+static func _obj_rect(obj: Array) -> Rect2:
+	var r := Rect2()
+	var first := true
+	for pc in obj:
+		for q in pc["pts"]:
+			if first:
+				r = Rect2(q, Vector2.ZERO)
+				first = false
+			else:
+				r = r.expand(q)
+	return r
+
+## Figura en espacio de TESELA: u a lo largo (0..aspecto, en altos de la
+## figura) y v a lo ancho (-0,5..0,5).
+static func _to_tile(obj: Array) -> Dictionary:
+	var r := _obj_rect(obj)
+	var h := maxf(r.size.y, 0.000001)
+	var aspect := maxf(r.size.x / h, 0.02)
+	var polys: Array = []
+	for pc in obj:
+		var poly := PackedVector2Array()
+		for q in pc["pts"]:
+			poly.append(Vector2((q.x - r.position.x) / h, (q.y - r.get_center().y) / h))
+		polys.append({"pts": poly, "col": pc["col"]})
+	return {"aspect": aspect, "polys": polys}
+
+## Tesela cortada en franjas finas en u y triangulada: al llevarla a la
+## curva sus bordes se doblan. {aspect, pieces: [{pts, idx, col}]}
+static func _tile(obj: Array) -> Dictionary:
+	var t := _to_tile(obj)
+	var aspect: float = t["aspect"]
+	var strip_w := aspect / float(STRIPS_PER_TILE)
+	var pieces: Array = []
+	for pc in t["polys"]:
+		for si in STRIPS_PER_TILE:
+			var x0 := si * strip_w - (0.0001 if si == 0 else 0.0)
+			var x1 := (si + 1) * strip_w + (0.0001 if si == STRIPS_PER_TILE - 1 else 0.0)
+			var strip := PackedVector2Array([Vector2(x0, -1.0), Vector2(x1, -1.0), Vector2(x1, 1.0), Vector2(x0, 1.0)])
+			for cut in Geometry2D.intersect_polygons(pc["pts"], strip):
+				if Geometry2D.is_polygon_clockwise(cut):
+					continue   # agujero: no se rellena
+				var sub := _subdivide(cut, strip_w * 0.5)
+				var idx := Geometry2D.triangulate_polygon(sub)
+				if not idx.is_empty():
+					pieces.append({"pts": sub, "idx": idx, "col": pc["col"]})
+	return {"aspect": aspect, "pieces": pieces}
+
+## Parte los lados largos (para que se doblen al seguir la curva).
+static func _subdivide(poly: PackedVector2Array, max_len: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var n := poly.size()
+	for i in n:
+		var a := poly[i]
+		var b := poly[(i + 1) % n]
+		out.append(a)
+		var k := int(a.distance_to(b) / maxf(max_len, 0.0001))
+		for j in range(1, k + 1):
+			out.append(a.lerp(b, float(j) / float(k + 1)))
+	return out
+
+## Reparto de teselas a lo largo del eje (encajan justas de principio a fin)
+## y normales suavizadas: lo comparten la malla y «convertir en figuras».
+static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspects: Array, pr: Dictionary) -> Dictionary:
+	var n := pts.size()
+	var cum := _cum(pts)
+	var total := cum[n - 1]
+	var nrm := PackedVector2Array()
+	nrm.resize(n)
+	for i in n:
+		var d0 := (pts[i] - pts[i - 1]).normalized() if i > 0 else (pts[1] - pts[0]).normalized()
+		var d1 := (pts[i + 1] - pts[i]).normalized() if i < n - 1 else d0
+		var t := (d0 + d1).normalized()
+		if t == Vector2.ZERO:
+			t = d1
+		nrm[i] = Vector2(-t.y, t.x)
+	var hmax := 0.0
+	for hh in half:
+		hmax = maxf(hmax, hh)
+	var gap := maxf(maxf(float(pr["spacing"]), 0.05) - 1.0, 0.0)   # 1,1 → 10 % de hueco
+	var nominal := float(aspects[0]) * 2.0 * hmax * (1.0 + gap)
+	var count := clampi(int(round(total / maxf(nominal, 0.0001))), 1, 4000)
+	var order := PackedInt32Array()
+	for ti in count:
+		order.append(_pick(aspects.size(), ti, int(pr["seed"]), pr))
+	return {"pts": pts, "half": half, "cum": cum, "nrm": nrm, "total": total,
+		"count": count, "seg_len": total / float(count), "gap": gap, "order": order}
+
+## Punto (u, v) de la tesela `ti` → curva: a la distancia s(u) y apartado
+## v·grosor por la normal.
+static func _warp(ctx: Dictionary, ti: int, q: Vector2, aspect: float) -> Vector2:
+	var cum: PackedFloat32Array = ctx["cum"]
+	var pts: PackedVector2Array = ctx["pts"]
+	var nrm: PackedVector2Array = ctx["nrm"]
+	var half: PackedFloat32Array = ctx["half"]
+	var n := pts.size()
+	var seg_len: float = ctx["seg_len"]
+	var body := seg_len / (1.0 + float(ctx["gap"]))
+	var s := ti * seg_len + clampf(q.x / aspect, 0.0, 1.0) * body
+	var j := clampi(cum.bsearch(s) - 1, 0, n - 2)
+	var j2 := j + 1
+	var f := clampf((s - cum[j]) / maxf(cum[j2] - cum[j], 0.000001), 0.0, 1.0)
+	var no := nrm[j].lerp(nrm[j2], f).normalized()
+	return pts[j].lerp(pts[j2], f) + no * q.y * 2.0 * lerpf(half[j], half[j2], f)
+
+## La figura repetida a lo largo del eje y DOBLADA con él. Grosor = 2·half.
+static func build_pattern(pts: PackedVector2Array, half: PackedFloat32Array, src: Array, pr: Dictionary) -> Dictionary:
+	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "colors": PackedColorArray(), "stamps": 0}
+	if _cum(pts)[pts.size() - 1] <= 0.0001:
+		return m
+	var tiles: Array = []
+	var aspects: Array = []
+	for obj in src:
+		var t := _tile(obj)
+		tiles.append(t)
+		aspects.append(t["aspect"])
+	var ctx := _pattern_ctx(pts, half, aspects, pr)
+	var verts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	var cols: PackedColorArray = m["colors"]
+	for ti in int(ctx["count"]):
+		var tile: Dictionary = tiles[(ctx["order"] as PackedInt32Array)[ti]]
+		var asp := float(tile["aspect"])
+		for pc in tile["pieces"]:
 			var base := verts.size()
 			for q in pc["pts"]:
-				verts.append(xf * q)
+				verts.append(_warp(ctx, ti, q, asp))
 				cols.append(pc["col"])
 			for t in pc["idx"]:
 				idx.append(base + t)
-		s_i += 1
-		# siguiente estampa: separación según el tamaño AQUÍ (con presión)
-		d += maxf(size * spacing, total / 5000.0 + 0.0001)
 	m["points"] = verts
 	m["indices"] = idx
 	m["colors"] = cols
-	m["stamps"] = s_i
+	m["stamps"] = int(ctx["count"])
 	return m
+
+## Contornos de cada estampa (para «Convertir trazo en contorno»): Array de
+## {pts (polígono cerrado, en el espacio del trazo), col}. En patrón, la
+## figura doblada con la curva.
+static func outlines(pts: PackedVector2Array, half: PackedFloat32Array, src: Array, params: Dictionary = {}) -> Array:
+	var out: Array = []
+	var n := pts.size()
+	if n == 0 or src.is_empty() or half.size() < n:
+		return out
+	var pr := DEFAULTS.duplicate()
+	pr.merge(params, true)
+	if String(pr["mode"]) == "pattern" and n >= 2:
+		if _cum(pts)[n - 1] <= 0.0001:
+			return out
+		var tiles: Array = []
+		var aspects: Array = []
+		for obj in src:
+			var t := _to_tile(obj)
+			tiles.append(t)
+			aspects.append(t["aspect"])
+		var ctx := _pattern_ctx(pts, half, aspects, pr)
+		for ti in int(ctx["count"]):
+			var tile: Dictionary = tiles[(ctx["order"] as PackedInt32Array)[ti]]
+			var asp := float(tile["aspect"])
+			for pc in tile["polys"]:
+				var ring := PackedVector2Array()
+				for q in _subdivide(pc["pts"], asp / float(STRIPS_PER_TILE) * 0.5):
+					ring.append(_warp(ctx, ti, q, asp))
+				out.append({"pts": ring, "col": pc["col"]})
+		return out
+	for st in _stamp_layout(pts, half, src.size(), pr):
+		var xf: Transform2D = st["xf"]
+		for pc in src[int(st["oi"])]:
+			out.append({"pts": xf * (pc["pts"] as PackedVector2Array), "col": pc["col"]})
+	return out
 
 ## Datos para guardar (JSON): colores en hex, puntos como [x, y].
 static func to_data(src: Array) -> Array:
