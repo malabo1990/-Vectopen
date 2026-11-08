@@ -472,3 +472,46 @@ func test_raton_sigue_con_grosor_completo_aunque_antes_hubo_lapiz() -> void:
 	tool.handle_input(_motion(Vector2(60, 0), 0.0))
 	for p in tool.raw_pressures:
 		assert_float(p).is_equal(1.0)
+
+## VGSE fase 1: el perfil de presión se mide sobre el trazado AJUSTADO, no
+## sobre las muestras crudas. Con temblor solo en la primera mitad, la
+## longitud cruda de esa mitad se infla y el engorde de presión (apretado en
+## x = 150, el 75 % del trazo recto final) se iba hacia el final (~93 %).
+func test_perfil_de_presion_sobre_el_trazado_ajustado() -> void:
+	var tool: Node = auto_free(load(BRUSH).new())
+	tool.pressure_size_enabled = true
+	tool.brush_width = 4.0
+	var pts := PackedVector2Array()
+	var prs := PackedFloat32Array()
+	var cum := PackedFloat32Array()
+	var x := 0.0
+	var i := 0
+	while x <= 200.0:
+		var y := (6.0 if i % 2 == 0 else -6.0) if x < 100.0 else 0.0
+		var p := Vector2(x, y)
+		if pts.size() > 0:
+			cum.append(cum[cum.size() - 1] + p.distance_to(pts[pts.size() - 1]))
+		else:
+			cum.append(0.0)
+		pts.append(p)
+		prs.append(0.3 + 0.7 * exp(-pow((x - 150.0) / 6.0, 2.0)))
+		x += 2.0
+		i += 1
+	tool.raw_points = pts
+	tool.raw_pressures = prs
+	tool.raw_cum = cum
+	var fitted := PackedVector2Array()
+	for k in 101:
+		fitted.append(Vector2(k * 2.0, 0.0))
+	var c: Curve = tool._build_width_curve_smooth(fitted)
+	var best_t := 0.0
+	var best := -1.0
+	for k in 401:
+		var t := k / 400.0
+		if c.sample(t) > best:
+			best = c.sample(t)
+			best_t = t
+	assert_float(best_t).is_equal_approx(0.75, 0.03)
+	# Sin trazado (vista previa / estilos que no se reajustan): igual que antes.
+	var c0: Curve = tool._build_width_curve_smooth()
+	assert_float(c0.sample(0.0)).is_equal_approx(c.sample(0.0), 0.05)

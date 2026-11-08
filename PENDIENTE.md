@@ -63,7 +63,7 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Autointersecciones al pintar: trazo semitransparente sin manchas | Hecho (`c996e1b`) |
 | Vista previa = render final | Hecho (`c996e1b`) |
 | Convertir trazo en contorno (Ctrl+Mayús+O / menú): figura rellena editable con la misma forma | Hecho |
-| Perfil de anchura medido sobre el trazado ajustado (no sobre las muestras crudas) | Pendiente |
+| Perfil de anchura medido sobre el trazado ajustado (no sobre las muestras crudas) | Hecho: cada muestra se proyecta sobre el trazado ajustado (`arc_on_path`); el engorde queda donde se apretó |
 | Modelo Stroke: fuente / derivado / caché separados (sin cambiar el formato) | Pendiente |
 
 **Fase 2 — Pinceles vectoriales**: básico, caligráfico, anchura variable,

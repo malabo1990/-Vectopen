@@ -636,7 +636,7 @@ func _finalizar_trazo_actual() -> void:
 				var fitted_pts := _fit_smooth_points(raw_points)
 				if fitted_pts.size() >= 2:
 					final_points = fitted_pts
-				current_line.width_curve = _build_width_curve_smooth()
+				current_line.width_curve = _build_width_curve_smooth(final_points)
 			else:
 				final_points = _thin_points(final_points, _settings.min_distance_threshold * 0.5)
 				final_points = _rdp_iterative(final_points, _settings.rdp_epsilon)
@@ -770,21 +770,31 @@ static func _gauss_smooth_positions(p: PackedVector2Array, sigma: float) -> Pack
 ## Grosor por presión SUAVIZADO a lo largo del trazo (filtro gaussiano por
 ## longitud): sin escalones ni "bultos" aunque la presión llegue a saltos.
 ## Los extremos conservan su valor (las salidas afiladas siguen afiladas).
-func _build_width_curve_smooth() -> Curve:
+##
+## `path` = trazado final (p. ej. el ajustado con Bézier): la presión se
+## reparte según dónde cae cada muestra SOBRE ese trazado. Medirla con la
+## longitud de las muestras crudas desplazaba los engordes, porque el
+## temblor de la mano alarga los tramos temblorosos (VGSE fase 1).
+func _build_width_curve_smooth(path: PackedVector2Array = PackedVector2Array()) -> Curve:
 	var n := raw_points.size()
 	if n < 2 or raw_cum[n - 1] <= 0.001:
 		return _build_width_curve()
-	var total: float = raw_cum[n - 1]
+	var cum: PackedFloat32Array = raw_cum   # se sustituye si hay trazado
+	if path.size() >= 2:
+		var on_path := arc_on_path(raw_points, path)
+		if on_path.size() == n and on_path[n - 1] > 0.001:
+			cum = on_path
+	var total: float = cum[n - 1]
 	var samples := 128
 	var vals := PackedFloat32Array()
 	vals.resize(samples + 1)
 	var j := 0
 	for k in samples + 1:
 		var d := total * float(k) / float(samples)
-		while j < n - 2 and raw_cum[j + 1] < d:
+		while j < n - 2 and cum[j + 1] < d:
 			j += 1
-		var seg := maxf(raw_cum[j + 1] - raw_cum[j], 0.000001)
-		var f := clampf((d - raw_cum[j]) / seg, 0.0, 1.0)
+		var seg := maxf(cum[j + 1] - cum[j], 0.000001)
+		var f := clampf((d - cum[j]) / seg, 0.0, 1.0)
 		vals[k] = _pressure_to_scale(lerpf(raw_pressures[j], raw_pressures[j + 1], f))
 	var sigma := maxf(brush_width * 0.6, total / 200.0) / (total / float(samples))
 	var radius := int(ceil(sigma * 2.5))
@@ -802,6 +812,54 @@ func _build_width_curve_smooth() -> Curve:
 		curve.add_point(Vector2(float(k) / float(samples), acc / wsum), 0.0, 0.0,
 			Curve.TANGENT_LINEAR, Curve.TANGENT_LINEAR)
 	return curve
+
+## Longitud de arco sobre `path` (desde su inicio) de la proyección de cada
+## muestra. Avanza siempre hacia delante y busca solo un poco por delante:
+## en un bucle o un cruce no salta a la otra pasada. Extremos fijados al
+## principio y al final del trazado.
+static func arc_on_path(samples: PackedVector2Array, path: PackedVector2Array) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	var n := samples.size()
+	var m := path.size()
+	if n == 0 or m < 2:
+		return out
+	var pc := PackedFloat32Array()
+	pc.resize(m)
+	for k in range(1, m):
+		pc[k] = pc[k - 1] + path[k].distance_to(path[k - 1])
+	var total := pc[m - 1]
+	out.resize(n)
+	var seg := 0
+	var last := 0.0
+	for i in n:
+		var q := samples[i]
+		# Ventana: hasta la distancia recorrida por las muestras desde la
+		# anterior (×3) más un margen; nunca hacia atrás.
+		var step := q.distance_to(samples[i - 1]) if i > 0 else 0.0
+		var reach := last + step * 3.0 + total * 0.02 + 1.0
+		var best_d := INF
+		var best_s := last
+		var best_seg := seg
+		var k := seg
+		while k < m - 1 and pc[k] <= reach:
+			var a := path[k]
+			var ab := path[k + 1] - a
+			var l2 := ab.length_squared()
+			var f := clampf((q - a).dot(ab) / l2, 0.0, 1.0) if l2 > 0.0 else 0.0
+			var d := q.distance_squared_to(a + ab * f)
+			if d < best_d:
+				best_d = d
+				best_s = pc[k] + sqrt(l2) * f
+				best_seg = k
+			k += 1
+		last = maxf(last, best_s)
+		seg = best_seg
+		out[i] = last
+	out[0] = 0.0
+	out[n - 1] = total
+	for i in range(n - 2, 0, -1):
+		out[i] = minf(out[i], out[i + 1])
+	return out
 
 ## La presión queda como perfil de grosor del trazo (meta "stroke_profile"):
 ## se GUARDA en el archivo (antes width_curve se perdía al recargar) y el
