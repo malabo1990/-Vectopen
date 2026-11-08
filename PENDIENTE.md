@@ -125,9 +125,6 @@ encargo 10.
 
 - `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la
   batería completa; aislado pasa siempre: depende del orden de las pruebas.
-- Pincel: un trazo MUY largo (~3000 puntos) cuesta ~14 ms por punto nuevo
-  mientras se dibuja (se rehace la malla entera). Hacerlo incremental
-  (solo la cola) o pasar `StrokeGeom._halves` a Rust.
 - e2e que siguen en rojo: `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
   `google_fonts_e2e` (necesita red).
 - Avisos «leaked at exit» al cerrar las pruebas con `quit()` (salen en todas;

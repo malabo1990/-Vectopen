@@ -9,6 +9,7 @@ pub mod affinity;
 pub mod guard;
 pub mod model;
 pub mod raster;
+pub mod stroke;
 pub mod svg;
 pub mod svg_write;
 
@@ -40,6 +41,26 @@ impl VectopenIO {
     #[func]
     fn version(&self) -> GString {
         GString::from(env!("CARGO_PKG_VERSION"))
+    }
+
+    /// Malla del trazo de pincel (StrokeGeom._halves nativo, ver stroke.rs).
+    /// Devuelve {points, indices, v, k, beyond} como el GDScript.
+    #[func]
+    fn stroke_halves(&self, pts: PackedVector2Array, half: PackedFloat32Array, cap_s: i32, cap_e: i32) -> VarDictionary {
+        let p: Vec<stroke::V> = pts.as_slice().iter().map(|v| stroke::V::new(v.x, v.y)).collect();
+        let m = stroke::halves(&p, half.as_slice(), cap_s, cap_e);
+        let mut d = VarDictionary::new();
+        let pv: PackedVector2Array = m.points.iter().map(|v| Vector2::new(v.x, v.y)).collect();
+        let iv: PackedInt32Array = m.indices.iter().copied().collect();
+        let vv: PackedFloat32Array = m.v.iter().copied().collect();
+        let kv: PackedInt32Array = m.k.iter().copied().collect();
+        let bv: PackedFloat32Array = m.beyond.iter().copied().collect();
+        d.set("points", &pv);
+        d.set("indices", &iv);
+        d.set("v", &vv);
+        d.set("k", &kv);
+        d.set("beyond", &bv);
+        d
     }
 
     /// Extensiones (sin punto) que `import_file` sabe leer.

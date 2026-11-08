@@ -861,7 +861,35 @@ static func _area(p: PackedVector2Array) -> float:
 ##     cruza consigo mismo: se corta el lazo en el cruce.
 ## Ningún triángulo pisa a otro: el aerógrafo, el rotulador y el lápiz (con
 ## transparencia que varía a lo ancho) no marcan rayos ni pajaritas.
+## Librería nativa (rust/vectopen_io, VectopenIO.stroke_halves): la misma
+## malla 20–50× más rápida. Sin ella (o con VECTOPEN_GEOM=gdscript) se usa
+## el GDScript de abajo.
+static var _geom_io: Object = null
+static var _geom_checked := false
+
+static func _native_geom() -> Object:
+	if not _geom_checked:
+		_geom_checked = true
+		if OS.get_environment("VECTOPEN_GEOM") != "gdscript" and ClassDB.class_exists("VectopenIO"):
+			var io: Object = ClassDB.instantiate("VectopenIO")
+			if io and io.has_method("stroke_halves"):
+				_geom_io = io
+	return _geom_io
+
 static func _halves(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFloat32Array, cap_s: int, cap_e: int) -> void:
+	var io := _native_geom()
+	if io and (m["points"] as PackedVector2Array).is_empty() and half_in.size() >= pts_in.size():
+		var r: Dictionary = io.stroke_halves(pts_in, half_in, cap_s, cap_e)
+		m["points"] = r["points"]
+		m["indices"] = r["indices"]
+		if m.has("v"):
+			m["v"] = r["v"]
+		m["k"] = r["k"]
+		m["beyond"] = r["beyond"]
+		return
+	_halves_gd(m, pts_in, half_in, cap_s, cap_e)
+
+static func _halves_gd(m: Dictionary, pts_in: PackedVector2Array, half_in: PackedFloat32Array, cap_s: int, cap_e: int) -> void:
 	var pts := pts_in.duplicate()
 	var half := half_in.duplicate()
 	var n := pts.size()
