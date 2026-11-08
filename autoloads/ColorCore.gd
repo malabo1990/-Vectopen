@@ -46,6 +46,78 @@ var _sync_guard: bool = false
 var _applying: bool = false
 var _notifying: bool = false
 
+# ── modo EN VIVO (arrastrar en un selector de color) ─────────────────────────
+## Mientras se arrastra con el ratón en cualquier selector (rueda, triángulo,
+## barras, opacidad…) el color se escribe directo en la selección con un solo
+## aviso por fotograma: sin un paso de deshacer por movimiento, sin guardar
+## los recientes en disco y sin el aviso completo a toda la app (capas,
+## miniaturas…). Al soltar: UN paso de deshacer y el color a recientes.
+## Antes cada movimiento hacía todo eso y el selector se trababa.
+var _live := false
+var _live_before := {}      # prop → {figura: valor antes}
+var _live_last := Color()
+const _LIVE_PROPS := {"fill": ["fill_paint", "fill_color"], "stroke": ["stroke_color"]}
+
+func is_live() -> bool:
+	return _live
+
+## Con letras seleccionadas dentro de un texto el color va por tramos (con
+## su propio deshacer): ahí no se usa el modo en vivo.
+func _can_live() -> bool:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return false
+	if ic.has_method("_native_text_selection") and not ic._native_text_selection().is_empty():
+		return false
+	if ic.has_method("_editing_text_range") and not ic._editing_text_range().is_empty():
+		return false
+	return true
+
+func _begin_live(tgt: String) -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	_live = true
+	_live_before.clear()
+	if ic == null or not ic.has_method("selection"):
+		return
+	for prop in _LIVE_PROPS[tgt]:
+		var before := {}
+		for s in ic.selection():
+			before[s] = ic._read(s, prop)
+		_live_before[prop] = before
+
+func _apply_live(tgt: String) -> void:
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic == null:
+		return
+	_applying = true
+	for s in ic.selection():
+		if tgt == "fill":
+			ic._write(s, "fill_paint", _fill_paint)
+			ic._write(s, "fill_color", fill_color)
+		else:
+			ic._write(s, "stroke_color", stroke_color)
+	if ic.has_method("post_write_live"):
+		ic.post_write_live(false)
+	_applying = false
+
+## Fin del arrastre: un solo paso de deshacer con el color final.
+func end_live() -> void:
+	if not _live:
+		return
+	_live = false
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("commit_live_multi"):
+		# Relleno = paint + color: UN solo paso de deshacer para los dos.
+		_applying = true
+		ic.commit_live_multi(_live_before, "Color")
+		_applying = false
+	_live_before.clear()
+	_add_recent(_live_last)
+
+func _input(event: InputEvent) -> void:
+	if _live and event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		end_live.call_deferred()
+
 func _ready() -> void:
 	_load_state()
 	var ic := get_node_or_null("/root/InspectorCore")
@@ -123,8 +195,15 @@ func set_color(c: Color, target: String = "") -> void:
 	else:
 		stroke_color = c
 		_stroke_paint = {"type": "solid", "color": c}
-	_add_recent(c)
-	_apply_to_selection(tgt)
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _can_live():
+		# Arrastrando en un selector: modo en vivo (ver _live).
+		if not _live:
+			_begin_live(tgt)
+		_live_last = c
+		_apply_live(tgt)
+	else:
+		_add_recent(c)
+		_apply_to_selection(tgt)
 	# Mientras se avisa, un selector que reenvía el color no vuelve a entrar.
 	_notifying = true
 	changed.emit(fill_color, stroke_color, active_target)

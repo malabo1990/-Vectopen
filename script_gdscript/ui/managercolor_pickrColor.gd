@@ -739,13 +739,21 @@ func _notificar_cambio_color(color_final: Color) -> void:
 	# A) Emitir señal local del componente
 	color_actualizado.emit(color_final)
 	
-	# B) Notificar al motor de objetos vectoriales
-	if "object_style_changed" in GlobalEvents:
+	# B) Notificar al motor de objetos vectoriales. Mientras se arrastra en el
+	# selector NO: ese aviso refresca inspector y caja de selección (~15 ms) y
+	# trababa el selector. ColorCore lo lanza una vez al soltar (end_live).
+	if "object_style_changed" in GlobalEvents and not _arrastrando_en_vivo():
 		GlobalEvents.object_style_changed.emit()
 	
 	# C) Notificar a la paleta de colores para que se actualice en tiempo real
 	if "color_changed" in GlobalEvents:
 		GlobalEvents.color_changed.emit(color_final)
+
+func _arrastrando_en_vivo() -> bool:
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or not is_inside_tree():
+		return false
+	var cc := get_tree().root.get_node_or_null("ColorCore")
+	return cc != null and cc.has_method("_can_live") and (cc.is_live() or cc._can_live())
 
 # Si el usuario modifica el degradado general, podemos sincronizar el color primario de fondo
 func _on_global_gradient_changed(gradient: Gradient) -> void:

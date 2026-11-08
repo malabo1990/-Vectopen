@@ -2174,18 +2174,26 @@ var _draft_shapes: Array = []
 ## selección pesada, capas, miniaturas…) y con UN solo aviso por fotograma
 ## aunque lleguen varios movimientos. El aviso completo llega al soltar
 ## (commit_live / apply → _post_write).
-func post_write_live() -> void:
+## `sync_panels = false` (arrastre en un selector de color): ni siquiera
+## sincroniza los paneles (~35 oyentes, ~15 ms por fotograma); al soltar,
+## el paso de deshacer hace el aviso completo.
+func post_write_live(sync_panels: bool = true) -> void:
 	_set_draft(true)
+	_live_sync = _live_sync or sync_panels
 	if _live_pending:
 		return
 	_live_pending = true
 	_flush_live.call_deferred()
 
+var _live_sync := false
+
 func _flush_live() -> void:
 	_live_pending = false
 	if _mt and _mt.has_method("_update_bounding_box"):
 		_mt._update_bounding_box()
-	changed.emit(current_props())
+	if _live_sync:
+		changed.emit(current_props())
+	_live_sync = false
 
 ## Contorno vectorial en baja resolución mientras se arrastra (modo sin
 ## extensión nativa: rehornear 512 px por paso costaba ~34 ms).
