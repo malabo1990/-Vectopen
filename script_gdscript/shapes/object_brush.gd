@@ -161,6 +161,13 @@ static func _stroke_rings(pts: PackedVector2Array, h: float, closed: bool) -> Ar
 			out.append(ring)
 	return out
 
+## Cada objeto normalizado (centro 0,0 y lado mayor 1).
+static func _normalize_all(src: Array) -> Array:
+	var out: Array = []
+	for o in src:
+		out.append(_normalize(o))
+	return out
+
 ## Centro (0,0) y lado mayor 1.
 static func _normalize(pieces: Array) -> Array:
 	var r := Rect2()
