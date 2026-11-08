@@ -45,6 +45,7 @@ const STYLES_INFO := [
 	{"id": "marker", "name": "Marcador", "desc": "Trazo ancho y semi-opaco"},
 	{"id": "calligraphy", "name": "Caligráfico", "desc": "Dinámica de variación angular"},
 	{"id": "airbrush", "name": "Aerógrafo", "desc": "Trazo amplio y difuminado"},
+	{"id": "object", "name": "Objeto", "desc": "Estampa figuras a lo largo del trazo"},
 	{"id": "eraser", "name": "Borrador", "desc": "Elimina trazos vectoriales"},
 ]
 
@@ -186,6 +187,8 @@ func _build_ui() -> void:
 		_grade_row.add_child(gb)
 		_grade_buttons[gr] = gb
 
+	_build_object_ui(root_vbox)
+
 	root_vbox.add_child(_create_h_separator())
 
 	# 2. Grosor y opacidad en una fila; suavizado debajo
@@ -256,6 +259,112 @@ func _update_grade_buttons(active: String) -> void:
 		TPS.style_toggle(b, g == active)
 
 ## Etiqueta + casilla numérica dentro de una rejilla de 4 columnas.
+# ── Pincel de objeto (VGSE fase 2) ───────────────────────────────────────────
+var _object_box: VBoxContainer
+var _obj_spacing: NumericField
+var _obj_scatter: NumericField
+var _obj_rotate: CheckBox
+var _obj_random: CheckBox
+var _obj_each: CheckBox
+
+## Opciones del pincel de objeto (solo con ese estilo): qué figura se
+## estampa (la selección o una de serie), separación, dispersión, giro y,
+## con varias figuras, si van una a una o al azar.
+func _build_object_ui(parent: VBoxContainer) -> void:
+	_object_box = VBoxContainer.new()
+	_object_box.name = "ObjectBrush"
+	_object_box.add_theme_constant_override("separation", 5)
+	parent.add_child(_object_box)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	_object_box.add_child(row)
+	var lf := Label.new()
+	lf.text = tr("Figura")
+	lf.add_theme_font_size_override("font_size", 11)
+	row.add_child(lf)
+	_row_labels.append(lf)
+	for spec in [["ObjFromSelection", "Selección", "Usa las figuras seleccionadas como pincel"],
+			["ObjStar", "Estrella", ""], ["ObjLeaf", "Hoja", ""], ["ObjDot", "Punto", ""]]:
+		var b := Button.new()
+		b.name = spec[0]
+		b.text = tr(spec[1])
+		if spec[2] != "":
+			b.tooltip_text = tr(spec[2])
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, 22)
+		b.add_theme_font_size_override("font_size", 10)
+		var id: String = spec[0]
+		b.pressed.connect(func() -> void: _on_object_source(id))
+		row.add_child(b)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	_object_box.add_child(grid)
+	_obj_spacing = NumericField.new("", " %", 10.0, 500.0, 5.0)
+	_obj_spacing.name = "ObjSpacing"
+	_obj_spacing.decimals = 0
+	_obj_spacing.value = 110.0
+	_obj_spacing.tooltip_text = tr("Distancia entre figuras, en % de su tamaño")
+	_obj_spacing.value_changed.connect(func(v: float) -> void: _set_obj("spacing", v / 100.0))
+	_field_pair(grid, "Separación", _obj_spacing)
+	_obj_scatter = NumericField.new("", " %", 0.0, 300.0, 5.0)
+	_obj_scatter.name = "ObjScatter"
+	_obj_scatter.decimals = 0
+	_obj_scatter.value = 0.0
+	_obj_scatter.tooltip_text = tr("Desplazamiento lateral al azar, en % del tamaño")
+	_obj_scatter.value_changed.connect(func(v: float) -> void: _set_obj("scatter", v / 100.0))
+	_field_pair(grid, "Dispersión", _obj_scatter)
+	var checks := HBoxContainer.new()
+	checks.add_theme_constant_override("separation", 6)
+	_object_box.add_child(checks)
+	_obj_rotate = CheckBox.new()
+	_obj_rotate.name = "ObjRotate"
+	_obj_rotate.text = tr("Girar con el trazo")
+	_obj_rotate.button_pressed = true
+	_obj_rotate.toggled.connect(func(on: bool) -> void: _set_obj("rotate", on))
+	_obj_random = CheckBox.new()
+	_obj_random.name = "ObjRandom"
+	_obj_random.text = tr("Al azar")
+	_obj_random.tooltip_text = tr("Con varias figuras: elegir una al azar en cada estampa (si no, una tras otra)")
+	_obj_random.toggled.connect(func(on: bool) -> void: _set_obj("multi", "random" if on else "sequence"))
+	_obj_each = CheckBox.new()
+	_obj_each.name = "ObjEach"
+	_obj_each.text = tr("Una a una")
+	_obj_each.tooltip_text = tr("Al usar la selección: cada figura es una estampa distinta (si no, todas juntas)")
+	for cb in [_obj_rotate, _obj_random, _obj_each]:
+		cb.focus_mode = Control.FOCUS_NONE
+		cb.add_theme_font_size_override("font_size", 10)
+		checks.add_child(cb)
+
+func _set_obj(key: String, value) -> void:
+	if _syncing:
+		return
+	var tool = _get_brush_tool()
+	if tool and tool.has_method("set_object_param"):
+		tool.set_object_param(key, value)
+
+func _on_object_source(id: String) -> void:
+	var tool = _get_brush_tool()
+	if tool == null or not tool.has_method("use_selection_as_object"):
+		return
+	match id:
+		"ObjFromSelection":
+			if not tool.use_selection_as_object(not _obj_each.button_pressed):
+				var un := get_node_or_null("/root/UserNotices")
+				if un and un.has_method("show_notice"):
+					un.show_notice("warning", tr("Selecciona una o varias figuras para usarlas como pincel"))
+				return
+		"ObjStar":
+			tool.set_object_preset("star")
+		"ObjLeaf":
+			tool.set_object_preset("leaf")
+		"ObjDot":
+			tool.set_object_preset("dot")
+	if tool.brush_style != "object":
+		_select_style("object")
+
 func _field_pair(grid: GridContainer, text: String, field: NumericField) -> void:
 	var l := Label.new()
 	l.text = tr(text)
@@ -434,6 +543,14 @@ func _sync_from_tool() -> void:
 		if is_instance_valid(_grade_row):
 			_grade_row.visible = tool.brush_style == "pencil"
 			_update_grade_buttons(tool.pencil_grade)
+		if is_instance_valid(_object_box):
+			_object_box.visible = tool.brush_style == "object"
+			if "object_params" in tool:
+				var op: Dictionary = tool.object_params
+				_obj_spacing.set_value_silent(float(op.get("spacing", 1.1)) * 100.0)
+				_obj_scatter.set_value_silent(float(op.get("scatter", 0.0)) * 100.0)
+				_obj_rotate.set_pressed_no_signal(bool(op.get("rotate", true)))
+				_obj_random.set_pressed_no_signal(String(op.get("multi", "sequence")) == "random")
 		_sync_pressure_ui(tool)
 	_syncing = false
 
@@ -513,6 +630,7 @@ class _BrushGlyph extends Control:
 		"marker": [0.55, 0.7, [[0.0, 1.0], [1.0, 1.0]]],
 		"calligraphy": [0.42, 1.0, [[0.0, 0.25], [0.2, 1.0], [0.45, 0.3], [0.7, 1.0], [1.0, 0.2]]],
 		"airbrush": [0.85, 0.55, [[0.0, 0.6], [0.5, 1.0], [1.0, 0.6]]],
+		"object": [0.6, 1.0, [[0.0, 0.7], [0.5, 1.0], [1.0, 0.7]]],
 	}
 	var style_id := ""
 	var _line: Line2D = null

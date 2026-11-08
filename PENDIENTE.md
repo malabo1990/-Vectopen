@@ -66,8 +66,16 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Perfil de anchura medido sobre el trazado ajustado (no sobre las muestras crudas) | Hecho: cada muestra se proyecta sobre el trazado ajustado (`arc_on_path`); el engorde queda donde se apretó |
 | Modelo Stroke: fuente / derivado / caché separados (sin cambiar el formato) | Hecho: la geometría derivada (eje, malla, UV) va en caché con clave de forma; color, opacidad y degradado solo repintan (`BrushStrokeGeomCache_test`) |
 
-**Fase 2 — Pinceles vectoriales**: básico, caligráfico, anchura variable,
-patrón, objeto, multiobjeto; distribución y orientación por longitud de arco.
+**Fase 2 — Pinceles vectoriales** (en curso)
+
+| Punto | Estado |
+|---|---|
+| Básico, caligráfico, anchura variable (presión) | Existía (pluma, caligráfico, perfiles) |
+| Pincel de objeto: la selección (o estrella / hoja / punto) estampada a lo largo del trazo; tamaño con la presión, giro con el trazo, separación, dispersión | Hecho (`object_brush.gd`, estilo «Objeto» del panel; `object_brush_e2e`) |
+| Multiobjeto: varias figuras una a una o al azar (semilla guardada) | Hecho |
+| Distribución por longitud de arco | Hecho (estampas por distancia, no por puntos) |
+| Pincel de patrón: piezas de inicio / tramo / esquina / final que se DEFORMAN siguiendo la curva | Pendiente |
+| Antialias del borde de las estampas; convertir trazo de objeto en figuras | Pendiente |
 **Fase 3 — Trazado y texto**: trazado como pincel, texto en trazado, texto
 como pincel, referencias a objetos del documento.
 **Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y

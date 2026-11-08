@@ -29,7 +29,8 @@ func extra_checks(panel: Control, theme: String, mode: String) -> void:
 				var g := (b as Button).get_node_or_null("Sample") as Control
 				if g and g.is_visible_in_tree() and g.size.x > 20.0:
 					n_ok += 1
-	check("%s/%s: los 6 estilos con su muestra dibujada" % [theme, mode], n == 6 and n_ok == 6, "%d/%d" % [n_ok, n])
+	var want: int = load("res://script_gdscript/ui/panel_brush.gd").STYLES_INFO.size()
+	check("%s/%s: los %d estilos con su muestra dibujada" % [theme, mode, want], n == want and n_ok == want, "%d/%d" % [n_ok, n])
 	# UX-16: cada muestra (menos el borrador) es un trazo REAL pintado por el
 	# render del lienzo, con la textura de su estilo.
 	var real := 0

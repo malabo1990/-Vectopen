@@ -28,6 +28,7 @@ const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const CurveFit = preload("res://script_gdscript/shapes/curve_fit.gd")
 const BrushStrokeRender = preload("res://script_gdscript/shapes/brush_stroke_render.gd")
 const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
+const ObjectBrush = preload("res://script_gdscript/shapes/object_brush.gd")
 
 # ── Presión del lápiz (estilo Krita, sensor "Tamaño ← Presión") ─────────────
 ## El grosor sigue la presión del lápiz.
@@ -65,6 +66,11 @@ const CENTRIPETAL_ALPHA := 0.5
 var brush_opacity: float = 1.0
 var brush_style: String = "pen"
 ## Dureza del lápiz (2H … 8B), como las minas de verdad.
+## Pincel de OBJETO (VGSE fase 2): figuras que se estampan a lo largo del
+## trazo (vacío = estrella de serie) y sus parámetros (object_brush.gd).
+var object_source: Array = []
+var object_params: Dictionary = ObjectBrush.DEFAULTS.duplicate()
+
 var pencil_grade: String = "HB":
 	set(v):
 		if v != pencil_grade:
@@ -121,6 +127,10 @@ func apply_brush_style(style_id: String) -> void:
 			set_eraser_mode(false)
 			brush_opacity = 0.35
 			set_brush_preset("ultra")
+		"object":
+			set_eraser_mode(false)
+			brush_opacity = 1.0
+			set_brush_preset("balanced")
 		"eraser":
 			set_eraser_mode(true)
 			brush_opacity = 1.0
@@ -138,6 +148,11 @@ func _apply_line_style(line: Line2D) -> void:
 	line.set_meta("brush_style", brush_style)
 	if brush_style == "pencil":
 		line.set_meta("pencil_grade", pencil_grade)
+	if brush_style == "object":
+		var prm := object_params.duplicate()
+		prm["seed"] = randi() % 1000000
+		var src := object_source if not object_source.is_empty() else ObjectBrush.preset("star")
+		line.set_meta("brush_obj", {"src": ObjectBrush.to_data(src), "params": prm})
 	match brush_style:
 		"pencil":
 			line.texture = null   # lo pinta el sombreador (brush_stroke.gdshader)
@@ -619,7 +634,29 @@ func _update_live_preview() -> void:
 ## se reajustaba con Bézier, se filtraba otra vez la presión y se recortaba
 ## la punta: cambiaban la forma, el grano y la transparencia.
 func is_wysiwyg_style() -> bool:
-	return brush_style in ["pencil", "airbrush", "marker", "calligraphy"]
+	return brush_style in ["pencil", "airbrush", "marker", "calligraphy", "object"]
+
+## Usa las figuras seleccionadas como pincel de objeto. `combine`: todas
+## juntas como una sola estampa; si no, cada figura por separado
+## (multiobjeto: se alternan o se eligen al azar). false si no hay nada.
+func use_selection_as_object(combine: bool = true) -> bool:
+	var sm = get_node_or_null("/root/SelectionManager") if is_inside_tree() else null
+	if sm == null:
+		return false
+	var src: Array = ObjectBrush.from_shapes(sm.get_selected(), combine)
+	if src.is_empty():
+		return false
+	object_source = src
+	_settings_dirty = true
+	return true
+
+func set_object_preset(name: String) -> void:
+	object_source = ObjectBrush.preset(name)
+	_settings_dirty = true
+
+func set_object_param(key: String, value) -> void:
+	object_params[key] = value
+	_settings_dirty = true
 
 func _finalizar_trazo_actual() -> void:
 	if not is_drawing:
@@ -977,6 +1014,8 @@ func save_pressure_settings() -> void:
 	cfg.set_value("brush", "width", brush_width)
 	cfg.set_value("brush", "style", brush_style)
 	cfg.set_value("brush", "grade", pencil_grade)
+	cfg.set_value("brush", "object", JSON.stringify(ObjectBrush.to_data(object_source)))
+	cfg.set_value("brush", "object_params", object_params)
 	cfg.save(PRESSURE_CFG)
 	_settings_dirty = false
 
@@ -994,6 +1033,10 @@ func _load_pressure_settings() -> void:
 		if st != "" and st != "eraser":
 			apply_brush_style(st)
 		pencil_grade = String(cfg.get_value("brush", "grade", pencil_grade))
+		object_source = ObjectBrush.from_data(JSON.parse_string(String(cfg.get_value("brush", "object", "[]"))))
+		var op = cfg.get_value("brush", "object_params", {})
+		if op is Dictionary:
+			object_params.merge(op, true)
 		brush_width = clampf(float(cfg.get_value("brush", "width", brush_width)), MIN_BRUSH_WIDTH, MAX_BRUSH_WIDTH)
 		_settings_dirty = false
 

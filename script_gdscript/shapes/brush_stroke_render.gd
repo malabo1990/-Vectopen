@@ -18,6 +18,7 @@
 extends Node2D
 
 const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
+const ObjectBrush = preload("res://script_gdscript/shapes/object_brush.gd")
 const STROKE_SHADER := preload("res://shaders/brush_stroke.gdshader")
 ## Material compartido de los trazos sin degradado (no rompe el agrupado de
 ## dibujo); con degradado cada trazo tiene el suyo (uniformes propios).
@@ -145,7 +146,12 @@ func _draw() -> void:
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
 		return
-	var cols := _colors(verts, pts, cum, total, m, half, ax[3] if ax.size() > 3 else PackedFloat32Array())
+	var cols: PackedColorArray
+	if m.has("colors"):
+		# Pincel de objeto: los colores de las figuras estampadas.
+		cols = m["colors"]
+	else:
+		cols = _colors(verts, pts, cum, total, m, half, ax[3] if ax.size() > 3 else PackedFloat32Array())
 	if m.has("a"):
 		# Aerógrafo por sellos: cada sello con su opacidad (flujo por presión).
 		var sa: PackedFloat32Array = m["a"]
@@ -188,7 +194,8 @@ func _geom_key() -> int:
 			acc.append_array([q.x, q.y, wc.get_point_left_tangent(i), wc.get_point_right_tangent(i)])
 		wk = hash([wc.get_instance_id(), acc, wc.bake_resolution, wc.min_value, wc.max_value])
 	return hash([line.points, line.width, wk, line.begin_cap_mode, line.end_cap_mode,
-		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG))])
+		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG)),
+		hash(line.get_meta("brush_obj", {}))])
 
 func _build_geom() -> Dictionary:
 	var ax := centerline(line)
@@ -196,6 +203,17 @@ func _build_geom() -> Dictionary:
 	var half: PackedFloat32Array = ax[1]
 	var cum: PackedFloat32Array = ax[2]
 	var total := maxf(cum[pts.size() - 1], 0.0001) if pts.size() > 0 else 1.0
+	if String(line.get_meta("brush_style", "")) == "object":
+		# Pincel de objeto (VGSE fase 2): figuras estampadas a lo largo del eje.
+		var bo: Dictionary = line.get_meta("brush_obj", {})
+		var src: Array = ObjectBrush.from_data(bo.get("src", []))
+		if src.is_empty():
+			src = ObjectBrush.preset("star")
+		var mo: Dictionary = ObjectBrush.build(pts, half, src, bo.get("params", {}))
+		var ouv := PackedVector2Array()
+		ouv.resize((mo["points"] as PackedVector2Array).size())
+		ouv.fill(Vector2(0.0, 0.5))
+		return {"ax": ax, "m": mo, "uvs": ouv}
 	var air := String(line.get_meta("brush_style", "")) == "airbrush"
 	var m := StrokeGeom.stamps(pts, half, ax[3]) if air \
 		else StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
