@@ -90,16 +90,18 @@ void fragment() {
 		// borde: el trazo se deshace en grano, sin un corte duro (Krita).
 		float rim = smoothstep(0.0, 0.62, e);
 		float p2 = pr * pr;
-		float cover = clamp(pencil_fill * (0.2 + 1.2 * pr), 0.0, 1.0) * mix(0.35, 1.0, rim);
+		// Ni apretando del todo se rellenan los valles más hondos del papel:
+		// el centro siempre deja ver grano (antes salía gris liso, bruñido).
+		float cover = clamp(pencil_fill * (0.2 + 1.0 * pr), 0.0, 0.8) * mix(0.35, 1.0, rim);
 		float level = 0.5 + (0.5 - cover) * 0.6;
 		// Transición del diente: nunca más estrecha que ~1 px de pantalla
 		// (sin motas recortadas ni parpadeo) y algo más suave en general.
-		float soft = max(pencil_soft * 1.5 + 0.12 * p2, fwidth(paper) * 1.2);
-		float dep = smoothstep(level - soft, level + soft, paper + (streak - 0.5) * 0.16 * (1.0 - p2));
-		dep = max(dep, p2 * pencil_fill * 0.85 * (0.5 + 0.5 * paper) * rim);
+		float soft = max(pencil_soft * 1.5 + 0.04 * p2, fwidth(paper) * 1.2);
+		float dep = smoothstep(level - soft, level + soft, paper + (streak - 0.5) * 0.16 * (1.0 - 0.5 * p2));
+		dep = max(dep, p2 * pencil_fill * 0.35 * paper * rim);
 		float dens = pencil_dark * mix(0.05, 1.0, pow(pr, 1.35));
-		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, p2) * mix(0.6, 1.0, rim);
-		c.a = clamp(tone * dens * 1.15, 0.0, 1.0);
+		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, 0.45 * p2) * mix(0.6, 1.0, rim);
+		c.a = clamp(tone * dens * 1.3, 0.0, 1.0);
 		// borde apenas irregular (el desvanecido ya lo hace el grano)
 		e -= (0.5 - tooth) * 0.12;
 	} else if (style == 2) {
