@@ -219,12 +219,6 @@ static func centerline(l: Line2D) -> Array:
 	# los extremos, y lo que va por vértice (presión del lápiz, desvanecido
 	# de las puntas) se estiraba por todo el trazo (salía a medio tono).
 	pts = _densify(pts, maxf(l.width, 2.0))
-	# Sin quiebros más pequeños que el grosor: la curva entre muestras del
-	# lápiz se frena en cada una y el eje hacía un pico; con el borde suave
-	# del lápiz se veía como una ristra de muescas. Remuestreo a paso fijo
-	# y un suavizado corto (extremos fijos). Lo comparten vista previa,
-	# trazo final y «convertir en contorno»: siguen siendo idénticos.
-	pts = _smooth_axis(pts, maxf(l.width * 0.5, 1.0))
 	var n := pts.size()
 	var half := PackedFloat32Array()
 	half.resize(n)
@@ -269,37 +263,6 @@ static func centerline(l: Line2D) -> Array:
 			f = 0.3 + 0.7 * f
 		half[i] = maxf(l.width * 0.5 * f, 0.05)
 	return [pts, half, cum, flow]
-
-## Paso FIJO desde el inicio (no repartido sobre la longitud total): al
-## añadir puntos mientras se dibuja, lo ya dibujado no se mueve; solo
-## cambian los últimos puntos.
-static func _smooth_axis(pts: PackedVector2Array, step: float) -> PackedVector2Array:
-	var n := pts.size()
-	if n < 4:
-		return pts
-	var cum := PackedFloat32Array()
-	cum.resize(n)
-	for i in range(1, n):
-		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
-	var total := cum[n - 1]
-	if total < step * 4.0:
-		return pts
-	var out := PackedVector2Array()
-	var j := 0
-	var d := 0.0
-	while d < total - step * 0.5:
-		while j < n - 2 and cum[j + 1] < d:
-			j += 1
-		var seg := maxf(cum[j + 1] - cum[j], 0.000001)
-		out.append(pts[j].lerp(pts[j + 1], clampf((d - cum[j]) / seg, 0.0, 1.0)))
-		d += step
-	out.append(pts[n - 1])
-	var m := out.size()
-	for _pass in 2:
-		var prev := out.duplicate()
-		for k in range(1, m - 1):
-			out[k] = (prev[k - 1] + prev[k] * 2.0 + prev[k + 1]) * 0.25
-	return out
 
 static func _densify(pts: PackedVector2Array, step: float) -> PackedVector2Array:
 	if pts.size() < 2:

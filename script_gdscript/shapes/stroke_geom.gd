@@ -989,40 +989,45 @@ static func _side(pts: PackedVector2Array, half: PackedFloat32Array, sgn: float)
 ## grosor): busca cruces con tramos cercanos y los sustituye por el punto de
 ## cruce, que hereda el dueño del primer punto quitado (abanico en el eje).
 static func _cut_loops(side: Array, cum: PackedFloat32Array, half: PackedFloat32Array, axis: PackedVector2Array = PackedVector2Array()) -> Array:
-	var out: Array = side.duplicate()
 	# Un lazo solo existe donde el borde va HACIA ATRÁS respecto al eje: se
-	# busca solo cerca de esos retrocesos (antes en cada punto: con los miles
-	# de puntos de la vista previa costaba decenas de ms por fotograma).
-	var nxt := _next_backtrack(out, axis)
+	# busca solo cerca de esos retrocesos. Una sola pasada sobre el borde
+	# original (antes, tras cada corte se copiaba el borde y se recalculaban
+	# los retrocesos: con muchas curvas cerradas costaba >10 ms por punto
+	# mientras se dibujaba y el trazo iba por detrás del lápiz).
+	var n := side.size()
+	var nxt := _next_backtrack(side, axis)
+	var out: Array = []
 	var i := 0
-	while i < out.size() - 3:
-		var c0 := cum[int(out[i][1])]
-		var reach := half[int(out[i][1])] * 4.0 + 1.0
-		var r: int = nxt[i]
-		if r < 0:
-			break
-		if cum[int(out[r][1])] - c0 > reach:
+	while i < n:
+		out.append(side[i])
+		if i >= n - 3:
 			i += 1
 			continue
-		var a: Vector2 = out[i][0]
-		var b: Vector2 = out[i + 1][0]
+		var r: int = nxt[i]
+		if r < 0:
+			out.append_array(side.slice(i + 1))
+			break
+		var c0 := cum[int(side[i][1])]
+		var reach := half[int(side[i][1])] * 4.0 + 1.0
+		if cum[int(side[r][1])] - c0 > reach:
+			i += 1
+			continue
+		var a: Vector2 = side[i][0]
+		var b: Vector2 = side[i + 1][0]
 		var hit := -1
 		var x := Vector2.ZERO
 		var j := i + 2
 		# el cruce más lejano corta el lazo entero de una vez
-		while j < out.size() - 1 and cum[int(out[j][1])] - c0 <= reach:
-			var rr = Geometry2D.segment_intersects_segment(a, b, out[j][0], out[j + 1][0])
+		while j < n - 1 and cum[int(side[j][1])] - c0 <= reach:
+			var rr = Geometry2D.segment_intersects_segment(a, b, side[j][0], side[j + 1][0])
 			if rr != null:
 				hit = j
 				x = rr
 			j += 1
 		if hit >= 0:
-			var owner: int = out[i + 1][1]
-			var cut: Array = out.slice(0, i + 1)
-			cut.append([x, owner])
-			cut.append_array(out.slice(hit + 1))
-			out = cut
-			nxt = _next_backtrack(out, axis)
+			out.append([x, int(side[i + 1][1])])
+			i = hit + 1
+			continue
 		i += 1
 	return out
 

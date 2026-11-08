@@ -67,16 +67,26 @@ func test_cambiar_la_forma_si_recalcula() -> void:
 	r._draw()   # sin cambios: nada que recalcular
 	assert_int(r.geom_builds).is_equal(b + 5)
 
-## Lo ya dibujado no se mueve al seguir dibujando: el eje suavizado de un
-## trazo y el del mismo trazo con más puntos coinciden salvo en el final.
-func test_el_eje_no_se_mueve_al_seguir_dibujando() -> void:
+## Con mucho zoom el trazo va donde se pone el lápiz: el eje no se suaviza
+## (un suavizado por grosor se comía los movimientos pequeños: con zoom 10×
+## la línea no seguía al lápiz, «efecto imán»).
+func test_el_eje_respeta_las_esquinas_con_trazo_fino() -> void:
+	var holder: Node2D = auto_free(Node2D.new())
+	add_child(holder)
+	var l := Line2D.new()
 	var pts := PackedVector2Array()
-	for i in 300:
-		pts.append(Vector2(i * 1.7, sin(i * 0.2) * 25.0 + (i % 3) * 0.8))
-	var a: PackedVector2Array = Render._smooth_axis(pts.slice(0, 200), 5.0)
-	var b: PackedVector2Array = Render._smooth_axis(pts, 5.0)
-	var moved := 0
-	for k in a.size() - 4:
-		if a[k].distance_to(b[k]) > 0.001:
-			moved += 1
-	assert_int(moved).is_equal(0)
+	for i in 21:
+		pts.append(Vector2(i * 0.5, 0.0))
+	for i in range(1, 21):
+		pts.append(Vector2(10.0, i * 0.5))
+	l.points = pts
+	l.width = 3.0
+	holder.add_child(l)
+	var ax: Array = Render.centerline(l)
+	var axis: PackedVector2Array = ax[0]
+	var best := INF
+	for q in axis:
+		best = minf(best, q.distance_to(Vector2(10, 0)))
+	assert_float(best).is_less(0.05)
+	# la punta final queda en su sitio
+	assert_float(axis[axis.size() - 1].distance_to(Vector2(10, 10))).is_less(0.01)
