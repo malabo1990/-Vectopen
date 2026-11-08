@@ -102,7 +102,8 @@ var _group: CanvasGroup = null
 ## Opacidad del trazo como grupo (ver stroke_material): la malla se pinta
 ## opaca dentro de un CanvasGroup interno y el grupo lleva la opacidad.
 func _set_group(alpha: float) -> void:
-	var translucent := alpha < 0.999
+	# El lápiz siempre en grupo (ver _shader_for: escribe sin mezclar).
+	var translucent := alpha < 0.999 or style_id(line) == 1
 	if translucent and _group == null:
 		_group = CanvasGroup.new()
 		_group.name = "OpacityGroup"
@@ -218,6 +219,12 @@ static func centerline(l: Line2D) -> Array:
 	# los extremos, y lo que va por vértice (presión del lápiz, desvanecido
 	# de las puntas) se estiraba por todo el trazo (salía a medio tono).
 	pts = _densify(pts, maxf(l.width, 2.0))
+	# Sin quiebros más pequeños que el grosor: la curva entre muestras del
+	# lápiz se frena en cada una y el eje hacía un pico; con el borde suave
+	# del lápiz se veía como una ristra de muescas. Remuestreo a paso fijo
+	# y un suavizado corto (extremos fijos). Lo comparten vista previa,
+	# trazo final y «convertir en contorno»: siguen siendo idénticos.
+	pts = _smooth_axis(pts, maxf(l.width * 0.5, 1.0))
 	var n := pts.size()
 	var half := PackedFloat32Array()
 	half.resize(n)
@@ -256,12 +263,43 @@ static func centerline(l: Line2D) -> Array:
 			flow.append(clampf(pow(f, 0.8), 0.0, 1.0))
 			f = 0.6 + 0.4 * f
 		elif pencil:
-			# Lápiz: la presión rellena el grano del papel (va al sombreador
-			# como «flujo») y apenas cambia la anchura, como una mina real.
+			# Lápiz (como Krita): la presión cambia el GROSOR (rozar = fino)
+			# y la oscuridad (va al sombreador como «flujo»).
 			flow.append(clampf(f, 0.0, 1.0))
-			f = 0.75 + 0.25 * f
+			f = 0.3 + 0.7 * f
 		half[i] = maxf(l.width * 0.5 * f, 0.05)
 	return [pts, half, cum, flow]
+
+## Paso FIJO desde el inicio (no repartido sobre la longitud total): al
+## añadir puntos mientras se dibuja, lo ya dibujado no se mueve; solo
+## cambian los últimos puntos.
+static func _smooth_axis(pts: PackedVector2Array, step: float) -> PackedVector2Array:
+	var n := pts.size()
+	if n < 4:
+		return pts
+	var cum := PackedFloat32Array()
+	cum.resize(n)
+	for i in range(1, n):
+		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
+	var total := cum[n - 1]
+	if total < step * 4.0:
+		return pts
+	var out := PackedVector2Array()
+	var j := 0
+	var d := 0.0
+	while d < total - step * 0.5:
+		while j < n - 2 and cum[j + 1] < d:
+			j += 1
+		var seg := maxf(cum[j + 1] - cum[j], 0.000001)
+		out.append(pts[j].lerp(pts[j + 1], clampf((d - cum[j]) / seg, 0.0, 1.0)))
+		d += step
+	out.append(pts[n - 1])
+	var m := out.size()
+	for _pass in 2:
+		var prev := out.duplicate()
+		for k in range(1, m - 1):
+			out[k] = (prev[k - 1] + prev[k] * 2.0 + prev[k + 1]) * 0.25
+	return out
 
 static func _densify(pts: PackedVector2Array, step: float) -> PackedVector2Array:
 	if pts.size() < 2:
@@ -391,7 +429,7 @@ func _update_material() -> void:
 	if g == null or g.get_point_count() < 2:
 		if not _shared_mats.has(key):
 			var sm := ShaderMaterial.new()
-			sm.shader = STROKE_SHADER
+			sm.shader = _shader_for(sid)
 			sm.set_shader_parameter("style", sid)
 			_set_grade(sm, grade)
 			_shared_mats[key] = sm
@@ -400,9 +438,9 @@ func _update_material() -> void:
 	var mat := stroke_material
 	if mat == null or _shared_mats.values().has(mat):
 		mat = ShaderMaterial.new()
-		mat.shader = STROKE_SHADER
 		mat.set_shader_parameter("use_grad", true)
 		_use_material(mat)
+	mat.shader = _shader_for(sid)
 	mat.set_shader_parameter("style", sid)
 	_set_grade(mat, grade)
 	if _grad_tex == null:
@@ -414,6 +452,22 @@ func _update_material() -> void:
 	mat.set_shader_parameter("p0", _a())
 	mat.set_shader_parameter("p1", _b())
 	mat.set_shader_parameter("gtype", fill_gradient_type)
+
+## Lápiz: escribe cada píxel SIN mezclar dentro de su grupo interno. En
+## los giros más cerrados que el grosor la malla se pliega y, con mezcla,
+## esos triángulos se pintaban dos veces (cuñas negras). El valor del lápiz
+## solo depende de la posición en el papel y de la presión, así que un
+## píxel pintado dos veces queda igual. El grupo compone luego el trazo.
+static var _pencil_shader: Shader = null
+
+static func _shader_for(sid: int) -> Shader:
+	if sid != 1:
+		return STROKE_SHADER
+	if _pencil_shader == null:
+		_pencil_shader = Shader.new()
+		_pencil_shader.code = STROKE_SHADER.code.replace("shader_type canvas_item;",
+			"shader_type canvas_item;\nrender_mode blend_disabled;\n#define OVERWRITE")
+	return _pencil_shader
 
 func _use_material(mat: ShaderMaterial) -> void:
 	stroke_material = mat

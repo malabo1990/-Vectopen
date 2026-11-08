@@ -66,3 +66,17 @@ func test_cambiar_la_forma_si_recalcula() -> void:
 	assert_int(r.geom_builds).is_equal(b + 5)
 	r._draw()   # sin cambios: nada que recalcular
 	assert_int(r.geom_builds).is_equal(b + 5)
+
+## Lo ya dibujado no se mueve al seguir dibujando: el eje suavizado de un
+## trazo y el del mismo trazo con más puntos coinciden salvo en el final.
+func test_el_eje_no_se_mueve_al_seguir_dibujando() -> void:
+	var pts := PackedVector2Array()
+	for i in 300:
+		pts.append(Vector2(i * 1.7, sin(i * 0.2) * 25.0 + (i % 3) * 0.8))
+	var a: PackedVector2Array = Render._smooth_axis(pts.slice(0, 200), 5.0)
+	var b: PackedVector2Array = Render._smooth_axis(pts, 5.0)
+	var moved := 0
+	for k in a.size() - 4:
+		if a[k].distance_to(b[k]) > 0.001:
+			moved += 1
+	assert_int(moved).is_equal(0)

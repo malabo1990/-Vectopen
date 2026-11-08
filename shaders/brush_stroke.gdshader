@@ -76,34 +76,24 @@ void fragment() {
 		//    blandas baja a los valles (parte en los valles en las B);
 		//  · tono variable según la profundidad del diente (no un relleno
 		//    plano) y vetas finas a lo largo del trazo (UV.x = longitud).
+		// Lápiz como el de Krita: trazo casi SÓLIDO, poco grano y borde fino
+		// suavizado. La presión da grosor (geometría) y oscuridad (aquí).
+		// Todo depende SOLO de la posición en el papel y de la presión (no
+		// de la pieza de malla): ver OVERWRITE más abajo.
 		float pr = clamp(COLOR.a, 0.0, 1.0);
-		// Relieve del papel en espacio del lienzo, con detalle fino (6
-		// octavas): con zoom se ven los dientes, no manchas lisas.
-		float tooth = fbm(paper_pos * 0.55);
-		float fine = fbm(paper_pos * 3.1 + vec2(41.0, 7.0));
-		float speck = vnoise(paper_pos * 2.3);
-		float fiber = vnoise(vec2(paper_pos.x * 0.11 + paper_pos.y * 0.04, paper_pos.y * 1.3));
-		float paper = tooth * 0.52 + fine * 0.18 + speck * 0.18 + fiber * 0.12;
-		float streak = vnoise(vec2(UV.x * 0.15, UV.y * 8.0));
-		// MINA REDONDA: apoya de lleno en el centro y apenas en los bordes.
-		// El grafito se va quedando solo en los picos del papel hacia el
-		// borde: el trazo se deshace en grano, sin un corte duro (Krita).
-		float rim = smoothstep(0.0, 0.62, e);
-		float p2 = pr * pr;
-		// Ni apretando del todo se rellenan los valles más hondos del papel:
-		// el centro siempre deja ver grano (antes salía gris liso, bruñido).
-		float cover = clamp(pencil_fill * (0.2 + 1.0 * pr), 0.0, 0.8) * mix(0.35, 1.0, rim);
-		float level = 0.5 + (0.5 - cover) * 0.6;
-		// Transición del diente: nunca más estrecha que ~1 px de pantalla
-		// (sin motas recortadas ni parpadeo) y algo más suave en general.
-		float soft = max(pencil_soft * 1.5 + 0.04 * p2, fwidth(paper) * 1.2);
-		float dep = smoothstep(level - soft, level + soft, paper + (streak - 0.5) * 0.16 * (1.0 - 0.5 * p2));
-		dep = max(dep, p2 * pencil_fill * 0.35 * paper * rim);
-		float dens = pencil_dark * mix(0.05, 1.0, pow(pr, 1.35));
-		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, 0.45 * p2) * mix(0.6, 1.0, rim);
-		c.a = clamp(tone * dens * 1.3, 0.0, 1.0);
-		// borde apenas irregular (el desvanecido ya lo hace el grano)
-		e -= (0.5 - tooth) * 0.12;
+		float paper = fbm(paper_pos * 0.9);
+		float fiber = vnoise(vec2(paper_pos.x * 0.15 + paper_pos.y * 0.05, paper_pos.y * 1.6));
+		float grain = paper * 0.8 + fiber * 0.2;
+		float dens = pencil_dark * mix(0.3, 1.0, pow(pr, 1.1)) * 1.25;
+		// Diente del papel visible: rozando se ve bastante papel, apretando
+		// menos (sin llegar a liso, que parecía plástico).
+		float tooth = smoothstep(0.25, 0.75, grain);
+		float speck = vnoise(paper_pos * 2.6);
+		float tex = tooth * 0.8 + speck * 0.2;
+		c.a = clamp(dens * mix(mix(0.35, 0.75, pr), 1.0, tex), 0.0, 1.0);
+		// Borde: suavizado de ~1,5 px de pantalla con un poco de diente.
+		e += (grain - 0.5) * w * 1.2;
+		w *= 1.5;
 	} else if (style == 2) {
 		// Rotulador: la tinta se acumula en los bordes (más oscuro). Con el
 		// color y no con la transparencia: así donde el trazo se pisa a sí
@@ -116,5 +106,10 @@ void fragment() {
 		c.a *= exp(-3.6 * (1.0 - e) * (1.0 - e)) * (0.9 + 0.1 * hash(floor(FRAGCOORD.xy)));
 	}
 	c.a *= clamp(e / w + 0.5, 0.0, 1.0);
+#ifdef OVERWRITE
+	// Se escribe sin mezclar dentro del grupo: color PREMULTIPLICADO (el
+	// grupo lo compone así; sin premultiplicar, lo tenue salía más oscuro).
+	c.rgb *= c.a;
+#endif
 	COLOR = c;
 }
