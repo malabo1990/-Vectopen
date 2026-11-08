@@ -119,7 +119,7 @@ func _build_ui() -> void:
 
 	var root_vbox := VBoxContainer.new()
 	root_vbox.name = "Content"
-	root_vbox.add_theme_constant_override("separation", 7)
+	root_vbox.add_theme_constant_override("separation", 9)
 	margin.add_child(root_vbox)
 
 	_header_title = Label.new()
@@ -127,13 +127,14 @@ func _build_ui() -> void:
 	_header_title.add_theme_font_size_override("font_size", 13)
 	root_vbox.add_child(_header_title)
 
-	# 1. Estilos (dos columnas: nombre + muestra real del trazo)
+	# 1. Estilo (dos columnas: nombre + muestra real del trazo) y dureza
+	var sec_style := _section(root_vbox, "Estilo")
 	var grid := GridContainer.new()
 	grid.name = "BrushStyles"
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 5)
 	grid.add_theme_constant_override("v_separation", 5)
-	root_vbox.add_child(grid)
+	sec_style.add_child(grid)
 	_style_buttons.clear()
 	for info in STYLES_INFO:
 		var btn := Button.new()
@@ -165,7 +166,7 @@ func _build_ui() -> void:
 	_grade_row = HBoxContainer.new()
 	_grade_row.name = "PencilGrades"
 	_grade_row.add_theme_constant_override("separation", 3)
-	root_vbox.add_child(_grade_row)
+	sec_style.add_child(_grade_row)
 	var lg := Label.new()
 	lg.text = tr("Dureza")
 	lg.add_theme_font_size_override("font_size", 11)
@@ -188,17 +189,19 @@ func _build_ui() -> void:
 		_grade_row.add_child(gb)
 		_grade_buttons[gr] = gb
 
-	_build_object_ui(root_vbox)
+	# 2. Figura (solo con el estilo Objeto)
+	var sec_obj := _section(root_vbox, "Figura")
+	_object_card = sec_obj.get_parent() as PanelContainer
+	_build_object_ui(sec_obj)
 
-	root_vbox.add_child(_create_h_separator())
-
-	# 2. Grosor y opacidad en una fila; suavizado debajo
+	# 3. Trazo: grosor y opacidad en una fila; suavizado debajo
+	var sec_stroke := _section(root_vbox, "Trazo")
 	var fields := GridContainer.new()
 	fields.name = "Fields"
 	fields.columns = 4
 	fields.add_theme_constant_override("h_separation", 6)
 	fields.add_theme_constant_override("v_separation", 6)
-	root_vbox.add_child(fields)
+	sec_stroke.add_child(fields)
 	_spin_size = NumericField.new("", " px", 0.5, 100.0, 0.5)
 	_spin_size.name = "FieldSize"
 	_spin_size.decimals = 1
@@ -214,7 +217,7 @@ func _build_ui() -> void:
 
 	var smooth_row := HBoxContainer.new()
 	smooth_row.add_theme_constant_override("separation", 6)
-	root_vbox.add_child(smooth_row)
+	sec_stroke.add_child(smooth_row)
 	var lbl_smooth := Label.new()
 	lbl_smooth.text = tr("Suavizado")
 	lbl_smooth.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -232,8 +235,8 @@ func _build_ui() -> void:
 	_opt_smoothing.item_selected.connect(_on_smoothing_selected)
 	smooth_row.add_child(_opt_smoothing)
 
-	root_vbox.add_child(_create_h_separator())
-	_build_pressure_ui(root_vbox)
+	# 4. Presión del lápiz (su fila de título lleva el medidor)
+	_build_pressure_ui(_section(root_vbox, ""))
 
 	_hint_label = Label.new()
 	_hint_label.text = tr("Mayús: grosor  ·  Ctrl: recta  ·  Alt: continuar")
@@ -260,6 +263,30 @@ func _update_grade_buttons(active: String) -> void:
 		TPS.style_toggle(b, g == active)
 
 ## Etiqueta + casilla numérica dentro de una rejilla de 4 columnas.
+# ── Secciones en tarjetas ────────────────────────────────────────────────────
+var _cards: Array = []
+var _action_buttons: Array = []
+var _checks: Array = []
+var _object_card: PanelContainer
+
+## Tarjeta con título (en versalitas atenuadas, como Capas): agrupa cada
+## parte del panel (Estilo, Figura, Trazo, Presión) para que se lea de un
+## vistazo. Devuelve el contenedor donde van sus filas.
+func _section(parent: Control, title: String) -> VBoxContainer:
+	var card := PanelContainer.new()
+	card.name = "Card_" + (title if title != "" else "Presion")
+	parent.add_child(card)
+	_cards.append(card)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+	if title != "":
+		var l := Label.new()
+		l.text = tr(title)
+		v.add_child(l)
+		_section_labels.append(l)
+	return v
+
 # ── Pincel de objeto (VGSE fase 2) ───────────────────────────────────────────
 var _object_box: VBoxContainer
 var _obj_spacing: NumericField
@@ -280,11 +307,6 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 3)
 	_object_box.add_child(row)
-	var lf := Label.new()
-	lf.text = tr("Figura")
-	lf.add_theme_font_size_override("font_size", 11)
-	row.add_child(lf)
-	_row_labels.append(lf)
 	for spec in [["ObjFromSelection", "Selección", "Usa las figuras seleccionadas como pincel"],
 			["ObjStar", "Estrella", ""], ["ObjLeaf", "Hoja", ""], ["ObjDot", "Punto", ""]]:
 		var b := Button.new()
@@ -299,6 +321,7 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 		var id: String = spec[0]
 		b.pressed.connect(func() -> void: _on_object_source(id))
 		row.add_child(b)
+		_action_buttons.append(b)
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 6)
@@ -336,6 +359,7 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 	_obj_each.text = tr("Una a una")
 	_obj_each.tooltip_text = tr("Al usar la selección: cada figura es una estampa distinta (si no, todas juntas)")
 	for cb in [_obj_rotate, _obj_random, _obj_each]:
+		_checks.append(cb)
 		cb.focus_mode = Control.FOCUS_NONE
 		cb.add_theme_font_size_override("font_size", 10)
 		checks.add_child(cb)
@@ -346,6 +370,7 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 	_obj_pattern.focus_mode = Control.FOCUS_NONE
 	_obj_pattern.add_theme_font_size_override("font_size", 10)
 	_obj_pattern.toggled.connect(func(on: bool) -> void: _set_obj("mode", "pattern" if on else "stamp"))
+	_checks.append(_obj_pattern)
 	_object_box.add_child(_obj_pattern)
 
 func _set_obj(key: String, value) -> void:
@@ -553,8 +578,8 @@ func _sync_from_tool() -> void:
 		if is_instance_valid(_grade_row):
 			_grade_row.visible = tool.brush_style == "pencil"
 			_update_grade_buttons(tool.pencil_grade)
-		if is_instance_valid(_object_box):
-			_object_box.visible = tool.brush_style == "object"
+		if is_instance_valid(_object_card):
+			_object_card.visible = tool.brush_style == "object"
 			if "object_params" in tool:
 				var op: Dictionary = tool.object_params
 				_obj_spacing.set_value_silent(float(op.get("spacing", 1.1)) * 100.0)
@@ -623,7 +648,11 @@ func _apply_theme() -> void:
 		if g:
 			g.call("refresh_color")
 			g.queue_redraw()
-	for cb in [_chk_pressure, _chk_speed]:
+	for card in _cards:
+		TPS.style_card(card)
+	for b in _action_buttons:
+		TPS.style_action(b)
+	for cb in [_chk_pressure, _chk_speed] + _checks:
 		if is_instance_valid(cb):
 			for k in ["font_color", "font_hover_color", "font_pressed_color"]:
 				cb.add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
