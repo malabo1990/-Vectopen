@@ -81,14 +81,25 @@ void fragment() {
 		// Todo depende SOLO de la posición en el papel y de la presión (no
 		// de la pieza de malla): ver OVERWRITE más abajo.
 		float pr = clamp(COLOR.a, 0.0, 1.0);
-		float paper = fbm(paper_pos * 0.9);
-		float fiber = vnoise(vec2(paper_pos.x * 0.15 + paper_pos.y * 0.05, paper_pos.y * 1.6));
+		// Escala del grano según el zoom: con mucho zoom el grano del lienzo
+		// se agrandaba en manchas cuadradas; se pasa a octavas más finas para
+		// que mida siempre unos px de pantalla (fundido entre dos escalas,
+		// sin saltos al hacer zoom).
+		float upx = max(fwidth(paper_pos.x), 1e-6);           // unidades por px
+		float lvl = max(0.0, log2(1.0 / (0.9 * upx * 6.0)));
+		float l0 = floor(lvl);
+		float fr = lvl - l0;
+		vec2 pp0 = paper_pos * exp2(l0);
+		vec2 pp1 = paper_pos * exp2(l0 + 1.0);
+		float paper = mix(fbm(pp0 * 0.9), fbm(pp1 * 0.9 + vec2(13.0, 3.0)), fr);
+		float fiber = mix(vnoise(vec2(pp0.x * 0.15 + pp0.y * 0.05, pp0.y * 1.6)),
+			vnoise(vec2(pp1.x * 0.15 + pp1.y * 0.05, pp1.y * 1.6)), fr);
 		float grain = paper * 0.8 + fiber * 0.2;
 		float dens = pencil_dark * mix(0.3, 1.0, pow(pr, 1.1)) * 1.25;
 		// Diente del papel visible: rozando se ve bastante papel, apretando
 		// menos (sin llegar a liso, que parecía plástico).
 		float tooth = smoothstep(0.25, 0.75, grain);
-		float speck = vnoise(paper_pos * 2.6);
+		float speck = mix(vnoise(pp0 * 2.6), vnoise(pp1 * 2.6), fr);
 		float tex = tooth * 0.8 + speck * 0.2;
 		c.a = clamp(dens * mix(mix(0.35, 0.75, pr), 1.0, tex), 0.0, 1.0);
 		// Borde: suavizado de ~1,5 px de pantalla con un poco de diente.

@@ -214,11 +214,11 @@ func _build_geom() -> Dictionary:
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).
 static func centerline(l: Line2D) -> Array:
-	var pts := StrokeGeom.clean(l.points, clampf(l.width * 0.05, 0.05, 2.0), false)
+	var pts := StrokeGeom.clean(l.points, clampf(l.width * 0.05, 0.0005, 2.0), false)
 	# Un punto al menos cada grosor: en un tramo recto la limpieza deja solo
 	# los extremos, y lo que va por vértice (presión del lápiz, desvanecido
 	# de las puntas) se estiraba por todo el trazo (salía a medio tono).
-	pts = _densify(pts, maxf(l.width, 2.0))
+	pts = _densify(pts, maxf(l.width, 0.02))
 	var n := pts.size()
 	var half := PackedFloat32Array()
 	half.resize(n)
@@ -261,7 +261,7 @@ static func centerline(l: Line2D) -> Array:
 			# y la oscuridad (va al sombreador como «flujo»).
 			flow.append(clampf(f, 0.0, 1.0))
 			f = 0.3 + 0.7 * f
-		half[i] = maxf(l.width * 0.5 * f, 0.05)
+		half[i] = maxf(l.width * 0.5 * f, l.width * 0.01)
 	return [pts, half, cum, flow]
 
 static func _densify(pts: PackedVector2Array, step: float) -> PackedVector2Array:

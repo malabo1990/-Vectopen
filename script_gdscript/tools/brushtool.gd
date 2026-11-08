@@ -483,7 +483,9 @@ func handle_input(event: InputEvent) -> bool:
 				else:
 					target_local_pos.x = origin.x
 
-			if raw_points.size() > 0 and target_local_pos.distance_to(raw_points[raw_points.size() - 1]) < _settings.min_distance_threshold:
+			# Umbral en px de PANTALLA: en unidades del lienzo, con mucho zoom
+			# se descartaban muestras a 10+ px y el trazo salía poligonal.
+			if raw_points.size() > 0 and target_local_pos.distance_to(raw_points[raw_points.size() - 1]) < _settings.min_distance_threshold * _px_world():
 				return true
 
 			var p := _sample_pressure(event, target_local_pos)
@@ -638,8 +640,8 @@ func _finalizar_trazo_actual() -> void:
 					final_points = fitted_pts
 				current_line.width_curve = _build_width_curve_smooth(final_points)
 			else:
-				final_points = _thin_points(final_points, _settings.min_distance_threshold * 0.5)
-				final_points = _rdp_iterative(final_points, _settings.rdp_epsilon)
+				final_points = _thin_points(final_points, _settings.min_distance_threshold * 0.5 * _px_world())
+				final_points = _rdp_iterative(final_points, _settings.rdp_epsilon * _px_world())
 				current_line.width_curve = _build_width_curve()
 			_store_pressure_profile(current_line)
 		# Trazo sin textura (pluma…): render de calidad (borde liso con la

@@ -570,12 +570,12 @@ static func _strip_joined(m: Dictionary, pts_in: PackedVector2Array, half_in: Pa
 			_fan(m, pts[n - 1], pts[n - 1] - pts[n - 2], half[n - 1])
 
 static func _fan(m: Dictionary, c: Vector2, dir: Vector2, r: float) -> void:
-	if r < 0.01 or dir.length_squared() < 1e-12:
+	if r < 0.0005 or dir.length_squared() < 1e-12:
 		return
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	var a0 := dir.normalized().angle() - PI * 0.5
-	var segs := clampi(int(r * 0.8) + 8, 8, 48)
+	var segs := clampi(int(r * 0.8) + 16, 16, 48)
 	var ci := verts.size()
 	verts.append(c)
 	for k in segs + 1:
@@ -588,11 +588,11 @@ static func _fan(m: Dictionary, c: Vector2, dir: Vector2, r: float) -> void:
 	_radial_v(m, segs + 1)
 
 static func _disc(m: Dictionary, c: Vector2, r: float) -> void:
-	if r < 0.01:
+	if r < 0.0005:
 		return
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
-	var segs := clampi(int(r * 1.2) + 10, 10, 64)
+	var segs := clampi(int(r * 1.2) + 32, 32, 64)
 	var ci := verts.size()
 	verts.append(c)
 	for k in segs:
@@ -814,7 +814,9 @@ static func _arc(c: Vector2, a: Vector2, b: Vector2, half_turn: bool = false) ->
 	var r := a.length()
 	var a0 := a.angle()
 	var sweep := -PI if half_turn else wrapf(b.angle() - a0, -PI, PI)
-	var segs := clampi(int(absf(sweep) / PI * clampf(r * 0.8 + 8.0, 8.0, 48.0)), 2, 48)
+	# Mínimo 16 por media vuelta: con mucho zoom un radio pequeño en el
+	# lienzo son muchos px de pantalla y se veía poligonal.
+	var segs := clampi(int(absf(sweep) / PI * clampf(r * 0.8 + 16.0, 16.0, 48.0)), 2, 48)
 	var out := PackedVector2Array()
 	for k in segs + 1:
 		var t := a0 + sweep * float(k) / float(segs)
@@ -1069,11 +1071,13 @@ static func stamps(pts: PackedVector2Array, half: PackedFloat32Array, flow: Pack
 	var hmax := 0.0
 	for h in half:
 		hmax = maxf(hmax, h)
-	var step := maxf(hmax * 0.25, 0.25)
+	# Paso relativo al radio (antes mínimo 0,25 unidades: con mucho zoom y
+	# un aerógrafo fino los sellos quedaban separados, como un rosario).
+	var step := maxf(hmax * 0.25, 0.0001)
 	var count := int(total / step) + 1
-	if count > 3000:
-		step = total / 3000.0
-		count = 3001
+	if count > 6000:
+		step = total / 6000.0
+		count = 6001
 	# Opacidad por sello: en el centro de un tramo recto se acumulan unos
 	# 2r/paso sellos → casi opaco (95 %) con la opacidad del pincel.
 	var per := 1.0 - pow(0.05, step / maxf(2.0 * hmax, 0.001))
@@ -1092,7 +1096,7 @@ static func stamps(pts: PackedVector2Array, half: PackedFloat32Array, flow: Pack
 		var c := pts[j].lerp(pts[j2], f)
 		var r := lerpf(half[j], half[j2], f)
 		var fl := lerpf(flow[j] if j < flow.size() else 1.0, flow[j2] if j2 < flow.size() else 1.0, f)
-		var segs := clampi(int(r * 0.6) + 12, 12, 32)
+		var segs := clampi(int(r * 0.6) + 16, 16, 32)
 		var ci := verts.size()
 		verts.append(c)
 		vv.append(0.5)
