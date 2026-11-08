@@ -24,6 +24,23 @@ const STROKE_SHADER := preload("res://shaders/brush_stroke.gdshader")
 static var _shared_mats: Dictionary = {}   # estilo → material compartido
 ## Estilo del pincel → uniforme `style` del sombreador.
 const STYLE_IDS := {"pencil": 1, "marker": 2, "airbrush": 3}
+## Durezas del lápiz: [oscuridad del grafito, cuánto grano rellena, suavidad].
+## Las duras (H) dejan ver mucho papel y son grises; las blandas (B) cubren
+## más, son más oscuras y de borde más suave.
+const PENCIL_GRADES := {
+	"2H": [0.45, 0.36, 0.05], "H": [0.55, 0.45, 0.06], "HB": [0.66, 0.55, 0.07],
+	"B": [0.75, 0.64, 0.08], "2B": [0.83, 0.72, 0.09], "4B": [0.91, 0.82, 0.11],
+	"6B": [0.96, 0.90, 0.13], "8B": [1.0, 0.97, 0.15],
+}
+const GRADE_ORDER := ["2H", "H", "HB", "B", "2B", "4B", "6B", "8B"]
+const DEFAULT_GRADE := "HB"
+
+static func _set_grade(mat: ShaderMaterial, grade: String) -> void:
+	var gp: Array = PENCIL_GRADES.get(grade, PENCIL_GRADES[DEFAULT_GRADE])
+	mat.set_shader_parameter("pencil_dark", float(gp[0]))
+	mat.set_shader_parameter("pencil_fill", float(gp[1]))
+	mat.set_shader_parameter("pencil_soft", float(gp[2]))
+
 ## Caligrafía: ángulo de la plumilla (grados) y anchura mínima relativa.
 const NIB_ANGLE_DEG := 45.0
 const NIB_MIN := 0.12
@@ -147,12 +164,22 @@ func _draw() -> void:
 	# El estilo (grano del lápiz, tinta del rotulador, aerógrafo) lo pinta el
 	# sombreador sin imágenes; antes eran texturas repetidas en el Line2D.
 	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), false)
+	if String(line.get_meta("brush_style", "")) == "pencil" and m.has("k"):
+		# Lápiz: u = longitud recorrida (unidades del lienzo) para las vetas
+		# de la mina a lo largo del trazo.
+		var ks: PackedInt32Array = m["k"]
+		for i in mini(uvs.size(), ks.size()):
+			uvs[i].x = cum[ks[i]]
 	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols, uvs)
 
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).
 static func centerline(l: Line2D) -> Array:
 	var pts := StrokeGeom.clean(l.points, clampf(l.width * 0.05, 0.05, 2.0), false)
+	# Un punto al menos cada grosor: en un tramo recto la limpieza deja solo
+	# los extremos, y lo que va por vértice (presión del lápiz, desvanecido
+	# de las puntas) se estiraba por todo el trazo (salía a medio tono).
+	pts = _densify(pts, maxf(l.width, 2.0))
 	var n := pts.size()
 	var half := PackedFloat32Array()
 	half.resize(n)
@@ -164,6 +191,7 @@ static func centerline(l: Line2D) -> Array:
 	var wc := l.width_curve
 	var flow := PackedFloat32Array()
 	var air := String(l.get_meta("brush_style", "")) == "airbrush"
+	var pencil := String(l.get_meta("brush_style", "")) == "pencil"
 	var nib := String(l.get_meta("brush_style", "")) == "calligraphy"
 	var nib_dir := Vector2.from_angle(deg_to_rad(float(l.get_meta("nib_angle", NIB_ANGLE_DEG))))
 	for i in n:
@@ -189,8 +217,27 @@ static func centerline(l: Line2D) -> Array:
 			# anchura (si no, con poca presión quedaba una línea dura y fina).
 			flow.append(clampf(pow(f, 0.8), 0.0, 1.0))
 			f = 0.6 + 0.4 * f
+		elif pencil:
+			# Lápiz: la presión rellena el grano del papel (va al sombreador
+			# como «flujo») y apenas cambia la anchura, como una mina real.
+			flow.append(clampf(f, 0.0, 1.0))
+			f = 0.75 + 0.25 * f
 		half[i] = maxf(l.width * 0.5 * f, 0.05)
 	return [pts, half, cum, flow]
+
+static func _densify(pts: PackedVector2Array, step: float) -> PackedVector2Array:
+	if pts.size() < 2:
+		return pts
+	var out := PackedVector2Array([pts[0]])
+	for i in range(1, pts.size()):
+		var a := pts[i - 1]
+		var b := pts[i]
+		var k := int(a.distance_to(b) / step)
+		for j in range(1, k + 1):
+			var t := float(j) / float(k + 1)
+			out.append(a.lerp(b, t))
+		out.append(b)
+	return out
 
 ## Estilo del trazo para el sombreador (meta «brush_style»: también en
 ## documentos guardados). 0 = pluma / caligráfico.
@@ -249,8 +296,9 @@ func _colors(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloa
 	var ks: PackedInt32Array = m.get("k", PackedInt32Array())
 	var has_k := ks.size() == verts.size()
 	var air := String(line.get_meta("brush_style", "")) == "airbrush" and has_k
+	var pencil := String(line.get_meta("brush_style", "")) == "pencil" and has_k
 	var c_base := Color(1, 1, 1, base.a) if has_gradient_fill() else base
-	if not air and not line.gradient:
+	if not air and not pencil and not line.gradient:
 		# El color lo pone el shader (degradado 2D) o es liso.
 		return PackedColorArray([c_base])
 	var bey: PackedFloat32Array = m.get("beyond", PackedFloat32Array())
@@ -272,6 +320,14 @@ func _colors(verts: PackedVector2Array, pts: PackedVector2Array, cum: PackedFloa
 			var h := half[k]
 			var d := minf(cum[k], total - cum[k]) - (bey[i] if i < bey.size() else 0.0)
 			c.a *= smoothstep(-h, h * 1.5, d) * (flow[k] if k < flow.size() else 1.0)
+		elif pencil:
+			# El sombreador lee la presión en el alfa (rellena más o menos
+			# grano); la opacidad del pincel la pone el grupo.
+			var hp := half[k]
+			var dp := minf(cum[k], total - cum[k]) - (bey[i] if i < bey.size() else 0.0)
+			# Hacia la punta queda menos grafito (la mina apenas apoya): sin
+			# el «botón» oscuro y de borde liso en cada extremo.
+			c.a *= maxf(flow[k] if k < flow.size() else 1.0, 0.02) * lerpf(0.25, 1.0, smoothstep(-hp, hp * 1.2, dp))
 		out2[i] = c
 	return out2
 
@@ -292,13 +348,16 @@ func _update_material() -> void:
 		return
 	var g := fill_gradient
 	var sid := style_id(line)
+	var grade := String(line.get_meta("pencil_grade", DEFAULT_GRADE)) if sid == 1 else ""
+	var key := "%d:%s" % [sid, grade]
 	if g == null or g.get_point_count() < 2:
-		if not _shared_mats.has(sid):
+		if not _shared_mats.has(key):
 			var sm := ShaderMaterial.new()
 			sm.shader = STROKE_SHADER
 			sm.set_shader_parameter("style", sid)
-			_shared_mats[sid] = sm
-		_use_material(_shared_mats[sid])
+			_set_grade(sm, grade)
+			_shared_mats[key] = sm
+		_use_material(_shared_mats[key])
 		return
 	var mat := stroke_material
 	if mat == null or _shared_mats.values().has(mat):
@@ -307,6 +366,7 @@ func _update_material() -> void:
 		mat.set_shader_parameter("use_grad", true)
 		_use_material(mat)
 	mat.set_shader_parameter("style", sid)
+	_set_grade(mat, grade)
 	if _grad_tex == null:
 		_grad_tex = GradientTexture1D.new()
 		_grad_tex.width = 256

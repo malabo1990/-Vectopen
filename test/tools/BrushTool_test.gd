@@ -150,8 +150,8 @@ func test_brush_styles_presets() -> void:
 	var tool := _make_tool_with_canvas()
 	tool.apply_brush_style("pencil")
 	assert_str(tool.brush_style).is_equal("pencil")
-	assert_float(tool.brush_width).is_equal(2.0)
-	assert_float(tool.brush_opacity).is_equal(0.8)
+	assert_float(tool.brush_width).is_equal(3.0)
+	assert_float(tool.brush_opacity).is_equal(1.0)   # en el lápiz la transparencia la da la presión
 
 	tool.apply_brush_style("marker")
 	assert_str(tool.brush_style).is_equal("marker")

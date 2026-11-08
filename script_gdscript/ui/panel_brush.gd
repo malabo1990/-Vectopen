@@ -159,6 +159,33 @@ func _build_ui() -> void:
 		grid.add_child(btn)
 		_style_buttons[s_id] = btn
 
+	# 1 b. Dureza del lápiz (solo con el lápiz): 2H … 8B
+	_grade_row = HBoxContainer.new()
+	_grade_row.name = "PencilGrades"
+	_grade_row.add_theme_constant_override("separation", 3)
+	root_vbox.add_child(_grade_row)
+	var lg := Label.new()
+	lg.text = tr("Dureza")
+	lg.add_theme_font_size_override("font_size", 11)
+	lg.tooltip_text = tr("H: mina dura, gris claro y fino · B: blanda, oscura y cubre más")
+	lg.mouse_filter = Control.MOUSE_FILTER_STOP
+	_grade_row.add_child(lg)
+	_row_labels.append(lg)
+	_grade_buttons.clear()
+	for gr in BrushStrokeRenderScript.GRADE_ORDER:
+		var gb := Button.new()
+		gb.name = "Grade_" + gr
+		gb.text = gr
+		gb.toggle_mode = true
+		gb.focus_mode = Control.FOCUS_NONE
+		gb.custom_minimum_size = Vector2(28, 22)
+		gb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gb.add_theme_font_size_override("font_size", 10)
+		var g_id: String = gr
+		gb.pressed.connect(func() -> void: _select_grade(g_id))
+		_grade_row.add_child(gb)
+		_grade_buttons[gr] = gb
+
 	root_vbox.add_child(_create_h_separator())
 
 	# 2. Grosor y opacidad en una fila; suavizado debajo
@@ -212,6 +239,21 @@ func _build_ui() -> void:
 	_keep_on_screen.call_deferred()
 
 var _scroll: ScrollContainer
+var _grade_row: HBoxContainer
+var _grade_buttons: Dictionary = {}
+const BrushStrokeRenderScript = preload("res://script_gdscript/shapes/brush_stroke_render.gd")
+
+func _select_grade(grade: String) -> void:
+	var tool = _get_brush_tool()
+	if tool:
+		tool.pencil_grade = grade
+	_update_grade_buttons(grade)
+
+func _update_grade_buttons(active: String) -> void:
+	for g in _grade_buttons:
+		var b: Button = _grade_buttons[g]
+		b.set_pressed_no_signal(g == active)
+		TPS.style_toggle(b, g == active)
 
 ## Etiqueta + casilla numérica dentro de una rejilla de 4 columnas.
 func _field_pair(grid: GridContainer, text: String, field: NumericField) -> void:
@@ -389,6 +431,9 @@ func _sync_from_tool() -> void:
 		if is_instance_valid(_spin_opacity):
 			_spin_opacity.set_value_silent(tool.brush_opacity * 100.0)
 		_update_active_style_button(tool.brush_style)
+		if is_instance_valid(_grade_row):
+			_grade_row.visible = tool.brush_style == "pencil"
+			_update_grade_buttons(tool.pencil_grade)
 		_sync_pressure_ui(tool)
 	_syncing = false
 
@@ -431,6 +476,8 @@ func _update_active_style_button(active_id: String) -> void:
 ## secundarios eran fijos (claro / oscuro escritos a mano).
 func _apply_theme() -> void:
 	TPS.apply_frame(self)
+	for g in _grade_buttons:
+		TPS.style_toggle(_grade_buttons[g], (_grade_buttons[g] as Button).button_pressed)
 	TPS.style_title(_header_title)
 	TPS.style_muted(_hint_label)
 	for l in _section_labels:

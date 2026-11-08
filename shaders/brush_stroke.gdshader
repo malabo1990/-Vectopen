@@ -15,6 +15,10 @@ uniform int gtype = 0;   // 0 lineal, 1 radial
 // 3 aerógrafo (caída suave). El caligráfico es geometría (anchura por
 // ángulo de la plumilla), no sombreador.
 uniform int style = 0;
+// Lápiz: dureza (ver PENCIL_GRADES en brush_stroke_render.gd).
+uniform float pencil_dark = 0.64;
+uniform float pencil_fill = 0.40;
+uniform float pencil_soft = 0.10;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -28,9 +32,24 @@ float vnoise(vec2 p) {
 }
 
 varying vec2 local_pos;
+varying vec2 paper_pos;
 
 void vertex() {
 	local_pos = VERTEX;   // espacio local del trazo (el de p0 / p1)
+	// Espacio del LIENZO: el grano del papel es el mismo para todos los
+	// trazos (al cruzarlos, el grafito se queda en los mismos «dientes»).
+	paper_pos = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+}
+
+float fbm(vec2 p) {
+	float a = 0.5;
+	float s = 0.0;
+	for (int i = 0; i < 4; i++) {
+		s += a * vnoise(p);
+		p = p * 2.07 + vec2(17.3, 9.1);
+		a *= 0.5;
+	}
+	return s / 0.9375;
 }
 
 void fragment() {
@@ -50,10 +69,34 @@ void fragment() {
 	float e = 1.0 - abs(2.0 * UV.y - 1.0);
 	float w = max(fwidth(e), 1e-6);
 	if (style == 1) {
-		// Lápiz: grano del papel (dos escalas de ruido) y borde irregular.
-		float g = vnoise(local_pos * 0.9) * 0.6 + vnoise(local_pos * 2.6) * 0.4;
-		c.a *= mix(0.22, 1.0, smoothstep(0.28, 0.72, g));
-		e -= (0.5 - g) * 0.35;
+		// Lápiz de grafito sobre papel con «dientes»:
+		//  · relieve del papel (fbm) + motas finas, en espacio del lienzo
+		//    (el mismo grano para todos los trazos);
+		//  · la mina deja grafito en los picos; con más presión y minas
+		//    blandas baja a los valles (parte en los valles en las B);
+		//  · tono variable según la profundidad del diente (no un relleno
+		//    plano) y vetas finas a lo largo del trazo (UV.x = longitud).
+		float pr = clamp(COLOR.a, 0.0, 1.0);
+		float tooth = fbm(paper_pos * 0.55);
+		float speck = vnoise(paper_pos * 2.3);
+		float fiber = vnoise(vec2(paper_pos.x * 0.11 + paper_pos.y * 0.04, paper_pos.y * 1.3));
+		float paper = tooth * 0.62 + speck * 0.26 + fiber * 0.12;
+		float streak = vnoise(vec2(UV.x * 0.15, UV.y * 8.0));
+		// La PRESIÓN manda, como con un lápiz de verdad: rozando apenas queda
+		// grafito en los picos del papel y muy transparente; apretando, la
+		// mina llena también los valles, se bruñe (menos grano) y llega casi
+		// al negro (las H nunca tan oscuras como las B).
+		float p2 = pr * pr;
+		float cover = clamp(pencil_fill * (0.2 + 1.2 * pr), 0.0, 1.0);
+		float level = 0.5 + (0.5 - cover) * 0.6;
+		float soft = pencil_soft + 0.12 * p2;
+		float dep = smoothstep(level - soft, level + soft, paper + (streak - 0.5) * 0.16 * (1.0 - p2));
+		dep = max(dep, p2 * pencil_fill * 0.85 * (0.5 + 0.5 * paper));
+		float dens = pencil_dark * mix(0.05, 1.0, pow(pr, 1.35));
+		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, p2);
+		c.a = clamp(tone * dens * 1.15, 0.0, 1.0);
+		// borde irregular, como una mina sobre papel
+		e -= (0.5 - tooth) * 0.45;
 	} else if (style == 2) {
 		// Rotulador: la tinta se acumula en los bordes (más oscuro). Con el
 		// color y no con la transparencia: así donde el trazo se pisa a sí

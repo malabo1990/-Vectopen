@@ -64,6 +64,8 @@ const CENTRIPETAL_ALPHA := 0.5
 
 var brush_opacity: float = 1.0
 var brush_style: String = "pen"
+## Dureza del lápiz (2H … 8B), como las minas de verdad.
+var pencil_grade: String = "HB"
 var _last_stroke_end_pos: Vector2 = Vector2.INF
 var _last_stroke_artboard: Node2D = null
 
@@ -81,7 +83,11 @@ func _get_brush_color() -> Color:
 	# de una figura con relleno blanco).
 	if is_instance_valid(target_artboard) and "fill_color" in target_artboard:
 		col = _ColorCoreScript.visible_on(col, target_artboard.fill_color)
-	col.a = clampf(col.a * brush_opacity, 0.05, 1.0)
+	# La opacidad del trazo es SOLO la del pincel (campo Opacidad del panel).
+	# Antes se multiplicaba por el alfa del selector de color, que al
+	# seleccionar el trazo recién dibujado tomaba su alfa: cada trazo nuevo
+	# salía más transparente que el anterior (0,8 → 0,64 → 0,51…).
+	col.a = clampf(brush_opacity, 0.05, 1.0)
 	return col
 
 func apply_brush_style(style_id: String) -> void:
@@ -89,8 +95,8 @@ func apply_brush_style(style_id: String) -> void:
 	match style_id:
 		"pencil":
 			set_eraser_mode(false)
-			brush_width = 2.0
-			brush_opacity = 0.8
+			brush_width = 3.0
+			brush_opacity = 1.0   # la transparencia la da la presión
 			set_brush_preset("low")
 		"pen":
 			set_eraser_mode(false)
@@ -128,6 +134,8 @@ func _apply_line_style(line: Line2D) -> void:
 	line.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	line.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	line.set_meta("brush_style", brush_style)
+	if brush_style == "pencil":
+		line.set_meta("pencil_grade", pencil_grade)
 	match brush_style:
 		"pencil":
 			line.texture = null   # lo pinta el sombreador (brush_stroke.gdshader)
@@ -590,7 +598,14 @@ func _update_live_preview() -> void:
 
 	current_line.points = preview
 	if preview.size() >= 2:
-		current_line.width_curve = _build_width_curve()
+		current_line.width_curve = _build_width_curve_smooth() if is_wysiwyg_style() else _build_width_curve()
+
+## Lápiz, aerógrafo, rotulador y caligráfico: lo que se ve al dibujar es lo
+## que queda al soltar (como un lápiz de verdad). Antes, al soltar, el trazo
+## se reajustaba con Bézier, se filtraba otra vez la presión y se recortaba
+## la punta: cambiaban la forma, el grano y la transparencia.
+func is_wysiwyg_style() -> bool:
+	return brush_style in ["pencil", "airbrush", "marker", "calligraphy"]
 
 func _finalizar_trazo_actual() -> void:
 	if not is_drawing:
@@ -608,8 +623,14 @@ func _finalizar_trazo_actual() -> void:
 				final_points.append_array(_catmull_rom(tail_raw, _settings.catmull_live_segments))
 			elif tail_raw.size() == 1:
 				final_points.append(tail_raw[0])
-			_trim_lift_off()
-			if bool(_settings.get("enable_bezier_fit_on_commit", false)):
+			if is_wysiwyg_style():
+				# Mismos puntos y misma presión que la vista previa.
+				current_line.width_curve = _build_width_curve_smooth()
+			else:
+				_trim_lift_off()
+			if is_wysiwyg_style():
+				pass
+			elif bool(_settings.get("enable_bezier_fit_on_commit", false)):
 				# Calidad Illustrator: cúbicas ajustadas a las muestras REALES del
 				# lápiz (se quita el temblor de la mano) y troceadas por ángulo.
 				var fitted_pts := _fit_smooth_points(raw_points)
@@ -832,6 +853,10 @@ func _build_width_curve() -> Curve:
 func _pressure_to_scale(p: float) -> float:
 	if not pressure_size_enabled:
 		return 1.0
+	if brush_style == "pencil":
+		# Lápiz: la presión va entera al tono (rozar = casi transparente,
+		# apretar = casi negro); el grosor mínimo no hace de suelo aquí.
+		return pow(clampf(p, 0.0, 1.0), maxf(pressure_gamma, 0.05))
 	return lerpf(clampf(pressure_min, 0.0, 1.0), 1.0, pow(clampf(p, 0.0, 1.0), maxf(pressure_gamma, 0.05)))
 
 ## Presión de esta muestra: la del lápiz si la hay; si no, simulada por la
