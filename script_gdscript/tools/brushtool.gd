@@ -65,7 +65,11 @@ const CENTRIPETAL_ALPHA := 0.5
 var brush_opacity: float = 1.0
 var brush_style: String = "pen"
 ## Dureza del lápiz (2H … 8B), como las minas de verdad.
-var pencil_grade: String = "HB"
+var pencil_grade: String = "HB":
+	set(v):
+		if v != pencil_grade:
+			_settings_dirty = true
+		pencil_grade = v
 var _last_stroke_end_pos: Vector2 = Vector2.INF
 var _last_stroke_artboard: Node2D = null
 
@@ -90,37 +94,35 @@ func _get_brush_color() -> Color:
 	col.a = clampf(brush_opacity, 0.05, 1.0)
 	return col
 
+## Cambia el ESTILO (opacidad, suavizado, goma…) sin tocar el GROSOR: el
+## grosor lo elige el usuario y se mantiene al cambiar de estilo (antes cada
+## estilo ponía el suyo: de 1 px al lápiz y luego a la pluma saltaba a 3,5).
 func apply_brush_style(style_id: String) -> void:
+	_settings_dirty = true
 	brush_style = style_id
 	match style_id:
 		"pencil":
 			set_eraser_mode(false)
-			brush_width = 3.0
 			brush_opacity = 1.0   # la transparencia la da la presión
 			set_brush_preset("low")
 		"pen":
 			set_eraser_mode(false)
-			brush_width = 3.5
 			brush_opacity = 1.0
 			set_brush_preset("balanced")
 		"marker":
 			set_eraser_mode(false)
-			brush_width = 12.0
 			brush_opacity = 0.65
 			set_brush_preset("balanced")
 		"calligraphy":
 			set_eraser_mode(false)
-			brush_width = 6.0
 			brush_opacity = 1.0
 			set_brush_preset("high")
 		"airbrush":
 			set_eraser_mode(false)
-			brush_width = 25.0
 			brush_opacity = 0.35
 			set_brush_preset("ultra")
 		"eraser":
 			set_eraser_mode(true)
-			brush_width = 16.0
 			brush_opacity = 1.0
 	if is_instance_valid(canvas):
 		canvas.queue_redraw()
@@ -177,7 +179,13 @@ const _BRUSH_CURSOR := preload("res://assets/generated/brush_cursor.png")
 # ── Ajuste de tamaño estilo Krita: Shift + clic-y-arrastre horizontal ───────
 # Reemplaza al const BRUSH_STROKE_WIDTH como ancho "activo" del pincel —
 # BRUSH_STROKE_WIDTH sigue siendo el valor inicial por defecto.
-var brush_width: float = BRUSH_STROKE_WIDTH
+var brush_width: float = BRUSH_STROKE_WIDTH:
+	set(v):
+		if not is_equal_approx(v, brush_width):
+			_settings_dirty = true
+		brush_width = v
+## Grosor, estilo o dureza cambiados y aún sin guardar (ver save_pressure_settings).
+var _settings_dirty := false
 var _is_resizing: bool = false
 var _resize_start_x: float = 0.0
 var _resize_start_width: float = 0.0
@@ -290,6 +298,8 @@ func activate() -> void:
 		pm.quality_changed.connect(_on_quality_changed)
 
 func deactivate() -> void:
+	if _settings_dirty:
+		save_pressure_settings()
 	Input.use_accumulated_input = _prev_accumulated
 	Input.set_custom_mouse_cursor(null)
 	_cursor_world = Vector2.INF
@@ -458,6 +468,8 @@ func handle_input(event: InputEvent) -> bool:
 		else:
 			if _is_resizing:
 				_is_resizing = false
+				if _settings_dirty:
+					save_pressure_settings()
 				Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 				canvas.queue_redraw()
 				return true
@@ -665,6 +677,8 @@ func _finalizar_trazo_actual() -> void:
 		if is_instance_valid(sm) and sm.has_method("set_selection"):
 			sm.set_selection([current_line])
 
+	if _settings_dirty:
+		save_pressure_settings()
 	if raw_points.size() > 0:
 		_last_stroke_end_pos = raw_points[raw_points.size() - 1]
 		_last_stroke_artboard = target_artboard
@@ -958,7 +972,13 @@ func save_pressure_settings() -> void:
 	cfg.set_value("pressure", "gamma", pressure_gamma)
 	cfg.set_value("pressure", "smoothing", pressure_smoothing)
 	cfg.set_value("pressure", "speed", speed_pressure)
+	# El pincel recuerda grosor, estilo y dureza (antes, al volver a elegir el
+	# pincel, todo volvía a los valores de fábrica).
+	cfg.set_value("brush", "width", brush_width)
+	cfg.set_value("brush", "style", brush_style)
+	cfg.set_value("brush", "grade", pencil_grade)
 	cfg.save(PRESSURE_CFG)
+	_settings_dirty = false
 
 func _load_pressure_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -969,6 +989,13 @@ func _load_pressure_settings() -> void:
 	pressure_gamma = float(cfg.get_value("pressure", "gamma", pressure_gamma))
 	pressure_smoothing = float(cfg.get_value("pressure", "smoothing", pressure_smoothing))
 	speed_pressure = bool(cfg.get_value("pressure", "speed", speed_pressure))
+	if cfg.has_section("brush"):
+		var st := String(cfg.get_value("brush", "style", brush_style))
+		if st != "" and st != "eraser":
+			apply_brush_style(st)
+		pencil_grade = String(cfg.get_value("brush", "grade", pencil_grade))
+		brush_width = clampf(float(cfg.get_value("brush", "width", brush_width)), MIN_BRUSH_WIDTH, MAX_BRUSH_WIDTH)
+		_settings_dirty = false
 
 func _thin_points(points: PackedVector2Array, min_spacing: float) -> PackedVector2Array:
 	if points.size() < 3:

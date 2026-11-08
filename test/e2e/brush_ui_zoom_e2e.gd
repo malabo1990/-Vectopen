@@ -160,7 +160,16 @@ func _run() -> void:
 		await frames(4)
 		var bt = canvas.current_tool
 		check("%s: el clic elige el estilo" % style, bt.brush_style == style, bt.brush_style)
-		bt.brush_width = bt.MIN_BRUSH_WIDTH * 1.2
+		# Grosor elegido en el campo del panel con el primer estilo; los demás
+		# estilos deben conservarlo (no saltar a su grosor «de fábrica»).
+		var field := root.find_child("FieldSize", true, false)
+		if row == 0 and field:
+			field.value = 1.0
+			field.value_changed.emit(1.0)
+			await frames(2)
+		check("%s: conserva el grosor elegido (1 px) en el pincel y en el panel" % style,
+			is_equal_approx(bt.brush_width, 1.0) and field != null and is_equal_approx(float(field.value), 1.0),
+			"pincel %.2f · panel %s" % [bt.brush_width, str(field.value) if field else "?"])
 		cam.zoom = Vector2.ONE * ZOOM
 		cam.position = ab.global_position + Vector2(60 + row * 40, 60)
 		row += 1

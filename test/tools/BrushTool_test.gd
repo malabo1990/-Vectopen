@@ -150,17 +150,39 @@ func test_brush_styles_presets() -> void:
 	var tool := _make_tool_with_canvas()
 	tool.apply_brush_style("pencil")
 	assert_str(tool.brush_style).is_equal("pencil")
-	assert_float(tool.brush_width).is_equal(3.0)
 	assert_float(tool.brush_opacity).is_equal(1.0)   # en el lápiz la transparencia la da la presión
 
 	tool.apply_brush_style("marker")
 	assert_str(tool.brush_style).is_equal("marker")
-	assert_float(tool.brush_width).is_equal(12.0)
 	assert_float(tool.brush_opacity).is_equal(0.65)
 
 	tool.apply_brush_style("eraser")
 	assert_str(tool.brush_style).is_equal("eraser")
 	assert_bool(tool._eraser_mode).is_true()
+
+## El grosor es del usuario: cambiar de estilo no lo toca (antes, de 1 px
+## con el lápiz, al pasar a la pluma saltaba a 3,5).
+func test_cambiar_de_estilo_conserva_el_grosor() -> void:
+	var tool := _make_tool_with_canvas()
+	tool.apply_brush_style("pencil")
+	tool.brush_width = 1.0
+	for st in ["pen", "marker", "calligraphy", "airbrush", "eraser", "pencil"]:
+		tool.apply_brush_style(st)
+		assert_float(tool.brush_width).override_failure_message("estilo %s cambió el grosor" % st).is_equal(1.0)
+
+## Al volver a elegir el pincel (herramienta nueva) recuerda grosor, estilo
+## y dureza.
+func test_el_pincel_recuerda_grosor_estilo_y_dureza() -> void:
+	var a := _make_tool_with_canvas()
+	a.apply_brush_style("calligraphy")
+	a.pencil_grade = "4B"
+	a.brush_width = 1.5
+	a.save_pressure_settings()
+	var b := _make_tool_with_canvas()
+	b._load_pressure_settings()
+	assert_str(b.brush_style).is_equal("calligraphy")
+	assert_str(b.pencil_grade).is_equal("4B")
+	assert_float(b.brush_width).is_equal(1.5)
 
 func test_alt_click_straight_connected_line() -> void:
 	var tool: BrushTool = _make_tool_with_canvas()
