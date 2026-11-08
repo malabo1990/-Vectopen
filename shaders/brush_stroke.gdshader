@@ -77,26 +77,31 @@ void fragment() {
 		//  · tono variable según la profundidad del diente (no un relleno
 		//    plano) y vetas finas a lo largo del trazo (UV.x = longitud).
 		float pr = clamp(COLOR.a, 0.0, 1.0);
+		// Relieve del papel en espacio del lienzo, con detalle fino (6
+		// octavas): con zoom se ven los dientes, no manchas lisas.
 		float tooth = fbm(paper_pos * 0.55);
+		float fine = fbm(paper_pos * 3.1 + vec2(41.0, 7.0));
 		float speck = vnoise(paper_pos * 2.3);
 		float fiber = vnoise(vec2(paper_pos.x * 0.11 + paper_pos.y * 0.04, paper_pos.y * 1.3));
-		float paper = tooth * 0.62 + speck * 0.26 + fiber * 0.12;
+		float paper = tooth * 0.52 + fine * 0.18 + speck * 0.18 + fiber * 0.12;
 		float streak = vnoise(vec2(UV.x * 0.15, UV.y * 8.0));
-		// La PRESIÓN manda, como con un lápiz de verdad: rozando apenas queda
-		// grafito en los picos del papel y muy transparente; apretando, la
-		// mina llena también los valles, se bruñe (menos grano) y llega casi
-		// al negro (las H nunca tan oscuras como las B).
+		// MINA REDONDA: apoya de lleno en el centro y apenas en los bordes.
+		// El grafito se va quedando solo en los picos del papel hacia el
+		// borde: el trazo se deshace en grano, sin un corte duro (Krita).
+		float rim = smoothstep(0.0, 0.62, e);
 		float p2 = pr * pr;
-		float cover = clamp(pencil_fill * (0.2 + 1.2 * pr), 0.0, 1.0);
+		float cover = clamp(pencil_fill * (0.2 + 1.2 * pr), 0.0, 1.0) * mix(0.35, 1.0, rim);
 		float level = 0.5 + (0.5 - cover) * 0.6;
-		float soft = pencil_soft + 0.12 * p2;
+		// Transición del diente: nunca más estrecha que ~1 px de pantalla
+		// (sin motas recortadas ni parpadeo) y algo más suave en general.
+		float soft = max(pencil_soft * 1.5 + 0.12 * p2, fwidth(paper) * 1.2);
 		float dep = smoothstep(level - soft, level + soft, paper + (streak - 0.5) * 0.16 * (1.0 - p2));
-		dep = max(dep, p2 * pencil_fill * 0.85 * (0.5 + 0.5 * paper));
+		dep = max(dep, p2 * pencil_fill * 0.85 * (0.5 + 0.5 * paper) * rim);
 		float dens = pencil_dark * mix(0.05, 1.0, pow(pr, 1.35));
-		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, p2);
+		float tone = dep * mix(0.55 + 0.45 * paper, 1.0, p2) * mix(0.6, 1.0, rim);
 		c.a = clamp(tone * dens * 1.15, 0.0, 1.0);
-		// borde irregular, como una mina sobre papel
-		e -= (0.5 - tooth) * 0.45;
+		// borde apenas irregular (el desvanecido ya lo hace el grano)
+		e -= (0.5 - tooth) * 0.12;
 	} else if (style == 2) {
 		// Rotulador: la tinta se acumula en los bordes (más oscuro). Con el
 		// color y no con la transparencia: así donde el trazo se pisa a sí
