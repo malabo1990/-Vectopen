@@ -74,8 +74,10 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Pincel de objeto: la selección (o estrella / hoja / punto) estampada a lo largo del trazo; tamaño con la presión, giro con el trazo, separación, dispersión | Hecho (`object_brush.gd`, estilo «Objeto» del panel; `object_brush_e2e`) |
 | Multiobjeto: varias figuras una a una o al azar (semilla guardada) | Hecho |
 | Distribución por longitud de arco | Hecho (estampas por distancia, no por puntos) |
-| Pincel de patrón: piezas de inicio / tramo / esquina / final que se DEFORMAN siguiendo la curva | Pendiente |
-| Antialias del borde de las estampas; convertir trazo de objeto en figuras | Pendiente |
+| Pincel de patrón: la figura se repite y se DOBLA siguiendo la curva; teselas que encajan justas | Hecho (casilla «Patrón: doblar con la curva») |
+| Convertir trazo de objeto / patrón en figuras sueltas (Ctrl+Mayús+O) | Hecho (grupo de figuras con sus colores, con deshacer) |
+| Antialias del borde de las estampas | No hace falta: MSAA 2D 8× del proyecto |
+| Patrón con piezas distintas de inicio / esquina / final (como Illustrator) | Pendiente |
 **Fase 3 — Trazado y texto**: trazado como pincel, texto en trazado, texto
 como pincel, referencias a objetos del documento.
 **Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y
