@@ -126,15 +126,20 @@ func _draw() -> void:
 	var pts := line.points
 	if pts.is_empty() or line.width <= 0.0:
 		return
-	var ax := centerline(line)
+	# VGSE: geometría DERIVADA en caché (eje, malla, UV). Solo se recalcula
+	# si cambia lo que la define; color, degradado u opacidad solo repintan.
+	var key := _geom_key()
+	if key != _geom_cache_key or _geom.is_empty():
+		_geom = _build_geom()
+		_geom_cache_key = key
+		geom_builds += 1
+	var ax: Array = _geom["ax"]
 	pts = ax[0]
 	var half: PackedFloat32Array = ax[1]
 	var cum: PackedFloat32Array = ax[2]
 	var n := pts.size()
 	var total := maxf(cum[n - 1], 0.0001)
-	var air := String(line.get_meta("brush_style", "")) == "airbrush"
-	var m := StrokeGeom.stamps(pts, half, ax[3]) if air \
-		else StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
+	var m: Dictionary = _geom["m"]
 	var verts: PackedVector2Array = m["points"]
 	var idx: PackedInt32Array = m["indices"]
 	if idx.is_empty():
@@ -163,14 +168,47 @@ func _draw() -> void:
 	# los estilos salían como una banda lisa.
 	# El estilo (grano del lápiz, tinta del rotulador, aerógrafo) lo pinta el
 	# sombreador sin imágenes; antes eran texturas repetidas en el Line2D.
-	var uvs := _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), false)
-	if String(line.get_meta("brush_style", "")) == "pencil" and m.has("k"):
-		# Lápiz: u = longitud recorrida (unidades del lienzo) para las vetas
-		# de la mina a lo largo del trazo.
-		var ks: PackedInt32Array = m["k"]
-		for i in mini(uvs.size(), ks.size()):
-			uvs[i].x = cum[ks[i]]
-	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols, uvs)
+	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols, _geom["uvs"])
+
+## Veces que se ha recalculado la geometría (pruebas y perfiles).
+var geom_builds := 0
+var _geom: Dictionary = {}
+var _geom_cache_key := 0
+
+## Lo que define la forma: puntos, grosor, curva de presión, remates,
+## estilo y ángulo de plumilla. NO el color, el degradado ni la opacidad.
+func _geom_key() -> int:
+	var wk := 0
+	var wc := line.width_curve
+	if wc:
+		var acc := PackedFloat32Array()
+		for i in wc.point_count:
+			var q := wc.get_point_position(i)
+			acc.append_array([q.x, q.y, wc.get_point_left_tangent(i), wc.get_point_right_tangent(i)])
+		wk = hash([wc.get_instance_id(), acc, wc.bake_resolution, wc.min_value, wc.max_value])
+	return hash([line.points, line.width, wk, line.begin_cap_mode, line.end_cap_mode,
+		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG))])
+
+func _build_geom() -> Dictionary:
+	var ax := centerline(line)
+	var pts: PackedVector2Array = ax[0]
+	var half: PackedFloat32Array = ax[1]
+	var cum: PackedFloat32Array = ax[2]
+	var total := maxf(cum[pts.size() - 1], 0.0001) if pts.size() > 0 else 1.0
+	var air := String(line.get_meta("brush_style", "")) == "airbrush"
+	var m := StrokeGeom.stamps(pts, half, ax[3]) if air \
+		else StrokeGeom.strip_mesh(pts, half, _cap(line.begin_cap_mode), _cap(line.end_cap_mode), true)
+	var verts: PackedVector2Array = m["points"]
+	var uvs := PackedVector2Array()
+	if not (m["indices"] as PackedInt32Array).is_empty():
+		uvs = _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), false)
+		if String(line.get_meta("brush_style", "")) == "pencil" and m.has("k"):
+			# Lápiz: u = longitud recorrida (unidades del lienzo) para las vetas
+			# de la mina a lo largo del trazo.
+			var ks: PackedInt32Array = m["k"]
+			for i in mini(uvs.size(), ks.size()):
+				uvs[i].x = cum[ks[i]]
+	return {"ax": ax, "m": m, "uvs": uvs}
 
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).

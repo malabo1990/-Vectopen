@@ -51,7 +51,7 @@ Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 Proyecto grande: se avanza por fases, cada una con pruebas propias, sin
 romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 
-**Fase 1 — Núcleo geométrico** (en curso)
+**Fase 1 — Núcleo geométrico** (hecha)
 
 | Punto | Estado |
 |---|---|
@@ -64,7 +64,7 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Vista previa = render final | Hecho (`c996e1b`) |
 | Convertir trazo en contorno (Ctrl+Mayús+O / menú): figura rellena editable con la misma forma | Hecho |
 | Perfil de anchura medido sobre el trazado ajustado (no sobre las muestras crudas) | Hecho: cada muestra se proyecta sobre el trazado ajustado (`arc_on_path`); el engorde queda donde se apretó |
-| Modelo Stroke: fuente / derivado / caché separados (sin cambiar el formato) | Pendiente |
+| Modelo Stroke: fuente / derivado / caché separados (sin cambiar el formato) | Hecho: la geometría derivada (eje, malla, UV) va en caché con clave de forma; color, opacidad y degradado solo repintan (`BrushStrokeGeomCache_test`) |
 
 **Fase 2 — Pinceles vectoriales**: básico, caligráfico, anchura variable,
 patrón, objeto, multiobjeto; distribución y orientación por longitud de arco.
@@ -125,7 +125,7 @@ encargo 10.
 
 - `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la
   batería completa; aislado pasa siempre: depende del orden de las pruebas.
-- e2e que siguen en rojo: `text_render_e2e` (desde el 2026-11-02) y
+- e2e que siguen en rojo: `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
   `google_fonts_e2e` (necesita red).
 - Avisos «leaked at exit» al cerrar las pruebas con `quit()` (salen en todas;
   no se han visto al cerrar la app normal). Revisar si la app instalada
