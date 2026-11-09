@@ -19,6 +19,13 @@ uniform int style = 0;
 uniform float pencil_dark = 0.64;
 uniform float pencil_fill = 0.40;
 uniform float pencil_soft = 0.10;
+// Textura dentro del trazo (VGSE fase 4): «a lo largo» (sigue el trazo) o
+// «papel» (fija al lienzo); escala e intensidad.
+uniform bool use_tex = false;
+uniform sampler2D stroke_tex : repeat_enable, filter_linear_mipmap;
+uniform float tex_mode = 0.0;      // 0 a lo largo · 1 papel
+uniform float tex_scale = 1.0;
+uniform float tex_strength = 1.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -63,6 +70,12 @@ void fragment() {
 			t = dot(local_pos - p0, ab) / max(dot(ab, ab), 1e-8);
 		}
 		c *= texture(grad_tex, vec2(clamp(t, 0.0, 1.0), 0.5));
+	}
+	if (use_tex) {
+		vec2 tuv = tex_mode < 0.5 ? vec2(UV.x / max(tex_scale, 0.01), UV.y) : paper_pos * (0.02 / max(tex_scale, 0.01));
+		vec4 t = texture(stroke_tex, tuv);
+		c.rgb = mix(c.rgb, c.rgb * t.rgb, tex_strength);
+		c.a *= mix(1.0, t.a, tex_strength);
 	}
 	// 1 en el eje, 0 en el borde. Cobertura del píxel centrada en el borde
 	// real (+0,5): el trazo no adelgaza medio píxel por lado.

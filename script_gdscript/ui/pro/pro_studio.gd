@@ -1032,7 +1032,8 @@ func _build_transform_page() -> void:
 		"model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov",
 		"camera_ortho", "light_preset", "light_energy", "light_rotation_x", "light_rotation_y",
 		"light_color", "ambient_energy", "model_shadows",
-		"path_text_align", "path_text_offset", "path_text_flip"], "ExtraProps"))
+		"path_text_align", "path_text_offset", "path_text_flip",
+		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength"], "ExtraProps"))
 
 # ── 5. TEXT ──
 func _build_typography_page() -> void:

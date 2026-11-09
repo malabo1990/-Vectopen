@@ -421,7 +421,8 @@ func _build_ui() -> void:
 		"is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle",
 		"drop_curvature", "text_align", "text_valign", "indent_left", "indent_right", "indent_first",
 		"columns", "column_gap", "light_rotation_x", "light_rotation_y",
-		"path_text_align", "path_text_offset", "path_text_flip"], "ExtraProps"))
+		"path_text_align", "path_text_offset", "path_text_flip",
+		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength"], "ExtraProps"))
 
 	# ── SECCION E: RELLENO (FILL - FILA COMPACTA) ──
 	_build_fill_section()

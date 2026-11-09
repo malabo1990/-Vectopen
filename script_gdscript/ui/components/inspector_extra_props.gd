@@ -61,6 +61,10 @@ const SPECS := {
 	"path_text_align": ["En el trazado", "option", [["start", "Inicio"], ["center", "Centro"], ["end", "Final"]]],
 	"path_text_offset": ["Desplazamiento", "num", -100, 100, 1, "%", 100.0],
 	"path_text_flip": ["Al otro lado", "check"],
+	"brush_texture": ["Textura", "option", [["none", "Ninguna"], ["canvas", "Lienzo"], ["paper", "Papel"], ["stripes", "Rayas"], ["dots", "Puntos"]]],
+	"brush_texture_mode": ["Textura sigue", "option", [["along", "El trazo"], ["paper", "El papel"]]],
+	"brush_texture_scale": ["Escala textura", "num", 10, 1000, 5, "%", 100.0],
+	"brush_texture_strength": ["Intensidad", "num", 0, 100, 1, "%", 100.0],
 }
 const STROKE_MODES := [["start", "Inicio", "Punta y remate del inicio"], ["end", "Fin", "Punta y remate del final"],
 	["style", "Estilo", "Sólido, discontinuo, punteado, doble; guion y hueco"], ["profile", "Perfil", "Perfil de grosor del trazo"]]

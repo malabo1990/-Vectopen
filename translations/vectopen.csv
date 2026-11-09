@@ -1091,3 +1091,13 @@ En el trazado,On path,En el trazado,Sur le tracé,Auf dem Pfad,No traçado,На 
 Al otro lado,Other side,Al otro lado,De l'autre côté,Andere Seite,Do outro lado,С другой стороны,另一侧,反対側,الجانب الآخر,दूसरी ओर
 Desplazamiento,Offset,Desplazamiento,Décalage,Versatz,Deslocamento,Смещение,偏移,オフセット,إزاحة,ऑफ़सेट
 Final,End,Final,Fin,Ende,Fim,Конец,末尾,終点,النهاية,अंत
+Textura,Texture,Textura,Texture,Textur,Textura,Текстура,纹理,テクスチャ,نسيج,बनावट
+Ninguna,None,Ninguna,Aucune,Keine,Nenhuma,Нет,无,なし,لا شيء,कोई नहीं
+Lienzo,Canvas,Lienzo,Toile,Leinwand,Tela,Холст,画布,キャンバス,قماش,कैनवास
+Rayas,Stripes,Rayas,Rayures,Streifen,Riscas,Полосы,条纹,ストライプ,خطوط,धारियाँ
+Puntos,Dots,Puntos,Points,Punkte,Pontos,Точки,圆点,ドット,نقاط,बिंदु
+Textura sigue,Texture follows,Textura sigue,La texture suit,Textur folgt,A textura segue,Текстура следует,纹理跟随,テクスチャの基準,يتبع النسيج,बनावट अनुसरण
+El trazo,The stroke,El trazo,Le tracé,Dem Strich,O traço,Штриху,笔画,ストローク,الخط,स्ट्रोक
+El papel,The paper,El papel,Le papier,Dem Papier,O papel,Бумаге,纸张,紙,الورق,कागज़
+Escala textura,Texture scale,Escala textura,Échelle texture,Texturgröße,Escala da textura,Масштаб текстуры,纹理缩放,テクスチャの拡大率,مقياس النسيج,बनावट पैमाना
+Intensidad,Strength,Intensidad,Intensité,Stärke,Intensidade,Сила,强度,強さ,الشدة,तीव्रता

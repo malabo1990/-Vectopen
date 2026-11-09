@@ -87,8 +87,14 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Texto en trazado: una vez, apoyado en la curva, alineado (inicio / centro / final), desplazamiento, al otro lado | Hecho (menú contextual con texto + trazado; `text_on_path_e2e`) |
 | Referencias: el texto en trazado se rehace al editar el texto o cambiar la curva; se guarda el enlace | Hecho |
 | Panel para alinear / desplazar / dar la vuelta a un texto en trazado ya creado | Hecho: inspector de Modern y Pro («En el trazado», «Desplazamiento», «Al otro lado»), con deshacer |
-**Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y
-shaders con parámetros editables por trazo.
+**Fase 4 — Pintura y shaders** (en curso)
+
+| Punto | Estado |
+|---|---|
+| Color, transparencia, degradado 2D (lineal / radial, varias paradas), degradado a lo largo | Existía |
+| Sombreador propio con parámetros y filtros por trazo de pincel | Existía (comprobado: `brush_paint_e2e`) |
+| Texturas dentro del trazo: lienzo, papel, rayas, puntos; siguen el trazo o el papel; escala e intensidad (inspector, con deshacer, se guarda) | Hecho |
+| Texturas desde una imagen del usuario; modos de mezcla por trazo; variación de color aleatoria a lo largo | Pendiente |
 **Fase 5 — Máscaras y efectos**: máscaras, recortes, efectos geométricos,
 filtros, composición, caché incremental.
 **Fase 6 — Optimización y extensiones**: CPU/GPU, pruebas de rendimiento,

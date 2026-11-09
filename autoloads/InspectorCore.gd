@@ -55,6 +55,7 @@ const PROPS := [
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
 	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
 	"path_text_align", "path_text_offset", "path_text_flip",
+	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -423,6 +424,17 @@ func _read(shape, prop):
 		"drop_curvature":
 			if shape.has_meta("drop_curvature"): return float(shape.get_meta("drop_curvature"))
 			return null
+		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength":
+			# Textura dentro de un trazo de pincel (VGSE fase 4). Sin textura,
+			# solo se ofrece el selector (el resto de filas se ocultan).
+			if not (shape is Line2D and shape.get_node_or_null("StrokeRender") != null):
+				return null
+			var tx: Dictionary = shape.get_meta("brush_texture", {}) if shape.has_meta("brush_texture") else {}
+			match prop:
+				"brush_texture": return String(tx.get("name", "none"))
+				"brush_texture_mode": return null if tx.is_empty() else String(tx.get("mode", "along"))
+				"brush_texture_scale": return null if tx.is_empty() else float(tx.get("scale", 1.0))
+				_: return null if tx.is_empty() else float(tx.get("strength", 1.0))
 		"path_text_align", "path_text_offset", "path_text_flip":
 			# Texto en trazado (VGSE fase 3): parámetros del trazo enlazado.
 			if not (shape is Line2D and shape.has_meta("brush_ref")):
@@ -1433,6 +1445,27 @@ func _write_prop(shape, prop, value) -> void:
 			if "is_regular" in shape: shape.is_regular = bool(value)
 		"poly_angle", "poly_aspect", "inner_corner_radius", "star_angle":
 			if prop in shape: shape.set(prop, float(value))
+		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength":
+			if shape is Line2D:
+				var tx: Dictionary = (shape.get_meta("brush_texture", {}) if shape.has_meta("brush_texture") else {}).duplicate()
+				match prop:
+					"brush_texture":
+						if String(value) == "none" or String(value) == "":
+							tx = {}
+						else:
+							tx["name"] = String(value)
+					"brush_texture_mode": tx["mode"] = String(value)
+					"brush_texture_scale": tx["scale"] = clampf(float(value), 0.05, 20.0)
+					_: tx["strength"] = clampf(float(value), 0.0, 1.0)
+				if tx.is_empty():
+					if shape.has_meta("brush_texture"):
+						shape.remove_meta("brush_texture")
+				elif tx.has("name"):
+					shape.set_meta("brush_texture", tx)
+				var br = shape.get_node_or_null("StrokeRender")
+				if br and br.has_method("_update_material"):
+					br._update_material()
+				shape.queue_redraw()
 		"path_text_align", "path_text_offset", "path_text_flip":
 			if shape is Line2D and shape.has_meta("brush_ref"):
 				var bo: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)

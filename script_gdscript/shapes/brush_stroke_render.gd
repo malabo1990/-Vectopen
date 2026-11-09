@@ -19,6 +19,7 @@ extends Node2D
 
 const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
 const ObjectBrush = preload("res://script_gdscript/shapes/object_brush.gd")
+const StrokeTextures = preload("res://script_gdscript/shapes/stroke_textures.gd")
 const STROKE_SHADER := preload("res://shaders/brush_stroke.gdshader")
 ## Material compartido de los trazos sin degradado (no rompe el agrupado de
 ## dibujo); con degradado cada trazo tiene el suyo (uniformes propios).
@@ -261,7 +262,7 @@ func _geom_key() -> int:
 		wk = hash([wc.get_instance_id(), acc, wc.bake_resolution, wc.min_value, wc.max_value])
 	return hash([line.points, line.width, wk, line.begin_cap_mode, line.end_cap_mode,
 		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG)),
-		hash(line.get_meta("brush_obj", {}))])
+		hash(line.get_meta("brush_obj", {})), line.has_meta("brush_texture")])
 
 func _build_geom() -> Dictionary:
 	var ax := centerline(line)
@@ -286,7 +287,16 @@ func _build_geom() -> Dictionary:
 	var verts: PackedVector2Array = m["points"]
 	var uvs := PackedVector2Array()
 	if not (m["indices"] as PackedInt32Array).is_empty():
-		uvs = _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), false)
+		# Con textura «a lo largo» hace falta la u (longitud recorrida).
+		uvs = _uvs(verts, pts, cum, total, half, m.get("v", PackedFloat32Array()), line.has_meta("brush_texture"))
+		if line.has_meta("brush_texture") and m.has("k"):
+			# Textura «a lo largo»: u = longitud recorrida en teselas de 2
+			# grosores, por el punto del eje de CADA vértice (la malla no es
+			# una tira de 2 vértices por punto: _uvs lo suponía).
+			var kt: PackedInt32Array = m["k"]
+			var tile := maxf(line.width * 2.0, 0.001)
+			for i in mini(uvs.size(), kt.size()):
+				uvs[i].x = cum[kt[i]] / tile
 		if String(line.get_meta("brush_style", "")) == "pencil" and m.has("k"):
 			# Lápiz: u = longitud recorrida (unidades del lienzo) para las vetas
 			# de la mina a lo largo del trazo.
@@ -474,7 +484,8 @@ func _update_material() -> void:
 	var grade := String(line.get_meta("pencil_grade", DEFAULT_GRADE)) if sid == 1 else ""
 	var overwrite := sid == 1 and _pencil_folds
 	var key := "%d:%s:%s" % [sid, grade, "f" if overwrite else ""]
-	if g == null or g.get_point_count() < 2:
+	var tex: Dictionary = line.get_meta("brush_texture", {}) if line.has_meta("brush_texture") else {}
+	if (g == null or g.get_point_count() < 2) and tex.is_empty():
 		if not _shared_mats.has(key):
 			var sm := ShaderMaterial.new()
 			sm.shader = _shader_for(sid) if overwrite else STROKE_SHADER
@@ -496,6 +507,17 @@ func _update_material() -> void:
 		_grad_tex.width = 256
 	if _grad_tex.gradient != g:
 		_grad_tex.gradient = g   # la textura sigue los cambios de las paradas
+	# Textura dentro del trazo (VGSE fase 4)
+	mat.set_shader_parameter("use_tex", not tex.is_empty())
+	if not tex.is_empty():
+		mat.set_shader_parameter("stroke_tex", StrokeTextures.get_texture(String(tex.get("name", "canvas"))))
+		mat.set_shader_parameter("tex_mode", 1.0 if String(tex.get("mode", "along")) == "paper" else 0.0)
+		mat.set_shader_parameter("tex_scale", float(tex.get("scale", 1.0)))
+		mat.set_shader_parameter("tex_strength", float(tex.get("strength", 1.0)))
+	if g == null or g.get_point_count() < 2:
+		mat.set_shader_parameter("use_grad", false)
+		return
+	mat.set_shader_parameter("use_grad", true)
 	mat.set_shader_parameter("grad_tex", _grad_tex)
 	mat.set_shader_parameter("p0", _a())
 	mat.set_shader_parameter("p1", _b())
