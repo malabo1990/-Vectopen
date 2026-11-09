@@ -1090,6 +1090,12 @@ static func _next_backtrack(side: Array, axis: PackedVector2Array) -> PackedInt3
 ## Devuelve {points, indices, v, a} (a = opacidad de cada vértice por sello,
 ## ya con el flujo por presión).
 static func stamps(pts: PackedVector2Array, half: PackedFloat32Array, flow: PackedFloat32Array) -> Dictionary:
+	var io := _native_geom()
+	if io and io.has_method("stroke_stamps") and half.size() >= pts.size():
+		return io.stroke_stamps(pts, half, flow)   # nativo (Rust), mismo resultado
+	return stamps_gd(pts, half, flow)
+
+static func stamps_gd(pts: PackedVector2Array, half: PackedFloat32Array, flow: PackedFloat32Array) -> Dictionary:
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "v": PackedFloat32Array(), "a": PackedFloat32Array()}
 	var n := pts.size()
 	if n == 0:

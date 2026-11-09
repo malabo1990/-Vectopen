@@ -63,6 +63,29 @@ impl VectopenIO {
         d
     }
 
+    /// Aerógrafo por sellos (StrokeGeom.stamps nativo): {points, indices, v, a}.
+    #[func]
+    fn stroke_stamps(&self, pts: PackedVector2Array, half: PackedFloat32Array, flow: PackedFloat32Array) -> VarDictionary {
+        let p: Vec<stroke::V> = pts.as_slice().iter().map(|v| stroke::V::new(v.x, v.y)).collect();
+        let m = stroke::stamps(&p, half.as_slice(), flow.as_slice());
+        let mut d = VarDictionary::new();
+        let pv: PackedVector2Array = m.points.iter().map(|v| Vector2::new(v.x, v.y)).collect();
+        let iv: PackedInt32Array = m.indices.iter().copied().collect();
+        let vv: PackedFloat32Array = m.v.iter().copied().collect();
+        let av: PackedFloat32Array = m.a.iter().copied().collect();
+        d.set("points", &pv);
+        d.set("indices", &iv);
+        d.set("v", &vv);
+        d.set("a", &av);
+        d
+    }
+
+    /// Color por vértice = `color` con su alfa × `a[i]` (sellos del aerógrafo).
+    #[func]
+    fn colors_from_alpha(&self, a: PackedFloat32Array, color: Color) -> PackedColorArray {
+        a.as_slice().iter().map(|&k| Color::from_rgba(color.r, color.g, color.b, color.a * k)).collect()
+    }
+
     /// Extensiones (sin punto) que `import_file` sabe leer.
     #[func]
     fn import_extensions(&self) -> PackedStringArray {

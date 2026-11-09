@@ -119,6 +119,8 @@ pub struct Mesh {
     pub v: Vec<f32>,
     pub k: Vec<i32>,
     pub beyond: Vec<f32>,
+    /// Opacidad por vértice (aerógrafo por sellos).
+    pub a: Vec<f32>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -368,6 +370,55 @@ pub fn halves(pts_in: &[V], half_in: &[f32], cap_s: i32, cap_e: i32) -> Mesh {
     m
 }
 
+/// `StrokeGeom.stamps`: aerógrafo por SELLOS (discos) cada ~¼ de radio a lo
+/// largo del eje, con la opacidad de cada sello (flujo por presión).
+pub fn stamps(pts: &[V], half: &[f32], flow: &[f32]) -> Mesh {
+    let mut m = Mesh::default();
+    let n = pts.len();
+    if n == 0 || half.len() < n {
+        return m;
+    }
+    let cum = cumulative(pts);
+    let total = cum[n - 1];
+    let hmax = half.iter().cloned().fold(0.0f32, f32::max);
+    let mut step = (hmax * 0.25).max(0.0001);
+    let mut count = (total / step) as usize + 1;
+    if count > 6000 {
+        step = total / 6000.0;
+        count = 6001;
+    }
+    let per = 1.0 - 0.05f32.powf(step / (2.0 * hmax).max(0.001));
+    let fl_at = |i: usize| if i < flow.len() { flow[i] } else { 1.0 };
+    let mut j = 0usize;
+    for s_i in 0..count {
+        let d = (s_i as f32 * step).min(total);
+        while j + 2 < n && cum[j + 1] < d {
+            j += 1;
+        }
+        let j2 = (j + 1).min(n - 1);
+        let seg = (cum[j2] - cum[j]).max(1e-6);
+        let f = ((d - cum[j]) / seg).clamp(0.0, 1.0);
+        let c = V::new(pts[j].x + (pts[j2].x - pts[j].x) * f, pts[j].y + (pts[j2].y - pts[j].y) * f);
+        let r = half[j] + (half[j2] - half[j]) * f;
+        let fl = fl_at(j) + (fl_at(j2) - fl_at(j)) * f;
+        let segs = ((r * 0.6) as i32 + 16).clamp(16, 32);
+        let ci = m.points.len() as i32;
+        m.points.push(c);
+        m.v.push(0.5);
+        m.a.push(per * fl);
+        for k in 0..segs {
+            let t = std::f32::consts::TAU * k as f32 / segs as f32;
+            m.points.push(c.add(V::new(t.cos(), t.sin()).mul(r)));
+            m.v.push(1.0);
+            m.a.push(per * fl);
+        }
+        for k in 0..segs {
+            m.indices.extend_from_slice(&[ci, ci + 1 + k, ci + 1 + (k + 1) % segs]);
+        }
+    }
+    m
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,6 +456,17 @@ mod tests {
         let m = halves(&pts, &half, 1, 1);
         assert!(!m.indices.is_empty());
         assert!(m.points.iter().all(|p| p.x.is_finite() && p.y.is_finite()));
+    }
+
+    #[test]
+    fn sellos_del_aerografo() {
+        let pts = line(10, |i| V::new(i * 10.0, 0.0));
+        let half = vec![4.0; 10];
+        let flow = vec![0.5; 10];
+        let m = stamps(&pts, &half, &flow);
+        assert_eq!(m.points.len(), m.a.len());
+        assert!(m.indices.len() % 3 == 0 && !m.indices.is_empty());
+        assert!(m.a.iter().all(|&a| a > 0.0 && a <= 1.0));
     }
 
     #[test]

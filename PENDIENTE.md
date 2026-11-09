@@ -105,8 +105,24 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Efectos geométricos del trazo: ondulado, zigzag, rugoso (forma real: contorno, sombra, exportar) | Hecho (inspector «Forma del trazo», amplitud, tamaño de onda) |
 | Caché de geometría (solo se rehace lo que cambia) | Hecho en fase 1 + malla nativa |
 | Composición (modos de fusión) | Ver fallo de modos de fusión (fase 4) |
-**Fase 6 — Optimización y extensiones**: CPU/GPU, pruebas de rendimiento,
-serialización y compatibilidad, pinceles personalizados.
+**Fase 6 — Optimización y extensiones** (en curso)
+
+Un trazo con N muestras (`test/e2e/stroke_samples_bench.gd`, sin ventana):
+
+| Muestras | pluma | lápiz | aerógrafo |
+|---|---|---|---|
+| 1 000 | 0,9 ms | 1,7 ms | 2,6 ms (antes 8,5) |
+| 10 000 | 7 ms | 16 ms | 17 ms (antes 51) |
+| 100 000 | 79 ms | 160 ms | 59 ms (antes 101) |
+
+| Punto | Estado |
+|---|---|
+| Pruebas de rendimiento de documentos (N elementos) y de trazos (N muestras) | Hecho (`scene_benchmark_e2e`, `stroke_samples_bench`) |
+| Aerógrafo: sellos y colores en Rust (`stroke_stamps`, `colors_from_alpha`) | Hecho |
+| Lápiz: colores por vértice y pliegues en Rust (16 → ~6 ms con 10 000) | Pendiente |
+| Trazos de 100 000 muestras al dibujar: rehacer solo la cola (incremental) | Pendiente |
+| Serialización / compatibilidad (trazos antiguos sin metas nuevas) | Pendiente de prueba |
+| Pinceles personalizados guardados («Mis pinceles») | Pendiente |
 
 Validación (§13 del documento): rectas, círculos, Bézier, cerradas, cúspides,
 cambios bruscos de anchura, autointersecciones, presión; deshacer/rehacer,

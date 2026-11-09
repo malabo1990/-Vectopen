@@ -199,7 +199,11 @@ func _draw() -> void:
 		cols = m["colors"]
 	else:
 		cols = _colors(verts, pts, cum, total, m, half, ax[3] if ax.size() > 3 else PackedFloat32Array())
-	if m.has("a"):
+	var gio: Object = StrokeGeom._native_geom()
+	if m.has("a") and gio and gio.has_method("colors_from_alpha") and not (line.gradient and not has_gradient_fill()):
+		# Aerógrafo por sellos, en nativo (108 000 vértices: ~15 ms en GDScript).
+		cols = gio.colors_from_alpha(m["a"], cols[0])
+	elif m.has("a"):
 		# Aerógrafo por sellos: cada sello con su opacidad (flujo por presión).
 		var sa: PackedFloat32Array = m["a"]
 		var c0: Color = cols[0]

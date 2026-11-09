@@ -47,3 +47,31 @@ func test_nativo_igual_que_gdscript() -> void:
 			assert_float(worst).is_less(0.01)
 			assert_int((r["v"] as PackedFloat32Array).size()).is_equal((g["v"] as PackedFloat32Array).size())
 			assert_int((r["beyond"] as PackedFloat32Array).size()).is_equal((g["beyond"] as PackedFloat32Array).size())
+
+## Sellos del aerógrafo: el nativo (VectopenIO.stroke_stamps) da la misma
+## malla y opacidades que el GDScript de respaldo (stamps_gd).
+func test_sellos_nativo_igual_que_gdscript() -> void:
+	var io: Object = SG._native_geom()
+	if io == null or not io.has_method("stroke_stamps"):
+		push_warning("vectopen_io sin stroke_stamps: se omite")
+		return
+	for pts in _cases():
+		var half := PackedFloat32Array()
+		var flow := PackedFloat32Array()
+		for i in pts.size():
+			half.append(3.0 + 2.0 * sin(i * 0.1))
+			flow.append(0.5 + 0.4 * cos(i * 0.07))
+		var g: Dictionary = SG.stamps_gd(pts, half, flow)
+		var r: Dictionary = io.stroke_stamps(pts, half, flow)
+		assert_int((r["points"] as PackedVector2Array).size()).is_equal((g["points"] as PackedVector2Array).size())
+		assert_array(Array(r["indices"])).is_equal(Array(g["indices"]))
+		var worst := 0.0
+		var gp: PackedVector2Array = g["points"]
+		var rp: PackedVector2Array = r["points"]
+		for i in gp.size():
+			worst = maxf(worst, gp[i].distance_to(rp[i]))
+		assert_float(worst).is_less(0.01)
+		var wa := 0.0
+		for i in (g["a"] as PackedFloat32Array).size():
+			wa = maxf(wa, absf(float(g["a"][i]) - float(r["a"][i])))
+		assert_float(wa).is_less(0.001)
