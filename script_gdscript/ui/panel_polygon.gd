@@ -448,6 +448,8 @@ func _field(key: String, text: String, lo: float, hi: float, step: float, suffix
 	f.min_value = lo
 	f.max_value = hi
 	f.step = step
+	if key.contains("radius"):
+		f.adaptive_step = true   # redondeos pequeños con zoom extremo (0,005…)
 	f.suffix = suffix
 	f.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	f.set_meta("scale", scale)

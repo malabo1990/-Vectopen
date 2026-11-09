@@ -104,12 +104,17 @@ static func _zoom_comp(zoom: float) -> float:
 	return 1.0 / clampf(zoom, 0.0002, 100000.0)
 
 ## Número corto para la píldora "W × H" y el radio: 2 decimales máximo,
-## sin ceros sobrantes (320.0→"320", 12.5→"12.5", 0.004→"0", 99.126→"99.13").
+## sin ceros sobrantes (320.0→"320", 12.5→"12.5", 0.004→"0.004", 99.126→"99.13").
 static func _fmt_num(v: float) -> String:
-	var r := snappedf(v, 0.01)
+	# Por debajo de 1, con los decimales que hagan falta (zoom extremo: un
+	# objeto de 0,004 salía «0»); por encima, 2 como máximo.
+	var dec := 2
+	if absf(v) > 0.0 and absf(v) < 1.0:
+		dec = clampi(int(-floor(log(absf(v)) / log(10.0))) + 2, 2, 4)
+	var r := snappedf(v, pow(10.0, -dec))
 	if is_zero_approx(r):
 		return "0"
-	var s := "%.2f" % r
+	var s := ("%." + str(dec) + "f") % r
 	while s.contains(".") and s.ends_with("0"):
 		s = s.trim_suffix("0")
 	return s.trim_suffix(".")
@@ -278,7 +283,10 @@ func _draw() -> void:
 	var inv: float = _zoom_comp(_get_zoom_scale())
 	var lw: float = _OUTLINE_SCREEN_PX * inv
 	var hs: float = _HANDLE_SCREEN_PX * inv
-	var hb: float = maxf(_OUTLINE_SCREEN_PX * inv, 0.01)   # borde del handle = grosor de línea
+	# borde del handle = grosor de línea, en px de PANTALLA (antes mínimo 0,01
+	# unidades: con zoom extremo el borde rellenaba el handle y el punto del
+	# redondeo salía como una mancha borrosa)
+	var hb: float = _OUTLINE_SCREEN_PX * inv
 
 	# Contorno
 	draw_rect(Rect2(Vector2.ZERO, size), _OUTLINE_COLOR, false, lw)
@@ -407,7 +415,7 @@ func _draw_paragraph_threading_port(inv: float) -> void:
 		glyph = "→"
 
 	draw_rect(port_rect, bg_col, true)
-	draw_rect(port_rect, border_col, false, maxf(1.0 * inv, 0.01))
+	draw_rect(port_rect, border_col, false, 1.0 * inv)
 
 	var font := get_theme_default_font()
 	if font == null: font = ThemeDB.fallback_font
@@ -814,6 +822,8 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 ## ratón. Antes la caja aparecía bajo el cursor y se quedaba los movimientos:
 ## el objeto no se movía (o saltaba al salir el cursor de la caja).
 var _pass_saved: Dictionary = {}
+var _shift_click_target: Node2D = null   # Mayús + clic quieto → deseleccionar
+var _shift_press_screen := Vector2.ZERO
 
 func set_gesture_passthrough(on: bool) -> void:
 	if on:
@@ -952,7 +962,11 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 					move_tool_reference._on_double_click(gm)
 				accept_event()
 				return
-			if Input.is_key_pressed(KEY_SHIFT):
+			_shift_click_target = null
+			if Input.is_key_pressed(KEY_SHIFT) or event.shift_pressed:
+				# Mayús + clic QUIETO = quitar de la selección; Mayús + ARRASTRAR =
+				# grosor del trazo (lo hace la herramienta). Antes se quitaba ya
+				# al pulsar y el ajuste de grosor nunca empezaba.
 				var hit: Node2D = null
 				var sel := _live_selection()
 				if sel.size() == 1:
@@ -960,9 +974,8 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 				elif move_tool_reference.has_method("_shape_at"):
 					hit = move_tool_reference._shape_at(gm)
 				if is_instance_valid(hit) and sel.has(hit):
-					move_tool_reference._deselect(hit)
-				accept_event()
-				return
+					_shift_click_target = hit
+					_shift_press_screen = (event as InputEventMouseButton).global_position
 			_is_dragging_canvas_area = true
 			if "is_dragging_shape" in move_tool_reference:
 				move_tool_reference.is_dragging_shape = true
@@ -975,11 +988,16 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 			accept_event()
 		else:
 			_is_dragging_canvas_area = false
+			var was_adjusting: bool = bool(move_tool_reference.get("_is_stroke_adjusting")) if "_is_stroke_adjusting" in move_tool_reference else false
 			if "is_dragging_shape" in move_tool_reference:
 				if move_tool_reference.has_method("_on_release"):
 					move_tool_reference._on_release(gm)
 				else:
 					move_tool_reference.is_dragging_shape = false
+			if is_instance_valid(_shift_click_target) and not was_adjusting \
+					and (event as InputEventMouseButton).global_position.distance_to(_shift_press_screen) < 3.0:
+				move_tool_reference._deselect(_shift_click_target)
+			_shift_click_target = null
 			accept_event()
 
 	elif event is InputEventMouseMotion:

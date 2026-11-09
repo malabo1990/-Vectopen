@@ -1043,6 +1043,7 @@ func _build_parametric_star_section() -> void:
 	sec_parametric_star.add_child(row_round)
 
 	spin_star_corner_radius = NumericField.new("Round", " px", 0.0, 50.0, 1.0)
+	spin_star_corner_radius.adaptive_step = true
 	spin_star_corner_radius.value = 0.0
 	spin_star_corner_radius.custom_minimum_size = Vector2(80, 22)
 	_bind_live_param(spin_star_corner_radius, "corner_radius")
@@ -1060,6 +1061,7 @@ func _build_parametric_rect_section() -> void:
 	sec_parametric_rect.add_child(row_radius)
 
 	spin_rect_corner_radius = NumericField.new("Radius", " px", 0.0, 500.0, 1.0)
+	spin_rect_corner_radius.adaptive_step = true
 	spin_rect_corner_radius.value = 0.0
 	spin_rect_corner_radius.custom_minimum_size = Vector2(80, 22)
 	_bind_live_param(spin_rect_corner_radius, "corner_radius")

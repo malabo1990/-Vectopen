@@ -370,6 +370,11 @@ func _on_double_click(gm: Vector2) -> bool:
 			
 		var herramienta_nodos = canvas._new_tool(script_nodes)
 		var target_path: Path2D = hit if (hit is Path2D) else (hit.get_parent() as Path2D)
+		# Trazo de pincel: se editan sus nodos (curva ajustada). Antes caía
+		# en «otra curva cualquiera» del documento.
+		if hit is Line2D and herramienta_nodos.BrushNodes.is_editable(hit):
+			herramienta_nodos.pending_line = hit
+			target_path = null
 		if is_instance_valid(target_path):
 			herramienta_nodos.edit_path = target_path
 			var p_local = target_path.to_local(gm)
@@ -756,7 +761,7 @@ func _on_motion(gm: Vector2, mods: Dictionary = {}) -> bool:
 		var drag_ctrl: bool = mods.get("ctrl", Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META))
 
 		# 13.2 Alt/Option + Arrastrar: duplicar selección inmediatamente
-		if drag_alt and not _alt_drag_duplicated and (gm - transform_initial_mouse).length() > 3.0:
+		if drag_alt and not _alt_drag_duplicated and (gm - transform_initial_mouse).length() * _view_zoom() > 3.0:
 			_perform_alt_drag_duplication(gm)
 
 		var delta: Vector2 = gm - transform_initial_mouse
@@ -764,7 +769,9 @@ func _on_motion(gm: Vector2, mods: Dictionary = {}) -> bool:
 		# Shift+drag on the box body = stroke width on all four sides (drag
 		# right or up = thicker). The figure does not move.
 		if drag_shift and _axis_move == "" and not drag_alt:
-			if delta.length() > 2.0 or _is_stroke_adjusting:
+			# umbral en px de PANTALLA (antes 2 unidades: con zoom extremo nunca
+			# empezaba el ajuste de grosor)
+			if delta.length() * _view_zoom() > 2.0 or _is_stroke_adjusting:
 				_is_stroke_adjusting = true
 				_apply_body_stroke_drag(delta)
 				_update_bounding_box()
@@ -873,6 +880,10 @@ func _apply_body_stroke_drag(delta: Vector2) -> void:
 		_set_shape_stroke_width(shape, clampf(maxf(init_w, 0.005) * factor, 0.005, 1000.0))
 		if shape.has_method("clear_side_strokes"):
 			shape.clear_side_strokes()
+	# Los paneles (inspector, Trazo, Bézier) muestran el grosor AL MOMENTO.
+	var ic := get_node_or_null("/root/InspectorCore")
+	if ic and ic.has_method("post_write_live"):
+		ic.post_write_live()
 
 func _update_transform_logic(gm: Vector2) -> void:
 	_on_motion(gm)

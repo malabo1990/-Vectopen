@@ -58,6 +58,11 @@ Y algo que faltaba por completo: **deshacer en la edición de nodos**. Mover,
 añadir, borrar, cambiar el tipo de nodo o dividir un trazado ya son pasos del
 historial.
 
+Los **trazos de pincel** también tienen nodos ahora. Un trazo dibujado a mano
+son cientos de muestras; al hacer doble clic, Vectopen le ajusta una curva
+Bézier con unos pocos nodos, como haría Illustrator. Al moverlos, el trazo
+cambia de forma y conserva su presión: las puntas finas siguen siendo finas.
+
 ## Que el clic acierte
 
 En muchos editores sencillos, hacer clic «dentro del recuadro» de un objeto

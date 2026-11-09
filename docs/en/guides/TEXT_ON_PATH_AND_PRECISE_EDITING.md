@@ -62,6 +62,10 @@ Everything undoes with **Ctrl+Z**. Dragging the text itself moves it
   the shape** (the curve is split mathematically, as in Illustrator).
 - Every gesture undoes and redoes: moving nodes and handles, **G** (keyboard
   move), adding, deleting, node type, close/open and split.
+- **Brush strokes**: double click a stroke (or use the Node tool) to edit its
+  nodes. Vectopen fits a Bézier curve with few nodes; moving them reshapes the
+  stroke and **keeps its pressure** (variable width). Undo works the same,
+  even after leaving node mode.
 
 ## 3. Filling self-intersecting outlines
 
@@ -88,6 +92,13 @@ rule, as in Illustrator and Affinity). Loops inside other loops stay holes.
 - **Stroke width** fields go down to **0.005**. Wheel and drag use a step
   proportional to the value (≈ 10 % per step), and **Shift + drag** on the box
   changes the width by 1.5 % per pixel, the same at any zoom.
+- Fields show **as many decimals as needed** below 1 (a 0.12 radius reads
+  "0.12", not "0.1"), and **dragging a field** uses a zoom-aware step
+  (1 px of drag ≈ 1 screen pixel).
+- Handles, the corner-radius dot and guides stay **crisp and sized in screen
+  pixels** even at hundreds of thousands of percent.
+- **Shift + still click** removes an object from the selection; **Shift +
+  drag** changes its stroke width, and panels show the value live.
 
 ## 6. Interface size without a keyboard (tablet)
 

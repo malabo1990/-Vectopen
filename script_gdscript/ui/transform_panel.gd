@@ -96,6 +96,18 @@ static func eval_math(text: String, current: float) -> float:
 	return current
 
 # ─────────────────────────────────── campo numérico con arrastre (scrub) estilo Figma
+## Paso de arrastre según el zoom y formato con los decimales necesarios.
+class _ZoomStep:
+	static func factor(n: Node) -> float:
+		var vp := n.get_viewport() if n and n.is_inside_tree() else null
+		var z: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+		return clampf(2.0 / maxf(z, 0.0001), 0.00001, 1.0)
+	static func fmt(v: float, base: int) -> String:
+		var dec := base
+		if absf(v) > 0.0 and absf(v) < 1.0:
+			dec = maxi(base, clampi(int(-floor(log(absf(v)) / log(10.0))) + 2, 2, 4))
+		return (("%." + str(dec) + "f") % v).rstrip("0").rstrip(".")
+
 class Field extends PanelContainer:
 	signal value_changed(v: float)
 	signal drag_started()
@@ -186,7 +198,7 @@ class Field extends PanelContainer:
 		if is_equal_approx(value, roundf(value)):
 			_le.text = "%d" % int(roundf(value))
 		else:
-			_le.text = (("%." + str(decimals) + "f") % value).rstrip("0").rstrip(".")
+			_le.text = _ZoomStep.fmt(value, decimals)
 
 	func type_value(v: float) -> void:
 		_editing = true
@@ -236,11 +248,13 @@ class Field extends PanelContainer:
 			var mm := e as InputEventMouseMotion
 			var dx: float = mm.relative.x
 			_drag_px += dx
-			var current_step := step
+			# Con mucho zoom, 1 px de arrastre ≈ 1 px de pantalla (antes 0,5
+			# unidades: con zoom extremo el valor saltaba de golpe).
+			var current_step: float = step * _ZoomStep.factor(self)
 			if Input.is_key_pressed(KEY_SHIFT):
-				current_step = step * 0.1
+				current_step *= 0.1
 			elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
-				current_step = step * 5.0
+				current_step *= 5.0
 
 			if absf(_drag_px) >= 3.0:
 				_drag_active = true
@@ -355,14 +369,14 @@ class Dial extends PanelContainer:
 		if is_equal_approx(value, roundf(value)):
 			_le.text = ("%d" % int(roundf(value))) + suffix
 		else:
-			_le.text = ("%.1f" % value) + suffix
+			_le.text = _ZoomStep.fmt(value, 1) + suffix
 
 	func _enter_edit() -> void:
 		_editing = true
 		if is_equal_approx(value, roundf(value)):
 			_le.text = "%d" % int(roundf(value))
 		else:
-			_le.text = ("%.1f" % value)
+			_le.text = _ZoomStep.fmt(value, 1)
 		_le.mouse_filter = Control.MOUSE_FILTER_STOP
 		_le.grab_focus()
 		_le.select_all()
@@ -405,11 +419,13 @@ class Dial extends PanelContainer:
 			var mm := e as InputEventMouseMotion
 			var dx: float = mm.relative.x
 			_drag_px += dx
-			var current_step := step
+			# Con mucho zoom, 1 px de arrastre ≈ 1 px de pantalla (antes 0,5
+			# unidades: con zoom extremo el valor saltaba de golpe).
+			var current_step: float = step * _ZoomStep.factor(self)
 			if Input.is_key_pressed(KEY_SHIFT):
-				current_step = step * 0.1
+				current_step *= 0.1
 			elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
-				current_step = step * 5.0
+				current_step *= 5.0
 
 			if absf(_drag_px) >= 3.0:
 				_drag_active = true
@@ -713,7 +729,7 @@ func _on_preset_window_closed() -> void:
 func _make_field(prop: String, lbl: String) -> Control:
 	var f := Field.new(lbl, _TEXT, _MUTED, _BG_CARD, _BORDER, _ACCENT)
 	if prop == "width" or prop == "height":
-		f.min_value = 1.0
+		f.min_value = 0.0001   # antes 1: con zoom extremo no se podían escribir tamaños pequeños
 	f.drag_started.connect(func(): _snap_prop(prop))
 	f.value_changed.connect(func(v): _preview(prop, v))
 	f.drag_ended.connect(func(): _commit_prop(prop))

@@ -63,6 +63,10 @@ su trazado**.
   (la curva se parte matemáticamente, como en Illustrator).
 - Todo gesto se deshace y rehace: mover nodos y tiradores, **G** (mover con
   teclado), añadir, borrar, tipo de nodo, cerrar/abrir y dividir.
+- **Trazos de pincel**: doble clic sobre un trazo (o la herramienta Nodos)
+  para editar sus nodos. Vectopen le ajusta una curva Bézier con pocos nodos;
+  al moverlos, el trazo cambia de forma y **conserva su presión** (grosor
+  variable). Se deshace igual, también después de salir del modo nodos.
 
 ## 3. Relleno de contornos que se cruzan
 
@@ -89,6 +93,13 @@ siguen siendo huecos.
 - Los campos de **grosor** llegan a **0,005**. La rueda y el arrastre usan un
   paso proporcional al valor (≈ 10 % por paso), y **Mayús + arrastrar** sobre
   el recuadro cambia el grosor un 1,5 % por píxel, igual a cualquier zoom.
+- Los campos muestran los **decimales que hacen falta** por debajo de 1
+  (un radio de 0,12 se ve «0.12», no «0.1»), y al **arrastrar un campo** el
+  paso se adapta al zoom (1 px de arrastre ≈ 1 px de pantalla).
+- Tiradores, punto de redondeo y guías se dibujan **nítidos y de su tamaño**
+  incluso con zoom de cientos de miles de por ciento.
+- **Mayús + clic quieto** quita un objeto de la selección; **Mayús +
+  arrastrar** cambia su grosor, y los paneles muestran el valor al momento.
 
 ## 6. Tamaño de la interfaz sin teclado (tableta)
 

@@ -1367,6 +1367,12 @@ func test_bounding_box_shift_click_deselects_shape() -> void:
 	ev_press.pressed = true
 	ev_press.global_position = Vector2(100, 100)
 	bb._gui_input(ev_press)
+	# Mayús + clic QUIETO deselecciona al soltar (Mayús + arrastrar = grosor)
+	var ev_release := InputEventMouseButton.new()
+	ev_release.button_index = MOUSE_BUTTON_LEFT
+	ev_release.pressed = false
+	ev_release.global_position = Vector2(100, 100)
+	bb._gui_input(ev_release)
 
 	var shift_up := InputEventKey.new()
 	shift_up.keycode = KEY_SHIFT
@@ -1381,7 +1387,7 @@ func test_dimension_pill_number_format() -> void:
 	var bb_script = load("res://scenes/canvas/bounding_box.gd")
 	assert_str(bb_script._fmt_num(320.0)).is_equal("320")
 	assert_str(bb_script._fmt_num(12.5)).is_equal("12.5")
-	assert_str(bb_script._fmt_num(0.004)).is_equal("0")
+	assert_str(bb_script._fmt_num(0.004)).is_equal("0.004")   # zoom extremo: con sus decimales
 	assert_str(bb_script._fmt_num(99.126)).is_equal("99.13")
 
 func test_corner_radius_handles_drag_all_and_undo() -> void:

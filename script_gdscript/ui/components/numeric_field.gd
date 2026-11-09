@@ -203,7 +203,9 @@ func set_suffix(s: String) -> void:
 func _refresh_display() -> void:
 	if _is_editing or not is_instance_valid(_line_edit):
 		return
-	var dec := maxi(decimals, adapt_decimals(value)) if adaptive_step else decimals
+	# Valores pequeños (< 1): los decimales que hagan falta (con zoom extremo
+	# un radio de 0,004 salía como «0»).
+	var dec := maxi(decimals, adapt_decimals(value)) if (adaptive_step or absf(value) < 1.0) else decimals
 	if is_equal_approx(value, roundf(value)):
 		_line_edit.text = "%d" % int(roundf(value))
 	else:

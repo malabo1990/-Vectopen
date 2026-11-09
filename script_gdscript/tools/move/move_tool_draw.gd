@@ -274,7 +274,7 @@ func draw_preview(c: Node2D) -> void:
 		var el: Vector2 = c.to_local(marquee_end)
 		var r: Rect2 = Rect2(sl, el - sl).abs()
 		var zsc: float = c.get_viewport().get_canvas_transform().get_scale().x if c.get_viewport() else 1.0
-		var lw: float = maxf(1.0 / maxf(zsc, 0.0002), 0.8)
+		var lw: float = 1.0 / maxf(zsc, 0.0002)   # px de pantalla a cualquier zoom
 		c.draw_rect(r, COLOR_MARQUEE_F, true)
 		c.draw_rect(r, COLOR_MARQUEE_S, false, lw)
 		return
@@ -322,8 +322,8 @@ func _draw_paragraph_threads(c: Node2D) -> void:
 		return
 	var vp := c.get_viewport()
 	var zsc: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
-	var lw: float = maxf(1.5 / maxf(zsc, 0.0002), 1.0)
-	var arrow_sz: float = maxf(6.0 / maxf(zsc, 0.0002), 4.0)
+	var lw: float = 1.5 / maxf(zsc, 0.0002)
+	var arrow_sz: float = 6.0 / maxf(zsc, 0.0002)
 	var col_line := Color(0.18, 0.65, 0.98, 0.85)
 
 	var drawn_pairs := {}
@@ -370,7 +370,7 @@ func _draw_threading_drag_preview(c: Node2D) -> void:
 		return
 	var vp := c.get_viewport()
 	var zsc: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
-	var lw: float = maxf(1.8 / maxf(zsc, 0.0002), 1.2)
+	var lw: float = 1.8 / maxf(zsc, 0.0002)
 	var col_drag := Color(0.2, 0.8, 1.0, 0.9)
 	var col_dash := Color(0.2, 0.8, 1.0, 0.5)
 

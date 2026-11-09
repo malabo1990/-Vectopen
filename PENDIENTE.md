@@ -172,12 +172,13 @@ toda la UI (los 382 tamaños de letra fijados a mano impiden un «solo texto» f
 | USR-29 | Relleno incompleto / parpadeante en contornos que se cruzan | Hecho (`f488564`): regla «no cero» con unión de Clipper, sin errores en el depurador |
 | USR-30 | Recuadro enorme y corrido con mucho zoom; selección por recuadro | Hecho (`8bf358f`): caja exacta, sin redondeo de Godot; clic y marquee por la forma |
 | USR-31 | No se podía arrastrar tras seleccionar | Hecho (`8bf358f`): la caja deja pasar el ratón durante el gesto; tallo del giro sin clic |
-| USR-32 | Con zoom > 3000 % bordes poligonales y trazos finos transparentes; grosor mínimo 0,5 | Hecho (ver commit «Zoom extremo»): limpieza de puntos ≤ 2 % del tamaño; grosor mínimo = 1 px de pantalla; campos de grosor hasta 0,005 con paso adaptativo; Mayús + arrastre proporcional |
-| USR-33 | «Este brush también necesita trazos para poder mover» | **Por aclarar con el usuario**: ¿editar los puntos de un trazo de pincel con la herramienta de nodos? |
+| USR-32 | Con zoom > 3000 % bordes poligonales y trazos finos transparentes; grosor mínimo 0,5 | Hecho (`f68e88f`): limpieza de puntos ≤ 2 % del tamaño; grosor mínimo = 1 px de pantalla; campos de grosor hasta 0,005 con paso adaptativo; Mayús + arrastre proporcional |
+| USR-33 | «Este brush también necesita trazos para poder mover» → editar sus nodos | Hecho: doble clic en un trazo de pincel (o herramienta Nodos) edita una curva Bézier ajustada a él (pocos nodos); los puntos se regeneran y la presión se conserva; deshacer también después de salir (`brush_nodes_e2e`) |
+| USR-34 | Zoom ≈ 190 000 %: Mayús + arrastrar no cambiaba el grosor, paneles sin el valor al momento, redondeo «0», tiradores borrosos | Hecho: Mayús + clic quieto deselecciona y Mayús + arrastrar ajusta (umbrales en px de pantalla, también Alt + arrastrar); aviso en vivo a los paneles; decimales según el valor en todos los campos y en la píldora del recuadro; W/H desde 0,0001; arrastre de campos según el zoom; bordes de tiradores y líneas de guía en px de pantalla (`extreme_zoom_ui_e2e`) |
 
 Pruebas nuevas: `text_path_ui_e2e`, `settings_ui_e2e`, `node_handles_zoom_e2e`,
 `node_undo_e2e`, `fill_cross_e2e`, `fill_drag_e2e`, `select_precision_e2e`,
-`drag_move_e2e`, `zoom_quality_e2e`, `VectorPathFill_test`. Guía:
+`drag_move_e2e`, `zoom_quality_e2e`, `brush_nodes_e2e`, `extreme_zoom_ui_e2e`, `VectorPathFill_test`, `NumericFieldAdaptive_test`. Guía:
 `docs/es/guides/TEXTO_EN_TRAZADO_Y_EDICION_PRECISA.md`.
 
 ## 1. Funciones nuevas para la 0.2.3

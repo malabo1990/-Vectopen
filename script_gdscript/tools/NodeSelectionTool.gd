@@ -21,7 +21,49 @@ func get_class_name() -> String:
 
 # ── Referencias del Ecosistema Vectopen ───────────────────────────────────────
 var target_artboard: Node2D = null
-var edit_path: Path2D = null 
+## Curva que se edita. Para un trazo de pincel es un Path2D auxiliar (ver
+## brush_node_proxy.gd): al cambiar a otra curva se suelta.
+var edit_path: Path2D = null:
+	set(v):
+		if is_instance_valid(edit_path) and edit_path != v and edit_path.has_meta("proxy_for"):
+			BrushNodes.release(edit_path)
+		edit_path = v
+const BrushNodes = preload("res://script_gdscript/tools/brush_node_proxy.gd")
+## Trazo de pincel que se quiere editar al activar la herramienta (doble clic).
+var pending_line: Line2D = null
+
+## Lo que debe quedar SELECCIONADO: el trazo de pincel, no su auxiliar.
+func _sel_target() -> Node2D:
+	var l := BrushNodes.line_of(edit_path)
+	return l if l else edit_path
+
+func _view_px() -> float:
+	var vp := canvas.get_viewport() if is_instance_valid(canvas) else null
+	var z: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	return 1.0 / maxf(z, 0.0001)
+
+## Editar los nodos de un trazo de pincel.
+func _edit_brush(line: Line2D) -> void:
+	if not BrushNodes.is_editable(line) or not is_instance_valid(canvas):
+		return
+	edit_path = BrushNodes.make(line, canvas, _view_px())
+	selected_nodes.clear()
+
+## Trazo de pincel bajo el ratón (por su forma).
+func _find_brush_at_global(gm: Vector2) -> Line2D:
+	if not is_instance_valid(canvas):
+		return null
+	var SH = load("res://script_gdscript/utils/shape_hit.gd")
+	var lines: Array = []
+	var container := canvas.get_node_or_null("ArtboardsContainer")
+	if container:
+		for l in container.find_children("*", "Line2D", true, false):
+			lines.append(l)
+	for i in range(lines.size() - 1, -1, -1):
+		var l: Line2D = lines[i]
+		if BrushNodes.is_editable(l) and l.is_visible_in_tree() and SH.line_hit(l, gm, 4.0 * _view_px()):
+			return l
+	return null
 
 # ── Selección y Hit-Testing ──────────────────────────────────────────────────
 var selected_nodes: Array[int] = []
@@ -69,6 +111,9 @@ func activate() -> void:
 	grab_axis = ""
 
 	# Auto-adquirir edit_path de SelectionManager si no está seteado
+	if is_instance_valid(pending_line):
+		_edit_brush(pending_line)
+		pending_line = null
 	if not is_instance_valid(edit_path):
 		var sm = get_node_or_null("/root/SelectionManager")
 		if is_instance_valid(sm) and sm.has_method("get_selected"):
@@ -76,6 +121,9 @@ func activate() -> void:
 			for obj in sel:
 				if obj is Path2D and obj.curve is Curve2D:
 					edit_path = obj
+					break
+				if BrushNodes.is_editable(obj):
+					_edit_brush(obj)
 					break
 
 	# Fallback: buscar en ArtboardsContainer / Canvas si no hay selección activa
@@ -90,7 +138,7 @@ func activate() -> void:
 			edit_path = candidates[candidates.size() - 1]
 			var sm = get_node_or_null("/root/SelectionManager")
 			if is_instance_valid(sm) and sm.has_method("set_selection"):
-				sm.set_selection([edit_path])
+				sm.set_selection([_sel_target()])
 
 	# Mostrar todos los nodos sin seleccionarlos todos a la vez (pedido explícito por el usuario)
 	# Si ya venía con un nodo específico preseleccionado (ej. por doble clic), conservarlo.
@@ -106,6 +154,8 @@ func activate() -> void:
 		canvas.queue_redraw()
 
 func deactivate() -> void:
+	if is_instance_valid(edit_path) and edit_path.has_meta("proxy_for"):
+		edit_path = null   # suelta el auxiliar del trazo de pincel
 	current_mode = EditMode.IDLE
 	selected_nodes.clear()
 	grab_axis = ""
@@ -180,12 +230,17 @@ func handle_input(event: InputEvent) -> bool:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				var hit_path := _find_path_at_global(event_gm)
+				if not is_instance_valid(hit_path):
+					var hit_line := _find_brush_at_global(event_gm)
+					if hit_line:
+						_edit_brush(hit_line)
+						hit_path = edit_path
 				if is_instance_valid(hit_path):
 					edit_path = hit_path
 					selected_nodes.clear()
 					var sm := get_node_or_null("/root/SelectionManager")
 					if is_instance_valid(sm) and sm.has_method("set_selection"):
-						sm.set_selection([edit_path])
+						sm.set_selection([_sel_target()])
 					if is_instance_valid(canvas):
 						canvas.queue_redraw()
 					var hit_local_mouse := edit_path.to_local(event_gm)
@@ -223,7 +278,7 @@ func handle_input(event: InputEvent) -> bool:
 									selected_nodes = hit_indices
 									var sm := get_node_or_null("/root/SelectionManager")
 									if is_instance_valid(sm) and sm.has_method("set_selection"):
-										sm.set_selection([edit_path])
+										sm.set_selection([_sel_target()])
 									break
 					else:
 						# Clic simple en espacio vacío: saltar a MoveTool
@@ -293,7 +348,7 @@ func handle_input(event: InputEvent) -> bool:
 		if event.keycode == KEY_ESCAPE:
 			var sm := get_node_or_null("/root/SelectionManager")
 			if is_instance_valid(sm) and is_instance_valid(edit_path) and sm.has_method("set_selection"):
-				sm.set_selection([edit_path])
+				sm.set_selection([_sel_target()])
 			if is_instance_valid(canvas) and canvas.has_method("switch_tool"):
 				canvas.switch_tool("select")
 				return true
@@ -419,7 +474,7 @@ func _on_press(path_local_mouse: Vector2) -> bool:
 		selected_nodes.clear()
 		var sm := get_node_or_null("/root/SelectionManager")
 		if is_instance_valid(sm) and sm.has_method("set_selection"):
-			sm.set_selection([edit_path])
+			sm.set_selection([_sel_target()])
 		var new_local_mouse := edit_path.to_local(mouse_global)
 		return _on_press(new_local_mouse)
 
@@ -475,7 +530,7 @@ func _on_release(path_local_mouse: Vector2) -> bool:
 							selected_nodes = hit_indices
 							var sm := get_node_or_null("/root/SelectionManager")
 							if is_instance_valid(sm) and sm.has_method("set_selection"):
-								sm.set_selection([edit_path])
+								sm.set_selection([_sel_target()])
 							break
 		else:
 			# Clic simple en espacio vacío: saltar a MoveTool con el objeto seleccionado (comportamiento estándar de editores)
@@ -483,7 +538,7 @@ func _on_release(path_local_mouse: Vector2) -> bool:
 			selected_nodes.clear()
 			var sm := get_node_or_null("/root/SelectionManager")
 			if is_instance_valid(sm) and is_instance_valid(edit_path) and sm.has_method("set_selection"):
-				sm.set_selection([edit_path])
+				sm.set_selection([_sel_target()])
 			if is_instance_valid(canvas) and canvas.has_method("switch_tool"):
 				canvas.switch_tool("select")
 			return true
@@ -819,11 +874,29 @@ static func _path_state(p: Path2D) -> Dictionary:
 	var pts: Array = []
 	for i in c.point_count:
 		pts.append([c.get_point_position(i), c.get_point_in(i), c.get_point_out(i)])
-	return {"pts": pts, "closed": p.get("closed") if "closed" in p else null,
+	var st := {"pts": pts, "closed": p.get("closed") if "closed" in p else null,
 		"meta_closed": p.get_meta("is_closed") if p.has_meta("is_closed") else null}
+	# Trazo de pincel: sus puntos reales (el auxiliar desaparece al salir).
+	var line := BrushNodes.line_of(p)
+	if line:
+		st["line"] = line
+		st["line_pts"] = line.points
+		st["line_nodes"] = line.get_meta(BrushNodes.META_NODES) if line.has_meta(BrushNodes.META_NODES) else null
+	return st
 
 ## Restaura la curva EN SU SITIO (mismo Curve2D: la figura sigue conectada).
 static func _apply_path_state(p: Path2D, st: Dictionary) -> void:
+	var line = st.get("line", null)
+	if line is Line2D and is_instance_valid(line):
+		if is_instance_valid(p) and p.curve is Curve2D:
+			var c0: Curve2D = p.curve
+			c0.clear_points()
+			for e in st["pts"]:
+				c0.add_point(e[0], e[1], e[2])
+		line.points = st["line_pts"]
+		if st.get("line_nodes") != null:
+			line.set_meta(BrushNodes.META_NODES, st["line_nodes"])
+		return
 	if not is_instance_valid(p) or not (p.curve is Curve2D):
 		return
 	var c: Curve2D = p.curve
@@ -837,6 +910,12 @@ static func _apply_path_state(p: Path2D, st: Dictionary) -> void:
 	elif p.has_meta("is_closed"):
 		p.remove_meta("is_closed")
 	p.queue_redraw()
+
+## Firma comparable de un estado (sin la referencia al trazo).
+static func _state_key(st: Dictionary) -> String:
+	var d := st.duplicate()
+	d.erase("line")
+	return var_to_str(d)
 
 func _tx_begin() -> void:
 	if is_instance_valid(edit_path) and edit_path.curve is Curve2D:
@@ -857,7 +936,7 @@ func _tx_commit(action_name: String, extra: Node = null) -> void:
 	if not is_instance_valid(p) or not (p.curve is Curve2D):
 		return
 	var after := _path_state(p)
-	if var_to_str(after) == var_to_str(before) and extra == null:
+	if _state_key(after) == _state_key(before) and extra == null:
 		return
 	var hm := get_node_or_null("/root/HistoryManager")
 	if hm == null or not hm.has_method("register_action"):

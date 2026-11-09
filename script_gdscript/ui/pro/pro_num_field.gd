@@ -161,7 +161,7 @@ func _clamp(v: float) -> float:
 func _fmt(v: float) -> String:
 	if step >= 1.0 and is_equal_approx(v, roundf(v)):
 		return str(int(roundf(v)))
-	if adaptive_step:
+	if adaptive_step or absf(v) < 1.0:
 		var t := String.num(v, _NF.adapt_decimals(v))
 		if t.contains("."):
 			t = t.rstrip("0").trim_suffix(".")
