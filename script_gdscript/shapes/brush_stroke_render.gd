@@ -262,7 +262,7 @@ func _geom_key() -> int:
 		wk = hash([wc.get_instance_id(), acc, wc.bake_resolution, wc.min_value, wc.max_value])
 	return hash([line.points, line.width, wk, line.begin_cap_mode, line.end_cap_mode,
 		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG)),
-		hash(line.get_meta("brush_obj", {})), line.has_meta("brush_texture")])
+		hash(line.get_meta("brush_obj", {})), line.has_meta("brush_texture"), hash(line.get_meta("brush_geo", {}))])
 
 func _build_geom() -> Dictionary:
 	var ax := centerline(line)
@@ -312,7 +312,11 @@ static func centerline(l: Line2D) -> Array:
 	# Un punto al menos cada grosor: en un tramo recto la limpieza deja solo
 	# los extremos, y lo que va por vértice (presión del lápiz, desvanecido
 	# de las puntas) se estiraba por todo el trazo (salía a medio tono).
-	pts = _densify(pts, maxf(l.width, 0.02))
+	var geo: Dictionary = l.get_meta("brush_geo", {}) if l.has_meta("brush_geo") else {}
+	var geo_period := maxf(l.width * float(geo.get("size", 1.5)), 0.05)
+	pts = _densify(pts, maxf(minf(l.width, geo_period / 8.0) if not geo.is_empty() else l.width, 0.02))
+	if not geo.is_empty():
+		pts = _geo_fx(pts, l.width * float(geo.get("amount", 0.5)), geo_period, String(geo.get("type", "wave")), hash(l.points[0]) if l.points.size() > 0 else 0)
 	var n := pts.size()
 	var half := PackedFloat32Array()
 	half.resize(n)
@@ -357,6 +361,40 @@ static func centerline(l: Line2D) -> Array:
 			f = 0.3 + 0.7 * f
 		half[i] = maxf(l.width * 0.5 * f, l.width * 0.01)
 	return [pts, half, cum, flow]
+
+## EFECTO GEOMÉTRICO del eje (VGSE fase 5): ondulado, zigzag o rugoso; mueve
+## los puntos por la normal (forma REAL: se respeta al convertir en contorno,
+## en la sombra y al exportar). Extremos fijos (fundido en el primer y el
+## último periodo).
+static func _geo_fx(pts: PackedVector2Array, amp: float, period: float, kind: String, seed: int) -> PackedVector2Array:
+	var n := pts.size()
+	if n < 3 or amp <= 0.0:
+		return pts
+	var cum := PackedFloat32Array()
+	cum.resize(n)
+	for i in range(1, n):
+		cum[i] = cum[i - 1] + pts[i].distance_to(pts[i - 1])
+	var total := cum[n - 1]
+	var out := pts.duplicate()
+	for i in range(1, n - 1):
+		var d := (pts[i + 1] - pts[i - 1]).normalized()
+		var nrm := Vector2(-d.y, d.x)
+		var t := cum[i] / period
+		var f := 0.0
+		match kind:
+			"zigzag":
+				f = 1.0 - 4.0 * absf(fposmod(t + 0.25, 1.0) - 0.5)
+			"rough":
+				var k := int(floor(t * 2.0))
+				var a := float(hash([seed, k]) & 0xFFFF) / 32767.5 - 1.0
+				var b := float(hash([seed, k + 1]) & 0xFFFF) / 32767.5 - 1.0
+				var fr := t * 2.0 - k
+				f = lerpf(a, b, fr * fr * (3.0 - 2.0 * fr))
+			_:
+				f = sin(t * TAU)
+		var fade := clampf(minf(cum[i], total - cum[i]) / maxf(period, 0.001), 0.0, 1.0)
+		out[i] = pts[i] + nrm * f * amp * fade
+	return out
 
 static func _densify(pts: PackedVector2Array, step: float) -> PackedVector2Array:
 	if pts.size() < 2:

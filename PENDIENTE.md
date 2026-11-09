@@ -94,9 +94,17 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Color, transparencia, degradado 2D (lineal / radial, varias paradas), degradado a lo largo | Existía |
 | Sombreador propio con parámetros y filtros por trazo de pincel | Existía (comprobado: `brush_paint_e2e`) |
 | Texturas dentro del trazo: lienzo, papel, rayas, puntos; siguen el trazo o el papel; escala e intensidad (inspector, con deshacer, se guarda) | Hecho |
-| Texturas desde una imagen del usuario; modos de mezcla por trazo; variación de color aleatoria a lo largo | Pendiente |
-**Fase 5 — Máscaras y efectos**: máscaras, recortes, efectos geométricos,
-filtros, composición, caché incremental.
+| Texturas desde una imagen del usuario; variación de color aleatoria a lo largo | Pendiente |
+| **FALLO: los modos de fusión del panel Capas (Multiplicar, Pantalla, Superponer…) no hacen nada** — `layers_system` llama a `ic.apply("blend_mode", …)` pero InspectorCore no tiene esa propiedad. Para todos los objetos. Multiplicar/Sumar se pueden hacer con CanvasItemMaterial; Pantalla/Superponer/Aclarar/Oscurecer/Diferencia necesitan leer lo de detrás (screen texture / BackBufferCopy por objeto: coste). **Decidir con el usuario** | Pendiente (prioridad alta) |
+**Fase 5 — Máscaras y efectos** (en curso)
+
+| Punto | Estado |
+|---|---|
+| Máscara de recorte con trazos de pincel dentro | Existía (comprobado: `brush_mask_fx_e2e`) |
+| Sombras / efectos en trazos de pincel (TextFx) | Existían (comprobado) |
+| Efectos geométricos del trazo: ondulado, zigzag, rugoso (forma real: contorno, sombra, exportar) | Hecho (inspector «Forma del trazo», amplitud, tamaño de onda) |
+| Caché de geometría (solo se rehace lo que cambia) | Hecho en fase 1 + malla nativa |
+| Composición (modos de fusión) | Ver fallo de modos de fusión (fase 4) |
 **Fase 6 — Optimización y extensiones**: CPU/GPU, pruebas de rendimiento,
 serialización y compatibilidad, pinceles personalizados.
 

@@ -56,6 +56,7 @@ const PROPS := [
 	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
 	"path_text_align", "path_text_offset", "path_text_flip",
 	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
+	"brush_geo", "brush_geo_amount", "brush_geo_size",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -435,6 +436,15 @@ func _read(shape, prop):
 				"brush_texture_mode": return null if tx.is_empty() else String(tx.get("mode", "along"))
 				"brush_texture_scale": return null if tx.is_empty() else float(tx.get("scale", 1.0))
 				_: return null if tx.is_empty() else float(tx.get("strength", 1.0))
+		"brush_geo", "brush_geo_amount", "brush_geo_size":
+			# Efecto geométrico del trazo de pincel (VGSE fase 5).
+			if not (shape is Line2D and shape.get_node_or_null("StrokeRender") != null):
+				return null
+			var gx: Dictionary = shape.get_meta("brush_geo", {}) if shape.has_meta("brush_geo") else {}
+			match prop:
+				"brush_geo": return String(gx.get("type", "none"))
+				"brush_geo_amount": return null if gx.is_empty() else float(gx.get("amount", 0.5))
+				_: return null if gx.is_empty() else float(gx.get("size", 1.5))
 		"path_text_align", "path_text_offset", "path_text_flip":
 			# Texto en trazado (VGSE fase 3): parámetros del trazo enlazado.
 			if not (shape is Line2D and shape.has_meta("brush_ref")):
@@ -1466,6 +1476,25 @@ func _write_prop(shape, prop, value) -> void:
 				if br and br.has_method("_update_material"):
 					br._update_material()
 				shape.queue_redraw()
+		"brush_geo", "brush_geo_amount", "brush_geo_size":
+			if shape is Line2D:
+				var gx: Dictionary = (shape.get_meta("brush_geo", {}) if shape.has_meta("brush_geo") else {}).duplicate()
+				match prop:
+					"brush_geo":
+						if String(value) == "none" or String(value) == "":
+							gx = {}
+						else:
+							gx["type"] = String(value)
+					"brush_geo_amount": gx["amount"] = clampf(float(value), 0.0, 5.0)
+					_: gx["size"] = clampf(float(value), 0.2, 20.0)
+				if gx.is_empty() or not gx.has("type"):
+					if shape.has_meta("brush_geo"):
+						shape.remove_meta("brush_geo")
+				else:
+					shape.set_meta("brush_geo", gx)
+				shape.queue_redraw()
+				if shape.has_meta("effects"):
+					TextFx.sync(shape)   # la sombra sigue a la forma nueva
 		"path_text_align", "path_text_offset", "path_text_flip":
 			if shape is Line2D and shape.has_meta("brush_ref"):
 				var bo: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
