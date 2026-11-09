@@ -49,7 +49,8 @@ var _press_mouse_local: Vector2 = Vector2.ZERO
 
 # ── Constantes de Precisión Visual ────────────────────────────────────────────
 const NODE_RADIUS: float = 5.0
-const HANDLE_RADIUS: float = 3.2
+const HANDLE_RADIUS: float = 3.5
+const NODE_DRAW_PX: float = 4.0   # medio lado del cuadrado del nodo, en px de pantalla
 const CLICK_TOLERANCE: float = 10.0
 
 const COLOR_NODE_FILL: Color = Color(1.0, 1.0, 1.0, 1.0)
@@ -258,9 +259,11 @@ func handle_input(event: InputEvent) -> bool:
 				KEY_ENTER, KEY_KP_ENTER:
 					current_mode = EditMode.IDLE
 					grab_axis = ""
+					_tx_commit("Mover nodos")
 					canvas.queue_redraw()
 					return true
 				KEY_ESCAPE:
+					_tx_cancel()
 					_cancel_grab_logic()
 					current_mode = EditMode.IDLE
 					grab_axis = ""
@@ -272,6 +275,7 @@ func handle_input(event: InputEvent) -> bool:
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			current_mode = EditMode.IDLE
 			grab_axis = ""
+			_tx_commit("Mover nodos")
 			canvas.queue_redraw()
 			return true
 
@@ -297,11 +301,17 @@ func handle_input(event: InputEvent) -> bool:
 	# 3. Ratón convencional: Clics y Doble Clic
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.double_click:
-			return _on_double_click(path_local_mouse)
+			_tx_begin()
+			var dc := _on_double_click(path_local_mouse)
+			_tx_commit("Añadir nodo")
+			return dc
 		elif event.pressed:
+			_tx_begin()
 			return _on_press(path_local_mouse)
 		else:
-			return _on_release(path_local_mouse)
+			var rel := _on_release(path_local_mouse)
+			_tx_commit("Editar nodos")
+			return rel
 
 	if event is InputEventMouseMotion:
 		return _on_motion(path_local_mouse)
@@ -487,15 +497,7 @@ func _on_release(path_local_mouse: Vector2) -> bool:
 		_pending_segment_press = false
 		if is_instance_valid(edit_path) and (edit_path.curve is Curve2D):
 			var curve: Curve2D = edit_path.curve
-			var ins_idx = seg_drag_idx + 1
-			curve.add_point(seg_drag_initial_pt, Vector2.ZERO, Vector2.ZERO, ins_idx)
-			var p_start = curve.get_point_position(seg_drag_idx)
-			var p_end = curve.get_point_position((ins_idx + 1) % curve.point_count)
-			var dist_total = p_start.distance_to(p_end)
-			if dist_total > 0.1:
-				var d_vector = (p_end - p_start).normalized() * (dist_total * 0.15)
-				curve.set_point_in(ins_idx, -d_vector)
-				curve.set_point_out(ins_idx, d_vector)
+			var ins_idx := _insert_node_at(curve, seg_drag_idx, _closest_t(curve, seg_drag_idx, seg_drag_initial_pt))
 			selected_nodes = [ins_idx]
 			_sync()
 			current_mode = EditMode.IDLE
@@ -517,18 +519,8 @@ func _on_double_click(path_local_mouse: Vector2) -> bool:
 	if path_local_mouse.distance_to(closest_path_local) <= CLICK_TOLERANCE * 2.0:
 		var seg_idx = _find_segment_index_by_point(closest_path_local)
 		if seg_idx != -1:
-			var p_start = curve.get_point_position(seg_idx)
-			var p_end = curve.get_point_position((seg_idx + 1) % curve.point_count)
-			
-			curve.add_point(closest_path_local, Vector2.ZERO, Vector2.ZERO, seg_idx + 1)
-			
-			var dist_total = p_start.distance_to(p_end)
-			if dist_total > 0.1:
-				var d_vector = (p_end - p_start).normalized() * (dist_total * 0.15)
-				curve.set_point_in(seg_idx + 1, -d_vector)
-				curve.set_point_out(seg_idx + 1, d_vector)
-
-			selected_nodes = [seg_idx + 1]
+			var ni := _insert_node_at(curve, seg_idx, _closest_t(curve, seg_idx, closest_path_local))
+			selected_nodes = [ni]
 			_sync()
 			return true
 	return false
@@ -610,6 +602,7 @@ func _start_grab_mode(path_local_mouse: Vector2) -> void:
 	grab_axis = ""
 	grab_origin_mouse_local = path_local_mouse
 	_save_snapshot()
+	_tx_begin()
 	canvas.queue_redraw()
 
 func _apply_grab_logic(path_local_mouse: Vector2) -> void:
@@ -646,6 +639,61 @@ func _save_snapshot() -> void:
 		snap_nodes_positions[idx] = curve.get_point_position(idx)
 		snap_handles_in[idx] = curve.get_point_in(idx)
 		snap_handles_out[idx] = curve.get_point_out(idx)
+
+# ── Insertar un nodo SIN deformar la curva (De Casteljau) ────────────────────
+# Antes se añadía con tiradores inventados (15 % de la cuerda) y sin tocar los
+# vecinos: la línea cambiaba de forma. Ahora el tramo se parte en dos curvas
+# que, juntas, son exactamente la original (como Illustrator / Affinity).
+
+## [P0, C1, C2, P3] del tramo i (el último de un trazado cerrado vuelve al 0).
+func _seg_ctrl(curve: Curve2D, i: int) -> Array:
+	var j := (i + 1) % curve.point_count
+	var p0 := curve.get_point_position(i)
+	var p3 := curve.get_point_position(j)
+	return [p0, p0 + curve.get_point_out(i), p3 + curve.get_point_in(j), p3]
+
+static func _bez(c: Array, t: float) -> Vector2:
+	var u := 1.0 - t
+	return c[0] * u * u * u + c[1] * 3.0 * u * u * t + c[2] * 3.0 * u * t * t + c[3] * t * t * t
+
+## t del punto del tramo i más cercano a `p` (muestreo + refinado).
+func _closest_t(curve: Curve2D, i: int, p: Vector2) -> float:
+	var c := _seg_ctrl(curve, i)
+	var best_t := 0.0
+	var best_d := INF
+	for k in 65:
+		var t := float(k) / 64.0
+		var d := p.distance_squared_to(_bez(c, t))
+		if d < best_d:
+			best_d = d
+			best_t = t
+	var lo := maxf(best_t - 1.0 / 64.0, 0.0)
+	var hi := minf(best_t + 1.0 / 64.0, 1.0)
+	for _it in 30:
+		var m1 := lerpf(lo, hi, 1.0 / 3.0)
+		var m2 := lerpf(lo, hi, 2.0 / 3.0)
+		if p.distance_squared_to(_bez(c, m1)) < p.distance_squared_to(_bez(c, m2)):
+			hi = m2
+		else:
+			lo = m1
+	return (lo + hi) * 0.5
+
+## Parte el tramo i en t: nuevo nodo en i+1 con tiradores exactos y los de
+## los vecinos acortados. Devuelve el índice del nodo nuevo.
+func _insert_node_at(curve: Curve2D, i: int, t: float) -> int:
+	t = clampf(t, 0.001, 0.999)
+	var j := (i + 1) % curve.point_count
+	var c := _seg_ctrl(curve, i)
+	var q0: Vector2 = (c[0] as Vector2).lerp(c[1], t)
+	var q1: Vector2 = (c[1] as Vector2).lerp(c[2], t)
+	var q2: Vector2 = (c[2] as Vector2).lerp(c[3], t)
+	var r0 := q0.lerp(q1, t)
+	var r1 := q1.lerp(q2, t)
+	var sp := r0.lerp(r1, t)
+	curve.set_point_out(i, q0 - c[0])
+	curve.set_point_in(j, q2 - c[3])
+	curve.add_point(sp, r0 - sp, r1 - sp, i + 1)
+	return i + 1
 
 func _find_segment_index_by_point(path_local_pt: Vector2) -> int:
 	if not is_instance_valid(edit_path) or not (edit_path.curve is Curve2D):
@@ -760,6 +808,84 @@ func _toggle_select_all() -> void:
 			selected_nodes.append(i)
 	canvas.queue_redraw()
 
+# ── Deshacer / rehacer de la edición de nodos ────────────────────────────────
+# Cada gesto (arrastrar nodo / tirador / tramo, añadir, borrar, G, modo de
+# nodo, cerrar, dividir) es UN paso de historial. Antes no se guardaba nada.
+var _tx_path: Path2D = null
+var _tx_before: Dictionary = {}
+
+static func _path_state(p: Path2D) -> Dictionary:
+	var c: Curve2D = p.curve
+	var pts: Array = []
+	for i in c.point_count:
+		pts.append([c.get_point_position(i), c.get_point_in(i), c.get_point_out(i)])
+	return {"pts": pts, "closed": p.get("closed") if "closed" in p else null,
+		"meta_closed": p.get_meta("is_closed") if p.has_meta("is_closed") else null}
+
+## Restaura la curva EN SU SITIO (mismo Curve2D: la figura sigue conectada).
+static func _apply_path_state(p: Path2D, st: Dictionary) -> void:
+	if not is_instance_valid(p) or not (p.curve is Curve2D):
+		return
+	var c: Curve2D = p.curve
+	c.clear_points()
+	for e in st["pts"]:
+		c.add_point(e[0], e[1], e[2])
+	if st["closed"] != null and "closed" in p:
+		p.set("closed", st["closed"])
+	if st["meta_closed"] != null:
+		p.set_meta("is_closed", st["meta_closed"])
+	elif p.has_meta("is_closed"):
+		p.remove_meta("is_closed")
+	p.queue_redraw()
+
+func _tx_begin() -> void:
+	if is_instance_valid(edit_path) and edit_path.curve is Curve2D:
+		_tx_path = edit_path
+		_tx_before = _path_state(edit_path)
+	else:
+		_tx_path = null
+
+func _tx_cancel() -> void:
+	_tx_path = null
+	_tx_before = {}
+
+## Guarda el paso si la curva cambió. `extra`: figura nueva creada (dividir).
+func _tx_commit(action_name: String, extra: Node = null) -> void:
+	var p := _tx_path
+	var before := _tx_before
+	_tx_cancel()
+	if not is_instance_valid(p) or not (p.curve is Curve2D):
+		return
+	var after := _path_state(p)
+	if var_to_str(after) == var_to_str(before) and extra == null:
+		return
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm == null or not hm.has_method("register_action"):
+		return
+	var me: WeakRef = weakref(self)
+	var extra_parent: Node = extra.get_parent() if is_instance_valid(extra) else null
+	var extra_idx: int = extra.get_index() if is_instance_valid(extra) else -1
+	var fix_sel := func(st: Dictionary) -> void:
+		var t = me.get_ref()
+		if t and is_instance_valid(t.edit_path) and t.edit_path == p:
+			var n: int = (st["pts"] as Array).size()
+			t.selected_nodes = t.selected_nodes.filter(func(i): return i < n)
+			if is_instance_valid(t.canvas):
+				t.canvas.queue_redraw()
+	hm.register_action(action_name)
+	hm.add_do(func() -> void:
+		_apply_path_state(p, after)
+		if is_instance_valid(extra) and extra_parent and extra.get_parent() == null:
+			extra_parent.add_child(extra)
+			extra_parent.move_child(extra, mini(extra_idx, extra_parent.get_child_count() - 1))
+		fix_sel.call(after))
+	hm.add_undo(func() -> void:
+		_apply_path_state(p, before)
+		if is_instance_valid(extra) and extra.get_parent() != null:
+			extra.get_parent().remove_child(extra)
+		fix_sel.call(before))
+	hm.commit()
+
 func _sync() -> void:
 	if is_instance_valid(edit_path):
 		edit_path.queue_redraw()
@@ -782,6 +908,7 @@ func delete_selected_nodes() -> void:
 		return
 
 	_save_snapshot()
+	_tx_begin()
 
 	var to_remove = selected_nodes.duplicate()
 	to_remove.sort()
@@ -796,6 +923,7 @@ func delete_selected_nodes() -> void:
 	if curve.point_count < 3 and ("closed" in edit_path) and edit_path.closed:
 		edit_path.closed = false
 
+	_tx_commit("Borrar nodos")
 	if curve.point_count == 0:
 		edit_path = null
 
@@ -809,8 +937,10 @@ func join_or_close_path() -> void:
 		return
 
 	_save_snapshot()
+	_tx_begin()
 	if "closed" in edit_path:
 		edit_path.closed = not edit_path.closed
+	_tx_commit("Cerrar / abrir trazado")
 	_sync()
 
 func split_curve_at_selected() -> void:
@@ -821,17 +951,19 @@ func split_curve_at_selected() -> void:
 		return
 
 	_save_snapshot()
+	_tx_begin()
+	var created: Node = null
 
 	var is_closed: bool = edit_path.closed if ("closed" in edit_path) else (edit_path.has_meta("is_closed") and bool(edit_path.get_meta("is_closed")))
 
 	# Si hay un segmento sobrevolado activo, insertar un punto de división en ese segmento
 	if hovered_segment_idx != -1 and hovered_segment_idx < (curve.point_count if is_closed else curve.point_count - 1):
-		var ins_idx := hovered_segment_idx + 1
-		curve.add_point(hovered_segment_point, Vector2.ZERO, Vector2.ZERO, ins_idx)
+		var ins_idx := _insert_node_at(curve, hovered_segment_idx, _closest_t(curve, hovered_segment_idx, hovered_segment_point))
 		selected_nodes = [ins_idx]
 		hovered_segment_idx = -1
 
 	if selected_nodes.is_empty():
+		_tx_commit("Añadir nodo")
 		return
 
 	var split_idx = selected_nodes[0]
@@ -867,6 +999,8 @@ func split_curve_at_selected() -> void:
 				new_p.set("stroke_width", edit_path.get("stroke_width"))
 			parent.add_child(new_p)
 			new_p.global_transform = edit_path.global_transform
+			created = new_p
+	_tx_commit("Dividir trazado", created)
 	_sync()
 
 func set_selected_nodes_mode(mode: String) -> void:
@@ -877,6 +1011,7 @@ func set_selected_nodes_mode(mode: String) -> void:
 		return
 
 	_save_snapshot()
+	_tx_begin()
 	var n_pts = curve.point_count
 	var is_closed: bool = edit_path.closed if ("closed" in edit_path) else (edit_path.has_meta("is_closed") and bool(edit_path.get_meta("is_closed")))
 
@@ -966,6 +1101,7 @@ func set_selected_nodes_mode(mode: String) -> void:
 				curve.set_point_in(idx, Vector2.ZERO)
 				curve.set_point_out(idx, Vector2.ZERO)
 
+	_tx_commit("Tipo de nodo")
 	_sync()
 
 # ── Renderizado Overlays en Pantalla ──────────────────────────────────────────
@@ -979,9 +1115,12 @@ func draw_preview(c: Node2D) -> void:
 	var inv: float = 1.0 / clampf(zoom, 0.0002, 100000.0)
 
 	var base_h_radius: float = canvas.get_meta("bezier_handle_radius") if (is_instance_valid(canvas) and canvas.has_meta("bezier_handle_radius")) else HANDLE_RADIUS
-	var r_node: float = maxf(NODE_RADIUS * inv, 3.5)
-	var r_handle: float = maxf(base_h_radius * inv, 2.4)
-	var thickness: float = maxf(1.5 * inv, 0.8)
+	# Todo en píxeles de PANTALLA (× inv): mismo tamaño a cualquier zoom, como
+	# el recuadro de selección. Antes los mínimos estaban en unidades del
+	# dibujo (p. ej. 3,5) y con mucho zoom los nodos se veían enormes.
+	var r_node: float = NODE_DRAW_PX * inv
+	var r_handle: float = base_h_radius * inv
+	var thickness: float = 1.0 * inv
 
 	var force_all_handles: bool = bool(canvas.get_meta("bezier_show_all_handles")) if (is_instance_valid(canvas) and canvas.has_meta("bezier_show_all_handles")) else true
 
@@ -1013,24 +1152,29 @@ func draw_preview(c: Node2D) -> void:
 		if hovered_segment_idx < num_segs:
 			var hi_col: Color = _get_segment_highlight_color()
 			var seg_pts: PackedVector2Array = PackedVector2Array()
-			var num_samples := 24
+			# Puntos según lo largo que se ve en pantalla (con mucho zoom, 24
+			# puntos dejaban la línea quebrada y fuera del trazo).
+			var a0 := edit_path.to_global(curve.get_point_position(hovered_segment_idx))
+			var a1 := edit_path.to_global(curve.get_point_position((hovered_segment_idx + 1) % curve.point_count))
+			var screen_len: float = (a1.distance_to(a0) + (curve.get_point_out(hovered_segment_idx).length() + curve.get_point_in((hovered_segment_idx + 1) % curve.point_count).length()) * edit_path.global_scale.x) * zoom
+			var num_samples := clampi(int(screen_len / 3.0), 24, 2000)
 			for s in range(num_samples + 1):
 				var t_val := float(s) / float(num_samples)
 				var pt_loc := curve.sample(hovered_segment_idx, t_val)
 				seg_pts.append(c.to_local(edit_path.to_global(pt_loc)))
 			if seg_pts.size() >= 2:
-				c.draw_polyline(seg_pts, hi_col, maxf(thickness * 2.6, 2.2))
+				c.draw_polyline(seg_pts, hi_col, 1.5 * inv, true)
 
 			# Marca perpendicular azul en la coordenada exacta del cursor sobre la curva
 			var tick_canvas := c.to_local(edit_path.to_global(hovered_segment_point))
 			var norm_world := edit_path.to_global(hovered_segment_point + hovered_segment_normal) - edit_path.to_global(hovered_segment_point)
 			var norm_screen := norm_world.normalized()
-			var tick_half_len: float = maxf(8.0 * inv, 7.0)
+			# Marca corta y fina (como Affinity): 10 px, 1,25 px, halo blanco suave.
+			var tick_half_len: float = 5.0 * inv
 			var p_t1 := tick_canvas - norm_screen * tick_half_len
 			var p_t2 := tick_canvas + norm_screen * tick_half_len
-			c.draw_line(p_t1, p_t2, Color(0.0, 0.0, 0.0, 0.8), maxf(thickness * 3.0, 2.8))
-			c.draw_line(p_t1, p_t2, COLOR_TICK_BLUE, maxf(thickness * 1.8, 1.6))
-			c.draw_circle(tick_canvas, maxf(2.4 * inv, 2.0), COLOR_TICK_BLUE)
+			c.draw_line(p_t1, p_t2, Color(1.0, 1.0, 1.0, 0.85), 3.0 * inv, true)
+			c.draw_line(p_t1, p_t2, COLOR_TICK_BLUE, 1.25 * inv, true)
 
 	# Nodos y Tiradores
 	for i in range(curve.point_count):
@@ -1050,19 +1194,19 @@ func draw_preview(c: Node2D) -> void:
 
 			if h_in != Vector2.ZERO:
 				var h_in_canvas = c.to_local(edit_path.to_global(p_local + h_in))
-				c.draw_line(p_canvas, h_in_canvas, h_line_col, thickness)
+				c.draw_line(p_canvas, h_in_canvas, h_line_col, thickness, true)
 				c.draw_circle(h_in_canvas, r_handle, Color.WHITE)
-				c.draw_arc(h_in_canvas, r_handle, 0.0, TAU, 20, h_stroke_col, thickness)
+				c.draw_arc(h_in_canvas, r_handle, 0.0, TAU, 20, h_stroke_col, thickness, true)
 
 			if h_out != Vector2.ZERO:
 				var h_out_canvas = c.to_local(edit_path.to_global(p_local + h_out))
-				c.draw_line(p_canvas, h_out_canvas, h_line_col, thickness)
+				c.draw_line(p_canvas, h_out_canvas, h_line_col, thickness, true)
 				c.draw_circle(h_out_canvas, r_handle, Color.WHITE)
-				c.draw_arc(h_out_canvas, r_handle, 0.0, TAU, 20, h_stroke_col, thickness)
+				c.draw_arc(h_out_canvas, r_handle, 0.0, TAU, 20, h_stroke_col, thickness, true)
 
 		# Dibujar puntos de anclaje (cuadrados estilo Illustrator/Figma) con halo de alto contraste
 		var node_box = Rect2(p_canvas - Vector2(r_node, r_node), Vector2(r_node * 2.0, r_node * 2.0))
-		c.draw_rect(node_box.grow(1.2 * inv), Color(0.0, 0.0, 0.0, 0.55), false, thickness)
+		c.draw_rect(node_box.grow(1.0 * inv), Color(1.0, 1.0, 1.0, 0.7), false, thickness)
 		if is_selected:
 			# Relleno rojo vivo para máxima visibilidad (pedido explícito por el usuario)
 			c.draw_rect(node_box, COLOR_NODE_SELECTED, true)

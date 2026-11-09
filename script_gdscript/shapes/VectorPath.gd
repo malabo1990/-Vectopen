@@ -265,15 +265,122 @@ func _area_color() -> Color:
 ## cruza a sí mismo (dos Bézier que se cortan, una «S» cerrada) la
 ## triangulación falla y antes no se dibujaba NADA: ni relleno ni recorte.
 ## Se parte en piezas simples (con agujeros) y se rellenan esas.
+## Regla de «no cero» (la de Illustrator / Affinity): se rellenan TODAS las
+## zonas cerradas, recorridas en un sentido o en el otro. Ojo: la
+## triangulación de Godot «funciona» con un contorno que se cruza pero deja
+## el relleno a medias (faltaban lazos enteros). Se une el contorno consigo
+## mismo (Clipper): sale el área real, con sus huecos si los hay.
 static func fill_polygons(pts: PackedVector2Array) -> Array:
 	if pts.size() < 3:
 		return []
-	if not Geometry2D.triangulate_polygon(pts).is_empty():
+	var union: Array = Geometry2D.merge_polygons(pts, pts)
+	var whole := absf(_signed_area(pts))
+	# Contorno simple (no se cruza): una sola pieza con su misma área.
+	if union.size() == 1 and absf(absf(_signed_area(union[0])) - whole) <= maxf(whole * 0.001, 0.01) \
+			and not Geometry2D.triangulate_polygon(pts).is_empty():
 		return [pts]
-	var pieces: Array = Geometry2D.merge_polygons(pts, PackedVector2Array())
-	if pieces.is_empty():
+	if union.is_empty():
 		return []
-	return StrokeGeom.evenodd_fill(pieces)
+	# Las zonas se tocan en los puntos de cruce: la unión puede salir como un
+	# contorno «pellizcado» que no se triangula. Se separa en anillos simples.
+	var rings: Array = []
+	for r in union:
+		rings.append_array(_split_pinched(r))
+	return _nest_fill(rings)
+
+## Relleno de anillos simples con sus huecos: cada anillo se mide desde un
+## punto de su INTERIOR (los anillos comparten los puntos de cruce, y medir
+## desde un vértice daba resultados al azar). Profundidad par = relleno,
+## sus hijos directos = huecos. Nunca deja una zona sin pintar: un hueco que
+## rompe la pieza se omite, y una pieza que no se triangula se corta en
+## franjas (antes «decompose» fallaba, la zona parpadeaba y salía un error).
+static func _nest_fill(rings_in: Array) -> Array:
+	# Fuera los lazos microscópicos (donde un nodo toca otro tramo).
+	var total := 0.0
+	for r in rings_in:
+		total += absf(_signed_area(r))
+	var rings: Array = []
+	for r in rings_in:
+		if absf(_signed_area(r)) > maxf(total * 1e-5, 0.05):
+			rings.append(r)
+	var n := rings.size()
+	var probe := PackedVector2Array()
+	probe.resize(n)
+	var tri_ok: Array = []
+	for i in n:
+		var r: PackedVector2Array = rings[i]
+		var idx := Geometry2D.triangulate_polygon(r)
+		tri_ok.append(not idx.is_empty())
+		probe[i] = ((r[idx[0]] + r[idx[1]] + r[idx[2]]) / 3.0) if not idx.is_empty() else r[0]
+	var depth := PackedInt32Array()
+	depth.resize(n)
+	for i in n:
+		var d := 0
+		for j in n:
+			if i != j and Geometry2D.is_point_in_polygon(probe[i], rings[j]):
+				d += 1
+		depth[i] = d
+	var out: Array = []
+	for i in n:
+		if depth[i] % 2 == 1:
+			continue
+		var poly: PackedVector2Array = rings[i]
+		var ok: bool = tri_ok[i]
+		for j in n:
+			if depth[j] == depth[i] + 1 and Geometry2D.is_point_in_polygon(probe[j], rings[i]):
+				var cand := StrokeGeom.bridge(poly, rings[j])
+				if not Geometry2D.triangulate_polygon(cand).is_empty():
+					poly = cand
+					ok = true
+		if ok:
+			out.append(poly)
+		else:
+			out.append_array(_strip_fill(rings[i]))
+	return out
+
+## Plan B: la pieza cortada en franjas verticales (Clipper devuelve trozos
+## simples) y se pintan los que se triangulan. Sin errores en el depurador.
+static func _strip_fill(poly: PackedVector2Array, n_strips: int = 24) -> Array:
+	var out: Array = []
+	var r := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		r = r.expand(q)
+	var w := maxf(r.size.x, 0.0001) / float(n_strips)
+	for si in n_strips:
+		var x0 := r.position.x + si * w - 0.001
+		var x1 := x0 + w + 0.002
+		var strip := PackedVector2Array([Vector2(x0, r.position.y - 1.0), Vector2(x1, r.position.y - 1.0), Vector2(x1, r.end.y + 1.0), Vector2(x0, r.end.y + 1.0)])
+		for piece in Geometry2D.intersect_polygons(poly, strip):
+			if (piece as PackedVector2Array).size() >= 3 and not Geometry2D.triangulate_polygon(piece).is_empty():
+				out.append(piece)
+	return out
+
+## Parte un anillo que pasa dos veces por el mismo punto en anillos simples.
+static func _split_pinched(ring: PackedVector2Array) -> Array:
+	var out: Array = []
+	var stack := PackedVector2Array()
+	for q in ring:
+		var hit := -1
+		for k in stack.size():
+			if stack[k].distance_squared_to(q) < 1e-6:
+				hit = k
+				break
+		if hit >= 0:
+			var loop := stack.slice(hit)
+			if loop.size() >= 3:
+				out.append(loop)
+			stack = stack.slice(0, hit)
+		stack.append(q)
+	if stack.size() >= 3:
+		out.append(stack)
+	return out
+
+static func _signed_area(p: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in p.size():
+		a += p[i].cross(p[(i + 1) % p.size()])
+	return a * 0.5
+
 
 ## Puntos de una curva CERRADA incluyendo el tramo de cierre (último → primero)
 ## con sus asas. Curve2D no tiene ese tramo: antes se cerraba con una recta y

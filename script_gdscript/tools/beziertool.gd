@@ -253,11 +253,12 @@ func draw_preview(c: Node2D) -> void:
 	var vp := c.get_viewport()
 	var zoom: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
 	var inv: float = 1.0 / clampf(zoom, 0.0002, 100000.0)
-	var lw: float = maxf(1.5 * inv, 0.6)
-	var base_h_radius: float = canvas.get_meta("bezier_handle_radius") if (is_instance_valid(canvas) and canvas.has_meta("bezier_handle_radius")) else 3.2
-	var node_half: float = maxf(4.5 * inv, 3.0)
-	var handle_radius: float = maxf(base_h_radius * inv, 2.4)
-	var handle_border: float = maxf(1.2 * inv, 0.6)
+	# En px de pantalla (× inv): mismo tamaño a cualquier zoom.
+	var lw: float = 1.0 * inv
+	var base_h_radius: float = canvas.get_meta("bezier_handle_radius") if (is_instance_valid(canvas) and canvas.has_meta("bezier_handle_radius")) else 3.5
+	var node_half: float = 4.0 * inv
+	var handle_radius: float = base_h_radius * inv
+	var handle_border: float = 1.0 * inv
 
 	var path_or_ab: Node2D = path_to_draw if is_instance_valid(path_to_draw) else target_artboard
 
