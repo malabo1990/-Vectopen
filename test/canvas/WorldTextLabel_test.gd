@@ -130,6 +130,20 @@ func test_artboard_titulo_es_world_text_label() -> void:
 	assert_that(label is WorldTextLabel).is_true()
 	scene.queue_free()
 
+# 6 bis. El título muestra el NOMBRE de la mesa y sigue al renombrarla
+func test_artboard_titulo_muestra_su_nombre() -> void:
+	var scene: Node2D = load("res://scenes/canvas/canvas.tscn").instantiate()
+	add_child(scene)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var artboard := scene.get_node_or_null("ArtboardsContainer/Artboard")
+	var label := artboard.get_node_or_null("ArtboardTitle") as Label
+	assert_str(label.text).is_equal(String(artboard.name))
+	artboard.name = "Póster A3"
+	await get_tree().process_frame
+	assert_str(label.text).is_equal("Póster A3")
+	scene.queue_free()
+
 # 7. Alineaciones horizontal y vertical dentro de la caja de mundo (bounding box)
 func test_world_text_label_alineaciones_horizontal_y_vertical_bounding_box() -> void:
 	var l := _nuevo_label(24, "Hola")

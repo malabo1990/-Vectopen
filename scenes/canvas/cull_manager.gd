@@ -61,17 +61,26 @@ func _find_camera() -> void:
 	if canvas and "camera" in canvas and canvas.camera is Camera2D:
 		camera = canvas.camera
 
-var _thin_zoom := -1.0
+var _thin_zoom := -1.0        # zoom con el que se redibujaron los trazos finos
+var _thin_last := -1.0        # zoom del fotograma anterior
+var _thin_still := 0          # fotogramas seguidos con el zoom quieto
 
-## Trazos finos (cerca de 1 px de pantalla): se redibujan al cambiar el zoom
-## para que su grosor mínimo siga siendo 1 px de pantalla.
+## Trazos finos (cerca de 1 px de pantalla): se redibujan cuando el zoom se
+## DETIENE (3 fotogramas quieto) y ha cambiado > 15 %, para que su grosor
+## mínimo siga siendo 1 px de pantalla. Redibujarlos en cada paso del zoom
+## costaba mucho con miles de figuras alejadas (10 000 → 1,7 fps al hacer zoom).
 func _watch_thin_strokes() -> void:
 	if not is_instance_valid(camera):
 		_find_camera()
 		if not is_instance_valid(camera):
 			return
 	var z: float = camera.zoom.x
-	if not is_equal_approx(z, _thin_zoom):
+	if is_equal_approx(z, _thin_last):
+		_thin_still += 1
+	else:
+		_thin_still = 0
+		_thin_last = z
+	if _thin_still == 3 and (_thin_zoom <= 0.0 or absf(z / _thin_zoom - 1.0) > 0.15):
 		_thin_zoom = z
 		get_tree().call_group("vo_thin_stroke", "queue_redraw")
 

@@ -52,7 +52,11 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 	var ci := n as CanvasItem
 	if not ci.visible:
 		return
-	var op := opacity * ci.modulate.a * ci.self_modulate.a
+	# Un trazo de pincel oculta su línea nativa (self_modulate 0) porque lo
+	# dibuja su StrokeRender: no cuenta para la opacidad (antes, por eso,
+	# ningún trazo de pincel salía en SVG / PDF / EPS).
+	var is_brush: bool = n is Line2D and n.get_node_or_null("StrokeRender") != null
+	var op := opacity * ci.modulate.a * (1.0 if is_brush else ci.self_modulate.a)
 	if op <= 0.001:
 		return
 	if not (n is Node2D):
@@ -68,6 +72,8 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 		_path2d(n, xf, op, out)
 	elif n is Sprite2D:
 		_sprite(n, xf, op, out)
+	elif n is Line2D and is_brush:
+		_brush(n as Line2D, xf, op, out)
 	elif n is Line2D:
 		var l := n as Line2D
 		if l.points.size() >= 2:
@@ -83,6 +89,32 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 			_walk(ch, inv, op, out)
 		return
 	_child_layers(n, n0, inv, op, out)
+
+## Trazo de pincel con su forma REAL: contorno con presión y remates
+## (relleno del color del trazo); pincel de figuras y texto en trazado, cada
+## figura / letra con su color.
+static func _brush(l: Line2D, xf: Transform2D, op: float, out: Dictionary) -> void:
+	if l.points.size() < 1:
+		return
+	var R = load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
+	var ax: Array = R.centerline(l)
+	if String(l.get_meta("brush_style", "")) == "object":
+		var OB = load("res://script_gdscript/shapes/object_brush.gd")
+		var bo: Dictionary = l.get_meta("brush_obj", {})
+		var src: Array = OB.from_data(bo.get("src", []))
+		if src.is_empty():
+			src = OB.preset("star")
+		var tint: Color = l.default_color
+		for pc in OB.outlines(ax[0], ax[1], src, bo.get("params", {})):
+			var col: Color = pc["col"] * tint
+			out["items"].append(_item(_lines(xf, [pc["pts"]], true), col, null, 0.0, op, 0, false))
+		return
+	var caps := {Line2D.LINE_CAP_ROUND: 1, Line2D.LINE_CAP_BOX: 2}
+	var rings: Array = SG.outline(ax[0], ax[1], caps.get(l.begin_cap_mode, 0), caps.get(l.end_cap_mode, 0))
+	if rings.is_empty():
+		return
+	out["items"].append(_item(_lines(xf, rings, true), l.default_color, null, 0.0, op, 0, false))
 
 ## VAL-14: capas metidas dentro de una figura (p. ej. una foto dentro de un
 ## círculo). Si la figura es máscara (`clip_children`), su contorno recorta a

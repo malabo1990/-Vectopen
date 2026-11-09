@@ -908,6 +908,11 @@ func _process(_delta: float) -> void:
 		_title_script = scr
 	return _title_script
 
+func _on_artboard_renamed() -> void:
+	var label := get_node_or_null("ArtboardTitle") as Label
+	if label:
+		label.text = String(name)
+
 func _verificar_y_crear_titulo() -> void:
 	var label := get_node_or_null("ArtboardTitle") as Label
 	if not label:
@@ -919,7 +924,10 @@ func _verificar_y_crear_titulo() -> void:
 	elif label.get_script() == null:
 		label.set_script(_get_title_script())
 
-	label.text = "Artboard"
+	# El nombre REAL de la mesa (antes siempre «Artboard»), y al renombrarla.
+	label.text = String(name)
+	if not renamed.is_connected(_on_artboard_renamed):
+		renamed.connect(_on_artboard_renamed)
 	label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	label.add_theme_font_size_override("font_size", 12)
 	label.position = Vector2(0, -22)

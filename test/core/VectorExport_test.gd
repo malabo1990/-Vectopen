@@ -619,3 +619,34 @@ func test_puntas_de_flecha_se_exportan() -> void:
 	var last: Vector2 = body["subs"][0]["ops"].back().back()
 	assert_float(last.y).is_greater(105.0)
 	assert_str(VX.to_svg(VX.collect(_ab))).contains("Z")
+
+## Los trazos de pincel salen en SVG / PDF / EPS con su forma real (antes
+## ninguno: su línea nativa está oculta y se saltaban). El de figuras, con
+## cada figura y su color.
+func test_trazos_de_pincel_se_exportan() -> void:
+	var R = load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var l := Line2D.new()
+	l.points = PackedVector2Array([Vector2(50, 300), Vector2(200, 260), Vector2(350, 320)])
+	l.width = 12.0
+	l.default_color = Color(0.8, 0.1, 0.2)
+	l.set_meta("brush_style", "pen")
+	_api.add(l)
+	R.attach(l)
+	var ob := Line2D.new()
+	ob.points = PackedVector2Array([Vector2(50, 500), Vector2(400, 500)])
+	ob.width = 20.0
+	ob.set_meta("brush_style", "object")
+	_api.add(ob)
+	R.attach(ob)
+	var d: Dictionary = VX.collect(_ab, true)
+	var red := 0
+	var stars := 0
+	for it in d["items"]:
+		if it["fill"] is Color and (it["fill"] as Color).is_equal_approx(Color(0.8, 0.1, 0.2)):
+			red += 1
+		elif it["fill"] is Color:
+			stars += 1
+	assert_int(red).is_equal(1)
+	assert_int(stars).is_greater(3)
+	var svg: String = VX.to_svg(d)
+	assert_bool(svg.contains("#cc1a33")).is_true()
