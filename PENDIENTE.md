@@ -116,7 +116,8 @@ cambiar anchura y pincel después de dibujar, guardar y recuperar.
 | Panel de Capas congelaba con miles de capas (fotogramas de 2–4 s) | Hecho (`133477a`): grupos grandes por demanda, tandas de 200 |
 | Guardar / cargar no pierde elementos | Comprobado (mismo recuento antes y después) |
 | Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | En curso: texto 83 → 39 KB (editor en línea por demanda); figuras ~22 KB y trazos ~24 KB por elemento siguen |
-| Dibujar con todo a la vista (50 000 → 3 fps) y zoom: nivel de detalle / caché al alejar | Pendiente |
+| Dibujar con todo a la vista (50 000 → 3 fps) y zoom: nivel de detalle / caché al alejar | En curso: 10 000 visibles 21 → 52 fps (lápiz sin grupo salvo pliegues; CullManager conectado a la cámara, textos sin _process con la vista quieta). Quedan ~1,8 llamadas de dibujo por elemento |
+| CullManager: «dormir» páginas lejanas (stream_artboards) | Apagado: nunca funcionó (no tenía cámara); activarlo cambia mucho el comportamiento — probar con documentos de muchas páginas antes |
 | Seleccionar todo (50 000 → 5 s) y mover la selección (630 ms por paso) | Pendiente |
 
 **Escala de la interfaz**: hecho — `ui_scale.gd` (automática por escala del

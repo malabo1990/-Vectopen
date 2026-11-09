@@ -143,7 +143,10 @@ var _group: CanvasGroup = null
 ## opaca dentro de un CanvasGroup interno y el grupo lleva la opacidad.
 func _set_group(alpha: float) -> void:
 	# El lápiz siempre en grupo (ver _shader_for: escribe sin mezclar).
-	var translucent := alpha < 0.999 or style_id(line) == 1
+	# Lápiz: grupo (escritura sin mezclar) SOLO si el trazo se pliega; cada
+	# grupo es un pase aparte en la GPU (2000 lápices = más de la mitad del
+	# fotograma con 10 000 elementos).
+	var translucent := alpha < 0.999 or _pencil_folds
 	if translucent and _group == null:
 		_group = CanvasGroup.new()
 		_group.name = "OpacityGroup"
@@ -174,6 +177,10 @@ func _draw() -> void:
 		_geom = _build_geom()
 		_geom_cache_key = key
 		geom_builds += 1
+		var folds := style_id(line) == 1 and bool(_geom.get("folds", false))
+		if folds != _pencil_folds:
+			_pencil_folds = folds
+			_update_material()
 	var ax: Array = _geom["ax"]
 	pts = ax[0]
 	var half: PackedFloat32Array = ax[1]
@@ -215,6 +222,26 @@ func _draw() -> void:
 	# El estilo (grano del lápiz, tinta del rotulador, aerógrafo) lo pinta el
 	# sombreador sin imágenes; antes eran texturas repetidas en el Line2D.
 	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols, _geom["uvs"])
+
+var _pencil_folds := false
+
+## ¿El trazo se PLIEGA sobre sí mismo? (giro con radio menor que el medio
+## grosor: el lado interior de la malla se solapa). Solo entonces el lápiz
+## necesita su grupo (sin él, el solape se pinta dos veces: cuñas negras).
+static func _has_folds(pts: PackedVector2Array, half: PackedFloat32Array) -> bool:
+	for i in range(1, pts.size() - 1):
+		var a := pts[i] - pts[i - 1]
+		var b := pts[i + 1] - pts[i]
+		var la := a.length()
+		var lb := b.length()
+		if la < 1e-6 or lb < 1e-6:
+			continue
+		var th := absf(a.angle_to(b))
+		if th < 0.05:
+			continue
+		if half[i] * tan(minf(th, 3.0) * 0.5) > minf(la, lb):
+			return true
+	return false
 
 ## Veces que se ha recalculado la geometría (pruebas y perfiles).
 var geom_builds := 0
@@ -266,7 +293,7 @@ func _build_geom() -> Dictionary:
 			var ks: PackedInt32Array = m["k"]
 			for i in mini(uvs.size(), ks.size()):
 				uvs[i].x = cum[ks[i]]
-	return {"ax": ax, "m": m, "uvs": uvs}
+	return {"ax": ax, "m": m, "uvs": uvs, "folds": _has_folds(pts, half) if String(line.get_meta("brush_style", "")) == "pencil" else false}
 
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).
@@ -445,11 +472,12 @@ func _update_material() -> void:
 	var g := fill_gradient
 	var sid := style_id(line)
 	var grade := String(line.get_meta("pencil_grade", DEFAULT_GRADE)) if sid == 1 else ""
-	var key := "%d:%s" % [sid, grade]
+	var overwrite := sid == 1 and _pencil_folds
+	var key := "%d:%s:%s" % [sid, grade, "f" if overwrite else ""]
 	if g == null or g.get_point_count() < 2:
 		if not _shared_mats.has(key):
 			var sm := ShaderMaterial.new()
-			sm.shader = _shader_for(sid)
+			sm.shader = _shader_for(sid) if overwrite else STROKE_SHADER
 			sm.set_shader_parameter("style", sid)
 			_set_grade(sm, grade)
 			_shared_mats[key] = sm
@@ -460,7 +488,7 @@ func _update_material() -> void:
 		mat = ShaderMaterial.new()
 		mat.set_shader_parameter("use_grad", true)
 		_use_material(mat)
-	mat.shader = _shader_for(sid)
+	mat.shader = _shader_for(sid) if overwrite else STROKE_SHADER
 	mat.set_shader_parameter("style", sid)
 	_set_grade(mat, grade)
 	if _grad_tex == null:

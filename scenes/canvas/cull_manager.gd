@@ -30,7 +30,9 @@ class_name CullManager
 
 ## STREAMING de artboards: dormir/despertar por proximidad al viewport.
 ## wake < sleep → histéresis (no oscila en el borde). En unidades de mundo.
-@export var stream_artboards: bool = true
+## Apagado: nunca llegó a funcionar (sin cámara) y dormir páginas cambia
+## mucho el comportamiento; ver PENDIENTE (rendimiento) antes de activarlo.
+@export var stream_artboards: bool = false
 @export var wake_margin: float = 1200.0
 @export var sleep_margin: float = 3500.0
 
@@ -38,13 +40,34 @@ class_name CullManager
 const SCAN_INTERVAL := 2
 
 var _tick := 0
+## Vista anterior (zoom + posición): solo mientras CAMBIA procesan los
+## textos visibles (para ajustar su nitidez); quieta, no (antes, con 1500
+## textos, 3000 _process por fotograma sin que cambiara nada: ~45 ms).
+var _last_view := Vector4(-1, 0, 0, 0)
+var _settle := 0
+const SETTLE_SCANS := 6      # escaneos tras el último cambio de vista
+const POLL_SCANS := 15       # repaso lento (ediciones de contenido): ~0,5 s
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_find_camera.call_deferred()
+
+## La cámara del lienzo (antes `camera` se quedaba sin asignar y el gestor
+## no hacía NADA: ni recorte, ni LOD de textos, ni gating de _process).
+func _find_camera() -> void:
+	if is_instance_valid(camera):
+		return
+	var canvas := get_tree().get_first_node_in_group("_vectopen_canvas") if is_inside_tree() else null
+	if canvas and "camera" in canvas and canvas.camera is Camera2D:
+		camera = canvas.camera
 
 func _process(_delta: float) -> void:
-	if not enabled or camera == null:
+	if not enabled:
 		return
+	if not is_instance_valid(camera):
+		_find_camera()
+		if not is_instance_valid(camera):
+			return
 	_tick += 1
 	if _tick % SCAN_INTERVAL != 0:
 		return
@@ -57,6 +80,14 @@ func _process(_delta: float) -> void:
 	var raw_view := Rect2(camera.get_screen_center_position() - half, world_size)
 	var view_rect := raw_view.grow(cull_margin)
 	var zoom_scalar: float = minf(cam_zoom.x, cam_zoom.y)
+	var view := Vector4(cam_zoom.x, raw_view.position.x, raw_view.position.y, vp_size.x + vp_size.y)
+	if not view.is_equal_approx(_last_view):
+		_last_view = view
+		_settle = SETTLE_SCANS
+	elif _settle > 0:
+		_settle -= 1
+	var poll := (_tick / SCAN_INTERVAL) % POLL_SCANS == 0
+	var view_active := _settle > 0 or poll
 
 	if stream_artboards:
 		_stream_artboards(raw_view)
@@ -70,10 +101,16 @@ func _process(_delta: float) -> void:
 		var visible_now: bool = _overlaps(canvas, view_rect, zoom_scalar)
 		if canvas.visible != visible_now:
 			canvas.visible = visible_now
-		# process solo si visible (los _process de world_content labels rastrean zoom)
-		var should_process := visible_now
+		# process solo si visible Y la vista está cambiando (o toca repaso)
+		var should_process := visible_now and view_active
 		if canvas.is_processing() != should_process:
 			canvas.set_process(should_process)
+		# El editor nativo del texto: lo mismo, salvo el que se está editando
+		var vrt := canvas.get_parent().get_node_or_null("VectorRichText") if canvas.get_parent() else null
+		if vrt:
+			var vrt_on: bool = (visible_now and _settle > 0) or (vrt as Control).has_focus()
+			if vrt.is_processing() != vrt_on:
+				vrt.set_process(vrt_on)
 
 ## Despierta los artboards cuyo rect toca el viewport + wake_margin; duerme los
 ## que quedan fuera del viewport + sleep_margin (nunca el activo).

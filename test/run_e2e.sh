@@ -22,6 +22,10 @@ restore() {
 }
 trap restore EXIT
 for t in "$@"; do
+	# Cada prueba parte de los ajustes de FÁBRICA (como test/run_unit.sh):
+	# el estilo, grosor o presión que el usuario dejó guardados no deben
+	# cambiar el resultado. Al terminar se reponen los suyos.
+	rm -f "$USERDATA"/*.cfg
 	t="${t%.gd}"
 	# E2E_TIMEOUT (s) y E2E_ENV («VAR=valor VAR2=valor») para pruebas largas
 	# o parametrizadas (p. ej. el benchmark de documentos grandes).
