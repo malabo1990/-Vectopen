@@ -488,11 +488,7 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_font_size_override("font_size", font_size)
 	t.add_child(label)
-	var edit := TextEdit.new()
-	edit.name = "TitleEdit"
-	edit.visible = false
-	edit.wrap_mode = TextEdit.LINE_WRAPPING_NONE
-	t.add_child(edit)
+	# (el editor en línea se crea al editar: TextCore.ensure_inline_editor)
 	if ClassDB.class_exists("VectorRichText"):
 		var vrt = ClassDB.instantiate("VectorRichText")
 		vrt.name = "VectorRichText"

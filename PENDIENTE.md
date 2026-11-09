@@ -115,7 +115,7 @@ cambiar anchura y pincel después de dibujar, guardar y recuperar.
 |---|---|
 | Panel de Capas congelaba con miles de capas (fotogramas de 2–4 s) | Hecho (`133477a`): grupos grandes por demanda, tandas de 200 |
 | Guardar / cargar no pierde elementos | Comprobado (mismo recuento antes y después) |
-| Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | Pendiente |
+| Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | En curso: texto 83 → 39 KB (editor en línea por demanda); figuras ~22 KB y trazos ~24 KB por elemento siguen |
 | Dibujar con todo a la vista (50 000 → 3 fps) y zoom: nivel de detalle / caché al alejar | Pendiente |
 | Seleccionar todo (50 000 → 5 s) y mover la selección (630 ms por paso) | Pendiente |
 
@@ -166,7 +166,7 @@ encargo 10.
 
 - `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la
   batería completa; aislado pasa siempre: depende del orden de las pruebas.
-- e2e que siguen en rojo: `pages_e2e` (clic en la miniatura 3 no va a la página 3) y `assets_ui_e2e` (clic derecho no abre el menú del recurso), ya fallaban el 2026-11-09 antes de tocar Capas; `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
+- e2e que siguen en rojo: `text_format_e2e` (3 fallos) y `text_advanced_e2e` (sin resultado) — ya fallaban antes del 2026-11-09; `pages_e2e` (clic en la miniatura 3 no va a la página 3) y `assets_ui_e2e` (clic derecho no abre el menú del recurso), ya fallaban el 2026-11-09 antes de tocar Capas; `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
   `google_fonts_e2e` (necesita red).
 - Avisos «leaked at exit» al cerrar las pruebas con `quit()` (salen en todas;
   no se han visto al cerrar la app normal). Revisar si la app instalada

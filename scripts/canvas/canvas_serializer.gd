@@ -1275,9 +1275,13 @@ static func _text_from(d: Dictionary) -> Node2D:
 			"bottom": VERTICAL_ALIGNMENT_BOTTOM,
 		}.get(String(d["text_valign"]), VERTICAL_ALIGNMENT_TOP)
 	cont.add_child(label)
-	# Editor en línea + autowrap del párrafo (sin esto, tras recargar, los
-	# párrafos salían en una sola línea y no se podían editar).
-	TextCore.ensure_inline_editor(cont)
+	# Autowrap del párrafo (sin esto, tras recargar, los párrafos salían en
+	# una sola línea). El EDITOR en línea (un TextEdit con barras y 3
+	# temporizadores, ~60 KB por texto) ya NO se crea al cargar: lo crean las
+	# herramientas de texto al empezar a editar (TextCore.ensure_inline_editor).
+	if String(cont.get_meta("shape_type", "")) == "text_paragraph" and label is Label \
+			and (label as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
+		(label as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if d.has("width") and d.has("height") and label.has_method("set_world_size"):
 		label.set_world_size(Vector2(float(d["width"]), float(d["height"])))
 	if label.has_method("apply_indent_meta"):

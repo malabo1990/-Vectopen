@@ -125,11 +125,14 @@ func test_parrafo_recargado_tiene_editor_autowrap_y_se_edita() -> void:
 	var pb: Node2D = ab_b.get_node("ParrafoX")
 	var dl: Label = pb.get_node("DisplayLabel")
 	assert_int(dl.autowrap_mode).is_not_equal(TextServer.AUTOWRAP_OFF)
-	assert_object(pb.get_node_or_null("MultiLineEdit")).is_not_null()
+	# El editor en línea ya no se crea al cargar (memoria: ~45 KB por texto):
+	# aparece al empezar a editar.
+	assert_object(pb.get_node_or_null("MultiLineEdit")).is_null()
 
 	# Entrar y salir de edición sin cambios NO debe vaciar el párrafo.
 	var tool_b := await _para_tool(holder[0], ab_b)
 	tool_b._check_and_trigger_edit_at(pb)
+	assert_object(pb.get_node_or_null("MultiLineEdit")).is_not_null()
 	tool_b.commit_text_edit(false)
 	assert_str(String(pb.get_meta("text"))).is_equal(original)
 	assert_bool(dl.visible).is_true()
