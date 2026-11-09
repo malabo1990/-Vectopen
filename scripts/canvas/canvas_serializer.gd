@@ -402,6 +402,9 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		if node.has_meta("brush_obj"):
 			# Pincel de objeto: figuras (ya en datos JSON) y parámetros.
 			base["brush_obj"] = node.get_meta("brush_obj")
+		if node.has_meta("brush_ref"):
+			# Texto en trazado: de qué texto y trazado sale (rutas relativas).
+			base["brush_ref"] = node.get_meta("brush_ref")
 		if node.begin_cap_mode != Line2D.LINE_CAP_ROUND or node.end_cap_mode != Line2D.LINE_CAP_ROUND:
 			base["caps"] = [int(node.begin_cap_mode), int(node.end_cap_mode)]
 		if node.has_meta("stroke_profile") and not StrokeProfile.is_uniform(node.get_meta("stroke_profile")):
@@ -1092,6 +1095,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 				l.set_meta("pencil_grade", String(d["pencil_grade"]))
 			if d.has("brush_obj") and d["brush_obj"] is Dictionary:
 				l.set_meta("brush_obj", d["brush_obj"])
+			if d.has("brush_ref") and d["brush_ref"] is Dictionary:
+				l.set_meta("brush_ref", d["brush_ref"])
 			if d.get("caps") is Array and (d["caps"] as Array).size() == 2:
 				l.begin_cap_mode = int(d["caps"][0]) as Line2D.LineCapMode
 				l.end_cap_mode = int(d["caps"][1]) as Line2D.LineCapMode

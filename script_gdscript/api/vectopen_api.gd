@@ -72,6 +72,8 @@ const REFERENCE := [
 	["Organizar", "group(lista, nombre = \"Grupo\") -> Node2D", "Agrupa"],
 	["Texto", "text_to_curves(texto) -> Node2D", "Convierte un texto en curvas: un grupo con una forma por letra (Ctrl+Mayús+O)"],
 	["Trazo", "stroke_to_outline(trazo) -> Node2D", "Convierte un trazo de pincel en una figura rellena editable con su misma forma (Ctrl+Mayús+O)"],
+	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
+	["Texto", "release_text_on_path(trazo) -> Node2D", "Separa un texto en trazado: vuelve a mostrar el texto original y quita el trazo"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
 	["Organizar", "align(lista, modo)", "left, center_h, right, top, middle, bottom ([] = selección)"],
 	["Organizar", "distribute(lista, eje)", "Reparte 3+ objetos: \"h\" o \"v\""],
@@ -895,6 +897,77 @@ func _object_stroke_to_shapes(l: Line2D, ax: Array) -> Node2D:
 	if sm and sm.has_method("select"):
 		sm.select(g)
 	return g
+
+## «Texto en trazado» (VGSE fase 3): el texto se coloca UNA vez siguiendo
+## el trazado (Bézier, polígono, elipse…), a su tamaño, doblado con la
+## curva. Queda ENLAZADO: al editar el texto o cambiar el trazado se rehace
+## solo. El texto original se oculta (sigue en Capas para editarlo).
+## params: align (0 inicio · 0,5 centro · 1 final), offset, flip.
+func text_on_path(text: Node2D, path: Node2D, params: Dictionary = {}) -> Line2D:
+	if not is_instance_valid(text) or not is_instance_valid(path) or text.get_parent() == null:
+		return null
+	var OB := load("res://script_gdscript/shapes/object_brush.gd")
+	var parent := text.get_parent() as Node2D
+	var pts: PackedVector2Array = OB.path_points(path, parent)
+	var so: Dictionary = OB.source_of(text, parent)
+	if pts.size() < 2 or so.is_empty():
+		error("text_on_path: hace falta un texto con letras y un trazado")
+		return null
+	var l := Line2D.new()
+	l.name = NameUtils.unique_child_name(parent, String(text.name) + " (en trazado)")
+	l.points = pts
+	l.width = float(so["height"])
+	l.default_color = Color.WHITE
+	l.set_meta("brush_style", "object")
+	var prm := {"mode": "pattern", "repeat": false, "align": 0.0, "offset": 0.0, "flip": false, "rotate": true, "baseline": true}
+	prm.merge(params, true)
+	l.set_meta("brush_obj", {"src": OB.to_data(so["src"]), "params": prm})
+	l.set_meta("brush_ref", {"source": String(parent.get_path_to(text)), "path": String(parent.get_path_to(path))})
+	var idx := text.get_index() + 1
+	var was_visible := text.visible
+	var do_fn := func() -> void:
+		if l.get_parent() == null:
+			parent.add_child(l)
+			parent.move_child(l, mini(idx, parent.get_child_count() - 1))
+			l.owner = parent if "artboard_size" in parent else parent.owner
+			load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(l)
+		text.visible = false
+	var undo_fn := func() -> void:
+		if l.get_parent() == parent:
+			parent.remove_child(l)
+		text.visible = was_visible
+	do_fn.call()
+	_record("Texto en trazado", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and sm.has_method("select"):
+		sm.select(l)
+	return l
+
+## Deshace un texto en trazado: vuelve a mostrar el texto y quita el trazo.
+func release_text_on_path(line: Node2D) -> Node2D:
+	if not (line is Line2D) or not line.has_meta("brush_ref") or line.get_parent() == null:
+		return null
+	var parent := line.get_parent()
+	var ref: Dictionary = line.get_meta("brush_ref")
+	var text := parent.get_node_or_null(NodePath(String(ref.get("source", "")))) as Node2D
+	var idx := line.get_index()
+	var do_fn := func() -> void:
+		if line.get_parent() == parent:
+			parent.remove_child(line)
+		if text:
+			text.visible = true
+	var undo_fn := func() -> void:
+		if line.get_parent() == null:
+			parent.add_child(line)
+			parent.move_child(line, mini(idx, parent.get_child_count() - 1))
+		if text:
+			text.visible = false
+	do_fn.call()
+	_record("Separar texto del trazado", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and text and sm.has_method("select"):
+		sm.select(text)
+	return text
 
 # ── orden (capas) ────────────────────────────────────────────────────────────
 ## Cambia el orden de apilado: "front" (arriba del todo), "back", "up", "down".

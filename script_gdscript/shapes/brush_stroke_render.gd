@@ -79,11 +79,50 @@ static func of(l: Node) -> Node2D:
 func _ready() -> void:
 	if line == null:
 		line = get_parent() as Line2D
+	set_process(is_instance_valid(line) and line.has_meta("brush_ref"))
 	_hide_native()
 	_update_material()
 	if line and not line.draw.is_connected(queue_redraw):
 		# El Line2D se redibuja al cambiar puntos / grosor / curva / color.
 		line.draw.connect(queue_redraw)
+
+## Trazo ENLAZADO (texto en trazado, VGSE fase 3): si cambian el texto o
+## el trazado de los que sale, se rehace solo.
+var _ref_key := 0
+
+func _process(_delta: float) -> void:
+	if not is_instance_valid(line) or not line.has_meta("brush_ref"):
+		set_process(false)
+		return
+	var k := _ref_watch_key()
+	if k != _ref_key:
+		_ref_key = k
+		if ObjectBrush.refresh_ref(line):
+			queue_redraw()
+
+func _ref_watch_key() -> int:
+	var ref: Dictionary = line.get_meta("brush_ref", {})
+	var parent := line.get_parent()
+	if parent == null:
+		return 0
+	var parts: Array = []
+	for key in ["source", "path"]:
+		var n := parent.get_node_or_null(NodePath(String(ref.get(key, ""))))
+		if n == null:
+			parts.append(null)
+			continue
+		parts.append((n as CanvasItem).get_global_transform() if n is CanvasItem else null)
+		for mk in ["text", "runs", "font_size", "text_color", "font_family"]:
+			parts.append(var_to_str(n.get_meta(mk)) if n.has_meta(mk) else "")
+		if "curve" in n and n.curve != null:
+			parts.append((n.curve as Curve2D).get_baked_points())
+		for c in n.get_children():
+			if c is CanvasItem and not c.has_method("get_glyph_outlines"):
+				parts.append((c as CanvasItem).get_transform())
+		var vrt = n.get_node_or_null("VectorRichText")
+		if vrt and vrt.has_method("get_text"):
+			parts.append(vrt.get_text())
+	return hash(parts)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE and _mesh_ci.is_valid():

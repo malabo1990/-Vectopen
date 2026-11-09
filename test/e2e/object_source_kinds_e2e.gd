@@ -159,10 +159,11 @@ func _run() -> void:
 	var gb = api.add_ellipse(ac + Vector2(90, -200), Vector2(20, 20))
 	api.set_fill(gb, Color(0.1, 0.3, 0.9))
 	var grp = api.group([ga, gb])
+	var txt = api.add_text(ac + Vector2(140, -230), "Ao", 40, Color(0.2, 0.5, 0.2))
 	await frames(6)
 	var cases := [["rectángulo", [rect]], ["polígono", [poly]], ["estrella", [star]],
 		["curva Bézier abierta", [curve]], ["trazo de pincel", [stroke]], ["grupo", [grp]],
-		["varios a la vez", [rect, star, curve]]]
+		["varios a la vez", [rect, star, curve]], ["texto", [txt]]]
 	var row := 0
 	for cs in cases:
 		var label: String = cs[0]
@@ -191,6 +192,7 @@ func _run() -> void:
 			await click(so)
 			await frames(4)
 		var fs := root.find_child("ObjFromSelection", true, false) as Button
+		bt.object_params["mode"] = "stamp"   # copias rígidas (no heredar el patrón)
 		bt.object_source = []
 		await click(fs)
 		await frames(4)

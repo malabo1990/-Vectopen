@@ -154,3 +154,37 @@ func test_contornos_por_estampa_y_doblados_en_patron() -> void:
 	for r in pr_rings:
 		for q in r["pts"]:
 			assert_float(q.length()).is_between(95.9, 104.1)
+
+## Texto en trazado: UNA copia a su tamaño natural (no se estira), alineada
+## al centro y al otro lado de la curva con «flip».
+func test_patron_una_copia_alineada() -> void:
+	var src := [[{"pts": PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 1), Vector2(0, 1)]), "col": Color.RED}]]
+	var p := _line(2, 100.0)
+	var pr := {"mode": "pattern", "repeat": false, "align": 0.5}
+	var m: Dictionary = OB.build(p, _const(2, 2.5), OB._normalize_all(src), pr)
+	assert_int(int(m["stamps"])).is_equal(1)
+	var e := _extent(m["points"])
+	# alto 5 → largo natural 20, centrado en 100 → de 40 a 60
+	assert_float(e.position.x).is_equal_approx(40.0, 0.05)
+	assert_float(e.end.x).is_equal_approx(60.0, 0.05)
+	pr["align"] = 0.0
+	pr["offset"] = 0.1
+	var m2: Dictionary = OB.build(p, _const(2, 2.5), OB._normalize_all(src), pr)
+	assert_float(_extent(m2["points"]).position.x).is_equal_approx(10.0, 0.05)
+	# flip: la parte de «arriba» de la figura pasa al otro lado
+	var top := PackedVector2Array([Vector2(0, 0), Vector2(4, 0), Vector2(4, 0.2), Vector2(0, 0.2)])
+	var bot := PackedVector2Array([Vector2(0, 0.8), Vector2(4, 0.8), Vector2(4, 1), Vector2(0, 1)])
+	var two: Array = OB._normalize_all([[{"pts": top, "col": Color.RED}, {"pts": bot, "col": Color.BLUE}]])
+	var a: Dictionary = OB.build(p, _const(2, 2.5), two, {"mode": "pattern", "repeat": false})
+	var b: Dictionary = OB.build(p, _const(2, 2.5), two, {"mode": "pattern", "repeat": false, "flip": true})
+	var ya := 0.0
+	var yb := 0.0
+	var cols_a: PackedColorArray = a["colors"]
+	var cols_b: PackedColorArray = b["colors"]
+	for i in cols_a.size():
+		if cols_a[i] == Color.RED:
+			ya = (a["points"] as PackedVector2Array)[i].y
+	for i in cols_b.size():
+		if cols_b[i] == Color.RED:
+			yb = (b["points"] as PackedVector2Array)[i].y
+	assert_float(signf(ya)).is_equal(-signf(yb))

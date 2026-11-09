@@ -78,8 +78,15 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Convertir trazo de objeto / patrón en figuras sueltas (Ctrl+Mayús+O) | Hecho (grupo de figuras con sus colores, con deshacer) |
 | Antialias del borde de las estampas | No hace falta: MSAA 2D 8× del proyecto |
 | Patrón con piezas distintas de inicio / esquina / final (como Illustrator) | Pendiente |
-**Fase 3 — Trazado y texto**: trazado como pincel, texto en trazado, texto
-como pincel, referencias a objetos del documento.
+**Fase 3 — Trazado y texto** (en curso)
+
+| Punto | Estado |
+|---|---|
+| Trazado como pincel (Bézier, polígonos, trazos, grupos con «Selección») | Hecho |
+| Texto como pincel (letras con sus huecos; con «Patrón» se doblan) | Hecho |
+| Texto en trazado: una vez, apoyado en la curva, alineado (inicio / centro / final), desplazamiento, al otro lado | Hecho (menú contextual con texto + trazado; `text_on_path_e2e`) |
+| Referencias: el texto en trazado se rehace al editar el texto o cambiar la curva; se guarda el enlace | Hecho |
+| Panel para alinear / desplazar / dar la vuelta a un texto en trazado ya creado | Pendiente (hoy por API: params) |
 **Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y
 shaders con parámetros editables por trazo.
 **Fase 5 — Máscaras y efectos**: máscaras, recortes, efectos geométricos,

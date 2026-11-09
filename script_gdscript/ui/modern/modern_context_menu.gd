@@ -208,11 +208,16 @@ func _build_level_2_contextual_items(kind: String) -> void:
 			_add_separator()
 		"brush":
 			_add_menu_item("text_to_curves", "Convertir trazo en contorno", "Ctrl+Shift+O")
+			var selb := ContextMenuActions.selection(self)
+			if selb.size() == 1 and selb[0].has_meta("brush_ref"):
+				_add_menu_item("release_text_on_path", "Separar texto del trazado", "")
 			_add_separator()
 		"group":
 			_add_menu_item("ungroup_all", "Desagrupar todo", "Ctrl+Shift+G")
 			_add_separator()
 		"multi":
+			if not ContextMenuActions.text_on_path_pair(self).is_empty():
+				_add_menu_item("text_on_path", "Texto en trazado", "")
 			_add_menu_item("distribute_horizontal", "Distribuir horizontal", "")
 			_add_menu_item("distribute_vertical", "Distribuir vertical", "")
 			_add_separator()

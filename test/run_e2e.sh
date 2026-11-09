@@ -26,4 +26,5 @@ for t in "$@"; do
 	timeout 450 flatpak run --command=godot org.godotengine.Godot --path . --screen 1 \
 		-s "res://test/e2e/$t.gd" 2>&1 | head -c 60000 > "$LOG_DIR/$t.log"
 	echo "== $t: $(grep -cE '^PASS' "$LOG_DIR/$t.log") PASS $(grep -E '^FAIL|RESULT|SCRIPT ERROR' "$LOG_DIR/$t.log" | head -4 | tr '\n' ' ')"
+	restore   # cada prueba parte de los ajustes del usuario, no de los de la anterior
 done

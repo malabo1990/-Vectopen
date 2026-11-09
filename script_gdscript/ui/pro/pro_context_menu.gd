@@ -70,7 +70,14 @@ func rebuild() -> void:
 			add_separator()
 		"brush":
 			_add(self, "text_to_curves", "Convertir trazo en contorno", KEY_O | KEY_MASK_CTRL | KEY_MASK_SHIFT)
+			var selb := ContextMenuActions.selection(self)
+			if selb.size() == 1 and selb[0].has_meta("brush_ref"):
+				_add(self, "release_text_on_path", "Separar texto del trazado")
 			add_separator()
+		"multi":
+			if not ContextMenuActions.text_on_path_pair(self).is_empty():
+				_add(self, "text_on_path", "Texto en trazado")
+				add_separator()
 		"group":
 			_add(self, "ungroup", "Desagrupar", KEY_G | KEY_MASK_CTRL | KEY_MASK_SHIFT)
 			add_separator()

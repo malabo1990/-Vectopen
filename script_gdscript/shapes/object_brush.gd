@@ -26,6 +26,11 @@ const DEFAULTS := {
 	"multi": "sequence",# con varias figuras: "sequence" | "random"
 	"seed": 1,
 	"mode": "stamp",    # "stamp" (copias rígidas) | "pattern" (se doblan con la curva)
+	"repeat": true,     # patrón: repetir a lo largo; false = UNA copia a su tamaño (texto en trazado)
+	"align": 0.0,       # una copia: 0 inicio · 0,5 centro · 1 final del trazado
+	"offset": 0.0,      # una copia: desplazamiento a lo largo (en longitudes del trazado)
+	"flip": false,      # patrón: al otro lado de la curva (texto por debajo)
+	"baseline": false,  # patrón: la figura APOYADA en la curva (texto en trazado), no centrada
 }
 
 ## Figuras de serie (si aún no se ha elegido ninguna de la selección).
@@ -78,13 +83,16 @@ static func from_shapes(shapes: Array, combine: bool = true) -> Array:
 	return out
 
 ## Piezas {pts (global), col} de un objeto y, si es un grupo, de sus hijos.
-static func _collect(node, pieces: Array) -> void:
-	if not is_instance_valid(node) or not (node is CanvasItem) or not (node as CanvasItem).visible:
+static func _collect(node, pieces: Array, include_hidden: bool = false) -> void:
+	if not is_instance_valid(node) or not (node is CanvasItem) or (not include_hidden and not (node as CanvasItem).visible):
 		return
 	var xf: Transform2D = (node as CanvasItem).get_global_transform()
 	if node is Line2D:
 		_collect_brush_stroke(node as Line2D, xf, pieces)
 		return
+	if String((node as Node).get_meta("shape_type", "")).begins_with("text"):
+		if _collect_text(node, xf, pieces):
+			return
 	var polys: Array = GeomCore.get_evaluated_geometry(node)
 	var closed: bool = not ("closed" in node) or bool(node.closed)
 	var fill := Color(0, 0, 0, 0)
@@ -114,6 +122,37 @@ static func _collect(node, pieces: Array) -> void:
 	for c in (node as Node).get_children():
 		if c is CanvasItem and not String(c.name).begins_with("_") and not (c.get_script() and String(c.get_script().resource_path).ends_with("brush_stroke_render.gd")):
 			_collect(c, pieces)
+
+## Texto (VGSE fase 3, texto como pincel): el contorno de cada letra con
+## su color, con los huecos (la «o», la «a») respetados.
+static func _collect_text(node: Node, xf: Transform2D, pieces: Array) -> bool:
+	var TC = load("res://script_gdscript/text/text_core.gd")
+	var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
+	var vrt = node.get_node_or_null("VectorRichText")
+	if vrt == null:
+		vrt = TC.ensure_vrt(node)
+	if vrt == null or not vrt.has_method("get_glyph_outlines"):
+		return false
+	var to_node: Transform2D = (vrt as CanvasItem).get_transform() if vrt is CanvasItem else Transform2D.IDENTITY
+	var any := false
+	for o in vrt.get_glyph_outlines():
+		var rings: Array = []
+		for sd in o.get("subs", []):
+			var c := Curve2D.new()
+			var an: PackedVector2Array = sd["anchors"]
+			for i in an.size():
+				c.add_point(to_node * an[i], to_node.basis_xform(sd["ins"][i]), to_node.basis_xform(sd["outs"][i]))
+			if an.size() >= 2:
+				c.add_point(to_node * an[0], to_node.basis_xform(sd["ins"][0]), Vector2.ZERO)
+			var ring := c.tessellate(5, 3.0)
+			if ring.size() >= 3:
+				rings.append(xf * ring)
+		var col: Color = o.get("fill", Color(0.15, 0.15, 0.18))
+		for poly in SG.evenodd_fill(rings):
+			if (poly as PackedVector2Array).size() >= 3:
+				pieces.append({"pts": poly, "col": col})
+				any = true
+	return any
 
 ## Trazo de pincel: su forma REAL (anchura por presión, remates); si es un
 ## trazo de objeto, sus estampas.
@@ -160,6 +199,61 @@ static func _stroke_rings(pts: PackedVector2Array, h: float, closed: bool) -> Ar
 		if (ring as PackedVector2Array).size() >= 3 and not Geometry2D.is_polygon_clockwise(ring):
 			out.append(ring)
 	return out
+
+# ── Texto en trazado / referencias (VGSE fase 3) ─────────────────────────────
+## Trazado → puntos del eje en el espacio de `into` (padre del trazo).
+static func path_points(path: Node, into: Node2D) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if not is_instance_valid(path) or not (path is CanvasItem):
+		return out
+	var pts := PackedVector2Array()
+	var closed: bool = not ("closed" in path) or bool(path.closed)
+	if "curve" in path and path.curve != null:
+		pts = (path.curve as Curve2D).get_baked_points()
+	else:
+		var g: Array = GeomCore.get_evaluated_geometry(path)
+		if not g.is_empty():
+			pts = g[0]
+	if pts.size() < 2:
+		return out
+	if closed and pts[0].distance_to(pts[pts.size() - 1]) > 0.001:
+		pts.append(pts[0])
+	var xf: Transform2D = into.get_global_transform().affine_inverse() * (path as CanvasItem).get_global_transform()
+	return xf * pts
+
+## Fuente (normalizada) y alto real en el lienzo de un objeto, aunque esté
+## oculto (el texto de un texto en trazado se oculta).
+static func source_of(node: Node, into: Node2D) -> Dictionary:
+	var pieces: Array = []
+	_collect(node, pieces, true)
+	if pieces.is_empty():
+		return {}
+	var inv := into.get_global_transform().affine_inverse()
+	var r := _obj_rect(pieces.map(func(pc): return {"pts": inv * (pc["pts"] as PackedVector2Array), "col": pc["col"]}))
+	return {"src": [_normalize(pieces)], "height": maxf(r.size.y, 0.01)}
+
+## Rehace un texto en trazado (u otro trazo enlazado) a partir de sus objetos
+## fuente: el texto (contenido, formato) y el trazado (forma, posición).
+## true si cambió algo.
+static func refresh_ref(line: Line2D) -> bool:
+	var ref: Dictionary = line.get_meta("brush_ref", {})
+	var parent := line.get_parent() as Node2D
+	if ref.is_empty() or parent == null:
+		return false
+	var src_node := parent.get_node_or_null(NodePath(String(ref.get("source", ""))))
+	var path_node := parent.get_node_or_null(NodePath(String(ref.get("path", ""))))
+	if src_node == null or path_node == null:
+		return false
+	var pts := path_points(path_node, parent)
+	var so := source_of(src_node, parent)
+	if pts.size() < 2 or so.is_empty():
+		return false
+	var bo: Dictionary = line.get_meta("brush_obj", {}).duplicate()
+	bo["src"] = to_data(so["src"])
+	line.set_meta("brush_obj", bo)
+	line.width = float(so["height"])
+	line.points = pts
+	return true
 
 ## Cada objeto normalizado (centro 0,0 y lado mayor 1).
 static func _normalize_all(src: Array) -> Array:
@@ -334,11 +428,19 @@ static func _tile(obj: Array) -> Dictionary:
 			var x0 := si * strip_w - (0.0001 if si == 0 else 0.0)
 			var x1 := (si + 1) * strip_w + (0.0001 if si == STRIPS_PER_TILE - 1 else 0.0)
 			var strip := PackedVector2Array([Vector2(x0, -1.0), Vector2(x1, -1.0), Vector2(x1, 1.0), Vector2(x0, 1.0)])
-			for cut in Geometry2D.intersect_polygons(pc["pts"], strip):
-				if Geometry2D.is_polygon_clockwise(cut):
-					continue   # agujero: no se rellena
+			# El corte puede dejar contornos y HUECOS (letras como la «o»):
+			# relleno par-impar con los huecos puenteados (antes el hueco se
+			# descartaba y la letra salía rellena).
+			var cuts := Geometry2D.intersect_polygons(pc["pts"], strip)
+			if cuts.is_empty():
+				continue
+			var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
+			for cut in SG.evenodd_fill(cuts):
 				var sub := _subdivide(cut, strip_w * 0.5)
 				var idx := Geometry2D.triangulate_polygon(sub)
+				if idx.is_empty():
+					idx = Geometry2D.triangulate_polygon(cut)
+					sub = cut
 				if not idx.is_empty():
 					pieces.append({"pts": sub, "idx": idx, "col": pc["col"]})
 	return {"aspect": aspect, "pieces": pieces}
@@ -377,11 +479,22 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 	var gap := maxf(maxf(float(pr["spacing"]), 0.05) - 1.0, 0.0)   # 1,1 → 10 % de hueco
 	var nominal := float(aspects[0]) * 2.0 * hmax * (1.0 + gap)
 	var count := clampi(int(round(total / maxf(nominal, 0.0001))), 1, 4000)
+	var seg_len := total / float(count)
+	var start := 0.0
+	if not bool(pr.get("repeat", true)):
+		# UNA copia a su tamaño natural (texto en trazado), alineada y
+		# desplazada a lo largo del trazado; sin hueco.
+		count = 1
+		gap = 0.0
+		seg_len = float(aspects[0]) * 2.0 * hmax
+		start = (total - seg_len) * clampf(float(pr.get("align", 0.0)), 0.0, 1.0) + float(pr.get("offset", 0.0)) * total
 	var order := PackedInt32Array()
 	for ti in count:
 		order.append(_pick(aspects.size(), ti, int(pr["seed"]), pr))
 	return {"pts": pts, "half": half, "cum": cum, "nrm": nrm, "total": total,
-		"count": count, "seg_len": total / float(count), "gap": gap, "order": order}
+		"count": count, "seg_len": seg_len, "gap": gap, "order": order, "start": start,
+		"flip": -1.0 if bool(pr.get("flip", false)) else 1.0,
+		"vshift": -0.5 if bool(pr.get("baseline", false)) else 0.0}
 
 ## Punto (u, v) de la tesela `ti` → curva: a la distancia s(u) y apartado
 ## v·grosor por la normal.
@@ -393,12 +506,21 @@ static func _warp(ctx: Dictionary, ti: int, q: Vector2, aspect: float) -> Vector
 	var n := pts.size()
 	var seg_len: float = ctx["seg_len"]
 	var body := seg_len / (1.0 + float(ctx["gap"]))
-	var s := ti * seg_len + clampf(q.x / aspect, 0.0, 1.0) * body
+	var s := float(ctx.get("start", 0.0)) + ti * seg_len + clampf(q.x / aspect, 0.0, 1.0) * body
+	var total: float = ctx["total"]
+	if s < 0.0 or s > total:
+		# una copia que se sale del trazado: sigue recta por la tangente
+		var e := 0 if s < 0.0 else n - 1
+		var e2 := 1 if s < 0.0 else n - 2
+		var tg := (pts[e] - pts[e2]).normalized() * (1.0 if s > total else -1.0)
+		var over := (s - total) if s > total else -s
+		var no0 := nrm[e] * float(ctx.get("flip", 1.0))
+		return pts[e] + tg * over + no0 * (q.y + float(ctx.get("vshift", 0.0))) * 2.0 * half[e]
 	var j := clampi(cum.bsearch(s) - 1, 0, n - 2)
 	var j2 := j + 1
 	var f := clampf((s - cum[j]) / maxf(cum[j2] - cum[j], 0.000001), 0.0, 1.0)
-	var no := nrm[j].lerp(nrm[j2], f).normalized()
-	return pts[j].lerp(pts[j2], f) + no * q.y * 2.0 * lerpf(half[j], half[j2], f)
+	var no := nrm[j].lerp(nrm[j2], f).normalized() * float(ctx.get("flip", 1.0))
+	return pts[j].lerp(pts[j2], f) + no * (q.y + float(ctx.get("vshift", 0.0))) * 2.0 * lerpf(half[j], half[j2], f)
 
 ## La figura repetida a lo largo del eje y DOBLADA con él. Grosor = 2·half.
 static func build_pattern(pts: PackedVector2Array, half: PackedFloat32Array, src: Array, pr: Dictionary) -> Dictionary:

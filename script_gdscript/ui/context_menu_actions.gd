@@ -62,6 +62,13 @@ static func execute(id: String, host: Node) -> void:
 			rename_active_item(host)
 		"text_to_curves":
 			text_to_curves(host)
+		"text_on_path":
+			text_on_path(host)
+		"release_text_on_path":
+			var pm2 := host.get_node_or_null("/root/PluginManager")
+			for n in selection(host):
+				if pm2 and pm2.api and n is Line2D and n.has_meta("brush_ref"):
+					pm2.api.release_text_on_path(n)
 		"toggle_visibility":
 			if ic:
 				var p: Dictionary = ic.current_props()
@@ -347,6 +354,28 @@ static func layers_system(host: Node):
 	if ls == null and tree.current_scene:
 		ls = tree.current_scene.find_child("LayersSystem", true, false)
 	return ls
+
+## ¿Hay exactamente un texto y un trazado/figura seleccionados?
+static func text_on_path_pair(host: Node) -> Array:
+	var sel := selection(host)
+	if sel.size() != 2:
+		return []
+	var text: Node = null
+	var path: Node = null
+	for n in sel:
+		if n is Node2D and String(n.get_meta("shape_type", "")).begins_with("text"):
+			text = n
+		elif n is Node2D and not (n is Line2D):
+			path = n
+	return [text, path] if text and path else []
+
+## «Texto en trazado»: el texto seleccionado sigue al trazado seleccionado.
+static func text_on_path(host: Node) -> void:
+	var pair := text_on_path_pair(host)
+	var pm := host.get_node_or_null("/root/PluginManager")
+	if pair.is_empty() or pm == null or pm.api == null:
+		return
+	pm.api.text_on_path(pair[0], pair[1])
 
 ## «Convertir a curvas» de los textos seleccionados (cada uno, un grupo de letras).
 static func text_to_curves(host: Node) -> void:
