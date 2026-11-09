@@ -20,7 +20,7 @@ var autosave_enabled := true
 var undo_steps := DEFAULT_UNDO_STEPS
 var _autosave_timer: Timer = null
 var _quiet_frames := 0          # abrir / nuevo: el historial se vacía, no es un cambio
-var _quit_dialog: ConfirmationDialog = null
+var _quit_dialog: CanvasLayer = null   # unsaved_changes_dialog.gd
 var _quit_after_save := false
 
 func _ready() -> void:
@@ -112,31 +112,24 @@ func request_quit() -> void:
 	IoGuard.snapshot_if_unsaved(get_tree(), "salir", true)
 	_show_quit_dialog()
 
+## Diálogo propio con el estilo de la app (unsaved_changes_dialog.gd):
+## Guardar (verde) · Cancelar (amarillo) · No guardar (rojo).
 func _show_quit_dialog() -> void:
-	if is_instance_valid(_quit_dialog):
-		_quit_dialog.popup_centered()
-		return
-	var d := ConfirmationDialog.new()
-	d.name = "QuitDialog"
-	d.title = tr("Cambios sin guardar")
-	d.dialog_text = tr("«%s» tiene cambios sin guardar. ¿Guardar antes de salir?") % (current_path.get_file() if current_path != "" else tr("Sin título"))
-	d.ok_button_text = tr("Guardar")
-	d.cancel_button_text = tr("Cancelar")
-	d.add_button(tr("No guardar"), true, "discard")
-	d.confirmed.connect(func() -> void:
-		if current_path != "":
-			_save_to_path(current_path)
-			if not is_modified:
-				get_tree().quit()
-		else:
-			_quit_after_save = true
-			save_as())
-	d.custom_action.connect(func(action: StringName) -> void:
-		if action == &"discard":
-			get_tree().quit())
-	add_child(d)
-	_quit_dialog = d
-	d.popup_centered()
+	var doc := current_path.get_file() if current_path != "" else tr("Sin título")
+	if not is_instance_valid(_quit_dialog):
+		var d = load("res://script_gdscript/ui/unsaved_changes_dialog.gd").new()
+		d.save_chosen.connect(func() -> void:
+			if current_path != "":
+				_save_to_path(current_path)
+				if not is_modified:
+					get_tree().quit()
+			else:
+				_quit_after_save = true
+				save_as())
+		d.discard_chosen.connect(func() -> void: get_tree().quit())
+		add_child(d)
+		_quit_dialog = d
+	_quit_dialog.open(doc)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("save"):

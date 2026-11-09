@@ -93,4 +93,4 @@ func test_salir_sin_nombre_pregunta() -> void:
 	SaveManager.request_quit()
 	assert_object(SaveManager._quit_dialog).is_not_null()
 	assert_bool(SaveManager._quit_dialog.visible).is_true()
-	assert_str(SaveManager._quit_dialog.ok_button_text).is_equal("Guardar")
+	assert_str((SaveManager._quit_dialog.find_child("BtnSave", true, false) as Button).text).is_equal("Guardar")
