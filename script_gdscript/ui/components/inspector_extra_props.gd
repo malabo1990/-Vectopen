@@ -58,6 +58,9 @@ const SPECS := {
 	"light_color": ["Color de luz", "color"],
 	"ambient_energy": ["Ambiente", "num", 0, 4, 0.1, "", 1.0],
 	"model_shadows": ["Sombras", "check"],
+	"path_text_align": ["En el trazado", "option", [["start", "Inicio"], ["center", "Centro"], ["end", "Final"]]],
+	"path_text_offset": ["Desplazamiento", "num", -100, 100, 1, "%", 100.0],
+	"path_text_flip": ["Al otro lado", "check"],
 }
 const STROKE_MODES := [["start", "Inicio", "Punta y remate del inicio"], ["end", "Fin", "Punta y remate del final"],
 	["style", "Estilo", "Sólido, discontinuo, punteado, doble; guion y hueco"], ["profile", "Perfil", "Perfil de grosor del trazo"]]

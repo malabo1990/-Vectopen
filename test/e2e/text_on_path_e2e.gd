@@ -121,6 +121,12 @@ func dist_to_path(q: Vector2, path: PackedVector2Array) -> float:
 		best = minf(best, Geometry2D.get_closest_point_to_segment(q, path[k], path[k + 1]).distance_to(q))
 	return best
 
+func _min_x(pts: PackedVector2Array) -> float:
+	var m := INF
+	for q in pts:
+		m = minf(m, q.x)
+	return m
+
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
@@ -191,6 +197,37 @@ func _run() -> void:
 	check("al cambiar la curva se actualiza", l.points != p_before)
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(OUT.path_join("texto_editado.png"))
+	# Panel: alinear, desplazar y dar la vuelta (inspector de Modern)
+	root.get_node("GlobalUI").set_ui_mode("modern")
+	await frames(30)
+	sm.select(l)
+	await frames(6)
+	var row_found := false
+	for ep in root.find_children("ExtraProps", "", true, false):
+		if (ep as Control).is_visible_in_tree():
+			for ch in ep.find_children("*", "", true, false):
+				if String(ch.name).contains("path_text_align") and (ch as Control).is_visible_in_tree():
+					row_found = true
+	check("el inspector muestra «En el trazado» al seleccionar un texto en trazado", row_found)
+	var ic = root.get_node("InspectorCore")
+	var R2 = load("res://script_gdscript/shapes/brush_stroke_render.gd")
+	var rr = l.get_node_or_null(R2.NODE_NAME)
+	rr._draw()
+	var x_start: float = _min_x(rr._geom["m"]["points"])
+	ic.apply("path_text_align", "center")
+	await frames(4)
+	rr._draw()
+	var x_center: float = _min_x(rr._geom["m"]["points"])
+	check("«Centro» mueve el texto a lo largo del trazado", x_center > x_start + 5.0, "%.0f → %.0f" % [x_start, x_center])
+	ic.apply("path_text_flip", true)
+	await frames(4)
+	check("«Al otro lado» se aplica", bool(l.get_meta("brush_obj")["params"]["flip"]))
+	root.get_node("HistoryManager").undo()
+	root.get_node("HistoryManager").undo()
+	await frames(4)
+	check("deshacer devuelve la alineación y el lado", float(l.get_meta("brush_obj")["params"]["align"]) == 0.0 and not bool(l.get_meta("brush_obj")["params"]["flip"]))
+	root.get_node("GlobalUI").set_ui_mode("smart")
+	await frames(20)
 	# Guardar y recuperar
 	var Ser = load("res://scripts/canvas/canvas_serializer.gd")
 	var data: Array = Ser.serialize_elements(ab)

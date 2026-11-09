@@ -86,7 +86,7 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Texto como pincel (letras con sus huecos; con «Patrón» se doblan) | Hecho |
 | Texto en trazado: una vez, apoyado en la curva, alineado (inicio / centro / final), desplazamiento, al otro lado | Hecho (menú contextual con texto + trazado; `text_on_path_e2e`) |
 | Referencias: el texto en trazado se rehace al editar el texto o cambiar la curva; se guarda el enlace | Hecho |
-| Panel para alinear / desplazar / dar la vuelta a un texto en trazado ya creado | Pendiente (hoy por API: params) |
+| Panel para alinear / desplazar / dar la vuelta a un texto en trazado ya creado | Hecho: inspector de Modern y Pro («En el trazado», «Desplazamiento», «Al otro lado»), con deshacer |
 **Fase 4 — Pintura y shaders**: colores, degradados, texturas, materiales y
 shaders con parámetros editables por trazo.
 **Fase 5 — Máscaras y efectos**: máscaras, recortes, efectos geométricos,
@@ -108,8 +108,8 @@ cambiar anchura y pincel después de dibujar, guardar y recuperar.
 |---|---|---|---|---|---|
 | 1 000 | 0,25 s | 0,3 s | 194 / 264 | 78 | 290 MB |
 | 5 000 | 1,3 s | 1,5 s | 38 / 54 | 23 | 412 MB |
-| 10 000 | 2,6 s (antes 63 s) | 3,0 s (antes 25 s) | 21 / 33 | 13 | 563 MB |
-| 50 000 | 17,7 s | 14,6 s | 3 / 4 | 3 | 1,8 GB |
+| 10 000 | 2,2 s (antes 63 s) | 2,4 s (antes 25 s) | 50 (antes 21) | 15 | 509 MB |
+| 50 000 (baja) | 15 s | 12 s | 9,6 (antes 4) | 6,5 | 1,5 GB (antes 1,8) |
 
 | Punto | Estado |
 |---|---|

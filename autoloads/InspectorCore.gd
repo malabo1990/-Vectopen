@@ -54,6 +54,7 @@ const PROPS := [
 	"sides", "is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle", "drop_curvature",
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
 	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
+	"path_text_align", "path_text_offset", "path_text_flip",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -422,6 +423,17 @@ func _read(shape, prop):
 		"drop_curvature":
 			if shape.has_meta("drop_curvature"): return float(shape.get_meta("drop_curvature"))
 			return null
+		"path_text_align", "path_text_offset", "path_text_flip":
+			# Texto en trazado (VGSE fase 3): parámetros del trazo enlazado.
+			if not (shape is Line2D and shape.has_meta("brush_ref")):
+				return null
+			var prm: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).get("params", {})
+			match prop:
+				"path_text_align":
+					var a := float(prm.get("align", 0.0))
+					return "end" if a > 0.75 else ("center" if a > 0.25 else "start")
+				"path_text_offset": return float(prm.get("offset", 0.0))
+				_: return bool(prm.get("flip", false))
 		"model_path":
 			if "model_path" in shape: return String(shape.model_path)
 			return null
@@ -1421,6 +1433,17 @@ func _write_prop(shape, prop, value) -> void:
 			if "is_regular" in shape: shape.is_regular = bool(value)
 		"poly_angle", "poly_aspect", "inner_corner_radius", "star_angle":
 			if prop in shape: shape.set(prop, float(value))
+		"path_text_align", "path_text_offset", "path_text_flip":
+			if shape is Line2D and shape.has_meta("brush_ref"):
+				var bo: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
+				var prm: Dictionary = bo.get("params", {})
+				match prop:
+					"path_text_align": prm["align"] = {"start": 0.0, "center": 0.5, "end": 1.0}.get(String(value), 0.0)
+					"path_text_offset": prm["offset"] = clampf(float(value), -1.0, 1.0)
+					_: prm["flip"] = bool(value)
+				bo["params"] = prm
+				shape.set_meta("brush_obj", bo)
+				shape.queue_redraw()
 		"drop_curvature":
 			# Gota paramétrica: se regenera su contorno con la curvatura nueva.
 			if shape.has_meta("drop_radius") and shape.has_method("set_doc_vertices"):
