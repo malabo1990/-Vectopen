@@ -245,7 +245,7 @@ static func source_of(node: Node, into: Node2D) -> Dictionary:
 ## Rehace un texto en trazado (u otro trazo enlazado) a partir de sus objetos
 ## fuente: el texto (contenido, formato) y el trazado (forma, posición).
 ## true si cambió algo.
-static func refresh_ref(line: Line2D) -> bool:
+static func refresh_ref(line: Line2D, with_source: bool = true) -> bool:
 	var ref: Dictionary = line.get_meta("brush_ref", {})
 	var parent := line.get_parent() as Node2D
 	if ref.is_empty() or parent == null:
@@ -257,8 +257,16 @@ static func refresh_ref(line: Line2D) -> bool:
 	# En el espacio del PROPIO trazo: si se mueve (y lleva consigo su
 	# trazado), las letras no se desplazan dos veces.
 	var pts := path_points(path_node, line)
+	if pts.size() < 2:
+		return false
+	if not with_source:
+		# solo se movió / cambió la curva: recolocar, sin releer las letras
+		if line.points == pts:
+			return false
+		line.points = pts
+		return true
 	var so := source_of(src_node, parent)
-	if pts.size() < 2 or so.is_empty():
+	if so.is_empty():
 		return false
 	var bo: Dictionary = line.get_meta("brush_obj", {}).duplicate()
 	bo["src"] = to_data(so["src"])

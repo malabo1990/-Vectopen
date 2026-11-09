@@ -530,6 +530,102 @@ func _do_add_nodes(nodes: Array, parent: Node) -> void:
 
 # ── Motor de Hit-Testing e Intersección de Precisión Geométrica ───────────────
 
+# ── Rejilla espacial para el RESALTADO al pasar el ratón ─────────────────────
+# Con miles de objetos, recorrerlos todos en cada movimiento del ratón costaba
+# 35–50 ms (10 000 elementos). La rejilla guarda en qué casillas cae cada
+# objeto de primer nivel y se rehace cuando cambia el documento (historial,
+# nodos añadidos o quitados) o el zoom. Solo se usa para el resaltado: el
+# CLIC sigue comprobándolo todo (si la rejilla quedase desfasada, nunca se
+# cogería un objeto equivocado).
+const HOVER_CELL := 192.0
+var _hgrid: Dictionary = {}
+var _hgrid_dirty := true
+var _hgrid_hooked := false
+var _hgrid_zoom := 0.0
+
+func _hgrid_mark_dirty(_a = null, _b = null, _c = null, _d = null) -> void:
+	_hgrid_dirty = true
+
+func _hgrid_on_node(n: Node) -> void:
+	if n is Node2D:
+		_hgrid_dirty = true
+
+func _hgrid_hook() -> void:
+	if _hgrid_hooked or not is_inside_tree():
+		return
+	_hgrid_hooked = true
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm:
+		for sig in ["history_changed", "undo_performed", "redo_performed"]:
+			if hm.has_signal(sig) and not hm.is_connected(sig, _hgrid_mark_dirty):
+				hm.connect(sig, _hgrid_mark_dirty)
+	get_tree().node_added.connect(_hgrid_on_node)
+	get_tree().node_removed.connect(_hgrid_on_node)
+
+func _hgrid_insert(n: Node2D, r: Rect2) -> void:
+	var a := Vector2i(floori(r.position.x / HOVER_CELL), floori(r.position.y / HOVER_CELL))
+	var b := Vector2i(floori(r.end.x / HOVER_CELL), floori(r.end.y / HOVER_CELL))
+	if (b.x - a.x + 1) * (b.y - a.y + 1) > 20000:
+		b = a + Vector2i(140, 140)   # tope de seguridad (objetos gigantes)
+	for cy in range(a.y, b.y + 1):
+		for cx in range(a.x, b.x + 1):
+			var k := Vector2i(cx, cy)
+			if not _hgrid.has(k):
+				_hgrid[k] = []
+			(_hgrid[k] as Array).append(n)
+
+func _hgrid_broad_rect(n: Node2D) -> Rect2:
+	if n is Path2D:
+		return _quick_path_rect(n)
+	return _global_rect(n)
+
+func _hgrid_add_list(raiz: Node, excluir: Array, pad: float) -> void:
+	var hijos: Array = raiz.get_children()
+	for i in range(hijos.size() - 1, -1, -1):
+		var n = hijos[i]
+		if not (n is Node2D) or String(n.name) in excluir or String(n.name) == "Contorno_Stroke":
+			continue
+		_hgrid_insert(n, _hgrid_broad_rect(n).grow(pad))
+
+func _hgrid_build() -> void:
+	_hgrid.clear()
+	var pad := _hit_tol() * 2.0
+	var mgr := ArtboardManager.find(get_tree()) if is_inside_tree() else null
+	var artboards: Array = mgr.all_artboards() if mgr else ([target_artboard] if target_artboard else [])
+	for ab in artboards:
+		if not is_instance_valid(ab):
+			continue
+		var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
+		if dl:
+			_hgrid_add_list(dl, [], pad)
+		_hgrid_add_list(ab, ["ArtboardTitle", "VectorDrawingLayer"], pad)
+	var container: Node = canvas.get_node_or_null("ArtboardsContainer") if is_instance_valid(canvas) else null
+	if container:
+		var loose: Array = container.get_children()
+		for i in range(loose.size() - 1, -1, -1):
+			var n = loose[i]
+			if n is Node2D and not (n is ArtboardEditor):
+				_hgrid_insert(n, _hgrid_broad_rect(n).grow(pad))
+	_hgrid_dirty = false
+	_hgrid_zoom = 1.0 / maxf(_hit_tol(), 1e-9)
+
+## Como _shape_at, pero solo mira los objetos de la casilla del ratón.
+func _shape_at_hover(gpos: Vector2) -> Node2D:
+	_hgrid_hook()
+	var z := 1.0 / maxf(_hit_tol(), 1e-9)
+	if _hgrid_dirty or _hgrid_zoom <= 0.0 or absf(z / _hgrid_zoom - 1.0) > 0.5:
+		_hgrid_build()
+	var k := Vector2i(floori(gpos.x / HOVER_CELL), floori(gpos.y / HOVER_CELL))
+	for n in _hgrid.get(k, []):
+		if not is_instance_valid(n):
+			continue
+		if _es_grupo_movetool(n):
+			if _rama_contiene_punto(n, gpos):
+				return n
+		elif _node_contains_point(n, gpos):
+			return n
+	return null
+
 func _shape_at(gpos: Vector2) -> Node2D:
 	# Busca en TODOS los artboards (no solo el activo) + las figuras sueltas
 	# hijas directas del contenedor. Antes solo miraba target_artboard, así
@@ -595,9 +691,16 @@ func _es_grupo_movetool(n: Node) -> bool:
 	if n.has_meta("shape_type") and String(n.get_meta("shape_type")) == "group":
 		return true
 	for c in n.get_children():
-		if c is Node2D and String(c.name) != "Contorno_Stroke":
+		if c is Node2D and not _is_internal_child(c):
 			return true
 	return false
+
+## Nodos internos de dibujo (no son figuras del usuario): el render de un
+## trazo de pincel, su contorno, los efectos… Antes un trazo de pincel
+## contaba como «grupo» por su StrokeRender y se comprobaba dos veces.
+static func _is_internal_child(c: Node) -> bool:
+	var nm := String(c.name)
+	return nm == "Contorno_Stroke" or nm == "StrokeRender" or nm == "Render_Visual" or nm.begins_with("_") or nm.begins_with("TextFx")
 
 ## ¿`n` tiene geometría propia dibujable (para comprobar su cuerpo en el hit-test)?
 func _tiene_cuerpo_propio(n: Node) -> bool:
@@ -616,6 +719,27 @@ func _primer_seleccionado_en_rama(grupo: Node) -> Node2D:
 	return null
 
 const ShapeHit = preload("res://script_gdscript/utils/shape_hit.gd")
+
+## Caja RÁPIDA (y holgada) de una curva para descartar en el clic: la de sus
+## puntos de control (la curva siempre cabe dentro), sin recorrer los cientos
+## de puntos horneados de _global_rect (con miles de curvas, 50 ms por
+## movimiento del ratón).
+func _quick_path_rect(node: Path2D) -> Rect2:
+	var c: Curve2D = node.curve
+	if c == null or c.point_count == 0:
+		return Rect2(node.global_position, Vector2.ZERO)
+	var mn := c.get_point_position(0)
+	var mx := mn
+	for i in c.point_count:
+		var p := c.get_point_position(i)
+		for q in [p, p + c.get_point_in(i), p + c.get_point_out(i)]:
+			mn = mn.min(q)
+			mx = mx.max(q)
+	var xf := node.get_global_transform()
+	var r := Rect2(xf * mn, Vector2.ZERO)
+	for q in [xf * Vector2(mx.x, mn.y), xf * mx, xf * Vector2(mn.x, mx.y)]:
+		r = r.expand(q)
+	return r.grow(_path_stroke_pad(node))
 const HIT_TOL_PX := 4.0   # margen del clic, en píxeles de PANTALLA
 
 ## Margen del clic en unidades del lienzo (constante en pantalla).
@@ -631,7 +755,7 @@ func _node_contains_point(node: Node2D, gpos: Vector2) -> bool:
 	if node is Line2D:
 		return _global_rect(node).grow(_hit_tol()).has_point(gpos) and ShapeHit.line_hit(node, gpos, _hit_tol())
 	if node is Path2D:
-		return _global_rect(node).grow(_hit_tol()).has_point(gpos) and ShapeHit.path_hit(node, gpos, _hit_tol())
+		return _quick_path_rect(node).grow(_hit_tol()).has_point(gpos) and ShapeHit.path_hit(node, gpos, _hit_tol())
 	if node is Sprite2D and (node as Sprite2D).texture:
 		return ShapeHit.sprite_hit(node, gpos)
 	if (node is VectorShape) and not node.has_method("rotate_orbit") and not ShapeHit.has_visible_fill(node) and node.has_method("get_evaluated_geometry") \
@@ -669,7 +793,7 @@ func _rama_contiene_punto(nodo: Node, gpos: Vector2) -> bool:
 	if _tiene_cuerpo_propio(nodo) and _node_contains_point(nodo, gpos):
 		return true
 	for c in nodo.get_children():
-		if not (c is Node2D) or String(c.name) == "Contorno_Stroke":
+		if not (c is Node2D) or _is_internal_child(c):
 			continue
 		if _es_grupo_movetool(c):
 			if _rama_contiene_punto(c, gpos):
@@ -719,21 +843,10 @@ func _global_rect(node: Node2D) -> Rect2:
 
 	if node is Path2D:
 		var curve: Curve2D = (node as Path2D).curve
-		var baked = curve.get_baked_points()
-		if baked.size() == 0:
+		if curve == null or curve.get_baked_points().size() == 0:
 			return Rect2(node.global_position - Vector2(10, 10), Vector2(20, 20))
-		
-		var first_gpt: Vector2 = node.to_global(baked[0])
-		var g_mn: Vector2 = first_gpt
-		var g_mx: Vector2 = first_gpt
-		for p in baked:
-			var g_pt: Vector2 = node.to_global(p)
-			g_mn.x = min(g_mn.x, g_pt.x)
-			g_mn.y = min(g_mn.y, g_pt.y)
-			g_mx.x = max(g_mx.x, g_pt.x)
-			g_mx.y = max(g_mx.y, g_pt.y)
-			
-		return Rect2(g_mn, g_mx - g_mn).grow(_path_stroke_pad(node))
+		# Caja con caché (antes: todos los puntos horneados en cada fotograma).
+		return preload("res://script_gdscript/utils/curve_bounds.gd").global_rect(node, curve).grow(_path_stroke_pad(node))
 
 	if node is Polygon2D:
 		var poly = node as Polygon2D
@@ -770,15 +883,14 @@ func _global_rect(node: Node2D) -> Rect2:
 		var verts: PackedVector2Array = node.get("vertices")
 		if verts.size() == 0:
 			return Rect2(node.global_position - Vector2(10, 10), Vector2(20, 20))
-		var first_gpt: Vector2 = node.to_global(verts[0])
-		var g_mn: Vector2 = first_gpt
-		var g_mx: Vector2 = first_gpt
-		for p in verts:
-			var g_pt: Vector2 = node.to_global(p)
-			g_mn.x = min(g_mn.x, g_pt.x)
-			g_mn.y = min(g_mn.y, g_pt.y)
-			g_mx.x = max(g_mx.x, g_pt.x)
-			g_mx.y = max(g_mx.y, g_pt.y)
+		# Una sola transformación para todos los vértices (nativo); antes,
+		# to_global vértice a vértice: 54 ms con 4 000 polígonos seleccionados.
+		var gv: PackedVector2Array = node.get_global_transform() * verts
+		var g_mn: Vector2 = gv[0]
+		var g_mx: Vector2 = gv[0]
+		for g_pt in gv:
+			g_mn = g_mn.min(g_pt)
+			g_mx = g_mx.max(g_pt)
 		return Rect2(g_mn, g_mx - g_mn)
 
 	if "width" in node and "height" in node:
@@ -812,15 +924,14 @@ func _global_rect(node: Node2D) -> Rect2:
 
 	if node.has_method("get_evaluated_geometry"):
 		var polys: Array[PackedVector2Array] = node.call("get_evaluated_geometry")
-		if not polys.is_empty():
-			var first_gp: Vector2 = node.to_global(polys[0][0])
-			var g_mn: Vector2 = first_gp
-			var g_mx: Vector2 = first_gp
+		if not polys.is_empty() and not polys[0].is_empty():
+			var xf_e: Transform2D = node.get_global_transform()
+			var g_mn: Vector2 = xf_e * polys[0][0]
+			var g_mx: Vector2 = g_mn
 			for poly in polys:
-				for p in poly:
-					var gp: Vector2 = node.to_global(p)
-					g_mn.x = min(g_mn.x, gp.x); g_mn.y = min(g_mn.y, gp.y)
-					g_mx.x = max(g_mx.x, gp.x); g_mx.y = max(g_mx.y, gp.y)
+				for gp in xf_e * poly:
+					g_mn = g_mn.min(gp)
+					g_mx = g_mx.max(gp)
 			return Rect2(g_mn, g_mx - g_mn)
 
 	# Grupo: caja combinada de los hijos Node2D (recursivo). Cualquier figura con

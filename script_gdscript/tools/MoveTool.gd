@@ -574,6 +574,10 @@ func _bbox_pass(on: bool) -> void:
 
 func _on_release(gm: Vector2) -> bool:
 	_bbox_pass(false)
+	# cachés del gesto (imán, caja inicial): el próximo arrastre empieza de cero
+	_mri_key = []
+	_snap_cache_key = []
+	live_move_rect = Rect2()
 	if is_marquee:
 		is_marquee = false
 		# Un clic sin arrastrar en vacío NO es un marquee: antes, el
@@ -841,6 +845,10 @@ func _on_motion(gm: Vector2, mods: Dictionary = {}) -> bool:
 						new_pos = sm.snap_position(new_pos)
 				s.global_position = new_pos
 				_sync_doc_position_from_native(s)
+		# Caja de la selección mientras se arrastra = la inicial desplazada.
+		if selected_shapes.size() > 1:
+			var r0: Rect2 = _macro_rect_inicial()
+			live_move_rect = Rect2(r0.position + delta, r0.size) if r0.size != Vector2.ZERO else Rect2()
 		_update_bounding_box()  # el bounding box debe seguir a las figuras mientras se arrastran
 		canvas.queue_redraw()
 		return true
@@ -857,7 +865,7 @@ func _on_motion(gm: Vector2, mods: Dictionary = {}) -> bool:
 
 func _update_hover_shape(gm: Vector2) -> void:
 	var busy := is_resizing or is_rotating or is_dragging_shape or is_marquee or current_key_mode != KeyMode.NONE
-	var hit: Node2D = null if busy else _shape_at(gm)
+	var hit: Node2D = null if busy else _shape_at_hover(gm)   # rejilla: rápido con miles
 	if hit and selected_shapes.has(hit):
 		hit = null
 	if hit != _hover_shape:

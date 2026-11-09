@@ -356,20 +356,23 @@ static func _strip_fill(poly: PackedVector2Array, n_strips: int = 24) -> Array:
 	return out
 
 ## Parte un anillo que pasa dos veces por el mismo punto en anillos simples.
+## Una tabla punto → posición en la pila: O(n) (antes se buscaba en toda la
+## pila por cada punto: un contorno de 12 000 puntos tardaba más de 1 s).
 static func _split_pinched(ring: PackedVector2Array) -> Array:
 	var out: Array = []
 	var stack := PackedVector2Array()
+	var where := {}   # punto redondeado → índice en la pila
 	for q in ring:
-		var hit := -1
-		for k in stack.size():
-			if stack[k].distance_squared_to(q) < 1e-6:
-				hit = k
-				break
-		if hit >= 0:
+		var key := Vector2i(roundi(q.x * 1000.0), roundi(q.y * 1000.0))
+		if where.has(key):
+			var hit: int = where[key]
 			var loop := stack.slice(hit)
 			if loop.size() >= 3:
 				out.append(loop)
+			for k in range(hit, stack.size()):
+				where.erase(Vector2i(roundi(stack[k].x * 1000.0), roundi(stack[k].y * 1000.0)))
 			stack = stack.slice(0, hit)
+		where[key] = stack.size()
 		stack.append(q)
 	if stack.size() >= 3:
 		out.append(stack)

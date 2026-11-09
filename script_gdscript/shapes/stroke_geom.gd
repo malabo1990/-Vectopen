@@ -30,11 +30,75 @@ const MITER_LIMIT_MAX := 50.0
 ## Puntos precisos de la curva: subdivisión adaptativa por ÁNGULO (se ve
 ## lisa a cualquier zoom), sin duplicados.
 static func curve_points(curve: Curve2D) -> PackedVector2Array:
-	var raw := curve.tessellate(7, 1.5)
+	var c := _clean_curve(curve)
+	var raw: PackedVector2Array
+	if _has_straight(c):
+		raw = _tess_mixed(c)
+	else:
+		raw = c.tessellate(7, 1.5)
 	var out := PackedVector2Array()
 	for p in raw:
 		if out.is_empty() or out[out.size() - 1].distance_squared_to(p) > 1e-6:
 			out.append(p)
+	return out
+
+## ¿Algún tramo recto (sin tiradores)?
+static func _has_straight(c: Curve2D) -> bool:
+	for i in range(c.point_count - 1):
+		if c.get_point_out(i) == Vector2.ZERO and c.get_point_in(i + 1) == Vector2.ZERO:
+			return true
+	return false
+
+static var _seg := Curve2D.new()
+
+## Tramos rectos: sus dos extremos, sin pasar por Curve2D.tessellate (con
+## tramos diminutos y coordenadas grandes, la precisión de Godot simula giros
+## y metía hasta 64 puntos en cada recta: un contorno importado de 275 nodos
+## salía con 17 000 puntos y abrir el archivo tardaba 25 s). Curvos: cada uno
+## subdividido por ángulo como siempre.
+static func _tess_mixed(c: Curve2D) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var n := c.point_count
+	if n == 0:
+		return out
+	out.append(c.get_point_position(0))
+	for i in range(n - 1):
+		var a := c.get_point_position(i)
+		var b := c.get_point_position(i + 1)
+		var o := c.get_point_out(i)
+		var inn := c.get_point_in(i + 1)
+		if o == Vector2.ZERO and inn == Vector2.ZERO:
+			out.append(b)
+			continue
+		_seg.clear_points()
+		_seg.add_point(a, Vector2.ZERO, o)
+		_seg.add_point(b, inn, Vector2.ZERO)
+		var sub := _seg.tessellate(7, 1.5)
+		for k in range(1, sub.size()):
+			out.append(sub[k])
+	return out
+
+## Sin tramos de longitud CERO (nodo repetido sin tiradores): Godot los
+## subdivide al máximo (128 puntos cada uno) y un contorno importado de 275
+## nodos se convertía en 17 000 puntos (abrir un archivo tardaba 25 s).
+static func _clean_curve(c: Curve2D) -> Curve2D:
+	var n := c.point_count
+	var dup := false
+	for i in range(1, n):
+		if c.get_point_position(i).distance_squared_to(c.get_point_position(i - 1)) < 1e-8 \
+				and c.get_point_out(i - 1) == Vector2.ZERO and c.get_point_in(i) == Vector2.ZERO:
+			dup = true
+			break
+	if not dup:
+		return c
+	var out := Curve2D.new()
+	for i in n:
+		var p := c.get_point_position(i)
+		if out.point_count > 0 and p.distance_squared_to(out.get_point_position(out.point_count - 1)) < 1e-8 \
+				and out.get_point_out(out.point_count - 1) == Vector2.ZERO and c.get_point_in(i) == Vector2.ZERO:
+			out.set_point_out(out.point_count - 1, c.get_point_out(i))
+			continue
+		out.add_point(p, c.get_point_in(i), c.get_point_out(i))
 	return out
 
 ## Tira de grosor variable (half = medio grosor por punto) con uniones y

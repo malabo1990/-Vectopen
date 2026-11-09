@@ -114,7 +114,60 @@ static func _brush(l: Line2D, xf: Transform2D, op: float, out: Dictionary) -> vo
 	var rings: Array = SG.outline(ax[0], ax[1], caps.get(l.begin_cap_mode, 0), caps.get(l.end_cap_mode, 0))
 	if rings.is_empty():
 		return
-	out["items"].append(_item(_lines(xf, rings, true), l.default_color, null, 0.0, op, 0, false))
+	# Simplificar sin cambiar la forma (desviación < 1 % del grosor): el
+	# contorno interno tiene miles de puntos y el archivo pesaba / costaba
+	# abrirlo (un garabato a lápiz: 12 000 puntos).
+	var tol := maxf(l.width * 0.01, 0.02)
+	var simple: Array = []
+	for r in rings:
+		simple.append(_simplify_ring(r, tol))
+	out["items"].append(_item(_lines(xf, simple, true), l.default_color, null, 0.0, op, 0, false))
+
+## Douglas-Peucker iterativo sobre un anillo cerrado.
+static func _simplify_ring(r: PackedVector2Array, tol: float) -> PackedVector2Array:
+	var n := r.size()
+	if n <= 8:
+		return r
+	var keep := PackedByteArray()
+	keep.resize(n)
+	keep[0] = 1
+	keep[n - 1] = 1
+	# punto más lejano del primero: segunda ancla (anillo cerrado)
+	var far := 0
+	var best := -1.0
+	for i in n:
+		var d := r[i].distance_squared_to(r[0])
+		if d > best:
+			best = d
+			far = i
+	keep[far] = 1
+	var stack: Array = [[0, far], [far, n - 1]]
+	var t2 := tol * tol
+	while not stack.is_empty():
+		var seg: Array = stack.pop_back()
+		var a: int = seg[0]
+		var b: int = seg[1]
+		if b - a < 2:
+			continue
+		var pa := r[a]
+		var pb := r[b]
+		var idx := -1
+		var dmax := t2
+		for i in range(a + 1, b):
+			var q := Geometry2D.get_closest_point_to_segment(r[i], pa, pb)
+			var d := r[i].distance_squared_to(q)
+			if d > dmax:
+				dmax = d
+				idx = i
+		if idx >= 0:
+			keep[idx] = 1
+			stack.append([a, idx])
+			stack.append([idx, b])
+	var out := PackedVector2Array()
+	for i in n:
+		if keep[i] == 1:
+			out.append(r[i])
+	return out
 
 ## VAL-14: capas metidas dentro de una figura (p. ej. una foto dentro de un
 ## círculo). Si la figura es máscara (`clip_children`), su contorno recorta a
@@ -353,9 +406,16 @@ static func _lines(xf: Transform2D, polys: Array, closed: bool) -> Array:
 	for poly in polys:
 		if poly.size() < 2:
 			continue
-		var ops: Array = [["M", xf * poly[0]]]
+		var last: Vector2 = xf * poly[0]
+		var ops: Array = [["M", last]]
 		for i in range(1, poly.size()):
-			ops.append(["L", xf * poly[i]])
+			var q: Vector2 = xf * poly[i]
+			if q.distance_squared_to(last) < 1e-8:
+				continue   # sin puntos repetidos (al abrirlo se volvían miles)
+			ops.append(["L", q])
+			last = q
+		if closed and ops.size() > 2 and (ops[-1][1] as Vector2).distance_squared_to(ops[0][1]) < 1e-8:
+			ops.pop_back()   # el cierre ya lo pone «closed»
 		subs.append({"ops": ops, "closed": closed})
 	return subs
 

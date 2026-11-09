@@ -181,6 +181,45 @@ Pruebas nuevas: `text_path_ui_e2e`, `settings_ui_e2e`, `node_handles_zoom_e2e`,
 `drag_move_e2e`, `zoom_quality_e2e`, `brush_nodes_e2e`, `extreme_zoom_ui_e2e`, `VectorPathFill_test`, `NumericFieldAdaptive_test`. Guía:
 `docs/es/guides/TEXTO_EN_TRAZADO_Y_EDICION_PRECISA.md`.
 
+## 0 sexies. Tanda 0.2.3-beta (2026-11-09): campañas profesionales y rendimiento
+
+Cinco campañas publicitarias como pruebas e2e (kit común `test/e2e/lib/campaign_kit.gd`):
+
+| # | Campaña | Modo | Qué ejercita |
+|---:|---|---|---|
+| 31 | Festival de música | Modern | 3 mesas, ondas Bézier, manchas, estrellas, máscara, 3 estilos de pincel, pincel de figuras de una estrella seleccionada, texto en un aro, 7 formatos + reimportar |
+| 32 | AERO RUN (zapatilla) | Pro | silueta Bézier, 60 hexágonos, pincel de figuras de un hexágono, aerógrafo, máscara redondeada, texto debajo e invertido |
+| 33 | Café de especialidad | Smart | sello con texto encima e invertido debajo, pincel de figuras de un GRUPO, lápiz, máscara en arco |
+| 34 | Residencial Bahía | Modern | ~1 000 figuras (horizonte), máscara del cielo, texto sobre la bahía, rendimiento |
+| 35 | Muro de marca | Pro | N elementos (10 000 / 50 000) mezclando todo: rendimiento masivo |
+
+Fallos que han destapado (corregidos):
+
+| ID | Fallo | Estado |
+|---|---|---|
+| VAL-27 | SVG / PDF / EPS sin NINGÚN trazo de pincel (ni texto en trazado) | Hecho (`306bf1a`): forma real; figuras y letras con su color |
+| VAL-28 | Etiqueta de la mesa siempre «Artboard» | Hecho (`306bf1a`) |
+| VAL-29 | Zoom con 10 000 elementos a 1,7 fps (trazos finos redibujados en cada paso) | Hecho (`306bf1a`): 14,5 fps |
+| VAL-30 | Resaltado al pasar el ratón: 35–50 ms por movimiento con 10 000 | Hecho: rejilla espacial (0,06 ms; el clic sigue comprobándolo todo) |
+| VAL-31 | Crear por script: coste creciente (10 000 → 85 s) | Hecho: nombres únicos en O(1) (0,6 ms por figura, constante) |
+| VAL-32 | Arrastrar una selección de 10 000 con el ratón: 40 s POR PASO (candidatos del imán O(n²), recalculados en cada movimiento) | Hecho: 38 ms por paso (conjuntos O(1), cachés por gesto, caja del recuadro desplazada) |
+| VAL-33 | `set_props` de un objeto NO seleccionado reconstruía el inspector (9 ms por figura) | Hecho: solo si afecta a la selección o al panel Capas |
+| VAL-34 | Textos en trazado: cualquier movimiento releía y retriangulaba todas sus letras | Hecho: firma de contenido y de colocación relativa |
+| VAL-35 | Curvas con tramos rectos diminutos: Godot metía hasta 64 puntos por recta (abrir un archivo: 25 s) | Hecho: tramos rectos sin subdividir (0,58 s); exportación sin puntos repetidos y contornos simplificados |
+| VAL-36 | Caja de curvas y polígonos recalculada punto a punto en cada fotograma | Hecho: caché por curva y transformación nativa de vértices |
+
+**Rendimiento con el muro de 10 000 elementos mezclados (encargo 35, modo potente):**
+
+| Medida | Antes | Ahora |
+|---|---|---|
+| Crear por script | 85 s | 11,6 s (figuras 0,1–0,3 ms) |
+| Resaltado al pasar el ratón | 50 ms | 0,06 ms |
+| Arrastrar la selección completa | 40 000 ms por paso | 38 ms por paso |
+| Todo a la vista | 44 fps | 45 fps |
+| Zoom (escenas, 10 000) | 1,7 fps (regresión) | 14,5 fps |
+| Guardar / abrir | 0,55 s / 4 s | igual |
+
+
 ## 1. Funciones nuevas para la 0.2.3
 
 Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.

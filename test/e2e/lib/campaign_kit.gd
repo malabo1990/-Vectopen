@@ -134,13 +134,16 @@ func gradient_image(w: int, h: int, c1: Color, c2: Color) -> Image:
 			img.set_pixel(x, y, c1.lerp(c2, (float(x) / w + float(y) / h) * 0.5))
 	return img
 
+var _ls: Node = null
+
 ## Máscara: `child` queda recortado por `mask_shape` (como el panel Capas).
 func mask(mask_shape: Node2D, child: Node2D) -> bool:
-	var ls: Node = null
-	for n in t.root.find_children("*", "", true, false):
-		if n.get_script() and n.get_script().get_global_name() == "LayerSystem":
-			ls = n
-			break
+	if not is_instance_valid(_ls):
+		for n in t.root.find_children("*", "", true, false):
+			if n.get_script() and n.get_script().get_global_name() == "LayerSystem":
+				_ls = n
+				break
+	var ls: Node = _ls
 	if ls == null:
 		return false
 	var gp: Vector2 = child.global_position
@@ -235,6 +238,9 @@ func export_all(ab: Node2D, base: String) -> Dictionary:
 		check("exportar %s (%s)" % [ext.to_upper(), ab.name], ok and sz > 64, "%d bytes · %d ms" % [sz, ms])
 		if ok and sz > 64:
 			out[ext] = p
+	# La exportación a imagen duplica un momento el contenido para dibujarlo
+	# aparte y lo libera después: esperar a que termine.
+	await frames(30)
 	return out
 
 ## Vuelve a importar SVG / PDF / EPS en una mesa nueva y cuenta lo que entra.
@@ -268,7 +274,11 @@ func save_reload(name: String) -> Array:
 	for p in cont.get_children():
 		if p.is_in_group("artboards"):
 			abs.append(p)
-			if p.get("is_dormant"):
+			# Las mesas grandes se cargan por tandas (varios fotogramas):
+			# terminar la carga antes de contar.
+			if p.has_method("wake_now"):
+				p.wake_now()
+			elif p.get("is_dormant"):
 				await p.wake()
 	await frames(20)
 	note("%s_abrir_ms" % name, Time.get_ticks_msec() - t0)

@@ -797,7 +797,10 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 			return
 
 		# En reposo: AABB alineado al mundo que envuelve toda la selección.
-		var global_rect: Rect2 = _get_macro_rect_cloned(shapes_to_calculate)
+		# Mientras se ARRASTRA: la caja inicial desplazada (antes se volvía a
+		# sumar la caja de cada objeto en cada paso: 24 ms con 9 000).
+		var live_r: Rect2 = mt.live_move_rect if (is_instance_valid(mt) and "live_move_rect" in mt and mt.is_dragging_shape) else Rect2()
+		var global_rect: Rect2 = live_r if live_r.size != Vector2.ZERO else _get_macro_rect_cloned(shapes_to_calculate)
 		if global_rect.size == Vector2.ZERO:
 			if visible: hide()
 			_hide_position_fields()
@@ -1073,18 +1076,8 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 		return Rect2(node.global_position, Vector2(w, h))
 	if node is Path2D:
 		var curve: Curve2D = (node as Path2D).curve
-		var baked = curve.get_baked_points()
-		if baked.size() == 0: return Rect2(node.global_position - Vector2(10, 10), Vector2(20, 20))
-		var first_gpt: Vector2 = node.to_global(baked[0])
-		var g_mn: Vector2 = first_gpt
-		var g_mx: Vector2 = first_gpt
-		for p in baked:
-			var g_pt: Vector2 = node.to_global(p)
-			g_mn.x = min(g_mn.x, g_pt.x)
-			g_mn.y = min(g_mn.y, g_pt.y)
-			g_mx.x = max(g_mx.x, g_pt.x)
-			g_mx.y = max(g_mx.y, g_pt.y)
-		return Rect2(g_mn, g_mx - g_mn).grow(_stroke_pad(node, true))
+		if curve == null or curve.get_baked_points().size() == 0: return Rect2(node.global_position - Vector2(10, 10), Vector2(20, 20))
+		return preload("res://script_gdscript/utils/curve_bounds.gd").global_rect(node, curve).grow(_stroke_pad(node, true))
 	if node is Polygon2D:
 		var poly = node as Polygon2D
 		if poly.polygon.size() > 0:
@@ -1119,15 +1112,14 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 		var verts: PackedVector2Array = node.get("vertices")
 		if verts.size() == 0:
 			return Rect2(node.global_position - Vector2(10, 10), Vector2(20, 20))
-		var first_gpt: Vector2 = node.to_global(verts[0])
-		var g_mn: Vector2 = first_gpt
-		var g_mx: Vector2 = first_gpt
-		for p in verts:
-			var g_pt: Vector2 = node.to_global(p)
-			g_mn.x = min(g_mn.x, g_pt.x)
-			g_mn.y = min(g_mn.y, g_pt.y)
-			g_mx.x = max(g_mx.x, g_pt.x)
-			g_mx.y = max(g_mx.y, g_pt.y)
+		# Una sola transformación para todos los vértices (nativo); antes,
+		# to_global vértice a vértice: 54 ms con 4 000 polígonos seleccionados.
+		var gv: PackedVector2Array = node.get_global_transform() * verts
+		var g_mn: Vector2 = gv[0]
+		var g_mx: Vector2 = gv[0]
+		for g_pt in gv:
+			g_mn = g_mn.min(g_pt)
+			g_mx = g_mx.max(g_pt)
 		return Rect2(g_mn, g_mx - g_mn)
 
 	if "width" in node and "height" in node:
@@ -1159,15 +1151,14 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 
 	if node.has_method("get_evaluated_geometry"):
 		var polys: Array[PackedVector2Array] = node.call("get_evaluated_geometry")
-		if not polys.is_empty():
-			var first_gp: Vector2 = node.to_global(polys[0][0])
-			var g_mn: Vector2 = first_gp
-			var g_mx: Vector2 = first_gp
+		if not polys.is_empty() and not polys[0].is_empty():
+			var xf_e: Transform2D = node.get_global_transform()
+			var g_mn: Vector2 = xf_e * polys[0][0]
+			var g_mx: Vector2 = g_mn
 			for poly in polys:
-				for p in poly:
-					var gp: Vector2 = node.to_global(p)
-					g_mn.x = min(g_mn.x, gp.x); g_mn.y = min(g_mn.y, gp.y)
-					g_mx.x = max(g_mx.x, gp.x); g_mx.y = max(g_mx.y, gp.y)
+				for gp in xf_e * poly:
+					g_mn = g_mn.min(gp)
+					g_mx = g_mx.max(gp)
 			return Rect2(g_mn, g_mx - g_mn)
 
 	return Rect2(node.global_position - Vector2(20, 20), Vector2(40, 40))
@@ -1213,14 +1204,8 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 		return Rect2(Vector2.ZERO, Vector2(w, h))
 	if node is Path2D:
 		var curve: Curve2D = (node as Path2D).curve
-		var baked = curve.get_baked_points()
-		if baked.size() == 0: return Rect2(Vector2(-10, -10), Vector2(20, 20))
-		var mn: Vector2 = baked[0]
-		var mx: Vector2 = baked[0]
-		for p in baked:
-			mn.x = min(mn.x, p.x); mn.y = min(mn.y, p.y)
-			mx.x = max(mx.x, p.x); mx.y = max(mx.y, p.y)
-		return Rect2(mn, mx - mn).grow(_stroke_pad(node, false))
+		if curve == null or curve.get_baked_points().size() == 0: return Rect2(Vector2(-10, -10), Vector2(20, 20))
+		return preload("res://script_gdscript/utils/curve_bounds.gd").local_rect(curve).grow(_stroke_pad(node, false))
 	if node is Polygon2D:
 		var poly = node as Polygon2D
 		if poly.polygon.size() > 0:

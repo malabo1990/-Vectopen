@@ -298,7 +298,11 @@ func set_prop(node: Node, prop: String, value: Variant) -> bool:
 		error("set_prop: «%s» no tiene la propiedad «%s»" % [node.name, prop])
 		return false
 	writer.call(value)
-	_tx_dirty = true
+	# Avisar a la UI (inspector, capas) solo si le afecta: antes, con algo
+	# seleccionado, cada set_prop de OTRO objeto reconstruía el inspector
+	# (crear 10 000 figuras por script: ~10 ms cada una en vez de 0,6).
+	if _affects_ui(node, prop):
+		_tx_dirty = true
 	_record("Script · %s" % prop,
 		func() -> void:
 			if is_instance_valid(node): writer.call(value),
@@ -306,6 +310,16 @@ func set_prop(node: Node, prop: String, value: Variant) -> bool:
 			if is_instance_valid(node): writer.call(before),
 		true)
 	return true
+
+## ¿El cambio se ve en la UI? Sí si el objeto está seleccionado (inspector)
+## o si es su nombre / visibilidad / bloqueo (panel Capas).
+func _affects_ui(node: Node, prop: String) -> bool:
+	if prop in ["name", "visible", "locked"]:
+		return true
+	var sm := _n("SelectionManager")
+	if sm == null or not sm.has_method("is_selected"):
+		return true
+	return sm.is_selected(node)
 
 ## Varias propiedades a la vez: {"fill_color": Color.RED, "width": 200}.
 func set_props(node: Node, values: Dictionary) -> void:

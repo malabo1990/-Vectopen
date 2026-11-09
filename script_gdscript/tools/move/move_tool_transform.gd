@@ -347,7 +347,22 @@ func _viewport_zoom() -> float:
 ## Rect global de la selección en el instante en que empezó el arrastre
 ## (`transform_initial_states[s]["gpos"]` + tamaño actual). Sirve de base para
 ## calcular el ajuste del imán sin depender de las posiciones ya movidas.
+## Caja de la selección al EMPEZAR el gesto: una vez por arrastre (antes se
+## recalculaba en cada movimiento: ~10 ms con 3 000 objetos).
+var _mri_cache := Rect2()
+## Caja de la selección durante un arrastre (la usa el recuadro).
+var live_move_rect := Rect2()
+var _mri_key: Array = []
+
 func _macro_rect_inicial() -> Rect2:
+	var key := [transform_initial_mouse, selected_shapes.size(), transform_initial_states.size()]
+	if key == _mri_key:
+		return _mri_cache
+	_mri_cache = _macro_rect_inicial_compute()
+	_mri_key = key
+	return _mri_cache
+
+func _macro_rect_inicial_compute() -> Rect2:
 	var r: Rect2 = Rect2()
 	var got := false
 	for s in selected_shapes:
@@ -372,7 +387,22 @@ func _macro_rect_inicial() -> Rect2:
 ## saltos y aparecían demasiadas líneas).
 const SNAP_MAX_NEAR := 60
 
+## Candidatos del imán: se calculan UNA vez por arrastre (los objetos que no
+## se mueven no cambian mientras dura el gesto). Antes se recalculaban en
+## cada movimiento del ratón y, con miles de seleccionados, cada vez costaba
+## segundos (9 000 seleccionados: 40 s por paso).
+var _snap_cache: Array = []
+var _snap_cache_key: Array = []
+
 func _snap_candidates() -> Array:
+	var key := [transform_initial_mouse, selected_shapes.size(), transform_initial_states.size()]
+	if key == _snap_cache_key and not _snap_cache.is_empty():
+		return _snap_cache
+	_snap_cache = _snap_candidates_compute()
+	_snap_cache_key = key
+	return _snap_cache
+
+func _snap_candidates_compute() -> Array:
 	var all := _snap_candidates_all()
 	if all.size() <= 1:
 		return all
@@ -409,6 +439,17 @@ func _snap_candidates_all() -> Array:
 	if mgr == null:
 		return out
 	var vistos := {}
+	# Seleccionados y sus antepasados, en un conjunto: consulta O(1) (antes se
+	# comparaba cada hijo con TODA la selección: O(hijos × seleccionados)).
+	var sel_set := {}
+	var anc_set := {}
+	for s in selected_shapes:
+		if is_instance_valid(s):
+			sel_set[s] = true
+			var a: Node = s.get_parent()
+			while a != null and not anc_set.has(a):
+				anc_set[a] = true
+				a = a.get_parent()
 	for s in selected_shapes:
 		if not is_instance_valid(s):
 			continue
@@ -426,7 +467,7 @@ func _snap_candidates_all() -> Array:
 			var nm := String(ch.name)
 			if nm in ["Contorno_Stroke", "ArtboardTitle", "VectorDrawingLayer"]:
 				continue
-			if _es_seleccion_o_pariente(ch):
+			if _sel_or_kin(ch, sel_set, anc_set):
 				continue
 			var cr: Rect2 = _global_rect(ch)
 			if cr.size != Vector2.ZERO:
@@ -434,6 +475,17 @@ func _snap_candidates_all() -> Array:
 			if out.size() > 240:
 				return out
 	return out
+
+## ¿`n` es seleccionado, antepasado de uno o está dentro de uno?
+func _sel_or_kin(n: Node, sel_set: Dictionary, anc_set: Dictionary) -> bool:
+	if sel_set.has(n) or anc_set.has(n):
+		return true
+	var p: Node = n.get_parent()
+	while p != null:
+		if sel_set.has(p):
+			return true
+		p = p.get_parent()
+	return false
 
 func _es_seleccion_o_pariente(n: Node) -> bool:
 	for s in selected_shapes:

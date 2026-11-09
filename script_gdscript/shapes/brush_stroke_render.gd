@@ -131,24 +131,46 @@ func _process(_delta: float) -> void:
 		set_process(false)
 		return
 	_carry_linked()
-	var k := _ref_watch_key()
-	if k != _ref_key:
-		_ref_key = k
+	# Dos firmas: el CONTENIDO del texto (letras, formato, escala) y la
+	# COLOCACIÓN (curva y su posición relativa al trazo). Mover todo junto no
+	# rehace nada; mover solo la curva recoloca sin releer las letras. Antes,
+	# cualquier movimiento releía y retriangulaba todas las letras (50 textos
+	# en trazado movidos: ~100 ms por fotograma).
+	var ks := _ref_watch_key(true)
+	var kp := _ref_watch_key(false)
+	if ks != _ref_key:
+		_ref_key = ks
+		_ref_path_key = kp
 		if ObjectBrush.refresh_ref(line):
 			queue_redraw()
+	elif kp != _ref_path_key:
+		_ref_path_key = kp
+		if ObjectBrush.refresh_ref(line, false):
+			queue_redraw()
 
-func _ref_watch_key() -> int:
+var _ref_path_key := 0
+
+## `source_part`: firma del texto de origen (contenido, formato y escala, no
+## su posición); si no, la de la curva (puntos y transform RELATIVO al trazo).
+func _ref_watch_key(source_part: bool = true) -> int:
 	var ref: Dictionary = line.get_meta("brush_ref", {})
 	var parent := line.get_parent()
 	if parent == null:
 		return 0
 	var parts: Array = []
-	for key in ["source", "path"]:
+	for key in (["source"] if source_part else ["path"]):
 		var n := parent.get_node_or_null(NodePath(String(ref.get(key, ""))))
 		if n == null:
 			parts.append(null)
 			continue
-		parts.append((n as CanvasItem).get_global_transform() if n is CanvasItem else null)
+		if n is CanvasItem:
+			var gx: Transform2D = (n as CanvasItem).get_global_transform()
+			if source_part:
+				parts.append(Transform2D(gx.x, gx.y, Vector2.ZERO))   # escala / giro, no posición
+			else:
+				parts.append(line.get_global_transform().affine_inverse() * gx)
+		else:
+			parts.append(null)
 		for mk in ["text", "runs", "font_size", "text_color", "font_family"]:
 			parts.append(var_to_str(n.get_meta(mk)) if n.has_meta(mk) else "")
 		if "curve" in n and n.curve != null:
@@ -218,6 +240,10 @@ func _draw() -> void:
 		if folds != _pencil_folds:
 			_pencil_folds = folds
 			_update_material()
+	# La malla corresponde al estado ACTUAL (recién hecha o con la misma
+	# firma completa): renovar las referencias baratas que usa visual_mesh().
+	_built_sig = _cheap_sig()
+	_built_obj = line.get_meta("brush_obj") if line.has_meta("brush_obj") else null
 	var ax: Array = _geom["ax"]
 	pts = ax[0]
 	var half: PackedFloat32Array = ax[1]
@@ -335,9 +361,25 @@ func _geom_key() -> int:
 ## calculada para la forma ACTUAL; si no, vacío (no se fuerza: con miles de
 ## trazos fuera de pantalla saldría caro).
 func visual_mesh() -> Dictionary:
-	if _geom.is_empty() or not is_instance_valid(line) or _geom_key() != _geom_cache_key:
+	# Firma BARATA (no el hash de todos los puntos): se consulta en cada
+	# movimiento del ratón para miles de trazos.
+	if _geom.is_empty() or not is_instance_valid(line) or _cheap_sig() != _built_sig:
+		return {}
+	# los datos del pincel de figuras se sustituyen enteros al cambiar
+	if line.has_meta("brush_obj") and not is_same(line.get_meta("brush_obj"), _built_obj):
 		return {}
 	return _geom.get("m", {})
+
+var _built_sig: Array = []
+var _built_obj = null
+
+func _cheap_sig() -> Array:
+	var pts := line.points
+	var n := pts.size()
+	if n == 0:
+		return [0]
+	@warning_ignore("integer_division")
+	return [n, pts[0], pts[n / 2], pts[n - 1], line.width, line.get_meta("brush_style", "")]
 
 var _bounds_key := 0
 var _bounds := Rect2()
@@ -349,7 +391,7 @@ func visual_bounds() -> Rect2:
 	if m.is_empty():
 		return Rect2()
 	if _bounds_key == _geom_cache_key and _bounds.has_area():
-		return _bounds
+		return _bounds   # misma malla que la última vez
 	var v: PackedVector2Array = m.get("points", PackedVector2Array())
 	if v.is_empty():
 		return Rect2()
