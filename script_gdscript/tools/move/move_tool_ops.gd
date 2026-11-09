@@ -266,6 +266,20 @@ func _force_text_loss_focus() -> void:
 	if focus_owner and (focus_owner is TextEdit or focus_owner is LineEdit):
 		focus_owner.release_focus()
 
+## ¿El marquee toca la FORMA del objeto? (no basta con su recuadro: un
+## trazo diagonal o una curva en «C» solo cuentan si el rectángulo pisa su
+## línea o su relleno, como en Illustrator.)
+func _marquee_touches(node: Node2D, mr: Rect2) -> bool:
+	var SH = preload("res://script_gdscript/utils/shape_hit.gd")
+	var tol: float = _hit_tol() if has_method("_hit_tol") else 0.0
+	if node is Line2D or node is Path2D:
+		return SH.rect_hit(node, mr, tol)
+	if node is VectorShape and not node.has_method("rotate_orbit") and not SH.has_visible_fill(node) \
+			and not (node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text")) \
+			and node.get_children().filter(func(c): return c is Node2D and String(c.name) != "Contorno_Stroke").is_empty():
+		return SH.rect_hit(node, mr, tol)
+	return true
+
 func _apply_marquee() -> void:
 	var mr: Rect2 = Rect2(marquee_start, marquee_end - marquee_start).abs()
 
@@ -296,7 +310,7 @@ func _apply_marquee() -> void:
 				candidates.append(n)
 
 	for node in candidates:
-		if is_instance_valid(node) and mr.intersects(_global_rect(node)):
+		if is_instance_valid(node) and mr.intersects(_global_rect(node)) and _marquee_touches(node, mr):
 			if subtract:
 				selected_shapes.erase(node)
 			elif not selected_shapes.has(node):

@@ -615,9 +615,29 @@ func _primer_seleccionado_en_rama(grupo: Node) -> Node2D:
 			a = a.get_parent()
 	return null
 
+const ShapeHit = preload("res://script_gdscript/utils/shape_hit.gd")
+const HIT_TOL_PX := 4.0   # margen del clic, en píxeles de PANTALLA
+
+## Margen del clic en unidades del lienzo (constante en pantalla).
+func _hit_tol() -> float:
+	var vp := canvas.get_viewport() if is_instance_valid(canvas) else null
+	var z: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	return HIT_TOL_PX / maxf(z, 0.0001)
+
 func _node_contains_point(node: Node2D, gpos: Vector2) -> bool:
 	if not is_instance_valid(node):
 		return false
+	# Precisión de editor profesional: se comprueba la forma, no su recuadro.
+	if node is Line2D:
+		return _global_rect(node).grow(_hit_tol()).has_point(gpos) and ShapeHit.line_hit(node, gpos, _hit_tol())
+	if node is Path2D:
+		return _global_rect(node).grow(_hit_tol()).has_point(gpos) and ShapeHit.path_hit(node, gpos, _hit_tol())
+	if node is Sprite2D and (node as Sprite2D).texture:
+		return ShapeHit.sprite_hit(node, gpos)
+	if (node is VectorShape) and not node.has_method("rotate_orbit") and not ShapeHit.has_visible_fill(node) and node.has_method("get_evaluated_geometry") \
+			and not (node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text")):
+		# Sin relleno: solo el borde (como Illustrator).
+		return ShapeHit.outline_hit(node, gpos, _hit_tol())
 	if "size" in node and (node is VectorRectangle or node is VectorCircle or node.has_method("rotate_orbit")):
 		var s: Vector2 = node.get("size")
 		var lpt: Vector2 = node.to_local(gpos)
@@ -660,6 +680,18 @@ func _rama_contiene_punto(nodo: Node, gpos: Vector2) -> bool:
 
 # ── Cálculo Dinámico del Bounding Box Pro (Soporte Títulos y Párrafos) ─────────
 
+## Margen de una curva = medio grosor REAL de su trazo (en el lienzo). Antes
+## era un mínimo fijo de 6 y el recuadro de curvas finas quedaba enorme.
+static func _path_stroke_pad(node: Node) -> float:
+	var pad := 0.0
+	if "stroke_width" in node:
+		pad = maxf(float(node.get("stroke_width")), 0.0) * 0.5
+	var renderer = node.get_node_or_null("Render_Visual")
+	if renderer is Line2D:
+		pad = maxf(pad, renderer.width * 0.5)
+	var s: Vector2 = (node as Node2D).get_global_transform().get_scale() if node is Node2D else Vector2.ONE
+	return pad * maxf(absf(s.x), absf(s.y))
+
 func _global_rect(node: Node2D) -> Rect2:
 	if not is_instance_valid(node): return Rect2()
 	# Grupo: la unión de sus capas (antes caía al recuadro fijo de 40×40).
@@ -701,11 +733,7 @@ func _global_rect(node: Node2D) -> Rect2:
 			g_mx.x = max(g_mx.x, g_pt.x)
 			g_mx.y = max(g_mx.y, g_pt.y)
 			
-		var pad: float = MIN_LINE_PAD
-		var renderer = node.get_node_or_null("Render_Visual")
-		if renderer is Line2D:
-			pad = max(pad, renderer.width * 0.5)
-		return Rect2(g_mn, g_mx - g_mn).grow(pad)
+		return Rect2(g_mn, g_mx - g_mn).grow(_path_stroke_pad(node))
 
 	if node is Polygon2D:
 		var poly = node as Polygon2D
@@ -764,7 +792,7 @@ func _global_rect(node: Node2D) -> Rect2:
 		if line.points.size() == 0:
 			return Rect2(line.global_position - Vector2(10, 10), Vector2(20, 20))
 		# Caja cacheada (los trazos de pincel tienen miles de puntos).
-		return preload("res://script_gdscript/utils/line_bounds.gd").global_rect(line, MIN_LINE_PAD)
+		return preload("res://script_gdscript/utils/line_bounds.gd").global_rect(line)
 
 	if node is Sprite2D and (node as Sprite2D).texture:
 		var sp: Sprite2D = node as Sprite2D

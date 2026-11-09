@@ -91,10 +91,46 @@ func _ready() -> void:
 ## el trazado de los que sale, se rehace solo.
 var _ref_key := 0
 
+## Mover / girar / escalar el texto en trazado lleva consigo su trazado y su
+## texto de origen (como Illustrator). Antes el texto se separaba de la curva.
+## Funciona igual con arrastre, flechas, inspector o deshacer: se aplica a
+## ellos el mismo cambio que sufrió el trazo enlazado.
+var _ref_xf_set := false
+var _ref_line_xf := Transform2D.IDENTITY
+var _ref_others: Dictionary = {}   # nodo → su transform la última vez
+
+func _carry_linked() -> void:
+	var parent := line.get_parent()
+	if parent == null:
+		return
+	var ref: Dictionary = line.get_meta("brush_ref", {})
+	var others: Array = []
+	for key in ["path", "source"]:
+		var n := parent.get_node_or_null(NodePath(String(ref.get(key, "")))) as Node2D
+		if n:
+			others.append(n)
+	if not _ref_xf_set:
+		_ref_xf_set = true
+		_ref_line_xf = line.transform
+		for n in others:
+			_ref_others[n] = n.transform
+		return
+	if not line.transform.is_equal_approx(_ref_line_xf):
+		var delta := line.transform * _ref_line_xf.affine_inverse()
+		for n in others:
+			var before: Transform2D = _ref_others.get(n, n.transform)
+			# si ya se movió igual (estaba seleccionado también), no repetir
+			if not n.transform.is_equal_approx(delta * before):
+				n.transform = delta * n.transform
+		_ref_line_xf = line.transform
+	for n in others:
+		_ref_others[n] = n.transform
+
 func _process(_delta: float) -> void:
 	if not is_instance_valid(line) or not line.has_meta("brush_ref"):
 		set_process(false)
 		return
+	_carry_linked()
 	var k := _ref_watch_key()
 	if k != _ref_key:
 		_ref_key = k
@@ -294,6 +330,37 @@ func _geom_key() -> int:
 	return hash([line.points, line.width, wk, line.begin_cap_mode, line.end_cap_mode,
 		String(line.get_meta("brush_style", "")), float(line.get_meta("nib_angle", NIB_ANGLE_DEG)),
 		hash(line.get_meta("brush_obj", {})), line.has_meta("brush_texture"), hash(line.get_meta("brush_geo", {}))])
+
+## Malla que se dibuja ({points, indices}, en local del trazo) si ya está
+## calculada para la forma ACTUAL; si no, vacío (no se fuerza: con miles de
+## trazos fuera de pantalla saldría caro).
+func visual_mesh() -> Dictionary:
+	if _geom.is_empty() or not is_instance_valid(line) or _geom_key() != _geom_cache_key:
+		return {}
+	return _geom.get("m", {})
+
+var _bounds_key := 0
+var _bounds := Rect2()
+
+## Caja LOCAL de lo que se ve (presión, remates, figuras, texto en trazado);
+## Rect2() si la malla aún no está calculada.
+func visual_bounds() -> Rect2:
+	var m := visual_mesh()
+	if m.is_empty():
+		return Rect2()
+	if _bounds_key == _geom_cache_key and _bounds.has_area():
+		return _bounds
+	var v: PackedVector2Array = m.get("points", PackedVector2Array())
+	if v.is_empty():
+		return Rect2()
+	var mn := v[0]
+	var mx := v[0]
+	for q in v:
+		mn = mn.min(q)
+		mx = mx.max(q)
+	_bounds = Rect2(mn, mx - mn)
+	_bounds_key = _geom_cache_key
+	return _bounds
 
 func _build_geom() -> Dictionary:
 	var ax := centerline(line)

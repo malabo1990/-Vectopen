@@ -191,6 +191,10 @@ func _capture_base_handle_geometry() -> void:
 	var candle := panel_interactivo.get_node_or_null("candle")
 	if is_instance_valid(candle):
 		candle.add_theme_stylebox_override("panel", vacio)  # el tallo lo dibuja _draw()
+		# Solo dibujo: su tamaño está en unidades del lienzo (sin compensar el
+		# zoom) y con mucho zoom tapaba la caja entera y se quedaba el clic
+		# (no se podía arrastrar un objeto pequeño ya seleccionado).
+		candle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# El StyleBox del contorno del panel: le quitamos el borde (el contorno lo
 	# dibuja _draw() con grosor CONSTANTE en pantalla — el borde de StyleBoxFlat
@@ -733,7 +737,7 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 		var p_rot: float = parent_node.global_rotation if parent_node is Node2D else parent_node.get_global_transform().get_rotation()
 		pivot_offset = Vector2.ZERO
 		scale = shape.global_transform.get_scale()
-		rotation = shape.global_rotation - p_rot
+		rotation = _no_snap(shape.global_rotation - p_rot)
 		size = local_rect.size
 		var g_pos: Vector2 = shape.to_global(local_rect.position)
 		position = parent_node.to_local(g_pos) if parent_node is Node2D else parent_node.get_global_transform().affine_inverse() * g_pos
@@ -775,7 +779,7 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 				box_rot = mt.live_rot_angle
 			var p_rot: float = parent_node.global_rotation if parent_node is Node2D else parent_node.get_global_transform().get_rotation()
 			pivot_offset = box_size * 0.5
-			rotation = box_rot - p_rot
+			rotation = _no_snap(box_rot - p_rot)
 			scale = Vector2.ONE
 			size = box_size
 			var b_pos: Vector2 = parent_node.to_local(box_center) if parent_node is Node2D else parent_node.get_global_transform().affine_inverse() * box_center
@@ -798,12 +802,45 @@ func _sincronizar_dimensiones_en_canvas() -> void:
 
 		pivot_offset = Vector2.ZERO
 		scale = Vector2.ONE
-		rotation = 0.0
+		rotation = _no_snap(0.0)
 		position = local_pos
 		size = local_end - local_pos
 
 		if not visible: show()
 		_hide_position_fields()
+
+## Durante un gesto que empezó la herramienta Mover (arrastrar un objeto que
+## se acaba de seleccionar, marquee), la caja y sus tiradores dejan pasar el
+## ratón. Antes la caja aparecía bajo el cursor y se quedaba los movimientos:
+## el objeto no se movía (o saltaba al salir el cursor de la caja).
+var _pass_saved: Dictionary = {}
+
+func set_gesture_passthrough(on: bool) -> void:
+	if on:
+		if not _pass_saved.is_empty():
+			return
+		_pass_saved[self] = mouse_filter
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for c in find_children("*", "Control", true, false):
+			_pass_saved[c] = (c as Control).mouse_filter
+			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	else:
+		for c in _pass_saved:
+			if is_instance_valid(c):
+				(c as Control).mouse_filter = _pass_saved[c]
+		_pass_saved.clear()
+
+func is_gesture_passthrough() -> bool:
+	return not _pass_saved.is_empty()
+
+## Godot ajusta la posición de un Control a unidades ENTERAS de su padre
+## («snap controls to pixels») salvo que esté girado. El recuadro vive en el
+## lienzo con zoom: con 7400 % una unidad son 74 px y la caja salía corrida
+## respecto al trazo. Un giro ínfimo (0,0006°) lo evita solo para esta caja;
+## sobre 1000 unidades desvía 0,01: invisible.
+const _NO_SNAP_EPS := 0.00001
+static func _no_snap(rot: float) -> float:
+	return rot + _NO_SNAP_EPS if absf(sin(rot * 4.0)) < 0.00001 else rot
 
 func _gui_input(event: InputEvent) -> void:
 	if has_gradient_annotator() and _handle_annotator_input(event):
@@ -825,6 +862,12 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 		gm = event.global_position
 	else:
 		gm = Vector2.ZERO
+
+	# Tiradores del texto en trazado (▶ ◀ ◆): antes que mover el recuadro.
+	if event is InputEventMouse and move_tool_reference.has_method("_text_path_input"):
+		if move_tool_reference._text_path_input(event, gm):
+			accept_event()
+			return
 
 	# Puerto de enlace de párrafos (Text Threading)
 	if _is_paragraph_shape_selected():
@@ -978,6 +1021,21 @@ func _get_macro_rect_cloned(selected_shapes_array: Array[Node2D]) -> Rect2:
 				r = r.merge(_global_rect_cloned(shape))
 	return r
 
+## Medio grosor REAL del trazo de una curva (antes, mínimo fijo de 6: en
+## curvas finas o con mucho zoom el recuadro quedaba enorme). `world`: en el
+## lienzo (con la escala de la figura) o en su espacio propio.
+static func _stroke_pad(node: Node, world: bool) -> float:
+	var pad := 0.0
+	if "stroke_width" in node:
+		pad = maxf(float(node.get("stroke_width")), 0.0) * 0.5
+	var renderer = node.get_node_or_null("Render_Visual")
+	if renderer is Line2D:
+		pad = maxf(pad, renderer.width * 0.5)
+	if world and node is Node2D:
+		var s: Vector2 = (node as Node2D).get_global_transform().get_scale()
+		pad *= maxf(absf(s.x), absf(s.y))
+	return pad
+
 func _global_rect_cloned(node: Node2D) -> Rect2:
 	if not is_instance_valid(node): return Rect2()
 	# Grupo: la unión de sus capas (antes caía al recuadro fijo de 40×40).
@@ -1008,10 +1066,7 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 			g_mn.y = min(g_mn.y, g_pt.y)
 			g_mx.x = max(g_mx.x, g_pt.x)
 			g_mx.y = max(g_mx.y, g_pt.y)
-		var pad: float = 6.0
-		var renderer = node.get_node_or_null("Render_Visual")
-		if renderer is Line2D: pad = max(pad, renderer.width * 0.5)
-		return Rect2(g_mn, g_mx - g_mn).grow(pad)
+		return Rect2(g_mn, g_mx - g_mn).grow(_stroke_pad(node, true))
 	if node is Polygon2D:
 		var poly = node as Polygon2D
 		if poly.polygon.size() > 0:
@@ -1066,7 +1121,7 @@ func _global_rect_cloned(node: Node2D) -> Rect2:
 		var line: Line2D = node as Line2D
 		if line.points.size() == 0: return Rect2(line.global_position - Vector2(10, 10), Vector2(20, 20))
 		# Caja cacheada (los trazos de pincel tienen miles de puntos).
-		return preload("res://script_gdscript/utils/line_bounds.gd").global_rect(line, 6.0)
+		return preload("res://script_gdscript/utils/line_bounds.gd").global_rect(line)
 
 	if node is Sprite2D and (node as Sprite2D).texture:
 		var sp: Sprite2D = node as Sprite2D
@@ -1147,10 +1202,7 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 		for p in baked:
 			mn.x = min(mn.x, p.x); mn.y = min(mn.y, p.y)
 			mx.x = max(mx.x, p.x); mx.y = max(mx.y, p.y)
-		var pad: float = 6.0
-		var renderer = node.get_node_or_null("Render_Visual")
-		if renderer is Line2D: pad = max(pad, renderer.width * 0.5)
-		return Rect2(mn, mx - mn).grow(pad)
+		return Rect2(mn, mx - mn).grow(_stroke_pad(node, false))
 	if node is Polygon2D:
 		var poly = node as Polygon2D
 		if poly.polygon.size() > 0:
@@ -1183,8 +1235,7 @@ func _local_rect_cloned(node: Node2D) -> Rect2:
 	if node is Line2D:
 		var line: Line2D = node as Line2D
 		if line.points.size() == 0: return Rect2(Vector2(-10, -10), Vector2(20, 20))
-		var pad: float = max(6.0, line.width * 0.5)
-		return preload("res://script_gdscript/utils/line_bounds.gd").local_rect(line).grow(pad)
+		return preload("res://script_gdscript/utils/line_bounds.gd").visual_local_rect(line)
 
 	if node is Sprite2D and (node as Sprite2D).texture:
 		return (node as Sprite2D).get_rect()

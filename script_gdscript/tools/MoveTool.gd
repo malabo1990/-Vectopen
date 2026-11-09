@@ -63,6 +63,7 @@ func _process(_delta: float) -> void:
 	_heal_stuck_gesture()
 
 func deactivate() -> void:
+	_bbox_pass(false)
 	if SelectionManager and _sel_conn:
 		SelectionManager.changed.disconnect(_on_external_selection_changed)
 		_sel_conn = false
@@ -210,6 +211,10 @@ func handle_input(event: InputEvent) -> bool:
 				canvas.queue_redraw()
 			return true
 		if event.pressed and _handle_key_shortcuts(event.keycode, event.shift_pressed):
+			return true
+
+	if (event is InputEventMouseButton or event is InputEventMouseMotion) and current_key_mode == KeyMode.NONE:
+		if _text_path_input(event, gm):
 			return true
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -516,6 +521,7 @@ func _on_press(gm: Vector2) -> bool:
 		_alt_drag_duplicated = false
 		_shift_drag_axis = ""
 		is_dragging_shape = true
+		_bbox_pass(true)
 		_snap_session(true)
 		transform_initial_mouse = gm
 		transform_initial_states.clear()
@@ -547,6 +553,7 @@ func _on_press(gm: Vector2) -> bool:
 	if not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_ALT):
 		_clear_selection()
 	is_marquee = true
+	_bbox_pass(true)
 	marquee_start = gm
 	marquee_end = gm
 	canvas.queue_redraw()
@@ -554,10 +561,22 @@ func _on_press(gm: Vector2) -> bool:
 
 # ── Release ────────────────────────────────────────────────────────────────────
 
+## La caja de selección deja pasar el ratón mientras dura un gesto de la
+## herramienta (ver bounding_box.set_gesture_passthrough).
+func _bbox_pass(on: bool) -> void:
+	if is_instance_valid(_bounding_box) and _bounding_box.has_method("set_gesture_passthrough"):
+		_bounding_box.set_gesture_passthrough(on)
+
 func _on_release(gm: Vector2) -> bool:
+	_bbox_pass(false)
 	if is_marquee:
 		is_marquee = false
-		_apply_marquee()
+		# Un clic sin arrastrar en vacío NO es un marquee: antes, el
+		# rectángulo de tamaño cero cogía cualquier objeto cuyo RECUADRO pasara
+		# por ahí (el hueco de una curva, lo transparente de una imagen…).
+		var drag_px: float = (marquee_end - marquee_start).length() * _view_zoom()
+		if drag_px >= 3.0:
+			_apply_marquee()
 
 	# GlobalEvents.object_transformed existía en la señal pero nada la
 	# emitía nunca — LayerSystem la usa para refrescar el indicador de
@@ -650,6 +669,7 @@ func _heal_stuck_gesture() -> void:
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		return
 	# El ratón no está pulsado pero seguimos "en gesto" → estado zombi. Cerramos.
+	_bbox_pass(false)
 	is_dragging_shape = false
 	_snap_session(false)
 	is_marquee = false
