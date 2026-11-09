@@ -28,6 +28,8 @@ var is_mouse_over_ui: bool = false
 
 func _ready() -> void:
 	_ui_mode = _load_ui_mode()
+	# Tamaño de la interfaz (4K / pantallas pequeñas; Ajustes ▸ Interfaz)
+	load("res://script_gdscript/system/ui_scale.gd").install(get_tree())
 
 func get_ui_mode() -> String:
 	return _ui_mode

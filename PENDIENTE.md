@@ -100,6 +100,30 @@ cambiar anchura y pincel después de dibujar, guardar y recuperar.
 
 ---
 
+## 0 quater. Tanda nocturna (2026-11-09): rendimiento, escala de la UI, VGSE 4–6
+
+**Rendimiento** (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
+
+| N | crear | cargar | fps todo visible (alta / baja) | fps zoom | memoria |
+|---|---|---|---|---|---|
+| 1 000 | 0,25 s | 0,3 s | 194 / 264 | 78 | 290 MB |
+| 5 000 | 1,3 s | 1,5 s | 38 / 54 | 23 | 412 MB |
+| 10 000 | 2,6 s (antes 63 s) | 3,0 s (antes 25 s) | 21 / 33 | 13 | 563 MB |
+| 50 000 | 17,7 s | 14,6 s | 3 / 4 | 3 | 1,8 GB |
+
+| Punto | Estado |
+|---|---|
+| Panel de Capas congelaba con miles de capas (fotogramas de 2–4 s) | Hecho (`133477a`): grupos grandes por demanda, tandas de 200 |
+| Guardar / cargar no pierde elementos | Comprobado (mismo recuento antes y después) |
+| Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | Pendiente |
+| Dibujar con todo a la vista (50 000 → 3 fps) y zoom: nivel de detalle / caché al alejar | Pendiente |
+| Seleccionar todo (50 000 → 5 s) y mover la selección (630 ms por paso) | Pendiente |
+
+**Escala de la interfaz**: hecho — `ui_scale.gd` (automática por escala del
+sistema / DPI / tamaño; Ajustes ▸ Interfaz 80–200 %; Ctrl+Alt+= / - / 0; aviso;
+`VECTOPEN_UI_SCALE` para pruebas; `ui_scale_e2e` 10/0). Un solo control para
+toda la UI (los 382 tamaños de letra fijados a mano impiden un «solo texto» fiable).
+
 ## 1. Funciones nuevas para la 0.2.3
 
 Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.

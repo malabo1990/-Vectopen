@@ -32,6 +32,7 @@ func _ready() -> void:
 	_populate_theme_preset()
 	_populate_language()
 	_populate_ui_colors()
+	_populate_interface_section()
 	_populate_files_section()
 	_populate_mcp_section()
 	_connect_signals()
@@ -442,6 +443,55 @@ func _populate_ui_colors() -> void:
 		row.add_child(picker)
 
 ## Archivos: guardado automático, pasos de deshacer y app predeterminada.
+## Ajustes ▸ Interfaz: tamaño de TODA la interfaz (letras incluidas), para
+## monitores 4K y pantallas pequeñas. Automático por defecto.
+func _populate_interface_section() -> void:
+	if not _slot_container:
+		return
+	var svc = load("res://script_gdscript/system/ui_scale.gd").service(get_tree())
+	if svc == null:
+		return
+	_slot_container.add_child(HSeparator.new())
+	var head := Label.new()
+	head.name = "SecInterface"
+	head.text = tr("Interfaz")
+	_slot_container.add_child(head)
+	var r := HBoxContainer.new()
+	_slot_container.add_child(r)
+	var l := Label.new()
+	l.text = tr("Tamaño de la interfaz")
+	l.tooltip_text = tr("Agranda o achica paneles, iconos y letras. Atajo: Ctrl+Alt+= / Ctrl+Alt+-  (Ctrl+Alt+0 = automático)")
+	l.mouse_filter = Control.MOUSE_FILTER_STOP
+	l.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
+	r.add_child(l)
+	var opt := OptionButton.new()
+	opt.name = "UIScaleOption"
+	opt.add_item(tr("Automático (%d %%)") % int(round(svc.auto_scale() * 100.0)), 0)
+	var steps: Array = svc.STEPS
+	for i in steps.size():
+		opt.add_item("%d %%" % int(round(float(steps[i]) * 100.0)), i + 1)
+	var sel := 0
+	if not svc.is_auto():
+		for i in steps.size():
+			if absf(float(steps[i]) - float(svc.user_scale)) < 0.01:
+				sel = i + 1
+	opt.select(sel)
+	opt.item_selected.connect(func(idx: int) -> void:
+		svc.set_scale(0.0 if idx == 0 else float(steps[idx - 1])))
+	r.add_child(opt)
+	var hint := Label.new()
+	hint.text = tr("Atajo: Ctrl+Alt+= / Ctrl+Alt+-  ·  Ctrl+Alt+0 vuelve a automático")
+	hint.add_theme_font_size_override("font_size", 10)
+	_slot_container.add_child(hint)
+	svc.changed.connect(func(_s: float) -> void:
+		var idx := 0
+		if not svc.is_auto():
+			for i in steps.size():
+				if absf(float(steps[i]) - float(svc.user_scale)) < 0.01:
+					idx = i + 1
+		if is_instance_valid(opt):
+			opt.select(idx))
+
 func _populate_files_section() -> void:
 	if not _slot_container:
 		return
