@@ -55,6 +55,8 @@ const PROPS := [
 	"model_path", "model_rotation_x", "model_rotation_y", "model_rotation_z", "camera_distance", "camera_fov", "light_energy", "light_rotation_x", "light_rotation_y",
 	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
 	"path_text_align", "path_text_offset", "path_text_flip",
+	"path_text_content", "path_text_size", "path_text_spacing", "path_text_start", "path_text_end",
+	"path_text_range", "path_text_valign", "path_text_reverse",
 	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 	"brush_geo", "brush_geo_amount", "brush_geo_size", "brush_color_jitter", "brush_texture_image",
 ]
@@ -188,9 +190,33 @@ func _text_label_color(shape, theme_key: String, def: Color) -> Color:
 			return vrt.get_stroke_color()
 	return def
 
+const ObjectBrushRef = preload("res://script_gdscript/shapes/object_brush.gd")
+
+## Texto de origen (oculto) de un texto en trazado; null si no lo es.
+func path_text_source(shape) -> Node:
+	if not (shape is Line2D) or not shape.has_meta("brush_ref") or shape.get_parent() == null:
+		return null
+	var ref: Dictionary = shape.get_meta("brush_ref", {})
+	var n: Node = shape.get_parent().get_node_or_null(NodePath(String(ref.get("source", ""))))
+	return n if n != null and _is_text(n) else null
+
+## Ajustes de letra que, en un texto en trazado, son de su texto de origen
+## (oculto): los paneles de tipografía editan ese texto y el trazo se rehace.
+const _PATH_TEXT_REDIRECT := ["text", "font_size", "font_family", "font_weight", "font_italic",
+	"letter_spacing", "line_spacing", "text_align", "fill_color",
+	"letter_proportions", "letter_wave", "letter_tracking_ramp"]
+
+func _path_text_redirect(shape, prop) -> Node:
+	if prop in _PATH_TEXT_REDIRECT and shape is Line2D and shape.has_meta("brush_ref"):
+		return path_text_source(shape)
+	return null
+
 func _read(shape, prop):
 	if not is_instance_valid(shape):
 		return null
+	var ptxt := _path_text_redirect(shape, prop)
+	if ptxt != null:
+		return _read(ptxt, prop)
 	# Un modelo 3D hereda relleno y trazo de VectorShape pero no los dibuja:
 	# no se ofrecen (eran controles sin efecto en el inspector).
 	if String(prop).begins_with("stroke_") or prop in ["fill_color", "fill_paint"]:
@@ -234,6 +260,10 @@ func _read(shape, prop):
 			if shape is Line2D: return shape.default_color
 			return null
 		"stroke_width":
+			# Texto en trazado: su anchura es el alto del texto, no un grosor
+			# (el panel de trazo la reescribía y dejaba un deshacer fantasma).
+			if shape is Line2D and shape.has_meta("brush_ref"):
+				return null
 			if _is_text(shape):
 				if shape.has_meta("stroke_width"): return float(shape.get_meta("stroke_width"))
 				return float(shape.get_meta("text_outline", 0))
@@ -467,6 +497,33 @@ func _read(shape, prop):
 					return "end" if a > 0.75 else ("center" if a > 0.25 else "start")
 				"path_text_offset": return float(prm.get("offset", 0.0))
 				_: return bool(prm.get("flip", false))
+		"path_text_spacing", "path_text_start", "path_text_end":
+			if not (shape is Line2D and shape.has_meta("brush_ref")):
+				return null
+			var prm2: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).get("params", {})
+			match prop:
+				"path_text_spacing": return float(prm2.get("tracking", 0.0))
+				"path_text_start": return float(prm2.get("start_at", 0.0))
+				_: return float(prm2.get("end_at", 1.0))
+		"path_text_valign", "path_text_reverse":
+			if not (shape is Line2D and shape.has_meta("brush_ref")):
+				return null
+			var prm4: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).get("params", {})
+			if prop == "path_text_valign":
+				return String(prm4.get("valign", "baseline"))
+			return bool(prm4.get("reverse", false))
+		"path_text_range":
+			# inicio y final juntos (tiradores del lienzo: un solo deshacer)
+			if not (shape is Line2D and shape.has_meta("brush_ref")):
+				return null
+			var prm3: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).get("params", {})
+			return Vector2(float(prm3.get("start_at", 0.0)), float(prm3.get("end_at", 1.0)))
+		"path_text_content", "path_text_size":
+			# El texto de origen (oculto) de un texto en trazado.
+			var tsrc := path_text_source(shape)
+			if tsrc == null:
+				return null
+			return _read(tsrc, "text" if prop == "path_text_content" else "font_size")
 		"model_path":
 			if "model_path" in shape: return String(shape.model_path)
 			return null
@@ -1248,6 +1305,12 @@ func _take_live_geom(s) -> Variant:
 func _write(shape, prop, value) -> void:
 	if not is_instance_valid(shape):
 		return
+	var ptxt := _path_text_redirect(shape, prop)
+	if ptxt != null:
+		_write(ptxt, prop, value)
+		if ObjectBrushRef.refresh_ref(shape):
+			shape.queue_redraw()
+		return
 	var vrt = shape.get_node_or_null("VectorRichText") if shape is Node else null
 	var fx: bool = vrt != null and _is_text(shape) and LetterFx.has_fx(shape) and not vrt.is_editing() \
 		and not (prop in ["letter_proportions", "letter_wave", "letter_tracking_ramp"])
@@ -1536,6 +1599,45 @@ func _write_prop(shape, prop, value) -> void:
 				bo["params"] = prm
 				shape.set_meta("brush_obj", bo)
 				shape.queue_redraw()
+		"path_text_spacing", "path_text_start", "path_text_end":
+			if shape is Line2D and shape.has_meta("brush_ref"):
+				var bo2: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
+				var prm2: Dictionary = bo2.get("params", {})
+				match prop:
+					"path_text_spacing": prm2["tracking"] = clampf(float(value), -0.5, 5.0)
+					"path_text_start": prm2["start_at"] = clampf(float(value), 0.0, 1.0)
+					_: prm2["end_at"] = clampf(float(value), 0.0, 1.0)
+				bo2["params"] = prm2
+				shape.set_meta("brush_obj", bo2)
+				shape.queue_redraw()
+		"path_text_valign", "path_text_reverse":
+			if shape is Line2D and shape.has_meta("brush_ref"):
+				var bo4: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
+				var prm4: Dictionary = bo4.get("params", {})
+				if prop == "path_text_valign":
+					var va := String(value)
+					prm4["valign"] = va if va in ["baseline", "top", "center"] else "baseline"
+				else:
+					prm4["reverse"] = bool(value)
+				bo4["params"] = prm4
+				shape.set_meta("brush_obj", bo4)
+				shape.queue_redraw()
+		"path_text_range":
+			if shape is Line2D and shape.has_meta("brush_ref") and value is Vector2:
+				var bo3: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
+				var prm3: Dictionary = bo3.get("params", {})
+				prm3["start_at"] = clampf(value.x, 0.0, 1.0)
+				prm3["end_at"] = clampf(value.y, 0.0, 1.0)
+				bo3["params"] = prm3
+				shape.set_meta("brush_obj", bo3)
+				shape.queue_redraw()
+		"path_text_content", "path_text_size":
+			var tsrc := path_text_source(shape)
+			if tsrc != null:
+				_write_prop(tsrc, "text" if prop == "path_text_content" else "font_size", value)
+				# Rehacer ya (no esperar al siguiente fotograma).
+				if ObjectBrushRef.refresh_ref(shape):
+					shape.queue_redraw()
 		"drop_curvature":
 			# Gota paramétrica: se regenera su contorno con la curvatura nueva.
 			if shape.has_meta("drop_radius") and shape.has_method("set_doc_vertices"):

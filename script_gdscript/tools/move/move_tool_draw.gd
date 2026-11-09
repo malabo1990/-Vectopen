@@ -221,9 +221,53 @@ func _draw_modifier_hint(c: Node2D) -> void:
 
 const MAX_OUTLINED_SELECTION := 300
 
+## Tiradores del texto en trazado (▶ inicio, ◀ final, ◆ deslizar).
+const TextPathHandles = preload("res://script_gdscript/tools/move/text_path_handles.gd")
+var _tph := TextPathHandles.new()
+
+func _view_zoom() -> float:
+	var vp := canvas.get_viewport() if is_instance_valid(canvas) else null
+	return vp.get_canvas_transform().get_scale().x if vp else 1.0
+
+## Ratón sobre los tiradores del texto en trazado. true si lo consume.
+func _text_path_input(event: InputEvent, gm: Vector2) -> bool:
+	_tph.line = TextPathHandles.target(selected_shapes)
+	if _tph.line == null:
+		if _tph.drag != "":
+			_tph.cancel()
+		_tph.hover = ""
+		return false
+	var z := _view_zoom()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and not event.double_click:
+			var k := _tph.hit(gm, z)
+			if k != "":
+				_tph.begin(k, gm)
+				canvas.queue_redraw()
+				return true
+		elif not event.pressed and _tph.drag != "":
+			_tph.finish()
+			canvas.queue_redraw()
+			return true
+	elif event is InputEventMouseMotion:
+		if _tph.drag != "":
+			_tph.update(gm)
+			canvas.queue_redraw()
+			return true
+		var hv := _tph.hit(gm, z)
+		if hv != _tph.hover:
+			_tph.hover = hv
+			canvas.queue_redraw()
+	return false
+
 func draw_preview(c: Node2D) -> void:
 	if not is_instance_valid(c):
 		return
+
+	if not is_marquee:
+		_tph.line = TextPathHandles.target(selected_shapes)
+		if _tph.line != null:
+			_tph.draw(c, _view_zoom())
 
 	if is_marquee:
 		var sl: Vector2 = c.to_local(marquee_start)

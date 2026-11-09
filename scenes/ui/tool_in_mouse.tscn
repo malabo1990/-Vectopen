@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://c6o0hcjb5sdda" path="res://icon/UI/fast-arrow-left.svg" id="24_u5uwe"]
 [ext_resource type="PackedScene" uid="uid://dnjdi3268eouq" path="res://scenes/ui/panel_tooltext.tscn" id="26_jeqgy"]
 [ext_resource type="PackedScene" uid="uid://cxgd1tro50rxc" path="res://scenes/ui/panel_trazos.tscn" id="29_u5n12"]
+[ext_resource type="Script" path="res://script_gdscript/ui/smart_menu_extras.gd" id="40_smart_extras"]
 [ext_resource type="Texture2D" uid="uid://dm3f6spejgupx" path="res://icon/UI/trash.svg" id="30_trash"]
 [ext_resource type="Texture2D" uid="uid://ui0g5asjikxs" path="res://icon/UI/design-pencil.svg" id="31_pencil"]
 [ext_resource type="Texture2D" uid="uid://b3mm0djm4q6t6" path="res://icon/UI/align_center_h_pro.svg" id="32_align_ch"]
@@ -1521,3 +1522,6 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.12, 0.12, 0.13, 1)
 theme_override_font_sizes/font_size = 10
 text = "Stroke"
+
+[node name="SmartMenuExtras" type="Node" parent="."]
+script = ExtResource("40_smart_extras")

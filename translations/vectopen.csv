@@ -1118,3 +1118,25 @@ Variación de color,Color variation,Variación de color,Variation de couleur,Far
 Imagen…,Image…,Imagen…,Image…,Bild…,Imagem…,Изображение…,图像…,画像…,صورة…,छवि…
 Imagen para la textura del trazo,Image for the stroke texture,Imagen para la textura del trazo,Image pour la texture du tracé,Bild für die Strichtextur,Imagem para a textura do traço,Изображение для текстуры штриха,笔画纹理图像,ストロークのテクスチャ画像,صورة لنسيج الخط,स्ट्रोक बनावट के लिए छवि
 Imágenes,Images,Imágenes,Images,Bilder,Imagens,Изображения,图像,画像,صور,छवियाँ
+Texto,Text,Texto,Texte,Text,Texto,Текст,文本,テキスト,نص,पाठ
+Tamaño de letra,Font size,Tamaño de letra,Taille de police,Schriftgröße,Tamanho da fonte,Размер шрифта,字号,文字サイズ,حجم الخط,फ़ॉन्ट आकार
+Espaciado,Spacing,Espaciado,Espacement,Abstand,Espaçamento,Интервал,间距,間隔,التباعد,अंतराल
+Empieza en,Starts at,Empieza en,Commence à,Beginnt bei,Começa em,Начало,起点,開始位置,يبدأ عند,यहाँ से शुरू
+Termina en,Ends at,Termina en,Finit à,Endet bei,Termina em,Конец,终点,終了位置,ينتهي عند,यहाँ समाप्त
+Espejo,Mirror,Espejo,Miroir,Spiegeln,Espelho,Зеркально,镜像,ミラー,مرآة,दर्पण
+Posición,Position,Posición,Position,Position,Posição,Положение,位置,位置,الموضع,स्थिति
+Encima del trazo,Above the path,Encima del trazo,Au-dessus du tracé,Über dem Pfad,Acima do traçado,Над контуром,路径上方,パスの上,فوق المسار,पथ के ऊपर
+Debajo del trazo,Below the path,Debajo del trazo,Sous le tracé,Unter dem Pfad,Abaixo do traçado,Под контуром,路径下方,パスの下,أسفل المسار,पथ के नीचे
+Centrado en el trazo,Centered on the path,Centrado en el trazo,Centré sur le tracé,Auf dem Pfad zentriert,Centrado no traçado,По центру контура,路径居中,パスの中央,في وسط المسار,पथ पर केंद्रित
+Invertir dirección,Reverse direction,Invertir dirección,Inverser le sens,Richtung umkehren,Inverter direção,Обратное направление,反转方向,方向を反転,عكس الاتجاه,दिशा उलटें
+Modo de ventana,Window mode,Modo de ventana,Mode fenêtre,Fenstermodus,Modo de janela,Режим окна,窗口模式,ウィンドウモード,وضع النافذة,विंडो मोड
+Ventana,Window,Ventana,Fenêtre,Fenster,Janela,Окно,窗口,ウィンドウ,نافذة,विंडो
+Pantalla completa,Full screen,Pantalla completa,Plein écran,Vollbild,Tela cheia,Полный экран,全屏,全画面,ملء الشاشة,पूर्ण स्क्रीन
+Sin bordes,Borderless,Sin bordes,Sans bordure,Randlos,Sem bordas,Без рамки,无边框,枠なし,بلا حدود,बिना किनारे
+Tamaño de ventana,Window size,Tamaño de ventana,Taille de la fenêtre,Fenstergröße,Tamanho da janela,Размер окна,窗口大小,ウィンドウサイズ,حجم النافذة,विंडो आकार
+Escritorio,Desktop,Escritorio,Bureau,Desktop,Área de trabalho,Рабочий стол,桌面,デスクトップ,سطح المكتب,डेस्कटॉप
+Maximizar al iniciar,Maximize on start,Maximizar al iniciar,Agrandir au démarrage,Beim Start maximieren,Maximizar ao iniciar,Развернуть при запуске,启动时最大化,起動時に最大化,تكبير عند البدء,शुरू होने पर बड़ा करें
+Interfaz más pequeña,Smaller interface,Interfaz más pequeña,Interface plus petite,Kleinere Oberfläche,Interface menor,Интерфейс меньше,界面更小,UIを小さく,واجهة أصغر,छोटा इंटरफ़ेस
+Interfaz más grande,Larger interface,Interfaz más grande,Interface plus grande,Größere Oberfläche,Interface maior,Интерфейс больше,界面更大,UIを大きく,واجهة أكبر,बड़ा इंटरफ़ेस
+Tamaño automático según la pantalla,Automatic size for the screen,Tamaño automático según la pantalla,Taille automatique selon l'écran,Automatische Größe je nach Bildschirm,Tamanho automático conforme a tela,Автоматический размер по экрану,根据屏幕自动大小,画面に合わせて自動,حجم تلقائي حسب الشاشة,स्क्रीन के अनुसार स्वचालित आकार
+Auto,Auto,Auto,Auto,Auto,Auto,Авто,自动,自動,تلقائي,स्वतः

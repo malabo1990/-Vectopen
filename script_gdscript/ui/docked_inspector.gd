@@ -421,7 +421,9 @@ func _build_ui() -> void:
 		"is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle",
 		"drop_curvature", "text_align", "text_valign", "indent_left", "indent_right", "indent_first",
 		"columns", "column_gap", "light_rotation_x", "light_rotation_y",
-		"path_text_align", "path_text_offset", "path_text_flip",
+		"path_text_content", "path_text_size", "path_text_spacing",
+		"path_text_align", "path_text_offset", "path_text_start", "path_text_end",
+		"path_text_valign", "path_text_reverse", "path_text_flip",
 		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 		"brush_color_jitter", "brush_geo", "brush_geo_amount", "brush_geo_size"], "ExtraProps"))
 
@@ -1881,6 +1883,8 @@ func _get_selected_kind() -> String:
 	var shape = sel[0]
 	if not is_instance_valid(shape):
 		return "shape"
+	if shape is Line2D and shape.has_meta("brush_ref"):
+		return "text"   # texto en trazado: tipografía de su texto de origen
 	if shape is VectorCircle:
 		return "circle"
 	if shape is VectorStar:

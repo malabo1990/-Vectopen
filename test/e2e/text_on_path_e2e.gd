@@ -160,8 +160,26 @@ func _run() -> void:
 	await frames(4)
 	var CMA = load("res://script_gdscript/ui/context_menu_actions.gd")
 	check("el menú ofrece «Texto en trazado» con texto + curva", not CMA.text_on_path_pair(canvas).is_empty())
-	CMA.execute("text_on_path", canvas)
+	# Menú Smart (clic derecho): debe ofrecer el botón y aplicarlo
+	var smenu: Control = null
+	for n in root.find_children("tool_in_Mouse", "", true, false):
+		smenu = n
+	check("hay menú contextual Smart", smenu != null)
+	var sbtn: Button = null
+	if smenu:
+		smenu.visible = true
+		await frames(3)
+		sbtn = smenu.find_child("TextOnPath", true, false) as Button
+		smenu.global_position = Vector2(400, 200)
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(OUT.path_join("menu_smart.png"))
+	check("el menú Smart muestra «Texto en trazado»", sbtn != null and sbtn.visible)
+	if sbtn:
+		sbtn.pressed.emit()
+	else:
+		CMA.execute("text_on_path", canvas)
 	await frames(8)
+	check("el menú Smart se cierra tras la acción", smenu == null or not smenu.visible)
 	var l: Line2D = null
 	for ch in ab.get_children():
 		if ch is Line2D and ch.has_meta("brush_ref"):
@@ -239,11 +257,45 @@ func _run() -> void:
 	# Deshacer: vuelve el texto
 	var hm = root.get_node("HistoryManager")
 	sm.select(l)
-	CMA.execute("release_text_on_path", canvas)
+	await frames(2)
+	var rbtn: Button = null
+	if smenu:
+		smenu.visible = false
+		smenu.visible = true
+		await frames(3)
+		rbtn = smenu.find_child("ReleaseTextOnPath", true, false) as Button
+	check("el menú Smart muestra «Separar texto del trazado»", rbtn != null and rbtn.visible)
+	if rbtn and rbtn.visible:
+		rbtn.pressed.emit()
+	else:
+		CMA.execute("release_text_on_path", canvas)
 	await frames(4)
 	check("«Separar texto del trazado» devuelve el texto", txt.visible and l.get_parent() == null)
 	hm.undo()
 	await frames(4)
 	check("deshacer lo vuelve a poner en el trazado", not txt.visible and l.get_parent() != null)
+	# Onda con valle y pico (caso real): letras rígidas, sin deformarse
+	l.visible = false
+	var t2 = api.add_text(ac + Vector2(-300, 200), "Título Corporativo", 40, Color(0.1, 0.1, 0.12))
+	var w := Curve2D.new()
+	w.add_point(ac + Vector2(-320, 300), Vector2.ZERO, Vector2(90, 0))
+	w.add_point(ac + Vector2(-120, 300), Vector2(-60, 30), Vector2(60, -30))
+	w.add_point(ac + Vector2(80, 250), Vector2(-60, -40), Vector2(60, 60))
+	w.add_point(ac + Vector2(220, 380), Vector2(-40, 20), Vector2(40, -20))
+	w.add_point(ac + Vector2(300, 260), Vector2.ZERO, Vector2.ZERO)
+	var wave = api.add_curve(w, false, "Onda")
+	wave.stroke_width = 2.0
+	await frames(6)
+	var l2: Line2D = api.text_on_path(t2, wave)
+	await frames(8)
+	var r2 = l2.get_node_or_null(R.NODE_NAME)
+	r2._draw()
+	var gpts: PackedVector2Array = r2._geom["m"]["points"]
+	check("las letras no salen del trazado (onda)", gpts.size() > 0)
+	cam.position = ab.global_position + ac + Vector2(0, 300)
+	cam.zoom = Vector2(1.6, 1.6)
+	await frames(6)
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(OUT.path_join("texto_onda.png"))
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))
 	quit(1 if fails else 0)

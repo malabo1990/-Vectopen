@@ -31,6 +31,14 @@ const DEFAULTS := {
 	"offset": 0.0,      # una copia: desplazamiento a lo largo (en longitudes del trazado)
 	"flip": false,      # patrón: al otro lado de la curva (texto por debajo)
 	"baseline": false,  # patrón: la figura APOYADA en la curva (texto en trazado), no centrada
+	# "rigid": patrón: cada letra/pieza rígida, solo girada con la curva (sin
+	# deformarse). Si no se indica: sí en una sola copia (texto en trazado).
+	# Una copia (texto en trazado), opcionales:
+	#   "start_at" / "end_at": tramo del trazado que ocupa (0..1; 0 y 1 = entero)
+	#   "tracking": espacio extra entre letras, en altos del texto
+	#   "valign": "baseline" (encima, apoyado) | "top" (debajo, colgando) | "center"
+	#   "reverse": recorre el trazado al revés (al otro lado, se lee bien girado)
+	#   ("flip" refleja las letras: modo espejo)
 }
 
 ## Figuras de serie (si aún no se ha elegido ninguna de la selección).
@@ -135,7 +143,9 @@ static func _collect_text(node: Node, xf: Transform2D, pieces: Array) -> bool:
 		return false
 	var to_node: Transform2D = (vrt as CanvasItem).get_transform() if vrt is CanvasItem else Transform2D.IDENTITY
 	var any := false
+	var gi := -1
 	for o in vrt.get_glyph_outlines():
+		gi += 1
 		var rings: Array = []
 		for sd in o.get("subs", []):
 			var c := Curve2D.new()
@@ -150,7 +160,7 @@ static func _collect_text(node: Node, xf: Transform2D, pieces: Array) -> bool:
 		var col: Color = o.get("fill", Color(0.15, 0.15, 0.18))
 		for poly in SG.evenodd_fill(rings):
 			if (poly as PackedVector2Array).size() >= 3:
-				pieces.append({"pts": poly, "col": col})
+				pieces.append({"pts": poly, "col": col, "g": gi})
 				any = true
 	return any
 
@@ -244,7 +254,9 @@ static func refresh_ref(line: Line2D) -> bool:
 	var path_node := parent.get_node_or_null(NodePath(String(ref.get("path", ""))))
 	if src_node == null or path_node == null:
 		return false
-	var pts := path_points(path_node, parent)
+	# En el espacio del PROPIO trazo: si se mueve (y lleva consigo su
+	# trazado), las letras no se desplazan dos veces.
+	var pts := path_points(path_node, line)
 	var so := source_of(src_node, parent)
 	if pts.size() < 2 or so.is_empty():
 		return false
@@ -280,7 +292,10 @@ static func _normalize(pieces: Array) -> Array:
 		var p := PackedVector2Array()
 		for q in pc["pts"]:
 			p.append((q - c) / s)
-		out.append({"pts": p, "col": pc["col"]})
+		var np := {"pts": p, "col": pc["col"]}
+		if pc.has("g"):
+			np["g"] = pc["g"]
+		out.append(np)
 	return out
 
 ## Triángulos de cada pieza (una vez por fuente).
@@ -413,7 +428,7 @@ static func _to_tile(obj: Array) -> Dictionary:
 		var poly := PackedVector2Array()
 		for q in pc["pts"]:
 			poly.append(Vector2((q.x - r.position.x) / h, (q.y - r.get_center().y) / h))
-		polys.append({"pts": poly, "col": pc["col"]})
+		polys.append({"pts": poly, "col": pc["col"], "g": int(pc.get("g", -1))})
 	return {"aspect": aspect, "polys": polys}
 
 ## Tesela cortada en franjas finas en u y triangulada: al llevarla a la
@@ -444,6 +459,24 @@ static func _tile(obj: Array) -> Dictionary:
 				if not idx.is_empty():
 					pieces.append({"pts": sub, "idx": idx, "col": pc["col"]})
 	return {"aspect": aspect, "pieces": pieces}
+
+## Plan B para triangular un contorno difícil: cortarlo en franjas finas
+## (relleno par-impar en cada una) y triangular cada trozo.
+static func _strip_tris(pc: Dictionary, n_strips: int = 16) -> Array:
+	var out: Array = []
+	var r := _obj_rect([pc])
+	var w := maxf(r.size.x, 0.000001) / float(n_strips)
+	var SG = load("res://script_gdscript/shapes/stroke_geom.gd")
+	for si in n_strips:
+		var x0 := r.position.x + si * w - 0.0001
+		var x1 := r.position.x + (si + 1) * w + 0.0001
+		var strip := PackedVector2Array([Vector2(x0, r.position.y - 1.0), Vector2(x1, r.position.y - 1.0), Vector2(x1, r.end.y + 1.0), Vector2(x0, r.end.y + 1.0)])
+		var cuts := Geometry2D.intersect_polygons(pc["pts"], strip)
+		for cut in SG.evenodd_fill(cuts):
+			var idx := Geometry2D.triangulate_polygon(cut)
+			if not idx.is_empty():
+				out.append({"pts": cut, "idx": idx, "col": pc["col"]})
+	return out
 
 ## Parte los lados largos (para que se doblen al seguir la curva).
 static func _subdivide(poly: PackedVector2Array, max_len: float) -> PackedVector2Array:
@@ -487,7 +520,8 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 		count = 1
 		gap = 0.0
 		seg_len = float(aspects[0]) * 2.0 * hmax
-		start = (total - seg_len) * clampf(float(pr.get("align", 0.0)), 0.0, 1.0) + float(pr.get("offset", 0.0)) * total
+		var r := range_of(pr, total)
+		start = r.x + (r.y - r.x - seg_len) * clampf(float(pr.get("align", 0.0)), 0.0, 1.0) + float(pr.get("offset", 0.0)) * total
 	var order := PackedInt32Array()
 	for ti in count:
 		order.append(_pick(aspects.size(), ti, int(pr["seed"]), pr))
@@ -496,17 +530,115 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 		"flip": -1.0 if bool(pr.get("flip", false)) else 1.0,
 		"vshift": -0.5 if bool(pr.get("baseline", false)) else 0.0}
 
+## Tramo [inicio, final] del trazado (en distancia) que ocupa una copia.
+static func range_of(pr: Dictionary, total: float) -> Vector2:
+	var a := clampf(float(pr.get("start_at", 0.0)), 0.0, 1.0)
+	var b := clampf(float(pr.get("end_at", 1.0)), 0.0, 1.0)
+	if b < a:
+		var t := a
+		a = b
+		b = t
+	return Vector2(a * total, b * total)
+
 ## Punto (u, v) de la tesela `ti` → curva: a la distancia s(u) y apartado
 ## v·grosor por la normal.
 static func _warp(ctx: Dictionary, ti: int, q: Vector2, aspect: float) -> Vector2:
+	var a := _axis_at(ctx, _s_of(ctx, ti, q.x, aspect))
+	return a["p"] + a["n"] * (q.y + float(ctx.get("vshift", 0.0))) * 2.0 * float(a["h"])
+
+## Distancia a lo largo del trazado de la coordenada u de la tesela `ti`.
+static func _s_of(ctx: Dictionary, ti: int, u: float, aspect: float) -> float:
+	var seg_len: float = ctx["seg_len"]
+	var body := seg_len / (1.0 + float(ctx["gap"]))
+	return float(ctx.get("start", 0.0)) + ti * seg_len + clampf(u / aspect, 0.0, 1.0) * body
+
+## Como _s_of pero sin limitar u a la tesela (letras con espaciado extra).
+static func _s_free(ctx: Dictionary, ti: int, u: float, aspect: float) -> float:
+	var seg_len: float = ctx["seg_len"]
+	var body := seg_len / (1.0 + float(ctx["gap"]))
+	return float(ctx.get("start", 0.0)) + ti * seg_len + u / maxf(aspect, 0.000001) * body
+
+## Letras de una tesela listas para colocar: agrupadas, con su espaciado
+## extra ("du") y la línea base (mediana del pie de las letras: la «p» o la
+## «g» bajan, pero no mueven la base). Ajusta ctx: base y alineación.
+static func _rigid_groups(ctx: Dictionary, polys: Array, aspect: float, pr: Dictionary) -> Array:
+	var groups := _glyph_groups(polys)
+	groups.sort_custom(func(a, b): return a["u0"] < b["u0"])
+	var trk := float(pr.get("tracking", 0.0))
+	var bottoms: Array = []
+	for k in groups.size():
+		var grp: Dictionary = groups[k]
+		grp["du"] = trk * k
+		var bot := -INF
+		for i in grp["polys"]:
+			bot = maxf(bot, _obj_rect([polys[i]]).end.y)
+		bottoms.append(bot)
+	if bool(pr.get("baseline", false)) and not bottoms.is_empty():
+		bottoms.sort()
+		var base := float(bottoms[(bottoms.size() - 1) / 2])
+		var top := 0.0
+		for i in polys.size():
+			top = minf(top, _obj_rect([polys[i]]).position.y)
+		match String(pr.get("valign", "baseline")):
+			"top": ctx["vshift"] = -top                     # cuelga: la parte de arriba toca el trazo
+			"center": ctx["vshift"] = -(top + base) * 0.5   # centrado en el trazo
+			_: ctx["vshift"] = -base
+	if int(ctx["count"]) == 1 and groups.size() > 1 and absf(trk) > 0.0:
+		var body := float(ctx["seg_len"]) / (1.0 + float(ctx["gap"]))
+		var extra := trk * (groups.size() - 1) / maxf(aspect, 0.000001) * body
+		ctx["start"] = float(ctx["start"]) - extra * clampf(float(pr.get("align", 0.0)), 0.0, 1.0)
+	return groups
+
+## Tramo que ocupa el texto (una copia) a lo largo del trazado: Vector2(s0, s1)
+## en distancia, y el tramo permitido. Para los tiradores del lienzo.
+static func text_span(pts0: PackedVector2Array, half0: PackedFloat32Array, src: Array, params: Dictionary) -> Dictionary:
+	var pr0 := DEFAULTS.duplicate()
+	pr0.merge(params, true)
+	if src.is_empty() or pts0.size() < 2:
+		return {}
+	var rv := _oriented(pts0, half0, pr0)
+	var pts: PackedVector2Array = rv[0]
+	var half: PackedFloat32Array = rv[1]
+	var pr: Dictionary = rv[2]
+	var t := _to_tile(src[0])
+	var ctx := _pattern_ctx(pts, half, [t["aspect"]], pr)
+	var asp := float(t["aspect"])
+	var groups := _rigid_groups(ctx, t["polys"], asp, pr)
+	var a := INF
+	var b := -INF
+	for grp in groups:
+		a = minf(a, _s_free(ctx, 0, float(grp["u0"]) + float(grp["du"]), asp))
+		b = maxf(b, _s_free(ctx, 0, float(grp["u1"]) + float(grp["du"]), asp))
+	var total := float(ctx["total"])
+	var tx := Vector2(total - b, total - a) if bool(pr0.get("reverse", false)) else Vector2(a, b)
+	return {"text": tx, "range": range_of(pr0, total), "total": total}
+
+## «Invertir dirección»: el trazado recorrido al revés. Inicio, final,
+## alineación y desplazamiento se traducen para que sigan refiriéndose al
+## trazado original (los tiradores no cambian de sitio). [pts, half, pr]
+static func _oriented(pts: PackedVector2Array, half: PackedFloat32Array, pr: Dictionary) -> Array:
+	if not bool(pr.get("reverse", false)):
+		return [pts, half, pr]
+	var p2 := PackedVector2Array()
+	var h2 := PackedFloat32Array()
+	for i in range(pts.size() - 1, -1, -1):
+		p2.append(pts[i])
+		h2.append(half[mini(i, half.size() - 1)])
+	var r := pr.duplicate()
+	r["start_at"] = 1.0 - clampf(float(pr.get("end_at", 1.0)), 0.0, 1.0)
+	r["end_at"] = 1.0 - clampf(float(pr.get("start_at", 0.0)), 0.0, 1.0)
+	r["align"] = 1.0 - clampf(float(pr.get("align", 0.0)), 0.0, 1.0)
+	r["offset"] = -float(pr.get("offset", 0.0))
+	return [p2, h2, r]
+
+## Punto del eje a la distancia s: {p, n (normal, con «al otro lado»), h (medio
+## grosor)}. Fuera del trazado sigue recto por la tangente del extremo.
+static func _axis_at(ctx: Dictionary, s: float) -> Dictionary:
 	var cum: PackedFloat32Array = ctx["cum"]
 	var pts: PackedVector2Array = ctx["pts"]
 	var nrm: PackedVector2Array = ctx["nrm"]
 	var half: PackedFloat32Array = ctx["half"]
 	var n := pts.size()
-	var seg_len: float = ctx["seg_len"]
-	var body := seg_len / (1.0 + float(ctx["gap"]))
-	var s := float(ctx.get("start", 0.0)) + ti * seg_len + clampf(q.x / aspect, 0.0, 1.0) * body
 	var total: float = ctx["total"]
 	if s < 0.0 or s > total:
 		# una copia que se sale del trazado: sigue recta por la tangente
@@ -514,19 +646,79 @@ static func _warp(ctx: Dictionary, ti: int, q: Vector2, aspect: float) -> Vector
 		var e2 := 1 if s < 0.0 else n - 2
 		var tg := (pts[e] - pts[e2]).normalized() * (1.0 if s > total else -1.0)
 		var over := (s - total) if s > total else -s
-		var no0 := nrm[e] * float(ctx.get("flip", 1.0))
-		return pts[e] + tg * over + no0 * (q.y + float(ctx.get("vshift", 0.0))) * 2.0 * half[e]
+		return {"p": pts[e] + tg * over, "n": nrm[e] * float(ctx.get("flip", 1.0)), "h": half[e]}
 	var j := clampi(cum.bsearch(s) - 1, 0, n - 2)
 	var j2 := j + 1
 	var f := clampf((s - cum[j]) / maxf(cum[j2] - cum[j], 0.000001), 0.0, 1.0)
 	var no := nrm[j].lerp(nrm[j2], f).normalized() * float(ctx.get("flip", 1.0))
-	return pts[j].lerp(pts[j2], f) + no * (q.y + float(ctx.get("vshift", 0.0))) * 2.0 * lerpf(half[j], half[j2], f)
+	return {"p": pts[j].lerp(pts[j2], f), "n": no, "h": lerpf(half[j], half[j2], f)}
+
+# ── Letras rígidas (texto en trazado) ────────────────────────────────────────
+static func _is_rigid(pr: Dictionary) -> bool:
+	return bool(pr.get("rigid", not bool(pr.get("repeat", true))))
+
+## Piezas de una tesela agrupadas por letra: [{u0, u1, polys: [índices]}].
+## Con índice de letra ("g") se usa; si no (documentos antiguos), se agrupan
+## las piezas que se solapan a lo largo (la «i» con su punto).
+static func _glyph_groups(polys: Array) -> Array:
+	var by_g := {}
+	var loose: Array = []
+	for i in polys.size():
+		var pc: Dictionary = polys[i]
+		var r := _obj_rect([pc])
+		var it := {"u0": r.position.x, "u1": r.end.x, "polys": [i]}
+		var g := int(pc.get("g", -1))
+		if g < 0:
+			loose.append(it)
+		elif by_g.has(g):
+			var e: Dictionary = by_g[g]
+			e["u0"] = minf(e["u0"], it["u0"])
+			e["u1"] = maxf(e["u1"], it["u1"])
+			(e["polys"] as Array).append(i)
+		else:
+			by_g[g] = it
+	loose.sort_custom(func(a, b): return a["u0"] < b["u0"])
+	var merged: Array = []
+	for it in loose:
+		if not merged.is_empty() and it["u0"] < merged[-1]["u1"]:
+			merged[-1]["u1"] = maxf(merged[-1]["u1"], it["u1"])
+			(merged[-1]["polys"] as Array).append_array(it["polys"])
+		else:
+			merged.append(it)
+	var out: Array = by_g.values()
+	out.append_array(merged)
+	return out
+
+## Transformación rígida de una letra (u, v de la tesela → trazado): su
+## centro sobre la curva y girada con la dirección media bajo la letra.
+static func _glyph_xf(ctx: Dictionary, ti: int, grp: Dictionary, aspect: float) -> Transform2D:
+	var u0: float = grp["u0"]
+	var u1: float = grp["u1"]
+	var uc := (u0 + u1) * 0.5
+	var du := float(grp.get("du", 0.0))   # espaciado extra (tracking)
+	var s0 := _s_free(ctx, ti, u0 + du, aspect)
+	var s1 := _s_free(ctx, ti, u1 + du, aspect)
+	var sc := _s_free(ctx, ti, uc + du, aspect)
+	var a := _axis_at(ctx, sc)
+	var t: Vector2 = _axis_at(ctx, s1)["p"] - _axis_at(ctx, s0)["p"]
+	t = t.normalized() if t.length() > 0.000001 else Vector2(-a["n"].y, a["n"].x) * float(ctx.get("flip", 1.0))
+	var nrm := Vector2(-t.y, t.x) * float(ctx.get("flip", 1.0))
+	if nrm.dot(a["n"]) < 0.0:
+		nrm = -nrm
+	var hv := 2.0 * float(a["h"])                      # alto (v) en px
+	var hu := (s1 - s0) / maxf(u1 - u0, 0.000001)      # largo (u) en px
+	if u1 - u0 <= 0.000001:
+		hu = hv
+	var origin: Vector2 = a["p"] + nrm * float(ctx.get("vshift", 0.0)) * hv - t * uc * hu
+	return Transform2D(t * hu, nrm * hv, origin)
 
 ## La figura repetida a lo largo del eje y DOBLADA con él. Grosor = 2·half.
 static func build_pattern(pts: PackedVector2Array, half: PackedFloat32Array, src: Array, pr: Dictionary) -> Dictionary:
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "colors": PackedColorArray(), "stamps": 0}
 	if _cum(pts)[pts.size() - 1] <= 0.0001:
 		return m
+	if _is_rigid(pr):
+		return _build_rigid(pts, half, src, pr)
 	var tiles: Array = []
 	var aspects: Array = []
 	for obj in src:
@@ -553,6 +745,52 @@ static func build_pattern(pts: PackedVector2Array, half: PackedFloat32Array, src
 	m["stamps"] = int(ctx["count"])
 	return m
 
+## Patrón con letras rígidas: cada letra entera, girada con la curva.
+static func _build_rigid(pts0: PackedVector2Array, half0: PackedFloat32Array, src: Array, pr0: Dictionary) -> Dictionary:
+	var rv := _oriented(pts0, half0, pr0)
+	var pts: PackedVector2Array = rv[0]
+	var half: PackedFloat32Array = rv[1]
+	var pr: Dictionary = rv[2]
+	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array(), "colors": PackedColorArray(), "stamps": 0}
+	var tiles: Array = []
+	var aspects: Array = []
+	for obj in src:
+		var t := _to_tile(obj)
+		var tris: Array = []
+		for pc in t["polys"]:
+			var tp: Array = []
+			var ti0 := Geometry2D.triangulate_polygon(pc["pts"])
+			if ti0.is_empty():
+				tp = _strip_tris(pc)   # contorno raro (letras con hueco puenteado)
+			else:
+				tp = [{"pts": pc["pts"], "idx": ti0, "col": pc["col"]}]
+			tris.append(tp)
+		t["tris"] = tris
+		tiles.append(t)
+		aspects.append(t["aspect"])
+	var ctx := _pattern_ctx(pts, half, aspects, pr)
+	var verts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	var cols: PackedColorArray = m["colors"]
+	for ti in int(ctx["count"]):
+		var tile: Dictionary = tiles[(ctx["order"] as PackedInt32Array)[ti]]
+		var asp := float(tile["aspect"])
+		for grp in _rigid_groups(ctx, tile["polys"], asp, pr):
+			var gx := _glyph_xf(ctx, ti, grp, asp)
+			for k in grp["polys"]:
+				for tp in tile["tris"][k]:
+					var base := verts.size()
+					for q in tp["pts"]:
+						verts.append(gx * q)
+						cols.append(tp["col"])
+					for t in tp["idx"]:
+						idx.append(base + t)
+	m["points"] = verts
+	m["indices"] = idx
+	m["colors"] = cols
+	m["stamps"] = int(ctx["count"])
+	return m
+
 ## Contornos de cada estampa (para «Convertir trazo en contorno»): Array de
 ## {pts (polígono cerrado, en el espacio del trazo), col}. En patrón, la
 ## figura doblada con la curva.
@@ -566,6 +804,11 @@ static func outlines(pts: PackedVector2Array, half: PackedFloat32Array, src: Arr
 	if String(pr["mode"]) == "pattern" and n >= 2:
 		if _cum(pts)[n - 1] <= 0.0001:
 			return out
+		if _is_rigid(pr):
+			var rv := _oriented(pts, half, pr)
+			pts = rv[0]
+			half = rv[1]
+			pr = rv[2]
 		var tiles: Array = []
 		var aspects: Array = []
 		for obj in src:
@@ -576,6 +819,13 @@ static func outlines(pts: PackedVector2Array, half: PackedFloat32Array, src: Arr
 		for ti in int(ctx["count"]):
 			var tile: Dictionary = tiles[(ctx["order"] as PackedInt32Array)[ti]]
 			var asp := float(tile["aspect"])
+			if _is_rigid(pr):
+				for grp in _rigid_groups(ctx, tile["polys"], asp, pr):
+					var gx := _glyph_xf(ctx, ti, grp, asp)
+					for k in grp["polys"]:
+						var pc: Dictionary = tile["polys"][k]
+						out.append({"pts": gx * (pc["pts"] as PackedVector2Array), "col": pc["col"]})
+				continue
 			for pc in tile["polys"]:
 				var ring := PackedVector2Array()
 				for q in _subdivide(pc["pts"], asp / float(STRIPS_PER_TILE) * 0.5):
@@ -597,7 +847,10 @@ static func to_data(src: Array) -> Array:
 			var p: Array = []
 			for q in pc["pts"]:
 				p.append([snappedf(q.x, 0.0001), snappedf(q.y, 0.0001)])
-			o.append({"pts": p, "col": (pc["col"] as Color).to_html(true)})
+			var d := {"pts": p, "col": (pc["col"] as Color).to_html(true)}
+			if pc.has("g"):
+				d["g"] = int(pc["g"])
+			o.append(d)
 		out.append(o)
 	return out
 
@@ -615,7 +868,10 @@ static func from_data(data) -> Array:
 				elif q is Vector2:
 					p.append(q)
 			var col = pc.get("col", "262630")
-			obj.append({"pts": p, "col": col if col is Color else Color.from_string(String(col), Color(0.15, 0.15, 0.18))})
+			var piece := {"pts": p, "col": col if col is Color else Color.from_string(String(col), Color(0.15, 0.15, 0.18))}
+			if pc.has("g"):
+				piece["g"] = int(pc["g"])
+			obj.append(piece)
 		if not obj.is_empty():
 			out.append(obj)
 	return out

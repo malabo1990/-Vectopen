@@ -188,3 +188,151 @@ func test_patron_una_copia_alineada() -> void:
 		if cols_b[i] == Color.RED:
 			yb = (b["points"] as PackedVector2Array)[i].y
 	assert_float(signf(ya)).is_equal(-signf(yb))
+
+## Texto en trazado: cada letra se coloca RÍGIDA (sin doblarse) y girada con
+## la curva; en un valle no se aprietan ni se pierde el espacio entre letras.
+func test_texto_en_trazado_letras_rigidas() -> void:
+	var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var b := PackedVector2Array([Vector2(1.5, 0), Vector2(2.5, 0), Vector2(2.5, 1), Vector2(1.5, 1)])
+	var src: Array = OB._normalize_all([[{"pts": a, "col": Color.RED, "g": 0}, {"pts": b, "col": Color.BLUE, "g": 1}]])
+	# valle cerrado (arco de radio 12): las letras van por dentro de la curva
+	var p := PackedVector2Array()
+	for i in 61:
+		var t := PI * 0.25 + PI * 0.5 * float(i) / 60.0
+		p.append(Vector2(cos(t), sin(t)) * -12.0 + Vector2(0, 12))
+	var m: Dictionary = OB.build(p, _const(p.size(), 2.0), src, {"mode": "pattern", "repeat": false, "align": 0.5, "baseline": true})
+	var pts: PackedVector2Array = m["points"]
+	var cols: PackedColorArray = m["colors"]
+	for col in [Color.RED, Color.BLUE]:
+		var q := PackedVector2Array()
+		for i in pts.size():
+			if cols[i] == col and not q.has(pts[i]):
+				q.append(pts[i])
+		assert_int(q.size()).is_equal(4)
+		# cuadrado de lado 4 (alto 4 px): lados y diagonales sin deformar
+		var d := PackedFloat32Array()
+		for i in 4:
+			for j in range(i + 1, 4):
+				d.append(q[i].distance_to(q[j]))
+		d.sort()
+		for k in 4:
+			assert_float(d[k]).is_equal_approx(4.0, 0.05)
+		assert_float(d[4]).is_equal_approx(4.0 * sqrt(2.0), 0.05)
+	# hueco entre letras conservado: ningún punto azul a menos de 1 px de uno rojo
+	var gap := INF
+	for i in pts.size():
+		for j in pts.size():
+			if cols[i] == Color.RED and cols[j] == Color.BLUE:
+				gap = minf(gap, pts[i].distance_to(pts[j]))
+	assert_float(gap).is_greater(1.0)
+
+func test_datos_conservan_la_letra() -> void:
+	var src := [[{"pts": PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1)]), "col": Color.RED, "g": 3}]]
+	var back: Array = OB.from_data(JSON.parse_string(JSON.stringify(OB.to_data(src))))
+	assert_int(int(back[0][0]["g"])).is_equal(3)
+
+## Línea base: una letra con descendente (la «p») no levanta el resto del
+## texto; las letras se apoyan en el trazo por su base, no por el pie.
+func test_texto_en_trazado_linea_base_real() -> void:
+	var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var b := PackedVector2Array([Vector2(1.2, 0), Vector2(2.2, 0), Vector2(2.2, 1), Vector2(1.2, 1)])
+	var p := PackedVector2Array([Vector2(2.4, 0.3), Vector2(3.4, 0.3), Vector2(3.4, 1.4), Vector2(2.4, 1.4)])  # baja
+	var src: Array = OB._normalize_all([[{"pts": a, "col": Color.RED, "g": 0}, {"pts": b, "col": Color.GREEN, "g": 1}, {"pts": p, "col": Color.BLUE, "g": 2}]])
+	var m: Dictionary = OB.build(_line(2, 100.0), _const(2, 7.0), src, {"mode": "pattern", "repeat": false, "baseline": true})
+	var pts: PackedVector2Array = m["points"]
+	var cols: PackedColorArray = m["colors"]
+	var red_bottom := -INF
+	var blue_bottom := -INF
+	for i in pts.size():
+		if cols[i] == Color.RED:
+			red_bottom = maxf(red_bottom, pts[i].y)
+		elif cols[i] == Color.BLUE:
+			blue_bottom = maxf(blue_bottom, pts[i].y)
+	# y hacia abajo y texto encima del eje (y = 0): la base toca el eje y la «p» baja de él
+	assert_float(absf(red_bottom)).is_less(0.01)
+	assert_float(blue_bottom).is_greater(0.5)
+
+func test_texto_en_trazado_espaciado_y_tramo() -> void:
+	var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var b := PackedVector2Array([Vector2(2, 0), Vector2(3, 0), Vector2(3, 1), Vector2(2, 1)])
+	var src: Array = OB._normalize_all([[{"pts": a, "col": Color.RED, "g": 0}, {"pts": b, "col": Color.BLUE, "g": 1}]])
+	var line := _line(2, 200.0)
+	var half := _const(2, 5.0)   # alto 10 → texto de 30 de largo
+	var base := {"mode": "pattern", "repeat": false, "baseline": true}
+	var s0: Dictionary = OB.text_span(line, half, src, base)
+	assert_float(s0["text"].x).is_equal_approx(0.0, 0.01)
+	assert_float(s0["text"].y).is_equal_approx(30.0, 0.05)
+	# espaciado 0,5 alto → +5 entre las dos letras
+	var tr := base.duplicate()
+	tr["tracking"] = 0.5
+	assert_float(OB.text_span(line, half, src, tr)["text"].y).is_equal_approx(35.0, 0.05)
+	# tramo 25 %..75 % (50..150) centrado → empieza en 100 - 15 = 85
+	var rg := base.duplicate()
+	rg["start_at"] = 0.25
+	rg["end_at"] = 0.75
+	rg["align"] = 0.5
+	assert_float(OB.text_span(line, half, src, rg)["text"].x).is_equal_approx(85.0, 0.05)
+	# con espaciado, el centrado tiene en cuenta el largo nuevo (35) → 82,5
+	rg["tracking"] = 0.5
+	assert_float(OB.text_span(line, half, src, rg)["text"].x).is_equal_approx(82.5, 0.05)
+
+## Área con signo de las piezas de un color (el signo dice si está reflejada).
+func _signed_area(m: Dictionary, col: Color) -> float:
+	var pts: PackedVector2Array = m["points"]
+	var idx: PackedInt32Array = m["indices"]
+	var cols: PackedColorArray = m["colors"]
+	var a := 0.0
+	for t in range(0, idx.size(), 3):
+		if cols[idx[t]] != col:
+			continue
+		var p0 := pts[idx[t]]
+		var p1 := pts[idx[t + 1]]
+		var p2 := pts[idx[t + 2]]
+		a += (p1 - p0).cross(p2 - p0) * 0.5
+	return a
+
+func _center(m: Dictionary, col: Color) -> Vector2:
+	var acc := Vector2.ZERO
+	var n := 0
+	for i in (m["points"] as PackedVector2Array).size():
+		if (m["colors"] as PackedColorArray)[i] == col:
+			acc += (m["points"] as PackedVector2Array)[i]
+			n += 1
+	return acc / maxf(n, 1)
+
+## Debajo del trazo, invertir dirección y espejo.
+func test_texto_en_trazado_debajo_invertir_espejo() -> void:
+	var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var b := PackedVector2Array([Vector2(2, 0), Vector2(3, 0), Vector2(3, 1), Vector2(2, 1)])
+	var src: Array = OB._normalize_all([[{"pts": a, "col": Color.RED, "g": 0}, {"pts": b, "col": Color.BLUE, "g": 1}]])
+	var line := _line(2, 100.0)
+	var half := _const(2, 5.0)
+	var base := {"mode": "pattern", "repeat": false, "baseline": true}
+	var m0: Dictionary = OB.build(line, half, src, base)
+	var area0 := _signed_area(m0, Color.RED)
+	assert_float(_center(m0, Color.RED).y).is_less(0.0)              # encima
+	assert_float(_center(m0, Color.RED).x).is_less(_center(m0, Color.BLUE).x)
+	# debajo: cuelga del trazo, se lee igual
+	var pt := base.duplicate()
+	pt["valign"] = "top"
+	var mt: Dictionary = OB.build(line, half, src, pt)
+	for q in (mt["points"] as PackedVector2Array):
+		assert_float(q.y).is_greater_equal(-0.01)
+	assert_float(_center(mt, Color.RED).x).is_less(_center(mt, Color.BLUE).x)
+	assert_float(signf(_signed_area(mt, Color.RED))).is_equal(signf(area0))
+	# invertir: al otro lado, de derecha a izquierda, letras NO reflejadas
+	var pr := base.duplicate()
+	pr["reverse"] = true
+	var mr: Dictionary = OB.build(line, half, src, pr)
+	assert_float(_center(mr, Color.RED).y).is_greater(0.0)
+	assert_float(_center(mr, Color.RED).x).is_greater(_center(mr, Color.BLUE).x)
+	assert_float(signf(_signed_area(mr, Color.RED))).is_equal(signf(area0))
+	# al invertir, el texto se queda en el mismo tramo del trazado (0..30)
+	var sp: Vector2 = OB.text_span(line, half, src, pr)["text"]
+	assert_float(sp.x).is_equal_approx(0.0, 0.05)
+	assert_float(sp.y).is_equal_approx(30.0, 0.05)
+	# espejo: letras reflejadas
+	var pf := base.duplicate()
+	pf["flip"] = true
+	var mf: Dictionary = OB.build(line, half, src, pf)
+	assert_float(signf(_signed_area(mf, Color.RED))).is_equal(-signf(area0))
