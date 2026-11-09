@@ -538,6 +538,22 @@ func _props_for(s) -> Dictionary:
 		_kind_props[k] = d
 	return _kind_props[k]
 
+## Selecciones ENORMES (miles): el inspector decide qué mostrar con una
+## MUESTRA repartida por toda la selección (primero, último y ~600 entre
+## medias). Leer las ~60 propiedades de 10 000 objetos costaba 600 ms en cada
+## cambio de selección. Aplicar un valor sigue llegando a TODOS.
+const SAMPLE_FROM := 1500
+const SAMPLE_SIZE := 600
+
+func _sampled(sel: Array) -> Array:
+	if sel.size() < SAMPLE_FROM:
+		return sel
+	var out: Array = []
+	var step := float(sel.size() - 1) / float(SAMPLE_SIZE - 1)
+	for i in SAMPLE_SIZE:
+		out.append(sel[int(round(i * step))])
+	return out
+
 func current_props() -> Dictionary:
 	var out := {}
 	if _selection.is_empty():
@@ -547,7 +563,7 @@ func current_props() -> Dictionary:
 	var per_shape: Array = []   # propiedades de cada objeto (compartidas por tipo)
 	var valid_sel: Array = []
 	if large:
-		for s in _selection:
+		for s in _sampled(_selection):
 			if is_instance_valid(s):
 				var d: Dictionary = _props_for(s)
 				valid_sel.append(s)
