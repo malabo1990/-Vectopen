@@ -45,6 +45,17 @@ func frame_ms(n: int, step: Callable = Callable()) -> float:
 	await RenderingServer.frame_post_draw
 	return (Time.get_ticks_usec() - t0) / 1000.0 / float(n)
 
+## Capas de usuario (figuras, trazos, textos) bajo `n`, sin contar grupos ni
+## nodos internos de render: el MISMO criterio antes de guardar y tras cargar.
+func _count_layers(n: Node) -> int:
+	var c := 0
+	for ch in n.get_children():
+		if ch is Line2D or ch is VectorShape or ch is Path2D or (ch is Node2D and String(ch.get_meta("shape_type", "")).begins_with("text")):
+			c += 1
+		elif ch is Node2D and String(ch.get_meta("shape_type", "")) == "group":
+			c += _count_layers(ch)
+	return c
+
 func mem_mb() -> float:
 	return OS.get_static_memory_usage() / 1048576.0
 
@@ -113,6 +124,7 @@ func _run() -> void:
 	# ── crear N (como al abrir un documento) ──
 	var holder := Node2D.new()
 	holder.name = "Bench"
+	holder.set_meta("shape_type", "group")
 	ab.add_child(holder)
 	var cols := int(ceil(sqrt(float(N) / float(per))))
 	var t0 := Time.get_ticks_msec()
@@ -170,6 +182,8 @@ func _run() -> void:
 	sm.clear()
 	await frames(4)
 	# ── guardar y cargar ──
+	var before_save := _count_layers(ab)
+	bench("elementos_antes_de_guardar", before_save)
 	var path := OS.get_cache_dir().path_join("vectopen_bench_%d.vtp" % N)
 	var dr = root.get_node("DataRepository")
 	t0 = Time.get_ticks_msec()
@@ -181,13 +195,10 @@ func _run() -> void:
 	var ok: bool = dr.load_project(saved) if saved != "" else false
 	await frames(10)
 	bench("cargar_ms", Time.get_ticks_msec() - t0)
-	var after := 0
 	var ab2: Node2D = canvas.get_node("manager_script").get_active_artboard()
-	for nd in ab2.find_children("*", "", true, false):
-		if nd is CanvasItem and (nd.has_meta("shape_type") or nd is Line2D) and String(nd.get_meta("shape_type", "")) != "group":
-			after += 1
+	var after := _count_layers(ab2)
 	bench("elementos_tras_cargar", after)
-	check("se carga con todos los elementos (%d de %d)" % [after, count], ok and after >= count)
+	check("se carga con todos los elementos (%d de %d)" % [after, before_save], ok and after == before_save)
 	bench("mem_tras_cargar_mb", snappedf(mem_mb(), 1))
 	if MODE == "low":
 		check("modo PC débil: cabe en ~2 GB (memoria de la app < 1400 MB)", mem_mb() < 1400.0, "%.0f MB" % mem_mb())
