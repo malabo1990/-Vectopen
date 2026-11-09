@@ -94,7 +94,8 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Color, transparencia, degradado 2D (lineal / radial, varias paradas), degradado a lo largo | Existía |
 | Sombreador propio con parámetros y filtros por trazo de pincel | Existía (comprobado: `brush_paint_e2e`) |
 | Texturas dentro del trazo: lienzo, papel, rayas, puntos; siguen el trazo o el papel; escala e intensidad (inspector, con deshacer, se guarda) | Hecho |
-| Texturas desde una imagen del usuario; variación de color aleatoria a lo largo | Pendiente |
+| Variación de color a lo largo del trazo (tono y luz, solo pintura) | Hecho (inspector «Variación de color») |
+| Texturas desde una imagen del usuario | Pendiente |
 | **FALLO: los modos de fusión del panel Capas (Multiplicar, Pantalla, Superponer…) no hacen nada** — `layers_system` llama a `ic.apply("blend_mode", …)` pero InspectorCore no tiene esa propiedad. Para todos los objetos. Multiplicar/Sumar se pueden hacer con CanvasItemMaterial; Pantalla/Superponer/Aclarar/Oscurecer/Diferencia necesitan leer lo de detrás (screen texture / BackBufferCopy por objeto: coste). **Decidir con el usuario** | Pendiente (prioridad alta) |
 **Fase 5 — Máscaras y efectos** (en curso)
 

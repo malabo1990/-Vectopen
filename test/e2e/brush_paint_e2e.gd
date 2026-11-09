@@ -210,5 +210,22 @@ func _run() -> void:
 	root.get_node("HistoryManager").undo()
 	await frames(4)
 	check("deshacer devuelve la textura", l.has_meta("brush_texture"))
+	# 4) variación de color a lo largo (con color saturado para verla)
+	root.get_node("SelectionManager").set_selection([l])
+	ic.apply("brush_texture", "none")
+	l.default_color = Color(0.2, 0.4, 0.9, 1.0)
+	ic.apply("brush_color_jitter", 1.0)
+	root.get_node("SelectionManager").clear()
+	await frames(10)
+	await RenderingServer.frame_post_draw
+	var img4 := root.get_texture().get_image()
+	img4.save_png(OUT.path_join("4_variacion_color.png"))
+	var hues := {}
+	for x in range(int(area.position.x), int(area.end.x), 4):
+		for y in range(int(area.position.y), int(area.end.y), 4):
+			var px := img4.get_pixel(x, y)
+			if px.s > 0.3:
+				hues[int(px.h * 36.0)] = true
+	check("variación de color: varios tonos a lo largo (%d)" % hues.size(), hues.size() >= 3)
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))
 	quit(1 if fails else 0)

@@ -56,7 +56,7 @@ const PROPS := [
 	"light_preset", "model_shadows", "light_color", "ambient_energy", "camera_ortho",
 	"path_text_align", "path_text_offset", "path_text_flip",
 	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
-	"brush_geo", "brush_geo_amount", "brush_geo_size",
+	"brush_geo", "brush_geo_amount", "brush_geo_size", "brush_color_jitter",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -436,6 +436,10 @@ func _read(shape, prop):
 				"brush_texture_mode": return null if tx.is_empty() else String(tx.get("mode", "along"))
 				"brush_texture_scale": return null if tx.is_empty() else float(tx.get("scale", 1.0))
 				_: return null if tx.is_empty() else float(tx.get("strength", 1.0))
+		"brush_color_jitter":
+			if not (shape is Line2D and shape.get_node_or_null("StrokeRender") != null):
+				return null
+			return float(shape.get_meta("brush_color_jitter", 0.0)) if shape.has_meta("brush_color_jitter") else 0.0
 		"brush_geo", "brush_geo_amount", "brush_geo_size":
 			# Efecto geométrico del trazo de pincel (VGSE fase 5).
 			if not (shape is Line2D and shape.get_node_or_null("StrokeRender") != null):
@@ -1475,6 +1479,15 @@ func _write_prop(shape, prop, value) -> void:
 				var br = shape.get_node_or_null("StrokeRender")
 				if br and br.has_method("_update_material"):
 					br._update_material()
+				shape.queue_redraw()
+		"brush_color_jitter":
+			if shape is Line2D:
+				var jv := clampf(float(value), 0.0, 1.0)
+				if jv <= 0.001:
+					if shape.has_meta("brush_color_jitter"):
+						shape.remove_meta("brush_color_jitter")
+				else:
+					shape.set_meta("brush_color_jitter", jv)
 				shape.queue_redraw()
 		"brush_geo", "brush_geo_amount", "brush_geo_size":
 			if shape is Line2D:

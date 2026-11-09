@@ -220,6 +220,11 @@ func _draw() -> void:
 				c = line.gradient.sample(clampf(float(i) / maxf(1.0, verts.size() - 1.0), 0.0, 1.0))
 			c.a *= sa[i]
 			cols[i] = c
+	# Variación de color a lo largo del trazo (VGSE fase 4): tono y luz que
+	# cambian suave por la longitud recorrida (solo pintura: no rehace la forma).
+	var jit := float(line.get_meta("brush_color_jitter", 0.0)) if line.has_meta("brush_color_jitter") else 0.0
+	if jit > 0.001 and m.has("k"):
+		cols = _jitter_colors(cols, m["k"], cum, jit, line.width, verts.size())
 	# Opacidad del pincel → del grupo; la malla, opaca (sin solapes visibles).
 	var alpha := line.default_color.a
 	_set_group(alpha)
@@ -252,6 +257,23 @@ static func _has_folds(pts: PackedVector2Array, half: PackedFloat32Array) -> boo
 		if half[i] * tan(minf(th, 3.0) * 0.5) > minf(la, lb):
 			return true
 	return false
+
+## Colores con variación suave de tono y luz por la longitud recorrida.
+static func _jitter_colors(cols: PackedColorArray, ks: PackedInt32Array, cum: PackedFloat32Array, amount: float, width: float, nverts: int) -> PackedColorArray:
+	var out := PackedColorArray()
+	out.resize(nverts)
+	var single := cols.size() == 1
+	var period := maxf(width * 6.0, 0.5)
+	for i in nverts:
+		var c: Color = cols[0] if single else cols[mini(i, cols.size() - 1)]
+		var t := cum[ks[mini(i, ks.size() - 1)]] / period
+		var n1 := sin(t * 1.7) * 0.6 + sin(t * 0.63 + 1.3) * 0.4
+		var n2 := sin(t * 1.13 + 2.1) * 0.5 + sin(t * 0.41) * 0.5
+		var h := fposmod(c.h + n1 * 0.08 * amount, 1.0)
+		var v := clampf(c.v + n2 * 0.25 * amount * (1.0 if c.v < 0.5 else -1.0), 0.0, 1.0)
+		var s2 := clampf(c.s + absf(n1) * 0.2 * amount, 0.0, 1.0) if c.s > 0.05 else c.s
+		out[i] = Color.from_hsv(h, s2, v, c.a)
+	return out
 
 ## Veces que se ha recalculado la geometría (pruebas y perfiles).
 var geom_builds := 0

@@ -65,6 +65,7 @@ const SPECS := {
 	"brush_texture_mode": ["Textura sigue", "option", [["along", "El trazo"], ["paper", "El papel"]]],
 	"brush_texture_scale": ["Escala textura", "num", 10, 1000, 5, "%", 100.0],
 	"brush_texture_strength": ["Intensidad", "num", 0, 100, 1, "%", 100.0],
+	"brush_color_jitter": ["Variación de color", "num", 0, 100, 1, "%", 100.0],
 	"brush_geo": ["Forma del trazo", "option", [["none", "Normal"], ["wave", "Ondulado"], ["zigzag", "Zigzag"], ["rough", "Rugoso"]]],
 	"brush_geo_amount": ["Amplitud", "num", 0, 500, 5, "%", 100.0],
 	"brush_geo_size": ["Tamaño de onda", "num", 20, 2000, 10, "%", 100.0],
