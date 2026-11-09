@@ -238,6 +238,8 @@ posible (¿10.10?); memoria al mínimo sin perder fluidez.
 | PLAT-04 | iOS | No se puede desde Linux: hace falta un Mac con Xcode y una cuenta de Apple Developer |
 | PLAT-05 | Release de GitHub con Android | Hecho en `release.yml`. **Decisión del usuario**: subir la clave permanente como secretos (`ANDROID_KEYSTORE_BASE64/USER/PASSWORD`); está en `~/.local/share/vectopen-release/` (copia de seguridad: sin ella no se pueden publicar actualizaciones que se instalen encima) |
 | PLAT-06 | Librerías nativas en Android | Pendiente: falta el NDK; mientras, texto e importadores van por GDScript |
+| PLAT-07 | Publicar la 0.2.3-beta | Hecho (2026-11-09): release de GitHub con 8 archivos; el APK publicado es el firmado con la clave permanente (GitHub firmó con una temporal porque faltan los secretos). Web con tarjeta de Android, blog ES/EN con 20 imágenes y los 64 cambios enlazados, y workflow `release-sync.yml` que pone los enlaces de cada versión nueva |
+| PLAT-08 | Interfaz para Android y tabletas | **Pendiente** (el usuario lo diseñará): la APK es una vista previa |
 | MEM-01 | Panel Teclado y ratón montado al arrancar (~600 nodos, 9 MB) | Hecho: se monta al abrirlo |
 | MEM-02 | Lateral de Pro creado en todos los modos (1 116 nodos, 15 MB) | Hecho: solo al entrar en Pro |
 | MEM-03 | Inspector de Modern creado en todos los modos (1 251 nodos, 16,5 MB) | Hecho: solo en Modern (`only_modes`) |
