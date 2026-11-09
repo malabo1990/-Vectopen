@@ -27,6 +27,9 @@ const H := 24
 var min_value: float = 0.0
 var max_value: float = 100.0
 var step: float = 1.0
+## Paso adaptado al valor (grosores): ver NumericField.adaptive_step.
+var adaptive_step: bool = false
+const _NF = preload("res://script_gdscript/ui/components/numeric_field.gd")
 var suffix: String = "":
 	set(v):
 		suffix = v
@@ -149,6 +152,8 @@ func _set_raw(v: float) -> void:
 
 func _clamp(v: float) -> float:
 	var out := clampf(v, min_value, max_value)
+	if adaptive_step:
+		return snappedf(out, 0.0001)
 	if step > 0.0:
 		out = snappedf(out, step)
 	return out
@@ -156,6 +161,11 @@ func _clamp(v: float) -> float:
 func _fmt(v: float) -> String:
 	if step >= 1.0 and is_equal_approx(v, roundf(v)):
 		return str(int(roundf(v)))
+	if adaptive_step:
+		var t := String.num(v, _NF.adapt_decimals(v))
+		if t.contains("."):
+			t = t.rstrip("0").trim_suffix(".")
+		return t
 	return String.num(v, 2).trim_suffix("0").trim_suffix("0").trim_suffix(".")
 
 func _refresh_text() -> void:
@@ -193,7 +203,8 @@ func _commit_text() -> void:
 func _on_edit_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and (ev.keycode == KEY_UP or ev.keycode == KEY_DOWN):
 		var mul := 10.0 if ev.shift_pressed else 1.0
-		var d := step * mul * (1.0 if ev.keycode == KEY_UP else -1.0)
+		var st := _NF.adapt_step(value - (0.0 if ev.keycode == KEY_UP else _NF.adapt_step(value) * 0.5)) if adaptive_step else step
+		var d := st * mul * (1.0 if ev.keycode == KEY_UP else -1.0)
 		value = value + d
 		_edit.text = _fmt(value)
 		_edit.caret_column = _edit.text.length()
@@ -238,6 +249,8 @@ func _gui_input(ev: InputEvent) -> void:
 			mul = 10.0
 		var stp := maxf(step, 0.01)
 		var nv := _clamp(float(_scrub["v0"]) + roundf(acc / 2.0) * stp * mul)
+		if adaptive_step:
+			nv = _clamp(maxf(float(_scrub["v0"]), 0.005) * pow(1.02, acc * mul))
 		if not is_equal_approx(nv, value) or _mixed:
 			_mixed = false
 			_set_raw(nv)

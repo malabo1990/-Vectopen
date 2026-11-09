@@ -208,7 +208,7 @@ var _resize_start_width: float = 0.0
 # de pantalla, no del artboard, para que el gesto se sienta igual sin importar
 # el zoom del canvas (igual que en Krita/Photoshop/Clip Studio).
 const RESIZE_SENSITIVITY := 0.2
-const MIN_BRUSH_WIDTH := 0.5
+const MIN_BRUSH_WIDTH := 0.005   # antes 0,5: con mucho zoom no se podía pintar más fino
 const MAX_BRUSH_WIDTH := 100.0
 
 var _cursor_world: Vector2 = Vector2.INF

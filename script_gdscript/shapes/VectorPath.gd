@@ -402,14 +402,10 @@ static func closed_points(c: Curve2D) -> PackedVector2Array:
 		pts.append_array(extra.slice(1, extra.size() - 1))
 	return pts
 
-## Grosor y color efectivos: por debajo de 1 px se dibuja a 1 px atenuado
+## Grosor y color efectivos: por debajo de 1 px DE PANTALLA se dibuja a 1 px atenuado
 ## (si no, las líneas finas se ven punteadas o desaparecen).
 func _render_width_color() -> Array:
-	if stroke_width > 0.0 and stroke_width < 1.0:
-		var c := stroke_color
-		c.a *= stroke_width
-		return [1.0, c]
-	return [stroke_width, stroke_color]
+	return StrokeGeom.render_width(self, stroke_width, stroke_color)
 
 ## Estilo efectivo + perfil (el "cónico" antiguo = sólido con perfil Afilado).
 func _style_and_profile() -> Array:

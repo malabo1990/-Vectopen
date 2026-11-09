@@ -360,6 +360,7 @@ func _build_compact_ui() -> void:
 		_num_width.min_value = 0
 		_num_width.max_value = 500
 		_num_width.step = 0.5
+		_num_width.adaptive_step = true   # hasta 0,005 (mucho zoom)
 		_num_width.suffix = "px"
 		_num_width.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_num_width.value_changed.connect(_on_size_changed)

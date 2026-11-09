@@ -202,9 +202,10 @@ func _build_ui() -> void:
 	fields.add_theme_constant_override("h_separation", 6)
 	fields.add_theme_constant_override("v_separation", 6)
 	sec_stroke.add_child(fields)
-	_spin_size = NumericField.new("", " px", 0.5, 100.0, 0.5)
+	_spin_size = NumericField.new("", " px", 0.005, 100.0, 0.5)
 	_spin_size.name = "FieldSize"
 	_spin_size.decimals = 1
+	_spin_size.adaptive_step = true   # antes no bajaba de 0,5
 	_spin_size.value = 4.0
 	_spin_size.value_changed.connect(_on_size_spin_changed)
 	_field_pair(fields, "Grosor", _spin_size)

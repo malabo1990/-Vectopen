@@ -30,6 +30,25 @@ signal submitted(v: float)
 @export var max_value: float = 999999.0
 @export var step: float = 1.0
 @export var decimals: int = 2
+## Paso que se adapta al valor (grosores): cada paso ≈ 10 % del orden de
+## magnitud, el arrastre es multiplicativo y se ven los decimales que hacen
+## falta. Así se llega de 2 a 0,005 sin escribir (con mucho zoom hace falta).
+@export var adaptive_step: bool = false
+const ADAPT_MIN := 0.001
+
+## Paso «redondo» (1, 2 ó 5 × 10ⁿ) cerca del 10 % del valor: 2 → 0,2;
+## 0,05 → 0,005; nunca menos de ADAPT_MIN.
+static func adapt_step(v: float) -> float:
+	var n := maxf(absf(v), ADAPT_MIN) * 0.1
+	var p := pow(10.0, floor(log(n) / log(10.0)))
+	var m := n / p
+	var nice := 1.0 if m < 2.0 else (2.0 if m < 5.0 else 5.0)
+	return maxf(snappedf(nice * p, 0.000001), ADAPT_MIN)
+
+static func adapt_decimals(v: float) -> int:
+	if absf(v) < 0.000001:
+		return 0
+	return clampi(int(-floor(log(absf(v)) / log(10.0))) + 2, 2, 4)
 @export var prefix: String = ""
 @export var suffix: String = ""
 @export var enabled: bool = true:
@@ -184,10 +203,11 @@ func set_suffix(s: String) -> void:
 func _refresh_display() -> void:
 	if _is_editing or not is_instance_valid(_line_edit):
 		return
+	var dec := maxi(decimals, adapt_decimals(value)) if adaptive_step else decimals
 	if is_equal_approx(value, roundf(value)):
 		_line_edit.text = "%d" % int(roundf(value))
 	else:
-		_line_edit.text = (("%." + str(decimals) + "f") % value).rstrip("0").rstrip(".")
+		_line_edit.text = (("%." + str(dec) + "f") % value).rstrip("0").rstrip(".")
 
 func _enter_edit() -> void:
 	if not enabled or _is_editing:
@@ -261,7 +281,7 @@ func _gui_input(event: InputEvent) -> void:
 
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
 			var factor: float = _get_modifier_factor(mb)
-			var new_v := clampf(value + step * factor, min_value, max_value)
+			var new_v := clampf(value + (adapt_step(value) if adaptive_step else step) * factor, min_value, max_value)
 			if not is_equal_approx(value, new_v):
 				value = new_v
 				value_changed.emit(value)
@@ -270,7 +290,8 @@ func _gui_input(event: InputEvent) -> void:
 
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
 			var factor: float = _get_modifier_factor(mb)
-			var new_v := clampf(value - step * factor, min_value, max_value)
+			var down_step := (adapt_step(value - adapt_step(value) * 0.5) if adaptive_step else step)
+			var new_v := clampf(value - down_step * factor, min_value, max_value)
 			if not is_equal_approx(value, new_v):
 				value = new_v
 				value_changed.emit(value)
@@ -289,6 +310,10 @@ func _gui_input(event: InputEvent) -> void:
 				var factor: float = _get_modifier_factor(mm)
 				var delta_val: float = dx * step * factor * 0.5
 				var new_v := clampf(_drag_start_val + delta_val, min_value, max_value)
+				if adaptive_step:
+					# multiplicativo: ~2 % por píxel (×0,1 con Mayús, ×5 con Ctrl)
+					var base := maxf(_drag_start_val, 0.005)
+					new_v = clampf(base * pow(1.02, dx * factor), min_value, max_value)
 				if not is_equal_approx(value, new_v):
 					value = new_v
 					value_changed.emit(value)

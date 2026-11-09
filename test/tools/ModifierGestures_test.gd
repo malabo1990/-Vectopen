@@ -37,10 +37,24 @@ func test_shift_drag_body_changes_stroke_not_position() -> void:
 	_begin_body_drag(mt, Vector2(100, 100))
 	mt._on_motion(Vector2(140, 100), {"shift": true, "alt": false, "ctrl": false})
 	assert_vector(shape.position).is_equal_approx(Vector2(100, 100), Vector2(0.01, 0.01))
-	assert_float(shape.stroke_width).is_equal_approx(2.0 + 40.0 * 0.15, 0.01)
+	# proporcional: ~1,5 % por píxel de pantalla (igual a cualquier zoom)
+	assert_float(shape.stroke_width).is_equal_approx(2.0 * pow(1.015, 40.0 * mt._view_zoom()), 0.01)
+	assert_float(shape.stroke_width).is_greater(2.0)
 	mt._on_release(Vector2(140, 100))
 	HistoryManager.undo()
 	assert_float(shape.stroke_width).is_equal_approx(2.0, 0.01)
+
+## Con Mayús hacia la izquierda / abajo el trazo adelgaza hasta muy fino
+## (0,005 como mínimo), sin pasarse de golpe a 0.
+func test_shift_drag_body_thins_to_very_fine() -> void:
+	var r := _rig()
+	var mt: MoveTool = r["mt"]
+	var shape: VectorRectangle = r["shape"]
+	_begin_body_drag(mt, Vector2(100, 100))
+	mt._on_motion(Vector2(-400, 100), {"shift": true, "alt": false, "ctrl": false})
+	assert_float(shape.stroke_width).is_less(0.01)
+	assert_float(shape.stroke_width).is_greater_equal(0.005)
+	mt._on_release(Vector2(-400, 100))
 
 func test_ctrl_drag_body_locks_axis() -> void:
 	var r := _rig()

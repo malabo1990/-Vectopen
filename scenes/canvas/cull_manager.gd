@@ -61,7 +61,22 @@ func _find_camera() -> void:
 	if canvas and "camera" in canvas and canvas.camera is Camera2D:
 		camera = canvas.camera
 
+var _thin_zoom := -1.0
+
+## Trazos finos (cerca de 1 px de pantalla): se redibujan al cambiar el zoom
+## para que su grosor mínimo siga siendo 1 px de pantalla.
+func _watch_thin_strokes() -> void:
+	if not is_instance_valid(camera):
+		_find_camera()
+		if not is_instance_valid(camera):
+			return
+	var z: float = camera.zoom.x
+	if not is_equal_approx(z, _thin_zoom):
+		_thin_zoom = z
+		get_tree().call_group("vo_thin_stroke", "queue_redraw")
+
 func _process(_delta: float) -> void:
+	_watch_thin_strokes()
 	if not enabled:
 		return
 	if not is_instance_valid(camera):

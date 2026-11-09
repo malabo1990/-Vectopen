@@ -1486,6 +1486,7 @@ func _build_stroke_section() -> void:
 	row.add_child(picker_stroke)
 
 	spin_stroke_width = NumericField.new("", " px", 0.0, 500.0, 0.5)
+	spin_stroke_width.adaptive_step = true   # hasta 0,005 (mucho zoom)
 	spin_stroke_width.value = 1.0
 	spin_stroke_width.custom_minimum_size = Vector2(62, 24)
 	spin_stroke_width.value_changed.connect(_on_stroke_width_changed)

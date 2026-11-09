@@ -860,13 +860,17 @@ func _update_hover_shape(gm: Vector2) -> void:
 
 ## Uniform stroke width from a Shift+drag on the selection body.
 func _apply_body_stroke_drag(delta: Vector2) -> void:
-	var stroke_delta: float = (delta.x - delta.y) * 0.15
+	# Proporcional y en píxeles de PANTALLA: ~1,5 % por píxel, igual a
+	# cualquier zoom. Antes era lineal (0,15 por unidad) y con mucho zoom no
+	# se llegaba a grosores finos (o se pasaba de golpe a 0).
+	var screen_px: float = (delta.x - delta.y) * _view_zoom()
+	var factor: float = pow(1.015, screen_px)
 	for shape in selected_shapes:
 		if not is_instance_valid(shape):
 			continue
 		var snap_s: Dictionary = transform_initial_states.get(shape, {})
 		var init_w: float = float(snap_s["stroke_width"]) if snap_s.has("stroke_width") else _get_shape_stroke_width(shape)
-		_set_shape_stroke_width(shape, maxf(0.0, init_w + stroke_delta))
+		_set_shape_stroke_width(shape, clampf(maxf(init_w, 0.005) * factor, 0.005, 1000.0))
 		if shape.has_method("clear_side_strokes"):
 			shape.clear_side_strokes()
 

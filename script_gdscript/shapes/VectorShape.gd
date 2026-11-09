@@ -1068,11 +1068,9 @@ func draw_fill(points: PackedVector2Array) -> void:
 func _get_rendered_stroke_params(w: float = -1.0, col: Color = Color(-1, -1, -1, -1)) -> Array:
 	var req_w: float = stroke_width if w < 0.0 else w
 	var req_col: Color = stroke_color if col.r < 0.0 else col
-	if req_w < 1.0 and req_w > 0.0:
-		var c := req_col
-		c.a *= req_w
-		return [1.0, c]
-	return [req_w, req_col]
+	# Mínimo: 1 px de PANTALLA (antes 1 unidad: con mucho zoom un trazo
+	# fino salía ancho y transparente, y con solapes de dos tonos).
+	return StrokeGeomJ.render_width(self, req_w, req_col)
 
 ## Dibuja el contorno cerrado soportando estilos de trazo (Solid, Dashed, Dotted, Double).
 func draw_stroke_ring(points: PackedVector2Array) -> void:

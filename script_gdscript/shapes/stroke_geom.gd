@@ -290,6 +290,53 @@ static func clean(pts: PackedVector2Array, tol: float, _closed: bool) -> PackedV
 					break
 	return out
 
+## Tolerancia de la limpieza: proporcional al grosor (los microbucles de un
+## tirador diminuto quedan bajo el trazo), pero nunca más del 2 % del tamaño
+## de la figura. Antes había un mínimo fijo de 0,5 y hasta 6 unidades: en una
+## figura pequeña se comía los lados de la curva y, con mucho zoom, el borde
+## salía poligonal y con escalones.
+static func clean_tol(pts: PackedVector2Array, width: float) -> float:
+	if pts.is_empty():
+		return 0.0
+	var mn := pts[0]
+	var mx := pts[0]
+	for q in pts:
+		mn = mn.min(q)
+		mx = mx.max(q)
+	var diag := (mx - mn).length()
+	return clampf(minf(width * 0.15, diag * 0.02), 0.0001, 6.0)
+
+## Unidades del lienzo por PÍXEL de pantalla en el espacio de `ci` (zoom de
+## la vista y escala del propio nodo). El grosor mínimo visible es 1 px de
+## PANTALLA: antes era 1 unidad y, con mucho zoom, un trazo fino salía como
+## una banda ancha transparente en vez de una línea fina.
+static func screen_px(ci: CanvasItem) -> float:
+	var vp := ci.get_viewport() if ci.is_inside_tree() else null
+	var z: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	var sc := ci.get_global_transform().get_scale() if ci.is_inside_tree() else Vector2.ONE
+	return 1.0 / maxf(z * maxf(absf(sc.x), absf(sc.y)), 1e-6)
+
+const THIN_GROUP := "vo_thin_stroke"
+
+## Grosor y color con los que se dibuja un trazo: por debajo de 1 px de
+## pantalla se dibuja a 1 px atenuado (si no, se ve punteado o desaparece).
+## Los trazos cerca de ese límite se apuntan a THIN_GROUP para redibujarse
+## al cambiar el zoom (CullManager).
+static func render_width(ci: CanvasItem, w: float, col: Color) -> Array:
+	if w <= 0.0:
+		return [w, col]
+	var floor_w := screen_px(ci)
+	if w < floor_w * 4.0:
+		if not ci.is_in_group(THIN_GROUP):
+			ci.add_to_group(THIN_GROUP)
+	elif ci.is_in_group(THIN_GROUP):
+		ci.remove_from_group(THIN_GROUP)
+	if w < floor_w:
+		var c := col
+		c.a *= w / floor_w
+		return [floor_w, c]
+	return [w, col]
+
 ## Grosor de cada línea del estilo doble y su separación al centro (el borde
 ## exterior de las dos coincide con el grosor total del trazo).
 static func double_metrics(width: float) -> Vector2:
@@ -305,7 +352,7 @@ static func build(pts: PackedVector2Array, closed: bool, style: int, width: floa
 	var m := {"points": PackedVector2Array(), "indices": PackedInt32Array()}
 	if pts.size() < 2 or width <= 0.0:
 		return m
-	pts = clean(pts, clampf(width * 0.15, 0.5, 6.0), closed)
+	pts = clean(pts, clean_tol(pts, width), closed)
 	if pts.size() < 2:
 		return m
 	if closed:

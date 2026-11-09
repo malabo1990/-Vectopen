@@ -225,7 +225,8 @@ func _build_ui() -> void:
 	stroke_w_row.add_child(_lbl_width)
 
 	# Campo numérico común (arrastrar con el lápiz, escribir, Intro).
-	_spin_stroke_width = NumericField.new("", " px", 0.5, 100.0, 0.5)
+	_spin_stroke_width = NumericField.new("", " px", 0.0, 100.0, 0.5)
+	_spin_stroke_width.adaptive_step = true   # antes no bajaba de 0,5
 	_spin_stroke_width.value = 2.0
 	_spin_stroke_width.custom_minimum_size = Vector2(90, 24)
 	_spin_stroke_width.value_changed.connect(_on_stroke_width_changed)

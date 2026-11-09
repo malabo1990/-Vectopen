@@ -891,6 +891,7 @@ func _build_stroke_page() -> void:
 	_sec_stroke.add_child(row_w)
 	row_w.add_child(_row_label("Ancho"))
 	_spin_stroke_w = _field("", " px", 0.0, 200.0, 0.5)
+	_spin_stroke_w.adaptive_step = true   # hasta 0,005 (mucho zoom)
 	_spin_stroke_w.value = 1.0
 	_spin_stroke_w.value_changed.connect(_on_stroke_width_changed)
 	row_w.add_child(_spin_stroke_w)
