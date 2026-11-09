@@ -15,6 +15,8 @@ const SOCIAL := [
 	["x", "X · @malabo_6", "res://icon/UI/x.svg", "https://x.com/malabo_6"],
 ]
 const LOGO := "res://icon/logo/logo_vectopen.png"
+## Donaciones: tiempo de desarrollo y Vectopen Web (en el navegador).
+const SPONSOR_URL := "https://github.com/sponsors/malabo1990"
 
 ## Ventana flotante compartida (Modern / Pro) y los logos que la abren.
 static var _floating: AboutPanel
@@ -131,6 +133,18 @@ func _ready() -> void:
 		b.pressed.connect(func() -> void: OS.shell_open(url))
 		row.add_child(b)
 		_social.append(b)
+	var sp := Button.new()
+	sp.name = "Support"
+	sp.text = "♥  " + tr("Apoyar Vectopen")
+	sp.tooltip_text = tr("Las donaciones pagan tiempo de desarrollo y la versión web de Vectopen.") + "\n" + SPONSOR_URL
+	sp.focus_mode = Control.FOCUS_NONE
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.custom_minimum_size = Vector2(0, 30)
+	sp.add_theme_font_size_override("font_size", 11)
+	sp.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	sp.pressed.connect(func() -> void: OS.shell_open(SPONSOR_URL))
+	v.add_child(sp)
+	_social.append(sp)
 	_sep(v)
 	# Actualizaciones.
 	_section(v, tr("ACTUALIZACIONES"))
