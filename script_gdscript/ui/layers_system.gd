@@ -949,6 +949,8 @@ func conectar_senales_sistema() -> void:
 			layer_tree.multi_selected.connect(_on_tree_selection_changed)
 		if not layer_tree.item_selected.is_connected(_on_tree_item_selected):
 			layer_tree.item_selected.connect(_on_tree_item_selected)
+		if not layer_tree.item_collapsed.is_connected(_on_item_collapsed):
+			layer_tree.item_collapsed.connect(_on_item_collapsed)
 		# Menú contextual (clic derecho) de la fila.
 		if layer_tree.has_signal("item_right_clicked") \
 				and not layer_tree.item_right_clicked.is_connected(_mostrar_menu_contextual):
@@ -1065,6 +1067,9 @@ func _empujar_seleccion_del_arbol() -> void:
 		return
 	var nodos: Array = []
 	var it: TreeItem = layer_tree.get_next_selected(null)
+	if it != null and str(it.get_metadata(0)) == "more":
+		_mostrar_mas(it)
+		return
 	while it != null:
 		var n = it.get_metadata(1)
 		if is_instance_valid(n) and n is Node2D:
@@ -1192,9 +1197,74 @@ func _construir_nodo_recursivo(parent_item: TreeItem, real_node: Node2D, artboar
 		return
 
 	var ab_para_hijos: Node2D = artboard_actual if artboard_actual != null else real_node
+	var hijos: Array = []
 	for hijo in real_node.get_children():
 		if hijo is Node2D and _es_capa(hijo):
-			_construir_nodo_recursivo(item, hijo, ab_para_hijos)
+			hijos.append(hijo)
+	# Documentos grandes: el árbol de Godot prepara CADA fila (≈1 ms) aunque
+	# no se vea → con miles de capas el panel congelaba la app segundos. Un
+	# grupo con muchas capas empieza CERRADO y sus filas se crean al abrirlo;
+	# un contenedor con muchísimas, por tandas («Mostrar N más…»).
+	if tipo == "group" and hijos.size() > LAZY_GROUP_MIN:
+		_poner_perezoso(item, ab_para_hijos)
+		return
+	_construir_hijos_paginados(item, hijos, ab_para_hijos)
+
+# ── Capas por demanda (documentos grandes) ───────────────────────────────────
+const LAZY_GROUP_MIN := 12     # grupos con más capas: cerrados y por demanda
+const LAYER_PAGE := 200        # filas por tanda en un contenedor
+
+func _poner_perezoso(item: TreeItem, ab: Node2D) -> void:
+	item.collapsed = true
+	var ph := layer_tree.create_item(item)
+	ph.set_text(0, "…")
+	ph.set_metadata(0, "lazy")
+	for c in 3:
+		ph.set_selectable(c, false)
+	item.set_meta("lazy_ab", ab)
+
+func _es_perezoso(item: TreeItem) -> bool:
+	var f := item.get_first_child() if item else null
+	return f != null and str(f.get_metadata(0)) == "lazy"
+
+func _construir_hijos_paginados(parent_item: TreeItem, hijos: Array, ab: Node2D) -> void:
+	var fin := mini(hijos.size(), LAYER_PAGE)
+	for i in fin:
+		_construir_nodo_recursivo(parent_item, hijos[i], ab)
+	if fin < hijos.size():
+		var more := layer_tree.create_item(parent_item)
+		more.set_text(0, tr("Mostrar %d capas más…") % (hijos.size() - fin))
+		more.set_metadata(0, "more")
+		more.set_custom_color(0, _color_boton(false).lerp(_color_boton(true), 0.6))
+		for c in [1, 2]:
+			more.set_selectable(c, false)
+		more.set_meta("more_nodes", hijos.slice(fin))
+		more.set_meta("more_ab", ab)
+
+## Al abrir un grupo perezoso se crean sus filas.
+func _on_item_collapsed(item: TreeItem) -> void:
+	if item == null or item.collapsed or not _es_perezoso(item):
+		return
+	var ph := item.get_first_child()
+	item.remove_child(ph)
+	ph.free()
+	var nodo = item.get_metadata(1)
+	if not is_instance_valid(nodo):
+		return
+	var hijos: Array = []
+	for hijo in (nodo as Node).get_children():
+		if hijo is Node2D and _es_capa(hijo):
+			hijos.append(hijo)
+	_construir_hijos_paginados(item, hijos, item.get_meta("lazy_ab") if item.has_meta("lazy_ab") else null)
+
+## «Mostrar N más…»: la siguiente tanda en su sitio.
+func _mostrar_mas(more: TreeItem) -> void:
+	var parent := more.get_parent()
+	var nodes: Array = more.get_meta("more_nodes", [])
+	var ab = more.get_meta("more_ab") if more.has_meta("more_ab") else null
+	parent.remove_child(more)
+	more.free()
+	_construir_hijos_paginados(parent, nodes, ab)
 
 ## ¿Este Node2D es una CAPA de usuario (figura / grupo / artboard) y no un
 ## nodo interno de render de una herramienta?
@@ -2289,6 +2359,8 @@ func _process_pending_changes() -> void:
 			if _node_to_item_map.has(nodo):
 				continue  # ya está en el árbol
 			var parent_node = nodo.get_parent()
+			if parent_node and _node_to_item_map.has(parent_node) and _es_perezoso(_node_to_item_map[parent_node]):
+				continue   # grupo cerrado por demanda: su fila se crea al abrirlo
 			if parent_node and _node_to_item_map.has(parent_node):
 				# Con TODOS sus hijos (pegar/duplicar un grupo, booleana,
 				# vectorizado…): antes solo la fila del propio nodo y el grupo

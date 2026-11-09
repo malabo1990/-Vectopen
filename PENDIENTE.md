@@ -142,7 +142,7 @@ encargo 10.
 
 - `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la
   batería completa; aislado pasa siempre: depende del orden de las pruebas.
-- e2e que siguen en rojo: `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
+- e2e que siguen en rojo: `pages_e2e` (clic en la miniatura 3 no va a la página 3) y `assets_ui_e2e` (clic derecho no abre el menú del recurso), ya fallaban el 2026-11-09 antes de tocar Capas; `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
   `google_fonts_e2e` (necesita red).
 - Avisos «leaked at exit» al cerrar las pruebas con `quit()` (salen en todas;
   no se han visto al cerrar la app normal). Revisar si la app instalada
