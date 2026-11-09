@@ -146,7 +146,7 @@ cambiar anchura y pincel después de dibujar, guardar y recuperar.
 |---|---|
 | Panel de Capas congelaba con miles de capas (fotogramas de 2–4 s) | Hecho (`133477a`): grupos grandes por demanda, tandas de 200 |
 | Guardar / cargar no pierde elementos | Comprobado (mismo recuento antes y después) |
-| Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | En curso: texto 83 → 39 KB (editor en línea por demanda); figuras ~22 KB y trazos ~24 KB por elemento siguen |
+| Memoria ~31 KB por elemento (50 000 → 2 GB: no cabe en un PC de 2 GB) | En curso: texto 83 → 39 KB (editor en línea por demanda). Figuras ~22 KB y trazos ~24 KB: sin una causa única (1 nodo, 4 objetos por figura; script con 49 variables + órdenes de dibujo); rebajarlo exige rehacer la estructura de VectorShape — **decidir si merece la pena** (50 000 en modo débil hoy: 1,5 GB) |
 | Dibujar con todo a la vista (50 000 → 3 fps) y zoom: nivel de detalle / caché al alejar | En curso: 10 000 visibles 21 → 52 fps (lápiz sin grupo salvo pliegues; CullManager conectado a la cámara, textos sin _process con la vista quieta). Quedan ~1,8 llamadas de dibujo por elemento |
 | CullManager: «dormir» páginas lejanas (stream_artboards) | Apagado: nunca funcionó (no tenía cámara); activarlo cambia mucho el comportamiento — probar con documentos de muchas páginas antes |
 | Seleccionar todo (50 000 → 5 s) y mover la selección (630 ms por paso) | En curso: el inspector usa una muestra con miles de objetos (current_props 617 → 34 ms con 10 000; fotograma tras seleccionar 967 → 382 ms). Mover 10 000 seleccionadas: 110 → ~10 ms por fotograma (sin contorno por figura por encima de 300) |
