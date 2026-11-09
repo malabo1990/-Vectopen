@@ -121,8 +121,8 @@ Un trazo con N muestras (`test/e2e/stroke_samples_bench.gd`, sin ventana):
 | Aerógrafo: sellos y colores en Rust (`stroke_stamps`, `colors_from_alpha`) | Hecho |
 | Lápiz: colores por vértice y pliegues en Rust (16 → ~6 ms con 10 000) | Pendiente |
 | Trazos de 100 000 muestras al dibujar: rehacer solo la cola (incremental) | Pendiente |
-| Serialización / compatibilidad (trazos antiguos sin metas nuevas) | Pendiente de prueba |
-| Pinceles personalizados guardados («Mis pinceles») | Pendiente |
+| Serialización / compatibilidad (trazos antiguos sin metas nuevas) | Hecho (`BrushStrokeCompat_test`) |
+| Pinceles personalizados guardados («Mis pinceles») | Hecho: tarjeta del panel Pincel (guardar con nombre, un clic para usarlo, × para borrar; `brush_presets_e2e`) |
 
 Validación (§13 del documento): rectas, círculos, Bézier, cerradas, cúspides,
 cambios bruscos de anchura, autointersecciones, presión; deshacer/rehacer,

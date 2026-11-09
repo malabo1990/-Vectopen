@@ -238,6 +238,9 @@ func _build_ui() -> void:
 	# 4. Presión del lápiz (su fila de título lleva el medidor)
 	_build_pressure_ui(_section(root_vbox, ""))
 
+	# 5. Mis pinceles (pinceles personalizados guardados)
+	_build_presets_ui(_section(root_vbox, "Mis pinceles"))
+
 	_hint_label = Label.new()
 	_hint_label.text = tr("Mayús: grosor  ·  Ctrl: recta  ·  Alt: continuar")
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -263,6 +266,88 @@ func _update_grade_buttons(active: String) -> void:
 		TPS.style_toggle(b, g == active)
 
 ## Etiqueta + casilla numérica dentro de una rejilla de 4 columnas.
+# ── Mis pinceles (VGSE fase 6) ───────────────────────────────────────────────
+const BrushPresets = preload("res://script_gdscript/tools/brush_presets.gd")
+var _presets_flow: HFlowContainer
+var _preset_name: LineEdit
+
+func _build_presets_ui(parent: VBoxContainer) -> void:
+	_presets_flow = HFlowContainer.new()
+	_presets_flow.name = "BrushPresets"
+	_presets_flow.add_theme_constant_override("h_separation", 4)
+	_presets_flow.add_theme_constant_override("v_separation", 4)
+	parent.add_child(_presets_flow)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	parent.add_child(row)
+	_preset_name = LineEdit.new()
+	_preset_name.name = "PresetName"
+	_preset_name.placeholder_text = tr("Nombre del pincel")
+	_preset_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preset_name.custom_minimum_size = Vector2(0, 24)
+	_preset_name.add_theme_font_size_override("font_size", 11)
+	_preset_name.text_submitted.connect(func(_t: String) -> void: _save_preset())
+	row.add_child(_preset_name)
+	var save := Button.new()
+	save.name = "PresetSave"
+	save.text = tr("Guardar pincel")
+	save.tooltip_text = tr("Guarda el pincel actual (estilo, grosor, opacidad, presión y figura) con este nombre")
+	save.focus_mode = Control.FOCUS_NONE
+	save.custom_minimum_size = Vector2(0, 24)
+	save.add_theme_font_size_override("font_size", 10)
+	save.pressed.connect(_save_preset)
+	row.add_child(save)
+	_action_buttons.append(save)
+	_refresh_presets()
+
+func _save_preset() -> void:
+	var tool = _get_brush_tool()
+	if tool == null:
+		return
+	var n := _preset_name.text.strip_edges()
+	if n == "":
+		n = tr("Pincel %d") % (BrushPresets.list().size() + 1)
+	BrushPresets.add(n, tool)
+	_preset_name.text = ""
+	_refresh_presets()
+
+func _refresh_presets() -> void:
+	if not is_instance_valid(_presets_flow):
+		return
+	for c in _presets_flow.get_children():
+		c.queue_free()
+	for p in BrushPresets.list():
+		var nm := String(p.get("name", ""))
+		var chip := HBoxContainer.new()
+		chip.add_theme_constant_override("separation", 0)
+		var b := Button.new()
+		b.name = "Preset_" + nm.validate_node_name()
+		b.text = nm
+		b.tooltip_text = tr("Usar este pincel")
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(0, 22)
+		b.add_theme_font_size_override("font_size", 10)
+		b.pressed.connect(func() -> void:
+			var tool = _get_brush_tool()
+			if tool:
+				BrushPresets.apply(p, tool)
+				_sync_from_tool())
+		chip.add_child(b)
+		var x := Button.new()
+		x.name = "PresetDel_" + nm.validate_node_name()
+		x.text = "×"
+		x.tooltip_text = tr("Borrar este pincel")
+		x.focus_mode = Control.FOCUS_NONE
+		x.custom_minimum_size = Vector2(20, 22)
+		x.add_theme_font_size_override("font_size", 10)
+		x.pressed.connect(func() -> void:
+			BrushPresets.remove(nm)
+			_refresh_presets())
+		chip.add_child(x)
+		_presets_flow.add_child(chip)
+		TPS.style_action(b)
+		TPS.style_action(x)
+
 # ── Secciones en tarjetas ────────────────────────────────────────────────────
 var _cards: Array = []
 var _action_buttons: Array = []

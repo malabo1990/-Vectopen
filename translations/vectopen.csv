@@ -1107,3 +1107,10 @@ Zigzag,Zigzag,Zigzag,Zigzag,Zickzack,Ziguezague,Зигзаг,锯齿,ジグザグ
 Rugoso,Rough,Rugoso,Rugueux,Rau,Rugoso,Неровный,粗糙,ラフ,خشن,खुरदरा
 Amplitud,Amplitude,Amplitud,Amplitude,Amplitude,Amplitude,Амплитуда,振幅,振幅,السعة,आयाम
 Tamaño de onda,Wave size,Tamaño de onda,Taille d'onde,Wellengröße,Tamanho da onda,Размер волны,波长,波の大きさ,حجم الموجة,लहर का आकार
+Mis pinceles,My brushes,Mis pinceles,Mes pinceaux,Meine Pinsel,Os meus pincéis,Мои кисти,我的画笔,マイブラシ,فُرَشي,मेरे ब्रश
+Nombre del pincel,Brush name,Nombre del pincel,Nom du pinceau,Pinselname,Nome do pincel,Название кисти,画笔名称,ブラシ名,اسم الفرشاة,ब्रश का नाम
+Guardar pincel,Save brush,Guardar pincel,Enregistrer le pinceau,Pinsel speichern,Guardar pincel,Сохранить кисть,保存画笔,ブラシを保存,حفظ الفرشاة,ब्रश सहेजें
+"Guarda el pincel actual (estilo, grosor, opacidad, presión y figura) con este nombre","Saves the current brush (style, size, opacity, pressure and shape) with this name","Guarda el pincel actual (estilo, grosor, opacidad, presión y figura) con este nombre","Enregistre le pinceau actuel (style, taille, opacité, pression et forme) sous ce nom","Speichert den aktuellen Pinsel (Stil, Größe, Deckkraft, Druck und Form) unter diesem Namen","Guarda o pincel atual (estilo, espessura, opacidade, pressão e forma) com este nome","Сохраняет текущую кисть (стиль, толщину, непрозрачность, нажим и фигуру) под этим именем",以此名称保存当前画笔（样式、粗细、不透明度、压感和形状）,現在のブラシ（スタイル・太さ・不透明度・筆圧・図形）をこの名前で保存,يحفظ الفرشاة الحالية (النمط والسماكة والعتامة والضغط والشكل) بهذا الاسم,"वर्तमान ब्रश (शैली, मोटाई, अपारदर्शिता, दबाव और आकृति) इस नाम से सहेजता है"
+Pincel %d,Brush %d,Pincel %d,Pinceau %d,Pinsel %d,Pincel %d,Кисть %d,画笔 %d,ブラシ %d,فرشاة %d,ब्रश %d
+Usar este pincel,Use this brush,Usar este pincel,Utiliser ce pinceau,Diesen Pinsel verwenden,Usar este pincel,Использовать эту кисть,使用此画笔,このブラシを使う,استخدم هذه الفرشاة,यह ब्रश उपयोग करें
+Borrar este pincel,Delete this brush,Borrar este pincel,Supprimer ce pinceau,Diesen Pinsel löschen,Apagar este pincel,Удалить эту кисть,删除此画笔,このブラシを削除,احذف هذه الفرشاة,यह ब्रश हटाएँ
