@@ -156,6 +156,30 @@ sistema / DPI / tamaño; Ajustes ▸ Interfaz 80–200 %; Ctrl+Alt+= / - / 0; av
 `VECTOPEN_UI_SCALE` para pruebas; `ui_scale_e2e` 10/0). Un solo control para
 toda la UI (los 382 tamaños de letra fijados a mano impiden un «solo texto» fiable).
 
+## 0 quinquies. Tanda del usuario (2026-11-09, día): precisión de editor profesional
+
+| ID | Petición | Estado |
+|---|---|---|
+| USR-20 | Smart: «Texto en trazado» en el clic derecho | Hecho (`84a2650`): `smart_menu_extras.gd` (sin tocar `clickrigth_nodo.gd`) |
+| USR-21 | Texto en trazado deformado, separado al principio y amontonado al final | Hecho (`84a2650`): letras rígidas sobre su línea base real (mediana del pie de las letras) |
+| USR-22 | Tamaño, espaciado, inicio/final y tiradores como Illustrator/Affinity | Hecho (`84a2650`): ▶ ◀ ◆ en el lienzo, filas del inspector (Modern y Pro), deshacer de un paso |
+| USR-23 | Texto debajo del trazo y modo espejo | Hecho (`84a2650`): Posición encima/debajo/centrado, Invertir dirección, Espejo |
+| USR-24 | Con el texto ya en el trazo no funcionaba el panel de texto | Hecho (`84a2650`): InspectorCore redirige fuente, peso, cursiva, tamaño, color y letras avanzadas al texto de origen |
+| USR-25 | Tamaño de la UI sin teclado (tableta) | Hecho (`3c92d44`): Configuración ▸ Ventana con − / + / lista / Auto; modo y tamaño de ventana como botones |
+| USR-26 | Nodos y tiradores enormes con mucho zoom; línea roja y marca azul gruesas | Hecho (`f488564`): tamaños en px de pantalla; estilo Affinity |
+| USR-27 | Edición de nodos sin historial | Hecho (`f488564`): cada gesto es un paso de deshacer/rehacer |
+| USR-28 | Nodo nuevo deforma la línea | Hecho (`f488564`): De Casteljau (desviación < 0,15 px) |
+| USR-29 | Relleno incompleto / parpadeante en contornos que se cruzan | Hecho (`f488564`): regla «no cero» con unión de Clipper, sin errores en el depurador |
+| USR-30 | Recuadro enorme y corrido con mucho zoom; selección por recuadro | Hecho (`8bf358f`): caja exacta, sin redondeo de Godot; clic y marquee por la forma |
+| USR-31 | No se podía arrastrar tras seleccionar | Hecho (`8bf358f`): la caja deja pasar el ratón durante el gesto; tallo del giro sin clic |
+| USR-32 | Con zoom > 3000 % bordes poligonales y trazos finos transparentes; grosor mínimo 0,5 | Hecho (ver commit «Zoom extremo»): limpieza de puntos ≤ 2 % del tamaño; grosor mínimo = 1 px de pantalla; campos de grosor hasta 0,005 con paso adaptativo; Mayús + arrastre proporcional |
+| USR-33 | «Este brush también necesita trazos para poder mover» | **Por aclarar con el usuario**: ¿editar los puntos de un trazo de pincel con la herramienta de nodos? |
+
+Pruebas nuevas: `text_path_ui_e2e`, `settings_ui_e2e`, `node_handles_zoom_e2e`,
+`node_undo_e2e`, `fill_cross_e2e`, `fill_drag_e2e`, `select_precision_e2e`,
+`drag_move_e2e`, `zoom_quality_e2e`, `VectorPathFill_test`. Guía:
+`docs/es/guides/TEXTO_EN_TRAZADO_Y_EDICION_PRECISA.md`.
+
 ## 1. Funciones nuevas para la 0.2.3
 
 Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.
