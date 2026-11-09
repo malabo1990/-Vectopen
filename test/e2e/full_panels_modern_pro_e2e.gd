@@ -111,10 +111,13 @@ func readable(mode: String, what: String, area: Control, bg: Color) -> void:
 			worst_txt = "%s %s" % [lab.text.substr(0, 20), c]
 	check("%s: textos legibles en %s" % [mode, what], worst >= 0.3, "peor contraste %.2f: %s" % [worst, worst_txt])
 
-func run_mode(mode: String, bar: Control, side: Control, text: Node2D, rect: Node2D, img: Node2D) -> void:
+func run_mode(mode: String, bar: Control, side_name: String, text: Node2D, rect: Node2D, img: Node2D) -> void:
 	var gui = root.get_node("GlobalUI")
 	gui.set_ui_mode(mode)
 	await frames(30)
+	# El lateral de cada modo se crea al entrar en él (memoria): buscarlo ahora.
+	var side: Control = node(side_name)
+	check("%s: el lateral existe al entrar en el modo" % mode, side != null)
 	check("%s: la barra ya no tiene botón de Efectos" % mode, bar.find_child("BtnEffects", true, false) == null)
 	check("%s: la barra ya no tiene botón de Tipografía" % mode, bar.find_child("BtnTypography", true, false) == null)
 	check("%s: la barra conserva Vista previa" % mode, bar.find_child("BtnPreview", true, false) != null)
@@ -229,8 +232,8 @@ func _run() -> void:
 			tm.set_mode(th)
 			await frames(20)
 		root.get_node("GlobalUI").set_ui_mode("modern")
-		await run_mode("modern", node("ModernTopBar"), node("DockedInspector"), text, rect, img)
-		await run_mode("professional", node("ProTopBar"), node("ProStudio"), text, rect, img)
+		await run_mode("modern", node("ModernTopBar"), "DockedInspector", text, rect, img)
+		await run_mode("professional", node("ProTopBar"), "ProStudio", text, rect, img)
 
 	for n in made:
 		if is_instance_valid(n):

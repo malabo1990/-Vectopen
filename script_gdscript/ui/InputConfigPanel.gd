@@ -123,11 +123,23 @@ func _ready() -> void:
 	if filter_line_edit:
 		filter_line_edit.text_changed.connect(_on_filter_changed)
 		filter_line_edit.placeholder_text = tr("Buscar atajo…")
-	_build_ui()
-	_build_action_list()
+	# MEMORIA: la lista de atajos, el teclado y el ratón (~600 nodos, ~9 MB)
+	# se montan al abrir el panel por primera vez, no al arrancar.
+	if is_visible_in_tree():
+		ensure_built()
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m) -> void: _restyle())
+
+var _built_once := false
+
+## Monta el panel completo (una sola vez).
+func ensure_built() -> void:
+	if _built_once:
+		return
+	_built_once = true
+	_build_ui()
+	_build_action_list()
 
 # ══════════════════════════════ ESTRUCTURA ═══════════════════════════════════
 ## Monta pestañas, teclado y ratón alrededor de la lista que trae la escena.
@@ -179,6 +191,7 @@ func _build_ui() -> void:
 	show_tab("list")
 
 func show_tab(id: String) -> void:
+	ensure_built()
 	_tab = id
 	for k in _pages:
 		(_pages[k] as Control).visible = k == id
@@ -461,6 +474,8 @@ func _get_action_events_text(action: String) -> String:
 func _build_action_list(filter: String = "") -> void:
 	if not action_container:
 		return
+	if not _built_once:
+		ensure_built()   # monta todo y vuelve aquí con la lista vacía de filtro
 	_current_filter = filter
 	for c in action_container.get_children():
 		action_container.remove_child(c)
@@ -676,6 +691,8 @@ func _on_filter_changed(new_text: String) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_VISIBILITY_CHANGED and is_visible_in_tree():
+		if not _built_once:
+			ensure_built()
 		_build_action_list(_current_filter)
 		_refresh_keyboard()
 		_keep_on_screen.call_deferred()

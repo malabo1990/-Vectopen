@@ -225,6 +225,30 @@ Fallos que han destapado (corregidos):
 | Guardar / abrir | 0,55 s / 4 s | igual |
 
 
+## 0 septies. Plataformas y memoria (2026-11-09, tarde)
+
+Petición: exportar para Apple, Windows, Linux y Android; Mac lo más antiguo
+posible (¿10.10?); memoria al mínimo sin perder fluidez.
+
+| ID | Tarea | Estado |
+|---|---|---|
+| PLAT-01 | Perfil de exportación **Android** (APK arm64 + x86_64, `io.github.malabo1990.vectopen`) | Hecho: arranca en el emulador; render OpenGL en móviles (`rendering_method.mobile`) porque Vulkan no se ve en el emulador y falla en muchas tabletas |
+| PLAT-02 | Interfaz diminuta en pantallas densas (440 ppp → 85 %) | Hecho: `UIScale.scale_for` amplía según el DPI mientras quepan 1280 × 720 puntos (móvil 2340×1080 → 150 %); también respetaba mal la escala del sistema al 150 % |
+| PLAT-03 | **macOS 10.10** | **No es posible**: la plantilla de Godot 4.7 está compilada para 10.13 (Intel) y 11 (Apple Silicon). Bajado el mínimo de 10.15 a **10.13** (Macs de 2009–2010 en adelante); Rust con `MACOSX_DEPLOYMENT_TARGET=10.13`. Sin Vulkan/Metal, Godot pasa solo a OpenGL. Sin probar en un Mac real |
+| PLAT-04 | iOS | No se puede desde Linux: hace falta un Mac con Xcode y una cuenta de Apple Developer |
+| PLAT-05 | Release de GitHub con Android | Hecho en `release.yml`. **Decisión del usuario**: subir la clave permanente como secretos (`ANDROID_KEYSTORE_BASE64/USER/PASSWORD`); está en `~/.local/share/vectopen-release/` (copia de seguridad: sin ella no se pueden publicar actualizaciones que se instalen encima) |
+| PLAT-06 | Librerías nativas en Android | Pendiente: falta el NDK; mientras, texto e importadores van por GDScript |
+| MEM-01 | Panel Teclado y ratón montado al arrancar (~600 nodos, 9 MB) | Hecho: se monta al abrirlo |
+| MEM-02 | Lateral de Pro creado en todos los modos (1 116 nodos, 15 MB) | Hecho: solo al entrar en Pro |
+| MEM-03 | Inspector de Modern creado en todos los modos (1 251 nodos, 16,5 MB) | Hecho: solo en Modern (`only_modes`) |
+| MEM-04 | Capas: una fila (~10 KB) por figura añadida, sin límite | Hecho: también por tandas de 200 al añadir una a una |
+| MEM-05 | Renderizador OpenGL en escritorio | Descartado: −170 MB pero 49 → 20 fps con 10 000 elementos |
+| MEM-06 | Texto: ~35 KB por texto (nodo + Label oculto + texto nativo) | Abierto: el Label oculto lo usan 85 sitios |
+
+Arranque en Smart: 792 → 702 MB de memoria residente (Godot: 260 → 209 MB;
+6 063 → 3 083 nodos). Unos 300 MB son del controlador NVIDIA/Vulkan.
+Sonda: `test/e2e/memory_probe_e2e.gd` (MEM_QUICK, MEM_MICRO, MEM_TREE).
+
 ## 1. Funciones nuevas para la 0.2.3
 
 Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.

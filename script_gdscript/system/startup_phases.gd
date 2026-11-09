@@ -40,7 +40,10 @@ const _ORDER := {
 ## Paneles por fases, con los ajustes que tenían en main.tscn (mismo orden).
 ## early_modes: modos de UI que los muestran al arrancar → antes del 1er frame.
 const PANELS := [
-	{"name": "DockedInspector", "phase": 2, "parent": ".", "early_modes": ["modern"],
+	# only_modes: con ventana, solo se crea en esos modos (MEMORIA: el
+	# inspector de Modern son ~1250 nodos, ~16 MB); al pasar a Modern lo crea
+	# AdaptiveUIManager con ensure().
+	{"name": "DockedInspector", "phase": 2, "parent": ".", "early_modes": ["modern"], "only_modes": ["modern"],
 		"scene": "res://scenes/ui/docked_inspector.tscn",
 		"props": [["visible", false], ["layout_mode", 1]]},
 	{"name": "tool_in_Mouse", "phase": 2, "parent": ".",
@@ -99,6 +102,8 @@ func _on_main_ready() -> void:
 			continue
 		if all_now or mode in p.get("early_modes", []):
 			early.append(p)
+		elif p.has("only_modes") and not (mode in p["only_modes"]):
+			continue
 		else:
 			_pending.append(p)
 	for p in early:

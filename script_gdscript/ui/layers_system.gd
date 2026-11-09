@@ -1232,14 +1232,43 @@ func _construir_hijos_paginados(parent_item: TreeItem, hijos: Array, ab: Node2D)
 	for i in fin:
 		_construir_nodo_recursivo(parent_item, hijos[i], ab)
 	if fin < hijos.size():
-		var more := layer_tree.create_item(parent_item)
-		more.set_text(0, tr("Mostrar %d capas más…") % (hijos.size() - fin))
-		more.set_metadata(0, "more")
-		more.set_custom_color(0, _color_boton(false).lerp(_color_boton(true), 0.6))
-		for c in [1, 2]:
-			more.set_selectable(c, false)
-		more.set_meta("more_nodes", hijos.slice(fin))
-		more.set_meta("more_ab", ab)
+		_crear_fila_mas(parent_item, hijos.slice(fin), ab)
+
+func _crear_fila_mas(parent_item: TreeItem, nodes: Array, ab: Node2D) -> TreeItem:
+	var more := layer_tree.create_item(parent_item)
+	more.set_text(0, tr("Mostrar %d capas más…") % nodes.size())
+	more.set_metadata(0, "more")
+	more.set_custom_color(0, _color_boton(false).lerp(_color_boton(true), 0.6))
+	for c in [1, 2]:
+		more.set_selectable(c, false)
+	more.set_meta("more_nodes", nodes)
+	more.set_meta("more_ab", ab)
+	return more
+
+## Alta incremental con el MISMO límite por tandas que la reconstrucción: con
+## miles de figuras añadidas una a una (dibujar, pegar, scripts) cada fila
+## costaba ~10 KB y ~1 ms aunque no se viera. Pasado el límite, la figura va
+## a «Mostrar N más…».
+func _anadir_fila_paginada(parent_item: TreeItem, nodo: Node2D, ab: Node2D) -> void:
+	var n := parent_item.get_child_count()
+	var last := parent_item.get_child(n - 1) if n > 0 else null
+	if last != null and str(last.get_metadata(0)) == "more":
+		var lst: Array = last.get_meta("more_nodes", [])
+		# conjunto aparte: con decenas de miles, Array.has() sería O(n²)
+		var seen: Dictionary = last.get_meta("more_set") if last.has_meta("more_set") else {}
+		if seen.is_empty():
+			for x in lst:
+				seen[x] = true
+			last.set_meta("more_set", seen)
+		if not seen.has(nodo):
+			seen[nodo] = true
+			lst.append(nodo)   # mismo Array que guarda la meta (por referencia)
+			last.set_text(0, tr("Mostrar %d capas más…") % lst.size())
+		return
+	if n >= LAYER_PAGE:
+		_crear_fila_mas(parent_item, [nodo], ab)
+		return
+	_construir_nodo_recursivo(parent_item, nodo, ab)
 
 ## Al abrir un grupo perezoso se crean sus filas.
 func _on_item_collapsed(item: TreeItem) -> void:
@@ -1264,6 +1293,13 @@ func _mostrar_mas(more: TreeItem) -> void:
 	var ab = more.get_meta("more_ab") if more.has_meta("more_ab") else null
 	parent.remove_child(more)
 	more.free()
+	# Solo las que siguen en ese contenedor (pudieron borrarse o moverse a
+	# otro grupo mientras esperaban en la lista).
+	var owner_node = parent.get_metadata(1)
+	if parent == _sueltos_item:
+		owner_node = artboard_container
+	if owner_node is Node:
+		nodes = nodes.filter(func(n) -> bool: return is_instance_valid(n) and n.get_parent() == owner_node and not _node_to_item_map.has(n))
 	_construir_hijos_paginados(parent, nodes, ab)
 
 ## ¿Este Node2D es una CAPA de usuario (figura / grupo / artboard) y no un
@@ -2367,14 +2403,14 @@ func _process_pending_changes() -> void:
 				# salía vacío.
 				if not (nodo is Node2D and _es_capa(nodo)):
 					continue
-				_construir_nodo_recursivo(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
+				_anadir_fila_paginada(_node_to_item_map[parent_node], nodo, _encontrar_artboard_ancestro(nodo))
 			elif artboard_container and artboard_container == parent_node:
 				if _es_artboard(nodo):
 					_vincular_senales_artboard(nodo)
 					_construir_nodo_recursivo(layer_tree.get_root(), nodo, nodo)
 				else:
 					# Figura SUELTA (hija directa del contenedor) → grupo "Fuera de artboard".
-					_construir_nodo_recursivo(_get_sueltos_item(), nodo, null)
+					_anadir_fila_paginada(_get_sueltos_item(), nodo, null)
 			else:
 				# Padre no mapeado (anidamiento profundo, orden raro): una
 				# reconstrucción completa — O(N) UNA vez, no O(N) por figura.

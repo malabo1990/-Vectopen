@@ -4,7 +4,10 @@ func test_main_panel_keyboard_lista_no_vacia() -> void:
 	var scene: Node = auto_free(load("res://scenes/ui/main.tscn").instantiate())
 	add_child(scene)
 	var panel: Node = scene.get_node("keyboard/PanelContainer/MarginContainer/Contenido/Button/Panel_keyboard")
+	# Cerrado no monta nada (memoria); al abrirlo, la lista completa.
 	var ac := panel.find_child("ActionContainer", true, false) as VBoxContainer
+	assert_int(ac.get_child_count()).is_equal(0)
+	panel.visible = true
 	assert_object(ac).is_not_null()
 	# Solo las acciones que la app ejecuta de verdad (VectopenInput.DEFAULTS),
 	# una fila por acción (los títulos de categoría no cuentan).

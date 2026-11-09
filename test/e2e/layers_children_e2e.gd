@@ -47,9 +47,35 @@ func real_layers(n: Node, out: Array) -> void:
 			out.append(c)
 			real_layers(c, out)
 
-## Toda capa real tiene fila, y su fila cuelga de la fila de su padre.
+## Filas «Mostrar N más…» del panel (capas pendientes por tandas).
+func more_items(it: TreeItem, out: Array) -> void:
+	if it == null:
+		return
+	if str(it.get_metadata(0)) == "more":
+		out.append(it)
+	for c in it.get_children():
+		more_items(c, out)
+
+## Toda capa real tiene fila (o espera en «Mostrar N más…» de su padre: el
+## panel crea las filas por tandas de 200), y su fila cuelga de la de su padre.
+## Al pulsar «Mostrar más» aparecen todas.
 func tree_matches(what: String) -> void:
 	await frames(8)
+	var mores: Array = []
+	more_items(ls.layer_tree.get_root(), mores)
+	if not mores.is_empty():
+		var pending := 0
+		for m in mores:
+			pending += (m.get_meta("more_nodes", []) as Array).size()
+		check("%s: capas pendientes en «Mostrar más» (%d)" % [what, pending], pending > 0)
+		for _round in 20:
+			mores.clear()
+			more_items(ls.layer_tree.get_root(), mores)
+			if mores.is_empty():
+				break
+			for m in mores:
+				ls._mostrar_mas(m)
+		await frames(4)
 	var cont = ls.get("artboard_container")
 	var layers: Array = []
 	for ab in cont.get_children():

@@ -9,6 +9,7 @@
 #   Windows  .zip
 #   macOS    .dmg (imagen híbrida, se abre en macOS) y .zip
 #   Linux    .deb · .rpm · .tar.gz · .AppImage (si hay appimagetool)
+#   Android  .apk (si existe build/android/Vectopen.apk)
 # Uso: tools/package_release.sh [versión]   (por defecto la de project.godot)
 # =============================================================================
 set -euo pipefail
@@ -45,7 +46,7 @@ W="$WORK/Vectopen-$VERSION-windows-x64"
 mkdir -p "$W"
 cp build/windows/Vectopen.exe build/windows/*.dll "${LEGAL[@]}" "$W"/
 cat > "$W/LEEME.txt" <<EOF
-Vectopen $VERSION (versión ALFA) — Windows 10/11 de 64 bits
+Vectopen $VERSION (versión BETA) — Windows 10/11 de 64 bits
 
 Abre Vectopen.exe (deja vectopen_text.dll en la misma carpeta).
 Windows puede avisar "Windows protegió su PC" porque el programa no está
@@ -64,7 +65,7 @@ cp "${LEGAL[@]}" "$M/dmg/"
 zip -qj "$DIST/Vectopen-$VERSION-macos-universal.zip" "${LEGAL[@]}"
 ln -s /Applications "$M/dmg/Aplicaciones"
 cat > "$M/dmg/LEEME.txt" <<EOF
-Vectopen $VERSION (versión ALFA) — macOS 10.15+ (Intel y Apple Silicon)
+Vectopen $VERSION (versión BETA) — macOS 10.13+ en Intel, 11+ en Apple Silicon
 
 Arrastra Vectopen a la carpeta Aplicaciones.
 La app aún no está notarizada por Apple: la primera vez, clic derecho sobre
@@ -192,6 +193,14 @@ if [ -x "$AIT" ]; then
 		&& echo "  ✓ Linux AppImage" || echo "  ✗ AppImage (falló appimagetool)"
 else
 	echo "  · AppImage omitido (no hay appimagetool en $AIT)"
+fi
+
+# ── ANDROID ──────────────────────────────────────────────────────────────────
+if [ -f build/android/Vectopen.apk ]; then
+	cp build/android/Vectopen.apk "$DIST/Vectopen-$VERSION-android.apk"
+	echo "  ✓ Android apk"
+else
+	echo "  · Android omitido (no hay build/android/Vectopen.apk)"
 fi
 
 (cd "$DIST" && sha256sum * > SHA256SUMS.txt)

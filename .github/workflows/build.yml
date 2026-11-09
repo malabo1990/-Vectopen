@@ -66,7 +66,7 @@ jobs:
         run: |
           for profile in debug release; do
             flag=$([ "$profile" = release ] && echo --release || true)
-            cargo build --locked $flag --target x86_64-apple-darwin
+            MACOSX_DEPLOYMENT_TARGET=10.13 cargo build --locked $flag --target x86_64-apple-darwin
             cargo build --locked $flag --target aarch64-apple-darwin
             mkdir -p target/$profile
             lipo -create \

@@ -101,6 +101,50 @@ func test_alta_de_figuras_es_incremental_no_rebuild_por_figura() -> void:
 	victima.free()
 
 
+## MEMORIA: añadir figuras una a una respeta el límite de filas por tanda
+## (LAYER_PAGE): cada fila costaba ~10 KB aunque no se viera. Las demás van a
+## «Mostrar N más…» y aparecen al pulsarlo.
+func test_alta_incremental_pagina_las_filas() -> void:
+	var contenedor: Node2D = auto_free(Node2D.new())
+	add_child(contenedor)
+	var artboard: _FakeArtboard = auto_free(_FakeArtboard.new())
+	artboard.name = "Artboard"
+	contenedor.add_child(artboard)
+	var system: LayerSystem = _make_system(auto_free(Tree.new()), contenedor)
+	await get_tree().process_frame
+	var total := LayerSystem.LAYER_PAGE + 37
+	for i in total:
+		var s: Node2D = VectorRectangle.new()
+		s.name = "Fig_%d" % i
+		artboard.add_child(s)
+		if i == 150:
+			# dos lotes: el límite también vale entre lotes
+			await get_tree().create_timer(0.15).timeout
+			await get_tree().process_frame
+	await get_tree().create_timer(0.15).timeout
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var ab_item: TreeItem = system._node_to_item_map.get(artboard)
+	assert_object(ab_item).is_not_null()
+	assert_int(ab_item.get_child_count()).is_equal(LayerSystem.LAYER_PAGE + 1)
+	var more := ab_item.get_child(ab_item.get_child_count() - 1)
+	assert_str(str(more.get_metadata(0))).is_equal("more")
+	assert_int((more.get_meta("more_nodes") as Array).size()).is_equal(37)
+	# repetir el alta de una figura ya pendiente no la duplica
+	var again: Node2D = artboard.get_node("Fig_%d" % (total - 1))
+	artboard.remove_child(again)
+	artboard.add_child(again)
+	await get_tree().create_timer(0.15).timeout
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var more2 := ab_item.get_child(ab_item.get_child_count() - 1)
+	assert_int((more2.get_meta("more_nodes") as Array).size()).is_equal(37)
+	system._mostrar_mas(more2)
+	assert_int(ab_item.get_child_count()).is_equal(total)
+	for c in artboard.get_children():
+		c.free()
+
+
 ## Máscara de recorte sobre una FIGURA con geometría propia: pone
 ## `clip_children` directamente en la figura (recorta a su forma), con undo.
 func test_boton_de_mascara_en_figura_alterna_clip_children_con_undo() -> void:

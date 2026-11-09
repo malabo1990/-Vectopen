@@ -122,13 +122,10 @@ func _resolve_nodes() -> void:
 		command_palette = parent.find_child("CommandPalette", true, false) as Control
 	if not is_instance_valid(pro_studio):
 		pro_studio = parent.find_child("ProStudio", true, false) as Control
-		if not is_instance_valid(pro_studio):
-			var scene := load("res://scenes/ui/pro/pro_studio.tscn")
-			if scene:
-				pro_studio = scene.instantiate() as Control
-				pro_studio.name = "ProStudio"
-				pro_studio.visible = false
-				parent.add_child.call_deferred(pro_studio)
+		# MEMORIA: el lateral de Pro (~1100 nodos, ~15 MB) solo se crea al
+		# entrar en Pro (_ensure_pro_studio), no en Smart ni en Modern.
+		if not is_instance_valid(pro_studio) and _ui_mode() == "professional":
+			_ensure_pro_studio()
 	if not is_instance_valid(pro_top_bar):
 		pro_top_bar = parent.find_child("ProTopBar", true, false) as Control
 		if not is_instance_valid(pro_top_bar):
@@ -345,8 +342,31 @@ func _position_settings_dialog() -> void:
 func _on_ui_mode_changed(new_mode: String) -> void:
 	apply_ui_mode(new_mode)
 
+## Crea el lateral de Pro la primera vez que hace falta.
+func _ensure_pro_studio() -> void:
+	if is_instance_valid(pro_studio):
+		return
+	var parent := get_parent()
+	var scene := load("res://scenes/ui/pro/pro_studio.tscn") as PackedScene
+	if parent == null or scene == null:
+		return
+	pro_studio = scene.instantiate() as Control
+	pro_studio.name = "ProStudio"
+	pro_studio.visible = false
+	# Durante el montaje de main no se le pueden añadir hijos todavía.
+	if parent.is_node_ready():
+		parent.add_child(pro_studio)
+	else:
+		parent.add_child.call_deferred(pro_studio)
+
 func apply_ui_mode(mode: String) -> void:
 	_resolve_nodes()
+	if mode == "professional":
+		_ensure_pro_studio()
+	elif mode == "modern" and not is_instance_valid(docked_inspector):
+		var phases := get_tree().get_first_node_in_group(StartupPhases.GROUP) if is_inside_tree() else null
+		if phases and phases.has_method("ensure") and get_parent().is_node_ready():
+			docked_inspector = phases.ensure("DockedInspector")
 	_store_defaults()
 
 	# Si estaba activo el modo Focus Canvas, restaurarlo

@@ -45,9 +45,14 @@ func _ready() -> void:
 ## Escala automática para la pantalla donde está la ventana.
 static func auto_scale() -> float:
 	var scr := DisplayServer.window_get_current_screen()
-	var sys := DisplayServer.screen_get_scale(scr)
-	var px := Vector2(DisplayServer.screen_get_size(scr))
-	var dpi := float(DisplayServer.screen_get_dpi(scr))
+	return scale_for(Vector2(DisplayServer.screen_get_size(scr)),
+		float(DisplayServer.screen_get_dpi(scr)), DisplayServer.screen_get_scale(scr))
+
+## Interfaz pensada para al menos 1280 × 720 puntos útiles.
+const MIN_LOGICAL := Vector2(1280, 720)
+
+## Escala para una pantalla de `px` píxeles, `dpi` y escala del sistema `sys`.
+static func scale_for(px: Vector2, dpi: float, sys: float = 1.0) -> float:
 	var s := 1.0
 	if sys > 1.01:
 		s = sys   # el sistema ya dice cuánto ampliar (Wayland / macOS)
@@ -57,13 +62,19 @@ static func auto_scale() -> float:
 		s = 1.5
 	elif dpi >= 120.0 or px.x >= 2500.0:
 		s = 1.25
-	# Pantalla pequeña o con poca resolución útil: algo más compacta para
-	# que quepan los paneles (sin bajar de 85 %).
-	var logical := px / maxf(s, 1.0)
-	var diag_in := px.length() / maxf(dpi, 1.0)
-	if logical.x < 1400.0 or (diag_in > 1.0 and diag_in < 12.0 and s <= 1.0):
-		s = minf(s, 0.9 if logical.x >= 1200.0 else 0.85)
-	return clampf(snappedf(s, 0.05), MIN_SCALE, MAX_SCALE)
+	# Tabletas y móviles muy densos: ampliar lo que pida el DPI pero sin que
+	# los paneles dejen de caber (antes la regla de «pantalla pequeña» de
+	# abajo los dejaba al 85 %, ilegibles en una tableta de 440 ppp).
+	var fit := minf(px.x / MIN_LOGICAL.x, px.y / MIN_LOGICAL.y)
+	if s > fit:
+		s = maxf(fit, 1.0)
+	# Pantalla pequeña o con poca resolución útil (sin ampliar): algo más
+	# compacta para que quepan los paneles (sin bajar de 85 %).
+	if s <= 1.0:
+		var diag_in := px.length() / maxf(dpi, 1.0)
+		if px.x < 1400.0 or (diag_in > 1.0 and diag_in < 12.0):
+			s = minf(s, 0.9 if px.x >= 1200.0 else 0.85)
+	return clampf(floorf(s / 0.05 + 0.001) * 0.05, MIN_SCALE, MAX_SCALE)
 
 func current_scale() -> float:
 	# VECTOPEN_UI_SCALE fija la escala (pruebas, o forzarla desde fuera)

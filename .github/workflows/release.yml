@@ -67,7 +67,8 @@ jobs:
       - name: Build (macOS universal)
         if: runner.os == 'macOS' && matrix.crate != 'vectopen_vectorizer'
         run: |
-          cargo build --locked --release --target x86_64-apple-darwin
+          # Intel: hasta macOS 10.13 (el mínimo de Godot 4.7); Apple Silicon: 11.
+          MACOSX_DEPLOYMENT_TARGET=10.13 cargo build --locked --release --target x86_64-apple-darwin
           cargo build --locked --release --target aarch64-apple-darwin
           mkdir -p target/release
           lipo -create \
@@ -144,6 +145,37 @@ jobs:
           ./godot --headless --path . --export-release "Vectopen_macos" build/macos/Vectopen.zip
           ./godot --headless --path . --export-release "Vectopen_linux" build/linux/vectopen.x86_64
           ls -la build/*
+
+      # Android (APK firmado). Con los secretos ANDROID_KEYSTORE_BASE64,
+      # ANDROID_KEYSTORE_USER y ANDROID_KEYSTORE_PASSWORD se firma con la clave
+      # permanente (las actualizaciones se instalan encima); sin ellos, con una
+      # clave temporal (hay que desinstalar la versión anterior).
+      - name: Exportar Android
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_USER: ${{ secrets.ANDROID_KEYSTORE_USER }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p build/android "$HOME/.config/godot"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          JDK="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$SDK" "$JDK" \
+            > "$HOME/.config/godot/editor_settings-${GODOT_VERSION%.*}.tres"
+          KS="$RUNNER_TEMP/vectopen.keystore"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$KS"
+          else
+            echo "::warning::Sin secretos de firma Android: clave temporal"
+            KS_USER=vectopen; KS_PASS="$(openssl rand -hex 16)"
+            "$JDK/bin/keytool" -genkeypair -v -keystore "$KS" -alias "$KS_USER" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Vectopen" >/dev/null
+          fi
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KS" GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KS_USER" \
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KS_PASS" \
+            ./godot --headless --path . --export-release "Vectopen_android" build/android/Vectopen.apk \
+            || echo "::warning::No se pudo exportar Android"
+          rm -f "$KS"
+          ls -la build/android || true
 
       - name: Empaquetar (.zip, .dmg, .deb, .rpm, .tar.gz)
         run: |

@@ -31,7 +31,9 @@ for t in "$@"; do
 	# o parametrizadas (p. ej. el benchmark de documentos grandes).
 	ENVARGS=()
 	for kv in ${E2E_ENV:-}; do ENVARGS+=("--env=$kv"); done
-	timeout "${E2E_TIMEOUT:-450}" flatpak run "${ENVARGS[@]}" --command=godot org.godotengine.Godot --path . --screen 1 \
+	# E2E_ARGS: argumentos extra para Godot (p. ej. «--rendering-method gl_compatibility»)
+	# shellcheck disable=SC2086
+	timeout "${E2E_TIMEOUT:-450}" flatpak run "${ENVARGS[@]}" --command=godot org.godotengine.Godot --path . --screen 1 ${E2E_ARGS:-} \
 		-s "res://test/e2e/$t.gd" 2>&1 | head -c 60000 > "$LOG_DIR/$t.log"
 	grep -E '^BENCH' "$LOG_DIR/$t.log"
 	echo "== $t: $(grep -cE '^PASS' "$LOG_DIR/$t.log") PASS $(grep -E '^FAIL|RESULT|SCRIPT ERROR' "$LOG_DIR/$t.log" | head -4 | tr '\n' ' ')"
