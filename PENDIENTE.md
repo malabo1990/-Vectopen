@@ -95,7 +95,7 @@ romper documentos existentes (el Line2D sigue siendo el modelo guardado).
 | Sombreador propio con parámetros y filtros por trazo de pincel | Existía (comprobado: `brush_paint_e2e`) |
 | Texturas dentro del trazo: lienzo, papel, rayas, puntos; siguen el trazo o el papel; escala e intensidad (inspector, con deshacer, se guarda) | Hecho |
 | Variación de color a lo largo del trazo (tono y luz, solo pintura) | Hecho (inspector «Variación de color») |
-| Texturas desde una imagen del usuario | Pendiente |
+| Texturas desde una imagen del usuario | Hecho («Textura ▸ Imagen…»). Límite: se guarda la RUTA (si la imagen se mueve o se comparte el .vtp, sale «papel»); incrustarla en el documento queda pendiente |
 | **FALLO: los modos de fusión del panel Capas (Multiplicar, Pantalla, Superponer…) no hacen nada** — `layers_system` llama a `ic.apply("blend_mode", …)` pero InspectorCore no tiene esa propiedad. Para todos los objetos. Multiplicar/Sumar se pueden hacer con CanvasItemMaterial; Pantalla/Superponer/Aclarar/Oscurecer/Diferencia necesitan leer lo de detrás (screen texture / BackBufferCopy por objeto: coste). **Decidir con el usuario** | Pendiente (prioridad alta) |
 **Fase 5 — Máscaras y efectos** (en curso)
 

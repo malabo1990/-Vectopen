@@ -61,7 +61,7 @@ const SPECS := {
 	"path_text_align": ["En el trazado", "option", [["start", "Inicio"], ["center", "Centro"], ["end", "Final"]]],
 	"path_text_offset": ["Desplazamiento", "num", -100, 100, 1, "%", 100.0],
 	"path_text_flip": ["Al otro lado", "check"],
-	"brush_texture": ["Textura", "option", [["none", "Ninguna"], ["canvas", "Lienzo"], ["paper", "Papel"], ["stripes", "Rayas"], ["dots", "Puntos"]]],
+	"brush_texture": ["Textura", "option", [["none", "Ninguna"], ["canvas", "Lienzo"], ["paper", "Papel"], ["stripes", "Rayas"], ["dots", "Puntos"], ["image", "Imagen…"]]],
 	"brush_texture_mode": ["Textura sigue", "option", [["along", "El trazo"], ["paper", "El papel"]]],
 	"brush_texture_scale": ["Escala textura", "num", 10, 1000, 5, "%", 100.0],
 	"brush_texture_strength": ["Intensidad", "num", 0, 100, 1, "%", 100.0],
@@ -100,6 +100,24 @@ func _ready() -> void:
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m) -> void: _apply_theme())
 	_apply_theme()
+
+## «Imagen…» de la textura del trazo: elegir PNG / JPG / WebP del disco.
+func _pick_texture_image() -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.title = tr("Imagen para la textura del trazo")
+	fd.add_filter("*.png, *.jpg, *.jpeg, *.webp", tr("Imágenes"))
+	fd.file_selected.connect(func(path: String) -> void:
+		if _ic():
+			_ic().apply("brush_texture_image", path)
+		fd.queue_free())
+	fd.canceled.connect(func() -> void:
+		fd.queue_free()
+		if _ic():
+			_sync(_ic().current_props()))
+	add_child(fd)
+	fd.popup_centered(Vector2i(800, 600))
 
 func _ic() -> Node:
 	return get_node_or_null("/root/InspectorCore")
@@ -188,7 +206,10 @@ func _build_row(prop: String) -> void:
 				ob.set_item_metadata(ob.item_count - 1, it[0])
 			ob.item_selected.connect(func(i: int) -> void:
 				if not _syncing and _ic():
-					_ic().apply(prop, ob.get_item_metadata(i)))
+					if prop == "brush_texture" and String(ob.get_item_metadata(i)) == "image":
+						_pick_texture_image()   # textura desde una imagen del usuario
+					else:
+						_ic().apply(prop, ob.get_item_metadata(i)))
 			row.add_child(ob)
 			_ctrls[prop] = ob
 		"presets":

@@ -227,5 +227,23 @@ func _run() -> void:
 			if px.s > 0.3:
 				hues[int(px.h * 36.0)] = true
 	check("variación de color: varios tonos a lo largo (%d)" % hues.size(), hues.size() >= 3)
+	# 5) textura desde una imagen del usuario (cuadros rojo / transparente)
+	var tex_img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for yy in 64:
+		for xx in 64:
+			tex_img.set_pixel(xx, yy, Color(1, 0.1, 0.1, 1) if (xx / 16 + yy / 16) % 2 == 0 else Color(1, 1, 1, 0.15))
+	var tex_path := OS.get_cache_dir().path_join("vectopen_tex_test.png")
+	tex_img.save_png(tex_path)
+	root.get_node("SelectionManager").set_selection([l])
+	ic.apply("brush_color_jitter", 0.0)
+	l.default_color = Color(1, 1, 1, 1)
+	ic.apply("brush_texture_image", tex_path)
+	root.get_node("SelectionManager").clear()
+	await frames(10)
+	await RenderingServer.frame_post_draw
+	var img5 := root.get_texture().get_image()
+	img5.save_png(OUT.path_join("5_textura_imagen.png"))
+	var reds := count_color(img5, area, Color(1, 0.1, 0.1))
+	check("textura desde una imagen del usuario (cuadros rojos: %d px)" % reds, reds > 100 and String(l.get_meta("brush_texture").get("name", "")) == "image")
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))
 	quit(1 if fails else 0)

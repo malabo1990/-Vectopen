@@ -12,6 +12,22 @@ const SIZE := 128
 
 static var _cache: Dictionary = {}
 
+## Textura de una IMAGEN del usuario (ruta del disco), en caché por ruta. Si
+## no se puede leer (movida, borrada), la de papel.
+static func image_texture(path: String) -> Texture2D:
+	if _cache.has("img:" + path):
+		return _cache["img:" + path]
+	var img := Image.load_from_file(path) if path != "" else null
+	if img == null or img.is_empty():
+		return get_texture("paper")
+	if img.get_width() > 1024 or img.get_height() > 1024:
+		var k := 1024.0 / float(maxi(img.get_width(), img.get_height()))
+		img.resize(int(img.get_width() * k), int(img.get_height() * k))
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_cache["img:" + path] = tex
+	return tex
+
 static func get_texture(name: String) -> Texture2D:
 	if _cache.has(name):
 		return _cache[name]
