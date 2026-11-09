@@ -194,7 +194,12 @@ func _draw() -> void:
 	if idx.is_empty():
 		return
 	var cols: PackedColorArray
-	if m.has("colors"):
+	var gio0: Object = StrokeGeom._native_geom()
+	if _geom.has("pencil_a") and gio0 and not (line.gradient and not has_gradient_fill()):
+		# Lápiz: opacidad por vértice ya calculada con la forma (caché); aquí
+		# solo el color (nativo).
+		cols = gio0.colors_from_alpha(_geom["pencil_a"], Color(1, 1, 1, line.default_color.a) if has_gradient_fill() else line.default_color)
+	elif m.has("colors"):
 		# Pincel de objeto: los colores de las figuras estampadas.
 		cols = m["colors"]
 	else:
@@ -307,7 +312,12 @@ func _build_geom() -> Dictionary:
 			var ks: PackedInt32Array = m["k"]
 			for i in mini(uvs.size(), ks.size()):
 				uvs[i].x = cum[ks[i]]
-	return {"ax": ax, "m": m, "uvs": uvs, "folds": _has_folds(pts, half) if String(line.get_meta("brush_style", "")) == "pencil" else false}
+	var out := {"ax": ax, "m": m, "uvs": uvs, "folds": _has_folds(pts, half) if String(line.get_meta("brush_style", "")) == "pencil" else false}
+	var gio: Object = StrokeGeom._native_geom()
+	if String(line.get_meta("brush_style", "")) == "pencil" and m.has("k") and gio and gio.has_method("pencil_alpha"):
+		out["pencil_a"] = gio.pencil_alpha(m["k"], m.get("beyond", PackedFloat32Array()), cum, half,
+			ax[3] if ax.size() > 3 else PackedFloat32Array(), total)
+	return out
 
 ## Eje del trazo tal como se pinta: [puntos, medio grosor, longitud acumulada].
 ## Lo usan el render y «Convertir trazo en contorno» (misma forma exacta).

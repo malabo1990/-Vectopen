@@ -119,7 +119,7 @@ Un trazo con N muestras (`test/e2e/stroke_samples_bench.gd`, sin ventana):
 |---|---|
 | Pruebas de rendimiento de documentos (N elementos) y de trazos (N muestras) | Hecho (`scene_benchmark_e2e`, `stroke_samples_bench`) |
 | Aerógrafo: sellos y colores en Rust (`stroke_stamps`, `colors_from_alpha`) | Hecho |
-| Lápiz: colores por vértice y pliegues en Rust (16 → ~6 ms con 10 000) | Pendiente |
+| Lápiz: opacidad por vértice en Rust y en caché (16 → 9,6 ms con 10 000) | Hecho |
 | Trazos de 100 000 muestras al dibujar: rehacer solo la cola (incremental) | Pendiente |
 | Serialización / compatibilidad (trazos antiguos sin metas nuevas) | Hecho (`BrushStrokeCompat_test`) |
 | Pinceles personalizados guardados («Mis pinceles») | Hecho: tarjeta del panel Pincel (guardar con nombre, un clic para usarlo, × para borrar; `brush_presets_e2e`) |

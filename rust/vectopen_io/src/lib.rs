@@ -80,6 +80,26 @@ impl VectopenIO {
         d
     }
 
+    /// Lápiz: opacidad por vértice (presión = grafito; menos hacia las
+    /// puntas), igual que BrushStrokeRender._colors (rama del lápiz).
+    #[func]
+    fn pencil_alpha(&self, ks: PackedInt32Array, beyond: PackedFloat32Array, cum: PackedFloat32Array,
+            half: PackedFloat32Array, flow: PackedFloat32Array, total: f32) -> PackedFloat32Array {
+        let (ks, bey, cum, half, flow) = (ks.as_slice(), beyond.as_slice(), cum.as_slice(), half.as_slice(), flow.as_slice());
+        let smooth = |e0: f32, e1: f32, x: f32| {
+            if e1 <= e0 { return if x < e0 { 0.0 } else { 1.0 }; }
+            let t = ((x - e0) / (e1 - e0)).clamp(0.0, 1.0);
+            t * t * (3.0 - 2.0 * t)
+        };
+        ks.iter().enumerate().map(|(i, &k)| {
+            let k = (k.max(0) as usize).min(cum.len().saturating_sub(1));
+            let hp = half.get(k).copied().unwrap_or(1.0);
+            let dp = cum[k].min(total - cum[k]) - bey.get(i).copied().unwrap_or(0.0);
+            let fl = flow.get(k).copied().unwrap_or(1.0).max(0.02);
+            fl * (0.25 + 0.75 * smooth(-hp, hp * 1.2, dp))
+        }).collect()
+    }
+
     /// Color por vértice = `color` con su alfa × `a[i]` (sellos del aerógrafo).
     #[func]
     fn colors_from_alpha(&self, a: PackedFloat32Array, color: Color) -> PackedColorArray {
