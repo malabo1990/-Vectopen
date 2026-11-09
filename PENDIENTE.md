@@ -245,6 +245,12 @@ posible (¿10.10?); memoria al mínimo sin perder fluidez.
 | MEM-05 | Renderizador OpenGL en escritorio | Descartado: −170 MB pero 49 → 20 fps con 10 000 elementos |
 | MEM-06 | Texto: ~35 KB por texto (nodo + Label oculto + texto nativo) | Abierto: el Label oculto lo usan 85 sitios |
 
+Android (emulador, documento vacío): 374 → 279 MB. Paquetes locales en
+`dist/0.2.3-beta/` (Windows zip, macOS dmg/zip, deb, rpm, tar.gz, APK firmado
+con la clave permanente); Windows/macOS sin el vectorizador IA (ONNX se
+compila en GitHub). Librerías nativas para Windows/macOS desde Linux:
+`rust/build_cross.sh` (zig + osxcross).
+
 Arranque en Smart: 792 → 702 MB de memoria residente (Godot: 260 → 209 MB;
 6 063 → 3 083 nodos). Unos 300 MB son del controlador NVIDIA/Vulkan.
 Sonda: `test/e2e/memory_probe_e2e.gd` (MEM_QUICK, MEM_MICRO, MEM_TREE).
