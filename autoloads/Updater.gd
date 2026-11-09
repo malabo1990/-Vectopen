@@ -134,9 +134,11 @@ static func pick_update(releases: Variant, installed: String) -> Dictionary:
 	return best
 
 # ── descargar e instalar ─────────────────────────────────────────────────────
-## Cómo se instala en este sistema: "rpm", "deb", "windows", "macos" o "tar".
+## Cómo se instala en este sistema: "rpm", "deb", "windows", "macos", "tar" o "android".
 static func install_kind() -> String:
 	match OS.get_name():
+		"Android":
+			return "android"
 		"Windows":
 			return "windows"
 		"macOS":
@@ -154,7 +156,7 @@ static func install_kind() -> String:
 ## El archivo de la release que toca para `kind` (o {} si no hay).
 static func asset_for(assets: Array, kind: String) -> Dictionary:
 	var want := {"rpm": [".rpm"], "deb": [".deb"], "windows": ["windows", ".exe", ".zip"],
-		"macos": [".dmg", "macos"], "tar": ["linux", ".tar.gz"]}
+		"macos": [".dmg", "macos"], "tar": ["linux", ".tar.gz"], "android": [".apk"]}
 	for pattern in want.get(kind, []):
 		for a in assets:
 			var n := String(a["name"]).to_lower()
@@ -165,6 +167,8 @@ static func asset_for(assets: Array, kind: String) -> Dictionary:
 			if kind == "deb" and not n.ends_with(".deb"):
 				continue
 			if kind == "tar" and not (n.contains("linux") and n.ends_with(".tar.gz")):
+				continue
+			if kind == "android" and not n.ends_with(".apk"):
 				continue
 			if n.contains(pattern):
 				return a
@@ -178,6 +182,11 @@ func download_and_install(info: Dictionary = latest) -> void:
 	if asset.is_empty():
 		OS.shell_open(String(info.get("page", RELEASES_URL)))
 		install_finished.emit(false, tr("No hay paquete para este sistema: se abre la página de descargas."))
+		return
+	if kind == "android":
+		# Android instala el APK desde el navegador (con su propio aviso).
+		OS.shell_open(String(asset["url"]))
+		install_finished.emit(true, tr("Se abre la descarga del APK."))
 		return
 	download(asset, func(path: String) -> void: _install(path, kind))
 

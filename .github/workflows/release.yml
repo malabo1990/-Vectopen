@@ -199,3 +199,14 @@ jobs:
             gh release create "$TAG" dist/${{ steps.ver.outputs.version }}/* $PRE \
               --title "Vectopen ${{ steps.ver.outputs.version }}" "${NOTE_ARG[@]}"
           fi
+
+      # La web (malabo1990/vectopen-web) pone los enlaces nuevos: al momento si
+      # hay un token con acceso a ese repo (secreto WEB_DISPATCH_TOKEN); si no,
+      # la propia web lo comprueba cada 3 horas.
+      - name: Avisar a la web
+        env:
+          WEB_TOKEN: ${{ secrets.WEB_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$WEB_TOKEN" ]; then echo "Sin WEB_DISPATCH_TOKEN: la web lo verá en su comprobación periódica"; exit 0; fi
+          GH_TOKEN="$WEB_TOKEN" gh api repos/malabo1990/vectopen-web/dispatches -f event_type=vectopen-release \
+            || echo "::warning::No se pudo avisar a la web"

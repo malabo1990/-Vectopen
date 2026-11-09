@@ -20,13 +20,14 @@ func _rel(tag: String, draft := false) -> Dictionary:
 			{"name": "Vectopen-%s-windows-x64.zip" % tag.trim_prefix("v"), "browser_download_url": "https://x/w.zip", "size": 10},
 			{"name": "Vectopen-%s-macos-universal.dmg" % tag.trim_prefix("v"), "browser_download_url": "https://x/m.dmg", "size": 10},
 			{"name": "Vectopen-%s-linux-x86_64.tar.gz" % tag.trim_prefix("v"), "browser_download_url": "https://x/l.tgz", "size": 10},
+			{"name": "Vectopen-%s-android.apk" % tag.trim_prefix("v"), "browser_download_url": "https://x/a.apk", "size": 10},
 			{"name": "SHA256SUMS.txt", "browser_download_url": "https://x/s.txt", "size": 1}]}
 
 func test_elige_la_release_mas_nueva_publicada() -> void:
 	var rels := [_rel("v0.2.0-alpha"), _rel("v0.3.0", true), _rel("v0.2.2"), _rel("v0.2.1")]
 	var info := U.pick_update(rels, "0.2.1")
 	assert_str(info.get("version", "")).is_equal("0.2.2")   # el borrador 0.3.0 no cuenta
-	assert_int((info["assets"] as Array).size()).is_equal(6)
+	assert_int((info["assets"] as Array).size()).is_equal(7)
 	assert_bool(U.pick_update(rels, "0.2.2").is_empty()).is_true()
 	assert_bool(U.pick_update(null, "0.1").is_empty()).is_true()
 
@@ -37,4 +38,5 @@ func test_paquete_por_sistema() -> void:
 	assert_str(U.asset_for(assets, "windows")["name"]).contains("windows")
 	assert_str(U.asset_for(assets, "macos")["name"]).ends_with(".dmg")
 	assert_str(U.asset_for(assets, "tar")["name"]).ends_with(".tar.gz")
+	assert_str(U.asset_for(assets, "android")["name"]).ends_with(".apk")
 	assert_bool(U.asset_for([], "rpm").is_empty()).is_true()
