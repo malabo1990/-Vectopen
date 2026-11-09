@@ -219,6 +219,8 @@ func _draw_modifier_hint(c: Node2D) -> void:
 
 # ── Renderizado del Bounding Box Pro (estilo profesional) ─────────────────────────
 
+const MAX_OUTLINED_SELECTION := 300
+
 func draw_preview(c: Node2D) -> void:
 	if not is_instance_valid(c):
 		return
@@ -250,7 +252,10 @@ func draw_preview(c: Node2D) -> void:
 
 	# NOTA: El recuadro principal + handles de resize/rotate ya no se dibujan aquí.
 	# Los renderiza boundingbox.tscn (instancia real del pool), ver bounding_box.gd.
-	if selected_shapes.size() > 1:
+	# Contorno de cada figura solo con selecciones manejables: con miles se
+	# solapan en una mancha y calcular su caja en CADA fotograma costaba
+	# ~100 ms con 10 000 seleccionadas (queda el recuadro general).
+	if selected_shapes.size() > 1 and selected_shapes.size() <= MAX_OUTLINED_SELECTION:
 		# Grosor CONSTANTE en pantalla (≈1.25 px) a cualquier zoom — como un editor profesional /
 		# editor profesional. El zoom REAL es el del viewport (la cámara no escala el nodo
 		# Canvas, escala el viewport).
