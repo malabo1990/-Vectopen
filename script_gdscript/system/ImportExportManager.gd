@@ -426,6 +426,18 @@ func _on_format_selected_changed(format: String, config: Dictionary) -> void:
 ## Exporta `artboard` a `path`. settings: scale (raster), quality 1-100
 ## (JPEG/WEBP), transparent (PNG/WEBP/SVG/PDF/EPS sin fondo). Devuelve OK o
 ## el error; emite export_finished / export_error. Usar con await.
+## Escala para que la imagen quepa en el máximo del formato (16 384 px por
+## lado en PNG / JPEG): [escala, aviso] — aviso vacío si no hizo falta
+## reducir. Antes, una mesa mayor hacía fallar la exportación.
+static func fit_raster_scale(size: Vector2, scale: float, fmt: String) -> Array:
+	var lim: int = int(IoGuard.MAX_SIDE.get(fmt, 16384))
+	var px := size * scale
+	var big := maxf(px.x, px.y)
+	if big <= lim:
+		return [scale, ""]
+	var s2 := scale * float(lim - 1) / big
+	return [s2, "la imagen se ha reducido a %d×%d px (máximo de %s: %d px por lado)" % [int(size.x * s2), int(size.y * s2), fmt, lim]]
+
 func export_artboard(artboard: Node, format: ExportFormat, path: String, settings: Dictionary = {}) -> Error:
 	var format_name: String = ExportFormat.keys()[format]
 	if not is_instance_valid(artboard):
@@ -433,9 +445,15 @@ func export_artboard(artboard: Node, format: ExportFormat, path: String, setting
 		return ERR_INVALID_PARAMETER
 	var scale := float(settings.get("scale", 1.0))
 	var px := Vector2.ZERO
+	var fit_note := ""
 	if format in [ExportFormat.PNG, ExportFormat.JPEG, ExportFormat.WEBP] and "artboard_size" in artboard:
+		var fit := fit_raster_scale(Vector2(artboard.artboard_size), scale, format_name)
+		scale = fit[0]
+		fit_note = fit[1]
 		px = Vector2(artboard.artboard_size) * scale
 	var chk := _preflight_export(format_name, path, px)
+	if fit_note != "" and chk["ok"]:
+		chk["warnings"] = (chk.get("warnings", []) as Array) + [fit_note]
 	if not chk["ok"]:
 		return ERR_CANT_CREATE
 	GlobalEvents.export_started.emit(format_name, path)

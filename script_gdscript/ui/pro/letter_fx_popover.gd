@@ -457,7 +457,9 @@ func _live(prop: String, value: Dictionary) -> void:
 	for s in (_live_before[prop] as Dictionary):
 		if is_instance_valid(s):
 			ic._write(s, prop, value.duplicate())
-	ic.post_write_live()
+	# Sin sincronizar los demás paneles en cada paso (~15 ms por fotograma):
+	# este panel ya se actualiza solo y al soltar llega el aviso completo.
+	ic.post_write_live(false)
 
 ## Fin de arrastre ya escrito en vivo → UN paso de deshacer.
 func _commit_if_live(prop: String) -> bool:

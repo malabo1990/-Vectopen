@@ -161,6 +161,9 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/${{ steps.ver.outputs.version }}/* --clobber
           else
+            # Notas escritas a mano (docs/releases/<versión>.md) si existen.
+            NOTES="docs/releases/${{ steps.ver.outputs.version }}.md"
+            if [[ -f "$NOTES" ]]; then NOTE_ARG=(--notes-file "$NOTES"); else NOTE_ARG=(--generate-notes); fi
             gh release create "$TAG" dist/${{ steps.ver.outputs.version }}/* $PRE \
-              --title "Vectopen ${{ steps.ver.outputs.version }}" --generate-notes
+              --title "Vectopen ${{ steps.ver.outputs.version }}" "${NOTE_ARG[@]}"
           fi

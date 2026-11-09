@@ -207,6 +207,11 @@ Fallos que han destapado (corregidos):
 | VAL-34 | Textos en trazado: cualquier movimiento releía y retriangulaba todas sus letras | Hecho: firma de contenido y de colocación relativa |
 | VAL-35 | Curvas con tramos rectos diminutos: Godot metía hasta 64 puntos por recta (abrir un archivo: 25 s) | Hecho: tramos rectos sin subdividir (0,58 s); exportación sin puntos repetidos y contornos simplificados |
 | VAL-36 | Caja de curvas y polígonos recalculada punto a punto en cada fotograma | Hecho: caché por curva y transformación nativa de vértices |
+| VAL-37 | Exportar PNG/JPEG/WEBP de una mesa mayor de 16 384 px fallaba | Hecho: la escala se reduce lo justo, con aviso |
+| VAL-38 | Letras avanzadas: arrastrar la curva / onda sincronizaba todos los paneles en cada paso | Hecho: 34 → 21 ms (curva) y 26 → 12 ms (onda, interletra) |
+| VAL-41 | El pool de recuadros de selección se agotaba (100) con recuadros ya borrados junto a su lienzo: luego no aparecía la caja | Hecho: `ObjectPool.acquire` descarta las referencias muertas antes de contar |
+| VAL-40 | `letter_fx_e2e`: Esc no sale de la edición y la caja del texto cambia al salir (3 fallos) | **Abierto**: ya fallaba antes de esta tanda (comprobado en `4d99afb`) |
+| VAL-39 | 50 000 elementos en modo débil: **3 GB de memoria** y 5,6 fps con todo a la vista (7 500 trazos de pincel incluidos) | **Abierto**: la memoria por trazo (malla en caché) y por figura obliga a rehacer estructuras; arrastrar la selección: 184 ms por paso |
 
 **Rendimiento con el muro de 10 000 elementos mezclados (encargo 35, modo potente):**
 

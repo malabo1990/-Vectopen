@@ -499,16 +499,18 @@ func test_importar_archivo_falso_se_rechaza_sin_tocar_el_documento() -> void:
 
 ## Antes de exportar: una imagen demasiado grande falla al momento, con aviso,
 ## sin intentar renderizar y sin dejar archivos.
-func test_exportar_imagen_enorme_falla_antes_de_renderizar() -> void:
-	var p := _dir.path_join("enorme.png")
-	var errors: Array = []
-	var cb := func(_f, m): errors.append(String(m))
-	GlobalEvents.export_error.connect(cb)
-	var err: Error = await ImportExportManager.export_artboard(_ab, ImportExportManager.ExportFormat.PNG, p, {"scale": 100.0})
-	GlobalEvents.export_error.disconnect(cb)
-	assert_int(err).is_not_equal(OK)
-	assert_bool(FileAccess.file_exists(p)).is_false()
-	assert_bool(errors.size() > 0 and String(errors[0]).contains("máximo")).override_failure_message(str(errors)).is_true()
+## Una imagen mayor de lo que admite el formato ya no falla: la escala se
+## reduce lo justo y se avisa (antes: error «máximo … px por lado»). Se
+## prueba el cálculo, sin dibujar una imagen de 16 000 px en la batería.
+func test_exportar_imagen_enorme_reduce_la_escala() -> void:
+	var IEM = load("res://script_gdscript/system/ImportExportManager.gd")
+	var ok: Array = IEM.fit_raster_scale(Vector2(800, 600), 2.0, "PNG")
+	assert_float(ok[0]).is_equal(2.0)
+	assert_str(ok[1]).is_empty()
+	var big: Array = IEM.fit_raster_scale(Vector2(800, 600), 100.0, "PNG")
+	assert_float(800.0 * float(big[0])).is_less_equal(16384.0)
+	assert_float(800.0 * float(big[0])).is_greater(16000.0)
+	assert_str(big[1]).contains("reducido")
 
 ## Exportar SVG/PDF/EPS de una página sin cambios va bien y avisa con éxito.
 func test_exportar_avisa_exito() -> void:

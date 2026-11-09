@@ -117,6 +117,12 @@ func _run() -> void:
 	var ex: Dictionary = await K.export_all(bill, "valla")
 	if ex.has("svg"):
 		K.check("SVG de la valla con el horizonte completo", FileAccess.get_file_as_string(ex["svg"]).count("<path") > 900)
+	# PNG más grande de lo que admite el formato: se reduce solo (con aviso)
+	var big_png := ProjectSettings.globalize_path(OUT.path_join("valla_x10.png"))
+	var okb: bool = await api.export(big_png, bill, {"scale": 10.0})
+	var bimg := Image.load_from_file(big_png) if okb else null
+	K.check("PNG a escala 10 (19 200 px) se reduce al máximo del formato", okb and bimg != null and bimg.get_width() <= 16384 and bimg.get_width() > 15000, str(bimg.get_size() if bimg else Vector2i.ZERO))
+	await K.frames(30)
 	await K.undo_redo(20)
 	var abs: Array = await K.save_reload("bahia")
 	K.check("reabrir: valla y folleto", abs.size() >= 2)

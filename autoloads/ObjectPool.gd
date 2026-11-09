@@ -96,6 +96,11 @@ func acquire(pool_name: String) -> Node:
 	
 	var pool = _pools[pool_name]
 
+	# Una caja "en uso" que se liberó junto a su padre (p. ej. un lienzo
+	# cerrado sin desactivar la herramienta) ya no existe: no debe contar
+	# para el máximo o el pool se agota con referencias muertas.
+	pool["in_use"] = pool["in_use"].filter(func(n) -> bool: return is_instance_valid(n))
+
 	# Si hay objetos disponibles, reutilizarlos. Defensa extra: descartar
 	# cualquier referencia "available" ya liberada (no debería pasar ahora
 	# que release() reparenta al contenedor propio del pool, ver ahí, pero
