@@ -144,6 +144,7 @@ func _init() -> void:
 	right.custom_minimum_size = Vector2(200, 0)
 	right.add_theme_constant_override("separation", 4)
 	split.add_child(right)
+	_right = right
 	var lib_head := HBoxContainer.new()
 	right.add_child(lib_head)
 	lib_head.add_child(_title_label("MIS SHADERS"))
@@ -186,7 +187,30 @@ func _init() -> void:
 	_row_menu.id_pressed.connect(_on_row_menu)
 	add_child(_row_menu)
 
+var _right: VBoxContainer = null
+
+## Parámetros (uniforms) del shader del objeto: en la ventana de Smart. En
+## Modern y Pro ya los muestra la sección Shader del inspector (encargo 27).
+func _add_params_box() -> void:
+	var p := get_parent()
+	while p:
+		var sc = p.get_script()
+		if sc and String(sc.resource_path).ends_with("inspector_fx_sections.gd"):
+			return
+		p = p.get_parent()
+	if _right == null or _right.has_node("ShaderParams"):
+		return
+	var box: Control = preload("res://script_gdscript/ui/components/shader_params_box.gd").new()
+	_right.add_child(box)
+	_right.move_child(box, 0)
+	var head := _title_label("PARÁMETROS")
+	_right.add_child(head)
+	_right.move_child(head, 0)
+	box.visibility_changed.connect(func() -> void: head.visible = box.visible)
+	head.visible = box.visible
+
 func _ready() -> void:
+	_add_params_box.call_deferred()
 	_validate_timer = Timer.new()
 	_validate_timer.one_shot = true
 	_validate_timer.wait_time = 0.35

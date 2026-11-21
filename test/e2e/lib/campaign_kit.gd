@@ -44,6 +44,10 @@ func note(key: String, value) -> void:
 
 ## Arranca Vectopen en la pantalla de pruebas, en el modo pedido.
 func boot(mode: String = "modern") -> bool:
+	# §5.3 repetición cruzada: FORCE_MODE=smart|modern|professional
+	if OS.get_environment("FORCE_MODE") != "":
+		mode = OS.get_environment("FORCE_MODE")
+		print("INFO modo forzado: ", mode)
 	DisplayServer.window_set_current_screen(int(OS.get_environment("VECTOPEN_TEST_SCREEN")) if OS.has_environment("VECTOPEN_TEST_SCREEN") else mini(1, DisplayServer.get_screen_count() - 1))
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
 	t.change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))

@@ -81,6 +81,16 @@ func _run() -> void:
 	var box: Node = null
 	for n in root.find_children("ShaderParams", "", true, false):
 		box = n
+	if box == null:
+		# Smart: Efectos ▸ pestaña Shader (se instala al mostrarse).
+		for h in root.find_children("Shader", "Control", true, false):
+			var q: Node = h
+			while q and q is CanvasItem:
+				(q as CanvasItem).visible = true
+				q = q.get_parent()
+		await K.frames(10)
+		for n in root.find_children("ShaderParams", "", true, false):
+			box = n
 	K.check("parámetros del shader en el Inspector", box != null)
 	if box:
 		box.refresh()

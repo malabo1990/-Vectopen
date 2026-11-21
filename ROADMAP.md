@@ -55,6 +55,27 @@ deliberately dropped
 | N-9 | Vectorize + AI tools on Windows and macOS (ONNX Runtime builds for those targets) | ⬜ |
 | N-10 | Signed installers (Windows code signing, Apple notarisation) · AppImage · test on a real Mac | ⬜ |
 
+## 0c. Ready for the next release (after 0.2.3-beta, not yet published — 2026-11-21)
+
+Phase B (30 real-world projects, `test/e2e/proyecto_NN_e2e.gd`) is **complete**:
+all 30 pass, and projects 11–30 also pass in the two other interfaces.
+
+- ✅ **Linked components (symbols)** — every copy is the same; editing one updates all; local overrides with Sync off; detach; Layers shows a ◇ icon.
+- ✅ **Named text styles** — Title / Body / Caption…; redefine updates every linked text, keeping local overrides. «Style» row in the text panel.
+- ✅ **Global document colours** — swatches with a name; changing one recolours everything that uses it (Assets ▸ Document colours).
+- ✅ **Tables (v1)** — header, zebra rows, grid, per-column width and alignment; insert/delete rows and columns from the context menu.
+- ✅ **Clipping mask from the selection** and **Release mask**; shapes without fill clip by their area.
+- ✅ **Multi-page PDF** (every page with its own size and bleed).
+- ✅ **Simplify path** (fewer nodes, same shape) and **ignore white background** when vectorizing.
+- ✅ **Shader parameters** (uniforms) editable in the Inspector / Shader window.
+- ✅ **Gradient fill on text**, editable **calligraphic nib angle**, visible **tracking**, balanced **multi-column** text frames.
+- ✅ **Page grid snapping**, duplicates named «Slide 3» (not «Slide 2 2»), page numbers resolved on open.
+- ✅ Fixes: drawing inside a selected page, first click on an object of the active page, layer lock saved, ghost node in texts with effects, double-drawn text, hidden panels swallowing Esc/Space.
+- ✅ Performance: fill cache per path (a 75 000-node vectorized photo: first draw 25 s → 13 s).
+- ✅ Tests: 890+ unit tests; deterministic SVG/PDF/EPS/VOP export.
+
+**Open** (see `PENDIENTE.md`): nested clipping masks (Godot limitation), pinched shapes with holes still slow on first draw, tables v2 (canvas tool), Esc in two legacy text tests.
+
 ## 1. Done
 
 ### Architecture / tooling (branch history up to `2026-08`)

@@ -400,9 +400,12 @@ Severidad: **Alta** si impide terminar el encargo o corrompe el archivo;
 
 ### 5.3. Al terminar los 30
 
-- [ ] Repetición cruzada: cada encargo también en los otros dos modos, sin
-      divergencias de severidad alta o media.
+- [x] Repetición cruzada: encargos 11–30 en los otros dos modos (kit con
+      `FORCE_MODE`, script `~/.cache/vectopen_tests/cruzada.sh`): 40/40 en verde
+      tras dar a la ventana Shader de Smart los parámetros del shader. Los
+      encargos 01–10 no usan el kit: quedan sin repetir en otros modos.
 - [ ] Cero `VAL-nn` abiertos de severidad alta o media.
 - [ ] Suite completa (unitaria + e2e) en verde y sin errores en consola.
-- [ ] Exportaciones deterministas (mismo archivo → mismo resultado).
-- [ ] Actualizar `ROADMAP.md`.
+- [x] Exportaciones deterministas: SVG, PDF, EPS y VOP idénticos byte a byte
+      entre dos exportaciones (`DeterministicExport_test`).
+- [x] Actualizar `ROADMAP.md` (sección 0c, 2026-11-21).
