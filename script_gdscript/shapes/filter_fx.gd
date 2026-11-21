@@ -332,9 +332,18 @@ func _apply_params() -> void:
 			_ccode = code
 			_cmat.shader = shader_for(code)
 		var params = cs.get("params", {})
-		if params is Dictionary:
-			for k in params:
-				_cmat.set_shader_parameter(String(k), params[k])
+		if not (params is Dictionary):
+			params = {}
+		# Cada uniform: su valor o, si no lo tiene (p. ej. tras deshacer), el
+		# valor por defecto del código (null quita la sustitución). Antes el
+		# material conservaba el último valor puesto (encargo 27).
+		if _cmat.shader:
+			for u in _cmat.shader.get_shader_uniform_list():
+				var un := String(u.get("name", ""))
+				if un != "" and not params.has(un):
+					_cmat.set_shader_parameter(un, null)
+		for k in params:
+			_cmat.set_shader_parameter(String(k), params[k])
 	if _mat:
 		var m := _mat
 		var on := func(t: String) -> bool: return _active.has(t)

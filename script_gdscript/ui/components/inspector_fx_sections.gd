@@ -62,6 +62,9 @@ func _ready() -> void:
 	_body.name = "Body"
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_body)
+	if kind == SHADER:
+		# Parámetros (uniforms) del shader del objeto seleccionado (encargo 27).
+		_body.add_child(preload("res://script_gdscript/ui/components/shader_params_box.gd").new())
 	_apply_theme()
 	_refresh_header()
 	var ic := get_node_or_null("/root/InspectorCore")
