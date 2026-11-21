@@ -89,6 +89,8 @@ const REFERENCE := [
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
 	["Texto", "release_text_on_path(trazo) -> Node2D", "Separa un texto en trazado: vuelve a mostrar el texto original y quita el trazo"],
+	["Organizar", "make_mask(mascara, objetos) -> bool", "Máscara de recorte: `objetos` quedan dentro de `mascara` (una figura o trazado) y recortados por su forma"],
+	["Organizar", "release_mask(mascara) -> Array", "Suelta la máscara: los objetos vuelven a su sitio sin recorte; devuelve la lista"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
 	["Organizar", "align(lista, modo)", "left, center_h, right, top, middle, bottom ([] = selección)"],
 	["Organizar", "distribute(lista, eje)", "Reparte 3+ objetos: \"h\" o \"v\""],
@@ -1377,6 +1379,138 @@ func text_style_of(node: Node) -> String:
 
 func detach_text_style(nodes: Variant) -> void:
 	_ts_call(func() -> void: TextStyles.detach(_as_list(nodes)))
+
+# ── máscaras de recorte ──────────────────────────────────────────────────────
+## ¿Puede `n` recortar a sus hijos con su forma? (figuras, trazados, polígonos)
+static func _can_mask(n: Node) -> bool:
+	return is_instance_valid(n) and "clip_children" in n and (n is VectorShape or n is Path2D or n is Polygon2D or n.has_method("get_evaluated_geometry"))
+
+## ¿Crear esta máscara dejaría una máscara dentro de otra? (VAL-43)
+static func _nested_mask(mask_shape: Node, contents: Array) -> bool:
+	var p := mask_shape.get_parent()
+	while p and not ("artboard_size" in p):
+		if int(p.get("clip_children")) != 0:
+			return true
+		p = p.get_parent()
+	for n in contents:
+		if int(n.get("clip_children")) != 0:
+			return true
+		for d in n.find_children("*", "CanvasItem", true, false):
+			if int(d.get("clip_children")) != 0:
+				return true
+	return false
+
+func _notice(level: String, msg: String) -> void:
+	var ge := _n("GlobalEvents")
+	if ge and ge.has_signal("user_notice"):
+		ge.user_notice.emit(level, msg)
+
+## Máscara de recorte: mete `nodes` dentro de `mask_shape` (conservando su
+## posición en pantalla) y activa el recorte. Con relleno la máscara se ve;
+## sin relleno solo recorta (como Illustrator). Un paso de deshacer.
+func make_mask(mask_shape: Node2D, nodes: Variant) -> bool:
+	if not _can_mask(mask_shape):
+		error("make_mask: la máscara tiene que ser una figura o un trazado")
+		return false
+	var list := _as_list(nodes).filter(func(n) -> bool: return is_instance_valid(n) and n != mask_shape and n is Node2D and not mask_shape.is_ancestor_of(n))
+	if list.is_empty():
+		error("make_mask: nada que recortar")
+		return false
+	# VAL-43: Godot no dibuja máscaras ANIDADAS (clip_children dentro de otro
+	# clip_children se ignora): se rechaza con un aviso en vez de dejar un
+	# recorte que no recorta.
+	if _nested_mask(mask_shape, list):
+		_notice("warning", "No se pueden anidar máscaras de recorte (una máscara dentro de otra). Suelta la máscara interior o recorta con Booleanas ▸ Intersección.")
+		warn("make_mask: máscaras anidadas no admitidas")
+		return false
+	var recs := []
+	for n in list:
+		recs.append({"n": n, "parent": n.get_parent(), "idx": n.get_index(), "xf": (n as Node2D).global_transform})
+	var mode: int = CanvasItem.CLIP_CHILDREN_ONLY if ("fill_color" in mask_shape and (mask_shape.fill_color as Color).a <= 0.0) else CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var before_clip: int = int(mask_shape.clip_children)
+	var had_meta: bool = mask_shape.has_meta("clip_mask")
+	var do_fn := func() -> void:
+		for r in recs:
+			var n: Node2D = r["n"]
+			if not is_instance_valid(n):
+				continue
+			n.get_parent().remove_child(n)
+			mask_shape.add_child(n)
+			n.global_transform = r["xf"]
+			if n is VectorShape:
+				n.doc_position = DVec2.from_v2(n.position)
+		mask_shape.clip_children = mode
+		mask_shape.set_meta("clip_mask", true)
+		mask_shape.queue_redraw()
+	var undo_fn := func() -> void:
+		for i in range(recs.size() - 1, -1, -1):
+			var r: Dictionary = recs[i]
+			var n: Node2D = r["n"]
+			if not is_instance_valid(n) or not is_instance_valid(r["parent"]):
+				continue
+			n.get_parent().remove_child(n)
+			r["parent"].add_child(n)
+			r["parent"].move_child(n, mini(int(r["idx"]), r["parent"].get_child_count() - 1))
+			n.global_transform = r["xf"]
+			if n is VectorShape:
+				n.doc_position = DVec2.from_v2(n.position)
+		mask_shape.clip_children = before_clip
+		if had_meta: mask_shape.set_meta("clip_mask", before_clip != 0)
+		elif mask_shape.has_meta("clip_mask"): mask_shape.remove_meta("clip_mask")
+		mask_shape.queue_redraw()
+	do_fn.call()
+	_tx_dirty = true
+	_record("Máscara de recorte", do_fn, undo_fn, true)
+	_layers_changed()
+	return true
+
+## Suelta una máscara: sus hijos vuelven al padre de la máscara (encima de
+## ella) con la misma posición en pantalla, y se quita el recorte.
+func release_mask(mask_shape: Node2D) -> Array:
+	if not is_instance_valid(mask_shape) or int(mask_shape.get("clip_children")) == 0:
+		return []
+	var kids: Array = mask_shape.get_children().filter(func(c) -> bool: return c is Node2D and is_shape(c))
+	var parent := mask_shape.get_parent()
+	var xfs := kids.map(func(c) -> Transform2D: return (c as Node2D).global_transform)
+	var before_clip: int = int(mask_shape.clip_children)
+	var do_fn := func() -> void:
+		var at := mask_shape.get_index() + 1
+		for i in kids.size():
+			var c: Node2D = kids[i]
+			if not is_instance_valid(c):
+				continue
+			mask_shape.remove_child(c)
+			parent.add_child(c)
+			parent.move_child(c, mini(at + i, parent.get_child_count() - 1))
+			c.global_transform = xfs[i]
+			if c is VectorShape:
+				c.doc_position = DVec2.from_v2(c.position)
+		mask_shape.clip_children = CanvasItem.CLIP_CHILDREN_DISABLED
+		mask_shape.set_meta("clip_mask", false)
+		mask_shape.queue_redraw()
+	var undo_fn := func() -> void:
+		for i in kids.size():
+			var c: Node2D = kids[i]
+			if not is_instance_valid(c):
+				continue
+			c.get_parent().remove_child(c)
+			mask_shape.add_child(c)
+			c.global_transform = xfs[i]
+			if c is VectorShape:
+				c.doc_position = DVec2.from_v2(c.position)
+		mask_shape.clip_children = before_clip
+		mask_shape.set_meta("clip_mask", true)
+		mask_shape.queue_redraw()
+	do_fn.call()
+	_tx_dirty = true
+	_record("Soltar máscara", do_fn, undo_fn, true)
+	_layers_changed()
+	return kids
+
+func _layers_changed() -> void:
+	var ge := _n("GlobalEvents")
+	if ge and ge.has_method("emit_safe"):
+		ge.emit_safe("object_created")
 
 # ── componentes vinculados (VAL-23) ──────────────────────────────────────────
 const Symbols = preload("res://script_gdscript/shapes/symbols.gd")

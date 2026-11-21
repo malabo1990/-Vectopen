@@ -81,6 +81,21 @@ static func execute(id: String, host: Node) -> void:
 				if (b as Control).is_visible_in_tree():
 					(b as BaseButton).pressed.emit()
 					break
+		"make_mask":
+			# La figura de ARRIBA de la selección recorta al resto (como Ctrl+7
+			# en Illustrator).
+			var pm5 := host.get_node_or_null("/root/PluginManager")
+			var sel5 := selection(host).filter(func(n) -> bool: return is_instance_valid(n))
+			if pm5 and pm5.api and sel5.size() >= 2:
+				sel5.sort_custom(func(a, b) -> bool: return a.get_index() < b.get_index() if a.get_parent() == b.get_parent() else false)
+				var top: Node2D = sel5.back()
+				if pm5.api.make_mask(top, sel5.slice(0, sel5.size() - 1)):
+					pm5.api.select([top])
+		"release_mask":
+			var pm6 := host.get_node_or_null("/root/PluginManager")
+			for n in selection(host):
+				if pm6 and pm6.api and int(n.get("clip_children")) != 0:
+					pm6.api.release_mask(n)
 		"make_symbol":
 			var pm3 := host.get_node_or_null("/root/PluginManager")
 			var sel3 := selection(host)

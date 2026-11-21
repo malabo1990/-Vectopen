@@ -8,6 +8,8 @@ const _ITEMS := [
 	["TextOnPath", "text_on_path", "Texto en trazado"],
 	["ReleaseTextOnPath", "release_text_on_path", "Separar texto del trazado"],
 	["EditShape", "edit_shape", "Forma de la figura…"],
+	["MakeMask", "make_mask", "Crear máscara de recorte"],
+	["ReleaseMask", "release_mask", "Soltar máscara"],
 	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
 	["DetachSymbol", "detach_symbol", "Desvincular componente"],
 ]
@@ -49,6 +51,16 @@ func _applies(action: String) -> bool:
 	if action == "text_on_path":
 		return not ContextMenuActions.text_on_path_pair(_menu).is_empty()
 	var sel := ContextMenuActions.selection(_menu)
+	if action == "make_mask":
+		if sel.size() < 2:
+			return false
+		var top: Node = sel[0]
+		for n in sel:
+			if n.get_parent() == top.get_parent() and n.get_index() > top.get_index():
+				top = n
+		return VectopenAPI._can_mask(top)
+	if action == "release_mask":
+		return sel.any(func(n) -> bool: return int(n.get("clip_children")) != 0)
 	if action == "edit_shape":
 		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
 	if action == "make_symbol":

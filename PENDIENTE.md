@@ -319,19 +319,20 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %). Quedan 17.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0). Quedan 16.
 
 Defectos destapados en la Fase B (2026-11-21):
 
 | ID | Encargo | Fallo | Estado |
 |---|---|---|---|
+| VAL-44 | 14 | No había orden «Crear máscara de recorte» con la selección (solo arrastrar en Capas + botón) | Hecho: clic derecho ▸ «Crear máscara de recorte» / «Soltar máscara» (la figura de arriba recorta) y API `make_mask` / `release_mask`, con deshacer |
+| VAL-43 | 14 | **Máscaras anidadas** (una máscara dentro de otra): Godot ignora el recorte interior (`clip_children` no se puede anidar, limitación documentada del motor) | **Abierto (media), decidir con el usuario**: hoy `make_mask` lo rechaza con aviso; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio (intersección de polígonos al dibujar figuras/trazos; las imágenes necesitarían un sombreador con la máscara como textura) |
 | VAL-42 | 13 | Con una página SELECCIONADA, el pincel / la pluma / el texto no podían empezar dentro de ella: el clic arrastraba la página (`artboard._is_selection_tool` buscaba un nodo «Canvas» inexistente y respondía siempre «sí») | Hecho (`ArtboardToolClick_test`) |
 
 ### 5.1. Encargos pendientes
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 14 | Retrato con máscaras | Pro | Clip entre dos Bézier |
 | 15 | Mapa estilizado | Pro | Trazos cerrados, capas anidadas |
 | 16 | Diagrama técnico | Modern | Trazos con puntas, guiones, etiquetas |
 | 17 | Portada de álbum | Modern | Degradados, texto en curva |
