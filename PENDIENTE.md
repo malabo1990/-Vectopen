@@ -319,7 +319,7 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0). Quedan 7.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0). Quedan 6.
 
 Defectos destapados en la Fase B (2026-11-21):
 
@@ -345,7 +345,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 24 | Certificado / diploma | Modern | Texto centrado, adornos, PDF |
 | 25 | Manual de marca (12 páginas) | Pro | Pliegos, muestras de color, paleta |
 | 26 | Presentación de 10 diapositivas | Pro | Rejilla, export por página |
 | 27 | Shader: degradado animado con ruido | Pro | Shader simple, parámetros en Inspector |
