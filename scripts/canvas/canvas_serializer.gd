@@ -814,6 +814,9 @@ static func _apply_transform(n: Node2D, d: Dictionary) -> void:
 ## clip_children (clipping y máscara de recorte), light_mask, modulate y las
 ## metas que el sistema de efectos CPU (Effect.gd) escribe sobre el nodo.
 static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
+	# Capa bloqueada (VAL-45: el bloqueo se perdía al guardar y reabrir).
+	if bool(node.get_meta("locked", false)):
+		d["locked"] = true
 	# Copia de un componente vinculado (VAL-23) y sus retoques locales.
 	if node.has_meta(Symbols.META_ID):
 		d["symbol_id"] = String(node.get_meta(Symbols.META_ID))
@@ -886,6 +889,8 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 
 
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
+	if bool(d.get("locked", false)):
+		node.set_meta("locked", true)
 	if d.has("symbol_id"):
 		node.set_meta(Symbols.META_ID, String(d["symbol_id"]))
 		if d.has("symbol_overrides"):

@@ -306,6 +306,10 @@ func _process(_delta: float) -> void:
 ## grupo _vectopen_canvas) y respondía SIEMPRE que sí: con una página
 ## seleccionada, el pincel, la pluma o el texto no podían empezar dentro de
 ## ella (el clic arrastraba la página).
+func _current_tool() -> Object:
+	var canvas: Node = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	return canvas.current_tool if canvas and "current_tool" in canvas else null
+
 func _is_selection_tool() -> bool:
 	var canvas: Node = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
 	if canvas == null or not ("current_tool" in canvas) or canvas.current_tool == null:
@@ -335,6 +339,16 @@ func _unhandled_input(event: InputEvent) -> void:
 						return
 				
 				if total_rect.has_point(local_mouse):
+					# VAL-46: con Mover, un clic sobre un OBJETO de la página lo
+					# selecciona (como Figma); la página solo se arrastra desde un
+					# hueco vacío (o con la herramienta Página). Antes, con la
+					# página activa, el primer clic sobre una figura arrastraba la
+					# página y no se podía seleccionar nada dentro.
+					var tool = _current_tool()
+					if tool and tool.has_method("_shape_at") and not String(tool.get_script().resource_path).to_lower().ends_with("artboardtool.gd") \
+							and tool._shape_at(global_mouse) != null:
+						is_selected = false
+						return
 					_mode = "drag"
 					_drag_start_mouse = global_mouse
 					_drag_start_pos = global_position
