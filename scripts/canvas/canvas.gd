@@ -987,6 +987,21 @@ func zoom_at_point(factor: float, world_point: Vector2) -> void:
 ## 100 %, un A4 no cabía). Restablecer (tecla 5) sigue siendo 100 %.
 const START_ZOOM := 0.7
 
+## Encuadra la página entera en la vista (VAL-13: al cambiar el tamaño de la
+## página, p. ej. a A1, la vista seguía con el zoom anterior y la cortaba).
+func frame_artboard(ab: Node2D, fill: float = 0.88) -> void:
+	if not is_instance_valid(camera) or not is_instance_valid(ab) or not ("artboard_size" in ab):
+		return
+	var sz: Vector2 = ab.artboard_size
+	var vp := get_viewport_rect().size
+	if sz.x <= 0.0 or sz.y <= 0.0 or vp.x <= 0.0:
+		return
+	var z: float = clampf(minf(vp.x / sz.x, vp.y / sz.y) * fill, zoom_min, zoom_max)
+	mark_region_dirty(Rect2(Vector2.ZERO, vp))
+	camera.zoom = Vector2(z, z)
+	camera.position = ab.global_position + sz / 2.0
+	zoom_percentage = z * 100.0
+
 func _reset_camera(zoom_level: float = 1.0) -> void:
 	if not is_instance_valid(camera):
 		return

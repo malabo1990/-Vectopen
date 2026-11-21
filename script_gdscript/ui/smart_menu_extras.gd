@@ -7,7 +7,11 @@ const _LIST := "PanelContainer/MarginContainer/VBoxContainer/PanelContainer/VBox
 const _ITEMS := [
 	["TextOnPath", "text_on_path", "Texto en trazado"],
 	["ReleaseTextOnPath", "release_text_on_path", "Separar texto del trazado"],
+	["EditShape", "edit_shape", "Forma de la figura…"],
+	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
+	["DetachSymbol", "detach_symbol", "Desvincular componente"],
 ]
+const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 
 @onready var _menu: Control = get_parent() as Control
 
@@ -45,6 +49,12 @@ func _applies(action: String) -> bool:
 	if action == "text_on_path":
 		return not ContextMenuActions.text_on_path_pair(_menu).is_empty()
 	var sel := ContextMenuActions.selection(_menu)
+	if action == "edit_shape":
+		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
+	if action == "make_symbol":
+		return not sel.is_empty() and not sel.any(func(n) -> bool: return _Symbols.instance_of(n) != null)
+	if action == "detach_symbol":
+		return sel.any(func(n) -> bool: return _Symbols.instance_of(n) != null)
 	return sel.size() == 1 and sel[0] is Line2D and sel[0].has_meta("brush_ref")
 
 ## Copia el estilo del botón «Copy» para que encaje con el resto del menú.

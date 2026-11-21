@@ -259,10 +259,15 @@ Sonda: `test/e2e/memory_probe_e2e.gd` (MEM_QUICK, MEM_MICRO, MEM_TREE).
 
 ## 1. Funciones nuevas para la 0.2.3
 
-Salieron del encargo 10 (UI kit), que queda **bloqueado** hasta tenerlas.
+Hechas (2026-11-21): **VAL-23** componentes vinculados (`script_gdscript/shapes/symbols.gd`:
+copias iguales al estilo Affinity, «Sincronizar» apagado = retoques locales,
+desvincular, menú contextual, Recursos ▸ «Colocar vinculado», API `make_symbol`…;
+`Symbols_test` 5/0) y **VAL-24** estilos de texto con nombre
+(`script_gdscript/text/text_styles.gd`, fila «Estilo» del panel de texto en
+los tres modos, API `add_text_style`…; `TextStyles_test` 5/0,
+`text_styles_ui_e2e` 35/0). Encargo 10 **aprobado** (`proyecto_10_e2e` 14/0).
 
-| ID | Función | Esperado | Hoy |
-|---|---|---|---|
+---|---|---|---|
 | VAL-23 | Componentes vinculados (símbolos) | Un maestro y sus copias: cambiar el maestro actualiza todas; una copia puede tener cambios propios; se guardan y se exportan | Recursos coloca copias independientes |
 | VAL-24 | Estilos de texto con nombre | Título / cuerpo / pie con nombre: aplicar a varios textos y, al editar el estilo, que se actualicen todos; guardados con el documento | No existen |
 
@@ -274,8 +279,13 @@ encargo 10.
 
 ## 2. Defectos leves acumulados
 
-| ID | Encargo | Modo | Pasos | Esperado | Obtenido |
-|---|---|---|---|---|---|
+Ninguno abierto. Cerrados el 2026-11-21 (`defectos_leves_e2e` 8/0): VAL-05
+(rótulo de la página, ya arreglado con VAL-28), VAL-10 (alto del marco de
+columnas tras deshacer: ya no cambia), VAL-13 (cambiar el tamaño de la página
+reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
+«Forma de la figura…» abre el panel Figuras) y VAL-18 (título «FIGURAS · ELIPSE»…).
+
+---|---|---|---|---|---|
 | VAL-05 | 01, 05, 09 | Pro | Renombrar páginas | El rótulo sobre la página dice su nombre | Dice «Artboard» |
 | VAL-10 | 02 Revista | Pro | Marco de varias columnas: editar y deshacer | Mismo alto | El alto medido cambia unos px (88 → 72) |
 | VAL-13 | 03, 04 | Smart/Modern | Cambiar el tamaño de la página (p. ej. a A1) | La vista se reencuadra a la página | Sigue el zoom anterior y la página queda cortada |
@@ -309,13 +319,12 @@ encargo 10.
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–09 **aprobados**; 10 **bloqueado** (§1). Quedan 20.
+Encargos 01–10 **aprobados**. Quedan 20.
 
 ### 5.1. Encargos pendientes
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 10 | UI kit de aplicación | Modern | Bloqueado por VAL-23 / VAL-24 |
 | 11 | Wireframe de landing | Modern | Bloques, alineación, snapping |
 | 12 | Set de 24 iconos | Smart | Trazo coherente, export SVG individual |
 | 13 | Ilustración con pinceles | Smart | 300+ trazos, fluidez y memoria |

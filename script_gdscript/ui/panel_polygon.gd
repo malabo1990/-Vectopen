@@ -284,7 +284,8 @@ func _build() -> void:
 	var header := HBoxContainer.new()
 	root.add_child(header)
 	_title = Label.new()
-	_title.text = "POLÍGONOS Y ESTRELLAS"
+	_title.name = "PanelTitle"
+	_update_title()
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", 12)
 	header.add_child(_title)
@@ -342,11 +343,17 @@ func set_kind(k: Kind) -> void:
 		return
 	_commit_live()
 	kind = k
+	_update_title()
 	if KIND_TOOL[k] != "" and KIND_TOOL[k] != current_tool and TOOL_KIND.get(current_tool, -1) != k:
 		current_tool = KIND_TOOL[k]
 	_build_params()
 	_apply_theme()
 	_refresh_status()
+
+## Título acorde a la figura (VAL-18: con una elipse decía «POLÍGONOS Y ESTRELLAS»).
+func _update_title() -> void:
+	if is_instance_valid(_title):
+		_title.text = ("%s · %s" % [tr("Figuras"), tr(String(KIND_INFO[kind]["label"]))]).to_upper()
 
 func _build_params() -> void:
 	for c in _params.get_children():
@@ -578,6 +585,7 @@ func _on_inspector_changed(_props: Dictionary = {}) -> void:
 		var k: int = kind_of(first)
 		if k != kind:
 			kind = k as Kind
+			_update_title()
 			_build_params()
 			_apply_theme()
 		_read_from(first)

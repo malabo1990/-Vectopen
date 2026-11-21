@@ -69,6 +69,29 @@ static func execute(id: String, host: Node) -> void:
 			for n in selection(host):
 				if pm2 and pm2.api and n is Line2D and n.has_meta("brush_ref"):
 					pm2.api.release_text_on_path(n)
+		"edit_shape":
+			# VAL-17: Smart no tiene inspector; la forma (anillo, ángulos, lados…)
+			# se edita en el panel «Figuras», el mismo que abre su botón.
+			var tree := host.get_tree()
+			var open := false
+			for pn in tree.root.find_children("polygon", "Control", true, false):
+				if pn.has_method("set_kind") and (pn as Control).is_visible_in_tree():
+					open = true   # ya abierto: el botón lo cerraría (alterna)
+			for b in ([] if open else tree.root.find_children("button_toolbshapes", "BaseButton", true, false)):
+				if (b as Control).is_visible_in_tree():
+					(b as BaseButton).pressed.emit()
+					break
+		"make_symbol":
+			var pm3 := host.get_node_or_null("/root/PluginManager")
+			var sel3 := selection(host)
+			if pm3 and pm3.api and not sel3.is_empty():
+				var g = pm3.api.make_symbol(sel3)
+				if g: pm3.api.select([g])
+		"detach_symbol":
+			var pm4 := host.get_node_or_null("/root/PluginManager")
+			for n in selection(host):
+				if pm4 and pm4.api:
+					pm4.api.detach_symbol(n)
 		"toggle_visibility":
 			if ic:
 				var p: Dictionary = ic.current_props()

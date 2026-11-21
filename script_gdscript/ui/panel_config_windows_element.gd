@@ -568,6 +568,10 @@ func _apply_to_active_artboard(w: float, h: float, preset_name: String) -> void:
 			hm.add_undo(func(): target_ab.set("artboard_size", prev_size))
 			hm.commit()
 		target_ab.set("artboard_size", new_size)
+		# VAL-13: la vista se reencuadra a la página con su nuevo tamaño.
+		var canvas := get_tree().get_first_node_in_group("_vectopen_canvas")
+		if canvas and canvas.has_method("frame_artboard"):
+			canvas.frame_artboard(target_ab)
 
 func _apply_custom_size() -> void:
 	if not custom_w_edit or not custom_h_edit:
