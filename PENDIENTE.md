@@ -1,7 +1,9 @@
 # PENDIENTE — Lo que queda por hacer
 
 **Proyecto:** Vectopen (Godot 4.7, GDScript)
-**Fecha:** 2026-11-03 · versión publicada: **0.2.2-beta**
+**Fecha:** 2026-11-21 · versión publicada: **0.2.3-beta** · preparada sin
+publicar: **0.2.4-beta** (etiqueta `v0.2.4-beta` subida; release cancelada a la
+espera de terminar este documento)
 **Solo trabajo abierto.** Lo terminado sale de este documento: la versión
 completa anterior (Fase A UX-01…UX-24, REG-01…03, DBG-01…11 y la Fase B
 hasta el encargo 10, con todas sus resoluciones) está en
@@ -32,7 +34,7 @@ Un encargo o incidencia por iteración:
 | USR-03 | Panel «Teclado y ratón»: corregir y mejorar la UI | Hecho: pestañas Atajos/Teclado/Ratón, categorías, nombres traducidos (10 idiomas), aviso ⚠ de tecla repetida, tema claro y oscuro (`keyboard_panel_e2e` 28/0) |
 | USR-04 | Teclado simulado: ver qué teclas tienen atajo y cuáles están libres | Hecho: teclado simulado con modificadores; colores configurable/fijo/repetido/libre; clic en una tecla ocupada la busca en Atajos |
 | USR-05 | Pinceles: el trazo se ve regular → mejorar la calidad (VGSE fase 1) | Hecho: borde con antialias por sombreador (1 px a cualquier zoom), opacidad del trazo compuesta en grupo (sin manchas en cruces, uniones ni puntas), vista previa con el mismo render que el trazo final (`brush_quality_e2e`) |
-| USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Plan escrito (§0 ter); fase 1 en curso |
+| USR-06 | VGSE (`docs/roadmap/VGSE-…md`): plan por fases, empezar por la fase 1 | Fases 1–6 hechas salvo los puntos «Pendiente» del §0 ter |
 
 **Tanda 2 (2026-11-03, prueba de un cliente):**
 
@@ -257,7 +259,7 @@ Arranque en Smart: 792 → 702 MB de memoria residente (Godot: 260 → 209 MB;
 6 063 → 3 083 nodos). Unos 300 MB son del controlador NVIDIA/Vulkan.
 Sonda: `test/e2e/memory_probe_e2e.gd` (MEM_QUICK, MEM_MICRO, MEM_TREE).
 
-## 1. Funciones nuevas para la 0.2.3
+## 1. Funciones nuevas (encargo 10)
 
 Hechas (2026-11-21): **VAL-23** componentes vinculados (`script_gdscript/shapes/symbols.gd`:
 copias iguales al estilo Affinity, «Sincronizar» apagado = retoques locales,
@@ -267,13 +269,6 @@ desvincular, menú contextual, Recursos ▸ «Colocar vinculado», API `make_sym
 los tres modos, API `add_text_style`…; `TextStyles_test` 5/0,
 `text_styles_ui_e2e` 35/0). Encargo 10 **aprobado** (`proyecto_10_e2e` 14/0).
 
----|---|---|---|
-| VAL-23 | Componentes vinculados (símbolos) | Un maestro y sus copias: cambiar el maestro actualiza todas; una copia puede tener cambios propios; se guardan y se exportan | Recursos coloca copias independientes |
-| VAL-24 | Estilos de texto con nombre | Título / cuerpo / pie con nombre: aplicar a varios textos y, al editar el estilo, que se actualicen todos; guardados con el documento | No existen |
-
-Al terminarlas: repetir `test/e2e/proyecto_10_e2e.gd` (ya comprueba si las
-copias se actualizan, mensaje `INFO VAL-23` / `INFO VAL-24`) y aprobar el
-encargo 10.
 
 ---
 
@@ -285,12 +280,6 @@ columnas tras deshacer: ya no cambia), VAL-13 (cambiar el tamaño de la página
 reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 «Forma de la figura…» abre el panel Figuras) y VAL-18 (título «FIGURAS · ELIPSE»…).
 
----|---|---|---|---|---|
-| VAL-05 | 01, 05, 09 | Pro | Renombrar páginas | El rótulo sobre la página dice su nombre | Dice «Artboard» |
-| VAL-10 | 02 Revista | Pro | Marco de varias columnas: editar y deshacer | Mismo alto | El alto medido cambia unos px (88 → 72) |
-| VAL-13 | 03, 04 | Smart/Modern | Cambiar el tamaño de la página (p. ej. a A1) | La vista se reencuadra a la página | Sigue el zoom anterior y la página queda cortada |
-| VAL-17 | 06 Isotipo | Smart | Seleccionar un círculo y buscar «Forma» en el inspector | Forma/anillo/ángulos también en el inspector, como en Pro | Solo desde el botón «Figuras» |
-| VAL-18 | 06 Isotipo | Smart | Botón «Figuras» con una elipse seleccionada | Título acorde (p. ej. «FIGURAS») | Dice «POLÍGONOS Y ESTRELLAS» |
 
 ---
 
@@ -331,7 +320,7 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–30 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0; 28: `proyecto_28_e2e` 22/0 — un script genera un calendario de 12 tablas en 0,3 s; 29: `proyecto_29_e2e` 14/0; 30: `proyecto_30_e2e` 15/0). **Los 30 encargos de la Fase B están aprobados.** Queda el §5.3 (repetición cruzada en los otros modos, etc.).
+Encargos 01–30 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0; 28: `proyecto_28_e2e` 22/0 — un script genera un calendario de 12 tablas en 0,3 s; 29: `proyecto_29_e2e` 14/0; 30: `proyecto_30_e2e` 15/0). **Los 30 encargos de la Fase B están aprobados.** Del §5.3 quedan dos casillas.
 
 Defectos destapados en la Fase B (2026-11-21):
 
@@ -365,12 +354,9 @@ Defectos destapados en la Fase B (2026-11-21):
 
 ### 5.1. Encargos pendientes
 
-| # | Encargo | Modo principal | Foco de la prueba |
-|---:|---|---|---|
-
-Cada encargo: `test/e2e/proyecto_NN_e2e.gd`, fixture en
-`test/fixtures/proyectos/NN-nombre.vtc`, capturas en `user://proyectos/NN/`
-(revisarlas). Los defectos nuevos siguen la numeración desde **VAL-27**.
+Ninguno. Cada encargo: `test/e2e/proyecto_NN_e2e.gd` (kit
+`test/e2e/lib/campaign_kit.gd`), capturas en `user://proyectos/NN/`. Los
+defectos nuevos siguen la numeración desde **VAL-68**.
 
 ### 5.2. Lista de comprobación por encargo (los puntos que apliquen)
 
