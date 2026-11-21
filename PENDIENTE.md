@@ -319,7 +319,7 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0). Quedan 3.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0; 28: `proyecto_28_e2e` 22/0 — un script genera un calendario de 12 tablas en 0,3 s). Quedan 2.
 
 Defectos destapados en la Fase B (2026-11-21):
 
@@ -352,7 +352,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 28 | Script avanzado (automatización) | Pro | API de script, errores controlados |
 | 29 | Vectorizar un logo bitmap | Modern | VTracer, limpieza de nodos |
 | 30 | Vectorizar una foto y depurar | Pro | Umbrales, simplificación, rendimiento |
 
