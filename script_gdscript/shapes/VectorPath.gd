@@ -217,7 +217,7 @@ func _draw() -> void:
 			if stroke_behind_fill and stroke_width > 0.0:
 				_draw_stroke_mesh(pts, true)
 			if fc.a > 0.0 and pts.size() >= 3:
-				for poly in fill_polygons(pts):
+				for poly in _cached_fill(pts):
 					draw_colored_polygon(poly, fc)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				_draw_stroke_mesh(pts, true)
@@ -231,7 +231,7 @@ func _draw() -> void:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
 			if fc2.a > 0.0:
-				for poly in StrokeGeom.evenodd_fill(rings):
+				for poly in _cached_evenodd(rings):
 					draw_colored_polygon(poly, fc2)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				for r in rings:
@@ -248,6 +248,66 @@ func _draw() -> void:
 			# estilo doble las dos líneas mueren dentro de la flecha).
 			_draw_stroke_mesh(_trim_for_pointers(pts), false)
 			_draw_pointers(pts)
+
+## Relleno en caché (encargo 30: una foto vectorizada con 1 650 trazados y
+## 890 000 puntos tardaba 25 s en dibujarse la primera vez y lo recalculaba
+## en cada repintado). Clave barata: la curva, sus puntos y su longitud.
+var _fill_key: Array = []
+var _fill_cache: Array = []
+const FILL_DECIMATE_FROM := 1500    # puntos: por encima, se quitan los sobrantes
+const FILL_DECIMATE_TOL := 0.02     # px de documento (invisible hasta ~5000 %)
+const _VE = preload("res://script_gdscript/system/vector_export.gd")
+
+func _cached_fill(pts: PackedVector2Array) -> Array:
+	var key := [curve.get_instance_id() if curve else 0, curve.point_count if curve else 0,
+		curve.get_baked_length() if curve else 0.0, pts.size()]
+	if key == _fill_key:
+		return _fill_cache
+	var src := pts
+	if pts.size() > FILL_DECIMATE_FROM:
+		# El teselado por ángulo mete decenas de puntos en tramos de pocos px:
+		# para RELLENAR sobran y el triangulador de Godot (O(n²)) se atasca.
+		src = _VE._simplify_ring(pts, FILL_DECIMATE_TOL)
+	_fill_cache = fill_polygons(src)
+	_fill_key = key
+	return _fill_cache
+
+## Igual con huecos (subtrazados): par-impar en caché, con anillos diezmados
+## cuando son enormes (y vuelta a los originales si algo no triangula).
+var _eo_key: Array = []
+var _eo_cache: Array = []
+
+func _cached_evenodd(rings: Array) -> Array:
+	var key := [curve.get_instance_id() if curve else 0, curve.get_baked_length() if curve else 0.0]
+	for c in subpaths:
+		key.append(c.get_baked_length() if c else 0.0)
+	for r in rings:
+		key.append((r as PackedVector2Array).size())
+	if key == _eo_key:
+		return _eo_cache
+	# Primero con los anillos diezmados (mucho más rápido); si alguna pieza no
+	# se triangula, con los originales (más lento, pero sin huecos en el relleno).
+	var big := false
+	var src: Array = []
+	for r in rings:
+		var ring: PackedVector2Array = r
+		if ring.size() > 300:
+			big = true
+			src.append(_VE._simplify_ring(ring, FILL_DECIMATE_TOL))
+		else:
+			src.append(ring)
+	var res: Array = []
+	if big:
+		res = StrokeGeom.evenodd_fill(src)
+		for poly in res:
+			if (poly as PackedVector2Array).size() >= 3 and Geometry2D.triangulate_polygon(poly).is_empty():
+				res = []
+				break
+	if res.is_empty():
+		res = StrokeGeom.evenodd_fill(rings)
+	_eo_cache = res
+	_eo_key = key
+	return _eo_cache
 
 ## ¿Este trazado recorta a sus hijos (máscara de recorte)?
 func _is_mask() -> bool:
