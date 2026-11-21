@@ -425,7 +425,7 @@ func _build_ui() -> void:
 		"path_text_align", "path_text_offset", "path_text_start", "path_text_end",
 		"path_text_valign", "path_text_reverse", "path_text_flip",
 		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
-		"brush_color_jitter", "brush_geo", "brush_geo_amount", "brush_geo_size"], "ExtraProps"))
+		"brush_color_jitter", "brush_geo", "brush_geo_amount", "brush_geo_size", "brush_nib_angle"], "ExtraProps"))
 
 	# ── SECCION E: RELLENO (FILL - FILA COMPACTA) ──
 	_build_fill_section()

@@ -424,6 +424,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			base["brush_geo"] = node.get_meta("brush_geo")
 		if node.has_meta("brush_color_jitter"):
 			base["brush_color_jitter"] = float(node.get_meta("brush_color_jitter"))
+		if node.has_meta("nib_angle"):   # plumilla del caligráfico (encargo 20)
+			base["nib_angle"] = float(node.get_meta("nib_angle"))
 		if node.begin_cap_mode != Line2D.LINE_CAP_ROUND or node.end_cap_mode != Line2D.LINE_CAP_ROUND:
 			base["caps"] = [int(node.begin_cap_mode), int(node.end_cap_mode)]
 		if node.has_meta("stroke_profile") and not StrokeProfile.is_uniform(node.get_meta("stroke_profile")):
@@ -1152,6 +1154,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 				l.set_meta("brush_geo", d["brush_geo"])
 			if d.has("brush_color_jitter"):
 				l.set_meta("brush_color_jitter", float(d["brush_color_jitter"]))
+			if d.has("nib_angle"):
+				l.set_meta("nib_angle", float(d["nib_angle"]))
 			if d.get("caps") is Array and (d["caps"] as Array).size() == 2:
 				l.begin_cap_mode = int(d["caps"][0]) as Line2D.LineCapMode
 				l.end_cap_mode = int(d["caps"][1]) as Line2D.LineCapMode

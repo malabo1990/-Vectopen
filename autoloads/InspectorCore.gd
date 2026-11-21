@@ -60,6 +60,7 @@ const PROPS := [
 	"path_text_range", "path_text_valign", "path_text_reverse",
 	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 	"brush_geo", "brush_geo_amount", "brush_geo_size", "brush_color_jitter", "brush_texture_image",
+	"brush_nib_angle",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -474,6 +475,11 @@ func _read(shape, prop):
 				return null
 			var ti: Dictionary = shape.get_meta("brush_texture", {}) if shape.has_meta("brush_texture") else {}
 			return String(ti.get("path", "")) if String(ti.get("name", "")) == "image" else ""
+		"brush_nib_angle":
+			# Ángulo de la plumilla plana de un trazo CALIGRÁFICO (encargo 20).
+			if not (shape is Line2D and String(shape.get_meta("brush_style", "")) == "calligraphy"):
+				return null
+			return float(shape.get_meta("nib_angle", 45.0))
 		"brush_color_jitter":
 			if not (shape is Line2D and shape.get_node_or_null("StrokeRender") != null):
 				return null
@@ -1563,6 +1569,13 @@ func _write_prop(shape, prop, value) -> void:
 				var bri = shape.get_node_or_null("StrokeRender")
 				if bri and bri.has_method("_update_material"):
 					bri._update_material()
+				shape.queue_redraw()
+		"brush_nib_angle":
+			if shape is Line2D:
+				shape.set_meta("nib_angle", wrapf(float(value), -180.0, 180.0))
+				var nr: Node = shape.get_node_or_null("StrokeRender")
+				if nr:
+					nr.queue_redraw()
 				shape.queue_redraw()
 		"brush_color_jitter":
 			if shape is Line2D:

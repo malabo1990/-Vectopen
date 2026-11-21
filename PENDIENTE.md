@@ -319,12 +319,13 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0). Quedan 11.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0). Quedan 10.
 
 Defectos destapados en la Fase B (2026-11-21):
 
 | ID | Encargo | Fallo | Estado |
 |---|---|---|---|
+| VAL-51 | 20 | El ángulo de la plumilla del pincel caligráfico era fijo (45°) y no se guardaba | Hecho: propiedad «Ángulo de plumilla» en el inspector (Modern y Pro), con deshacer, guardada en el .vtp |
 | VAL-50 | 19 | No se podía exportar un PDF de VARIAS páginas (solo uno por página) | Hecho: Exportar ▸ «PDF de todas las páginas» (cada página con su tamaño y sangrado), API `export_pdf_pages` |
 | VAL-49 | 19 | Textos creados por la herramienta Texto, la API o al importar SVG salían **DOBLES** (bitmap de la etiqueta + texto nativo): se ocultaba la etiqueta con `visible = false` y el CullManager la volvía a encender | Hecho: la etiqueta queda transparente (`TextLabelHidden_test`) |
 | VAL-48 | 18 | Un texto con efectos guardaba sus capas internas (TextFxBack/Front) como hijos: al reabrir aparecía un nodo fantasma dentro del texto | Hecho (`TextFxNotSaved_test`) |
@@ -339,7 +340,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 20 | Invitación con caligrafía | Smart | Pincel caligráfico, presión |
 | 21 | Póster tipográfico | Pro | Solo texto, interlineado, tracking |
 | 22 | Historieta de 4 viñetas | Modern | Máscaras, capas, export por página |
 | 23 | Tabla comparativa | Pro | Tablas, alineación, bordes |
