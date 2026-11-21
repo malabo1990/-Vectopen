@@ -89,6 +89,11 @@ const REFERENCE := [
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
 	["Texto", "release_text_on_path(trazo) -> Node2D", "Separa un texto en trazado: vuelve a mostrar el texto original y quita el trazo"],
+	["Colores", "global_colors() -> Array", "Colores globales del documento: [{id, name, color}]"],
+	["Colores", "add_global_color(nombre, color) -> String", "Crea un color global (muestra del documento); devuelve su id"],
+	["Colores", "apply_global_color(color, objetos, canal = \"fill\") -> bool", "Vincula el relleno (\"fill\") o el trazo (\"stroke\") de los objetos al color global (id o nombre)"],
+	["Colores", "set_global_color(color, nuevo) -> int", "Cambia el color global y todos los objetos que lo usan; devuelve cuántos"],
+	["Colores", "rename_global_color(color, nombre) -> bool", "Renombra un color global"],
 	["Tablas", "add_table(rect, filas, columnas, datos = [], opciones = {}) -> Node2D", "Tabla: cabecera, cebreado, bordes; datos = [[texto…]…]; opciones: header, zebra, font_size, align (por columna), border, colors"],
 	["Tablas", "table_set_cell(tabla, fila, columna, texto)", "Cambia el texto de una celda"],
 	["Tablas", "table_insert_row(tabla, en = -1)", "Añade una fila (al final con -1)"],
@@ -1406,6 +1411,40 @@ func text_style_of(node: Node) -> String:
 
 func detach_text_style(nodes: Variant) -> void:
 	_ts_call(func() -> void: TextStyles.detach(_as_list(nodes)))
+
+# ── colores globales del documento (encargo 25) ──────────────────────────────
+const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
+
+func _gc_id(c: Variant) -> String:
+	var s := String(c)
+	return s if GlobalColors.get_color(s) != null else GlobalColors.find_by_name(s)
+
+func _gc_call(fn: Callable) -> Variant:
+	GlobalColors.recorder = func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+	var r = fn.call()
+	GlobalColors.recorder = Callable()
+	return r
+
+func global_colors() -> Array:
+	return GlobalColors.all()
+
+func add_global_color(color_name: String, color: Color) -> String:
+	return String(_gc_call(func() -> String: return GlobalColors.add(color_name, color)))
+
+func apply_global_color(gc: Variant, nodes: Variant, channel: String = "fill") -> bool:
+	var id := _gc_id(gc)
+	if id == "":
+		error("apply_global_color: no existe el color «%s»" % gc)
+		return false
+	return bool(_gc_call(func() -> bool: return GlobalColors.apply(id, _as_list(nodes), channel)))
+
+func set_global_color(gc: Variant, color: Color) -> int:
+	var id := _gc_id(gc)
+	return 0 if id == "" else int(_gc_call(func() -> int: return GlobalColors.set_color(id, color)))
+
+func rename_global_color(gc: Variant, new_name: String) -> bool:
+	var id := _gc_id(gc)
+	return id != "" and bool(_gc_call(func() -> bool: return GlobalColors.rename(id, new_name)))
 
 # ── tablas ───────────────────────────────────────────────────────────────────
 const Table = preload("res://script_gdscript/shapes/table.gd")

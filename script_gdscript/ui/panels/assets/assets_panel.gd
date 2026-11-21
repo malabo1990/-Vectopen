@@ -81,6 +81,8 @@ func _init() -> void:
 	_zoom.tooltip_text = "Tamaño de las miniaturas"
 	_zoom.value_changed.connect(func(v: float) -> void: set_thumb_size(int(v)))
 	srow.add_child(_zoom)
+	# Colores globales del documento (encargo 25: manual de marca)
+	add_child(preload("res://script_gdscript/ui/components/doc_colors_row.gd").new())
 	var scroll := ScrollContainer.new()
 	scroll.name = "Scroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

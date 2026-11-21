@@ -21,6 +21,7 @@ const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
 const TextStyles = preload("res://script_gdscript/text/text_styles.gd")
 const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
+const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
@@ -134,6 +135,9 @@ static func serialize_container(container: Node) -> Dictionary:
 	var _sy := Symbols.to_data(container)      # componentes vinculados (VAL-23)
 	if not _sy.is_empty():
 		out["symbols"] = _sy
+	var _gc := GlobalColors.to_data(container) # colores globales (encargo 25)
+	if not _gc.is_empty():
+		out["doc_colors"] = _gc
 	for child in container.get_children():
 		if child is ArtboardEditor:
 			out["artboards"].append(_serialize_artboard(child))
@@ -567,6 +571,11 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 		manifest["symbols"] = _sy
 	else:
 		manifest.erase("symbols")
+	var _gc := GlobalColors.to_data(container) # colores globales (encargo 25)
+	if not _gc.is_empty():
+		manifest["doc_colors"] = _gc
+	else:
+		manifest.erase("doc_colors")
 	var headers: Array = []
 	var off := 0
 	for i in arts.size():
@@ -727,6 +736,7 @@ static func rebuild_from_vtc(container: Node, path: String) -> Dictionary:
 		child.queue_free()
 	TextStyles.from_data(container, manifest.get("text_styles", []))
 	Symbols.from_data(container, manifest.get("symbols", {}))
+	GlobalColors.from_data(container, manifest.get("doc_colors", []))
 	for ab_h in manifest.get("artboards", []):
 		var ab := ArtboardEditor.new()
 		ab.name = ab_h.get("name", "Artboard")
@@ -765,6 +775,7 @@ static func rebuild_container(container: Node, data: Dictionary, materialize_all
 		child.queue_free()
 	TextStyles.from_data(container, data.get("text_styles", []))
 	Symbols.from_data(container, data.get("symbols", {}))
+	GlobalColors.from_data(container, data.get("doc_colors", []))
 
 	for ab_d in data.get("artboards", []):
 		var ab := ArtboardEditor.new()
@@ -825,6 +836,9 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 		d["table"] = node.get_meta("table")
 	if node.has_meta("table_cell"):
 		d["table_cell"] = node.get_meta("table_cell")
+	for _gk in ["fill_global", "stroke_global"]:   # colores globales (encargo 25)
+		if node.has_meta(_gk):
+			d[_gk] = String(node.get_meta(_gk))
 	# Capa bloqueada (VAL-45: el bloqueo se perdía al guardar y reabrir).
 	if bool(node.get_meta("locked", false)):
 		d["locked"] = true
@@ -904,6 +918,9 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 		node.set_meta("locked", true)
 	if d.get("table") is Dictionary:
 		node.set_meta("table", d["table"])
+	for _gk in ["fill_global", "stroke_global"]:
+		if d.has(_gk):
+			node.set_meta(_gk, String(d[_gk]))
 	if d.get("table_cell") is Array:
 		node.set_meta("table_cell", [int(d["table_cell"][0]), int(d["table_cell"][1])])
 	if d.has("symbol_id"):

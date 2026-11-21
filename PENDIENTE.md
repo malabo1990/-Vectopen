@@ -319,12 +319,13 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0). Quedan 6.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0). Quedan 5.
 
 Defectos destapados en la Fase B (2026-11-21):
 
 | ID | Encargo | Fallo | Estado |
 |---|---|---|---|
+| VAL-57 | 25 | La paleta era de la APLICACIÓN: no había colores del documento ni colores globales (cambiar el color de marca obligaba a repintar objeto a objeto) | Hecho: colores globales del documento (`script_gdscript/shapes/global_colors.gd`): relleno/trazo vinculados, cambiar la muestra cambia todo (también dentro de componentes), un color a mano desvincula, deshacer, .vtp; Recursos ▸ «Colores del documento» (clic = relleno, Mayús = trazo, clic derecho = editar/renombrar); API `add_global_color`… (`GlobalColors_test`) |
 | VAL-56 | 23 | No había **tablas** | Hecho (v1): `script_gdscript/shapes/table.gd` — grupo «Tabla» generado desde datos (cabecera, cebreado, rejilla, anchos y alineación por columna); clic derecho ▸ Insertar tabla / añadir-borrar fila o columna (según la celda elegida); API `add_table`, `table_set_cell`, `table_insert_row`…; el texto de una celda se edita normalmente y se conserva; se guarda en el .vtp (`Table_test`). Pendiente v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio |
 | VAL-55 | 22 | La API no podía bloquear capas | Hecho: `set_prop(objeto, "locked", true)` con deshacer |
 | VAL-54 | 22 | Una FIGURA sin relleno usada como máscara (marco de viñeta) solo dejaba ver el contenido bajo su borde: el interior salía vacío (en pantalla y al exportar) | Hecho: recorta por su área, como los trazados |
@@ -345,7 +346,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 25 | Manual de marca (12 páginas) | Pro | Pliegos, muestras de color, paleta |
 | 26 | Presentación de 10 diapositivas | Pro | Rejilla, export por página |
 | 27 | Shader: degradado animado con ruido | Pro | Shader simple, parámetros en Inspector |
 | 28 | Script avanzado (automatización) | Pro | API de script, errores controlados |
