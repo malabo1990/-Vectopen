@@ -319,13 +319,12 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–10 **aprobados**. Quedan 20.
+Encargos 01–11 **aprobados** (11: `proyecto_11_e2e` 22/0). Quedan 19.
 
 ### 5.1. Encargos pendientes
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 11 | Wireframe de landing | Modern | Bloques, alineación, snapping |
 | 12 | Set de 24 iconos | Smart | Trazo coherente, export SVG individual |
 | 13 | Ilustración con pinceles | Smart | 300+ trazos, fluidez y memoria |
 | 14 | Retrato con máscaras | Pro | Clip entre dos Bézier |

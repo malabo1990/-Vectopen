@@ -2730,6 +2730,10 @@ func _set_thumb_icon(it: TreeItem, tex: Texture2D, visible_now: bool) -> void:
 ## Icono de la fila en modo "icons" (o mientras llega la miniatura): el del
 ## TIPO geométrico si lo hay (triángulo, estrella de N puntas, corazón…).
 func _icono_de_capa(real_node: Node, type: String) -> Texture2D:
+	if is_instance_valid(real_node) and real_node.has_meta("symbol_id"):
+		var ts := LayerIcons.icon_for(real_node)   # componente vinculado (VAL-23)
+		if ts:
+			return ts
 	if type != "artboard" and type != "group" and not String(type).begins_with("text"):
 		var t := LayerIcons.icon_for(real_node)
 		if t:

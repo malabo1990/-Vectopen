@@ -24,6 +24,10 @@ static var _cache: Dictionary = {}
 ## Clave del tipo geométrico de `n`, o "" si no es una figura paramétrica
 ## (entonces la lista usa su icono SVG de siempre: texto, imagen, grupo…).
 static func key_for(n: Node) -> String:
+	# Copia de un componente vinculado (VAL-23): rombo con rombo interior,
+	# como en Figma / Affinity.
+	if n.has_meta("symbol_id") and String(n.get_meta("symbol_id")) != "":
+		return "symbol"
 	if n is VectorRectangle:
 		var sz: Vector2 = n.size
 		var rounded := float(n.corner_radius) > 0.5 if "corner_radius" in n else false
@@ -93,6 +97,12 @@ static func _outline(k: String) -> PackedVector2Array:
 			return _ellipse(Vector2(1, 1), PI * 0.75, PI * 2.25)
 		"drop":
 			return PP._normalized(PP.kind_icon(4))
+		"symbol":
+			var d := PackedVector2Array([Vector2(0, -1), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0), Vector2(0, -1)])
+			d.append(Vector2.INF)
+			for v in [Vector2(0, -0.42), Vector2(0.42, 0), Vector2(0, 0.42), Vector2(-0.42, 0), Vector2(0, -0.42)]:
+				d.append(v)
+			return d
 		"poly_free":
 			return _closed(PP._normalized(PackedVector2Array([Vector2(-40, 30), Vector2(-10, -40), Vector2(40, -10), Vector2(25, 40)])))
 	if k.begins_with("star_"):
