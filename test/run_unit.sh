@@ -37,4 +37,5 @@ if ! grep -q "Overall Summary" "$LOG_DIR/gdunit.txt"; then
 	grep -E "Parse Error|SCRIPT ERROR" "$LOG_DIR/gdunit.txt" | head -5
 	exit 1
 fi
-grep -q "0 failures" "$LOG_DIR/gdunit.txt" && grep -q "0 errors" "$LOG_DIR/gdunit.txt"
+# Solo el resumen GLOBAL cuenta (antes valía el «0 failures» de cualquier suite).
+grep "Overall Summary" "$LOG_DIR/gdunit.txt" | grep -qE "\| 0 errors \| 0 failures \|"

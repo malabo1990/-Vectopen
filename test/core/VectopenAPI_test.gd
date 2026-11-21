@@ -400,7 +400,9 @@ func test_duplicar_texto_conserva_su_aspecto() -> void:
 	assert_float(b.y).is_equal_approx(a.y, 1.0)
 	assert_float(b.x).is_equal_approx(a.x, 1.0)
 	var box := _api.add_text_box(Rect2(Vector2(40, 300), Vector2(300, 100)), "Texto del marco. ".repeat(10), 16)
-	assert_bool((box.get_node("DisplayLabel") as CanvasItem).visible).is_false()
+	# VAL-22 / VAL-49: la etiqueta no pinta (transparente; el CullManager puede
+	# encender su visible y antes salía el texto doble).
+	assert_float((box.get_node("DisplayLabel") as CanvasItem).self_modulate.a).is_less(0.01)
 	# El marco copiado sigue partiendo líneas (mismo alto de contenido).
 	await get_tree().process_frame
 	var box2 := _api.duplicate(box, Vector2(0, 200))
