@@ -300,13 +300,21 @@ func _process(_delta: float) -> void:
 	if _waking_queue.is_empty():
 		set_process(false)
 
+## ¿La herramienta activa es de selección (Mover / Página)? Solo entonces la
+## página seleccionada se queda el clic para arrastrarse o redimensionarse.
+## VAL-42: buscaba un nodo «Canvas» que no existe (el lienzo es CanvasRoot,
+## grupo _vectopen_canvas) y respondía SIEMPRE que sí: con una página
+## seleccionada, el pincel, la pluma o el texto no podían empezar dentro de
+## ella (el clic arrastraba la página).
 func _is_selection_tool() -> bool:
-	var scene := get_tree().current_scene if get_tree() else null
-	var canvas := scene.find_child("Canvas", true, false) if scene else null
-	if not canvas or canvas.current_tool == null:
-		return true
-	var path: String = canvas.current_tool.get_script().resource_path.get_file().to_lower()
-	return "move_tool" in path or "select_tool" in path
+	var canvas: Node = get_tree().get_first_node_in_group("_vectopen_canvas") if get_tree() else null
+	if canvas == null or not ("current_tool" in canvas) or canvas.current_tool == null:
+		return false
+	var scr: Script = canvas.current_tool.get_script()
+	if scr == null:
+		return false
+	var file: String = scr.resource_path.get_file().to_lower()
+	return file in ["movetool.gd", "artboardtool.gd"] or "move_tool" in file or "select_tool" in file
 
 func _unhandled_input(event: InputEvent) -> void:
 	# El manejo general del ratón global para deseleccionar o arrastrar si ya está activo

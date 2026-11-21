@@ -319,13 +319,18 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–12 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0). Quedan 18.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %). Quedan 17.
+
+Defectos destapados en la Fase B (2026-11-21):
+
+| ID | Encargo | Fallo | Estado |
+|---|---|---|---|
+| VAL-42 | 13 | Con una página SELECCIONADA, el pincel / la pluma / el texto no podían empezar dentro de ella: el clic arrastraba la página (`artboard._is_selection_tool` buscaba un nodo «Canvas» inexistente y respondía siempre «sí») | Hecho (`ArtboardToolClick_test`) |
 
 ### 5.1. Encargos pendientes
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 13 | Ilustración con pinceles | Smart | 300+ trazos, fluidez y memoria |
 | 14 | Retrato con máscaras | Pro | Clip entre dos Bézier |
 | 15 | Mapa estilizado | Pro | Trazos cerrados, capas anidadas |
 | 16 | Diagrama técnico | Modern | Trazos con puntas, guiones, etiquetas |
