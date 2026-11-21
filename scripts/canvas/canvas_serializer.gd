@@ -19,6 +19,8 @@
 extends RefCounted
 const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const TextCore = preload("res://script_gdscript/text/text_core.gd")
+const TextStyles = preload("res://script_gdscript/text/text_styles.gd")
+const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
@@ -126,6 +128,12 @@ static func serialize_container(container: Node) -> Dictionary:
 	var out := {"v": V, "artboards": [], "loose": []}
 	if not is_instance_valid(container):
 		return out
+	var _ts := TextStyles.to_data(container)   # estilos de texto con nombre (VAL-24)
+	if not _ts.is_empty():
+		out["text_styles"] = _ts
+	var _sy := Symbols.to_data(container)      # componentes vinculados (VAL-23)
+	if not _sy.is_empty():
+		out["symbols"] = _sy
 	for child in container.get_children():
 		if child is ArtboardEditor:
 			out["artboards"].append(_serialize_artboard(child))
@@ -228,6 +236,7 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		base["kind"] = "text"
 		base["text_kind"] = String(node.get_meta("shape_type"))
 		base["text"] = String(node.get_meta("text", ""))
+		if node.has_meta(TextStyles.META_LINK): base["text_style"] = String(node.get_meta(TextStyles.META_LINK))
 		base["font_size"] = int(node.get_meta("font_size", 24))
 		if node.has_meta("line_spacing"): base["line_spacing"] = int(node.get_meta("line_spacing"))
 		if node.has_meta("letter_spacing"): base["letter_spacing"] = float(node.get_meta("letter_spacing"))
@@ -542,6 +551,16 @@ static func write_vtc(path: String, container: Node, header_extra: Dictionary = 
 	var manifest := header_extra.duplicate(true)
 	manifest["v"] = V
 	manifest["loose"] = loose
+	var _ts := TextStyles.to_data(container)   # estilos de texto con nombre (VAL-24)
+	if not _ts.is_empty():
+		manifest["text_styles"] = _ts
+	else:
+		manifest.erase("text_styles")
+	var _sy := Symbols.to_data(container)      # componentes vinculados (VAL-23)
+	if not _sy.is_empty():
+		manifest["symbols"] = _sy
+	else:
+		manifest.erase("symbols")
 	var headers: Array = []
 	var off := 0
 	for i in arts.size():
@@ -700,6 +719,8 @@ static func rebuild_from_vtc(container: Node, path: String) -> Dictionary:
 	for child in container.get_children():
 		container.remove_child(child)
 		child.queue_free()
+	TextStyles.from_data(container, manifest.get("text_styles", []))
+	Symbols.from_data(container, manifest.get("symbols", {}))
 	for ab_h in manifest.get("artboards", []):
 		var ab := ArtboardEditor.new()
 		ab.name = ab_h.get("name", "Artboard")
@@ -736,6 +757,8 @@ static func rebuild_container(container: Node, data: Dictionary, materialize_all
 	for child in container.get_children():
 		container.remove_child(child)
 		child.queue_free()
+	TextStyles.from_data(container, data.get("text_styles", []))
+	Symbols.from_data(container, data.get("symbols", {}))
 
 	for ab_d in data.get("artboards", []):
 		var ab := ArtboardEditor.new()
@@ -791,6 +814,12 @@ static func _apply_transform(n: Node2D, d: Dictionary) -> void:
 ## clip_children (clipping y máscara de recorte), light_mask, modulate y las
 ## metas que el sistema de efectos CPU (Effect.gd) escribe sobre el nodo.
 static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
+	# Copia de un componente vinculado (VAL-23) y sus retoques locales.
+	if node.has_meta(Symbols.META_ID):
+		d["symbol_id"] = String(node.get_meta(Symbols.META_ID))
+		var _ov = node.get_meta(Symbols.META_OVR, {})
+		if not (_ov as Dictionary).is_empty():
+			d["symbol_overrides"] = _enc_deep(_ov)
 	if node.modulate != Color.WHITE:
 		d["modulate"] = _col(node.modulate)
 	if node.self_modulate != Color.WHITE:
@@ -857,6 +886,11 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 
 
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
+	if d.has("symbol_id"):
+		node.set_meta(Symbols.META_ID, String(d["symbol_id"]))
+		if d.has("symbol_overrides"):
+			node.set_meta(Symbols.META_OVR, _dec_deep(d["symbol_overrides"]))
+		Symbols.adopt(node)
 	if d.has("modulate"):
 		node.modulate = _to_col(d["modulate"])
 	if d.has("self_modulate"):
@@ -1236,6 +1270,7 @@ static func _text_from(d: Dictionary) -> Node2D:
 	cont.set_meta("shape_type", d.get("text_kind", "text_title"))
 	cont.set_meta("text", d.get("text", ""))
 	cont.set_meta("font_size", int(d.get("font_size", 24)))
+	if d.has("text_style"): cont.set_meta(TextStyles.META_LINK, String(d["text_style"]))
 	if d.has("line_spacing"): cont.set_meta("line_spacing", int(d["line_spacing"]))
 	if d.has("letter_spacing"): cont.set_meta("letter_spacing", float(d["letter_spacing"]))
 	if d.has("font_family"): cont.set_meta("font_family", String(d["font_family"]))

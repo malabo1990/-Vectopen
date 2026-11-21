@@ -71,7 +71,22 @@ const REFERENCE := [
 	["Organizar", "duplicate(objeto, desplazamiento = (20,20)) -> Node2D", "Copia"],
 	["Organizar", "group(lista, nombre = \"Grupo\") -> Node2D", "Agrupa"],
 	["Texto", "text_to_curves(texto) -> Node2D", "Convierte un texto en curvas: un grupo con una forma por letra (Ctrl+Mayús+O)"],
+	["Texto", "text_styles() -> Array", "Estilos de texto del documento: [{id, name, props}]"],
+	["Texto", "add_text_style(nombre, texto_o_props, vincular = []) -> String", "Crea un estilo de texto con nombre (desde un texto o {font_size, font_family, font_weight, font_italic, line_spacing, letter_spacing, fill_color, text_align}); devuelve su id"],
+	["Texto", "apply_text_style(estilo, textos) -> bool", "Aplica un estilo (id o nombre) a uno o varios textos y los vincula"],
+	["Texto", "update_text_style(estilo, texto_o_props) -> int", "Redefine el estilo: actualiza todos los textos vinculados (respeta sus retoques); devuelve cuántos cambió"],
+	["Texto", "rename_text_style(estilo, nombre) -> bool", "Renombra un estilo de texto"],
+	["Texto", "remove_text_style(estilo) -> bool", "Borra un estilo (sus textos quedan desvinculados, sin cambiar)"],
+	["Texto", "text_style_of(texto) -> String", "Id del estilo vinculado al texto (\"\" si ninguno)"],
+	["Texto", "detach_text_style(textos)", "Desvincula textos de su estilo"],
 	["Trazo", "stroke_to_outline(trazo) -> Node2D", "Convierte un trazo de pincel en una figura rellena editable con su misma forma (Ctrl+Mayús+O)"],
+	["Componentes", "make_symbol(objeto_o_lista, nombre = \"\") -> Node2D", "Convierte en componente vinculado (agrupa si hace falta): todas sus copias se actualizan al editar cualquiera"],
+	["Componentes", "place_symbol(componente, centro) -> Node2D", "Coloca una copia nueva del componente (id o nombre)"],
+	["Componentes", "symbols() -> Array", "Componentes del documento: [{id, name, count}]"],
+	["Componentes", "symbol_of(objeto) -> String", "Id del componente al que pertenece el objeto (\"\" si ninguno)"],
+	["Componentes", "detach_symbol(objeto) -> bool", "Desvincula una copia: queda como grupo normal"],
+	["Componentes", "set_symbol_sync(activo)", "Sincronizar: apagado, los cambios dentro de una copia son retoques locales"],
+	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
 	["Texto", "release_text_on_path(trazo) -> Node2D", "Separa un texto en trazado: vuelve a mostrar el texto original y quita el trazo"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
@@ -1300,6 +1315,136 @@ func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original:
 		set_prop(sprite, "visible", false)
 	end()
 	return g
+
+# ── estilos de texto con nombre (VAL-24) ─────────────────────────────────────
+const TextStyles = preload("res://script_gdscript/text/text_styles.gd")
+
+func _ts_id(style: Variant) -> String:
+	var s := String(style)
+	if not TextStyles.get_style(s).is_empty():
+		return s
+	return TextStyles.find_by_name(s)
+
+func _ts_call(fn: Callable) -> Variant:
+	TextStyles.recorder = func(action: String, d: Callable, u: Callable) -> void:
+		_record(action, d, u, false)
+	var r = fn.call()
+	TextStyles.recorder = Callable()
+	return r
+
+static func _as_list(v: Variant) -> Array:
+	return v if v is Array else [v]
+
+## Estilos de texto del documento: [{id, name, props}].
+func text_styles() -> Array:
+	return TextStyles.all()
+
+## Crea un estilo de texto con nombre a partir de un texto (sus propiedades
+## tipográficas) o de un diccionario de props. Los textos de `link` quedan
+## vinculados. Devuelve el id ("" si falla).
+func add_text_style(style_name: String, source: Variant, link: Variant = []) -> String:
+	if not (source is Node or source is Dictionary):
+		error("add_text_style: hace falta un texto o un diccionario de propiedades")
+		return ""
+	return String(_ts_call(func() -> String: return TextStyles.create(style_name, source, _as_list(link))))
+
+## Aplica el estilo (id o nombre) a uno o varios textos y los vincula.
+func apply_text_style(style: Variant, nodes: Variant) -> bool:
+	var id := _ts_id(style)
+	if id == "":
+		error("apply_text_style: no existe el estilo «%s»" % style)
+		return false
+	return bool(_ts_call(func() -> bool: return TextStyles.apply(id, _as_list(nodes))))
+
+## Redefine el estilo y actualiza todos los textos vinculados del documento.
+func update_text_style(style: Variant, source: Variant) -> int:
+	var id := _ts_id(style)
+	if id == "":
+		error("update_text_style: no existe el estilo «%s»" % style)
+		return 0
+	return int(_ts_call(func() -> int: return TextStyles.redefine(id, source)))
+
+func rename_text_style(style: Variant, new_name: String) -> bool:
+	var id := _ts_id(style)
+	return id != "" and bool(_ts_call(func() -> bool: return TextStyles.rename(id, new_name)))
+
+func remove_text_style(style: Variant) -> bool:
+	var id := _ts_id(style)
+	return id != "" and bool(_ts_call(func() -> bool: return TextStyles.remove(id)))
+
+func text_style_of(node: Node) -> String:
+	return TextStyles.style_of(node)
+
+func detach_text_style(nodes: Variant) -> void:
+	_ts_call(func() -> void: TextStyles.detach(_as_list(nodes)))
+
+# ── componentes vinculados (VAL-23) ──────────────────────────────────────────
+const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
+
+func _sym_id(sym: Variant) -> String:
+	var s := String(sym)
+	for e in Symbols.all():
+		if e["id"] == s:
+			return s
+	for e in Symbols.all():
+		if String(e["name"]).to_lower() == s.to_lower():
+			return String(e["id"])
+	return ""
+
+## Convierte en componente vinculado. Varios objetos (o uno que no es grupo)
+## se agrupan primero. Devuelve la copia (el grupo).
+func make_symbol(nodes: Variant, symbol_name: String = "") -> Node2D:
+	var list := _as_list(nodes).filter(func(n) -> bool: return is_instance_valid(n))
+	if list.is_empty():
+		error("make_symbol: nada que convertir")
+		return null
+	begin("Componente · crear")
+	var root: Node2D = list[0]
+	if list.size() > 1 or String(root.get_meta("shape_type", "")) != "group" or Symbols.is_instance(root):
+		root = group(list, symbol_name if symbol_name != "" else "Componente")
+	var ok := root != null
+	if ok:
+		Symbols.recorder = func(action: String, d: Callable, u: Callable) -> void:
+			_record(action, d, u, false)
+		ok = Symbols.make(root, symbol_name) != ""
+		Symbols.recorder = Callable()
+	end()
+	return root if ok else null
+
+## Coloca una copia nueva del componente con su centro en `center`.
+func place_symbol(sym: Variant, center: Vector2) -> Node2D:
+	var id := _sym_id(sym)
+	if id == "":
+		error("place_symbol: no existe el componente «%s»" % sym)
+		return null
+	var g := Symbols.instantiate(id)
+	var out := add(g)
+	if out:
+		var mt = _n("InspectorCore")._mt if _n("InspectorCore") else null
+		var r: Rect2 = mt._global_rect(out) if mt and mt.has_method("_global_rect") else Rect2(out.global_position, Vector2.ZERO)
+		var ab := out.get_parent() as Node2D
+		var cur_center: Vector2 = (ab.to_local(r.get_center()) if ab else r.get_center())
+		out.position += center - cur_center
+	return out
+
+func symbols() -> Array:
+	return Symbols.all()
+
+func symbol_of(node: Node) -> String:
+	return Symbols.symbol_of(node)
+
+func detach_symbol(node: Node) -> bool:
+	Symbols.recorder = func(action: String, d: Callable, u: Callable) -> void:
+		_record(action, d, u, false)
+	var ok := Symbols.detach(node)
+	Symbols.recorder = Callable()
+	return ok
+
+func set_symbol_sync(enabled: bool) -> void:
+	Symbols.sync_enabled = enabled
+
+func sync_symbols() -> int:
+	return Symbols.sync_now()
 
 # ── deshacer / transacciones ─────────────────────────────────────────────────
 ## Abre una transacción: todo hasta end() es UN paso de deshacer.

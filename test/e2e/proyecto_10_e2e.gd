@@ -106,7 +106,7 @@ func _run() -> void:
 		await frames(2)
 		for i in 4:
 			var before := ab.get_child_count()
-			assets.place_item(it, Vector2(195, 560 + i * 66))   # centro, en coordenadas de la página
+			assets.place_item(it, Vector2(195, 560 + i * 66), true)   # centro, en coordenadas de la página; vinculado (VAL-23)
 			await frames(3)
 			if ab.get_child_count() > before:
 				copies.append(ab.get_child(ab.get_child_count() - 1))
@@ -130,9 +130,13 @@ func _run() -> void:
 		api.set_prop(f0, "fill_color", Color("#e23d6b"))
 		await frames(2)
 		var f1 = copies[1].find_child("Fondo boton*", true, false)
+		api.sync_symbols()
 		var linked := (f1.fill_color as Color).is_equal_approx(Color("#e23d6b"))
-		print("INFO VAL-23 componentes vinculados: %s" % ("sí" if linked else "no (copias independientes)"))
+		check("VAL-23: cambiar un botón vinculado cambia los demás", linked)
 		api.set_prop(f0, "fill_color", PRIMARY)
+		api.sync_symbols()
+		f1 = copies[1].find_child("Fondo boton*", true, false)
+		check("VAL-23: y volver al color primario también", f1 != null and (f1.fill_color as Color).is_equal_approx(PRIMARY))
 	# 5. Tarjeta repetida con Duplicar (consistencia).
 	var card = api.add_rect(Vector2(195, 250), Vector2(342, 120), 18.0, "Tarjeta")
 	api.set_props(card, {"stroke_width": 1.0, "stroke_color": Color("#e3e4ee"), "fill_color": Color.WHITE})
@@ -141,8 +145,16 @@ func _run() -> void:
 	check("la tarjeta duplicada conserva sombra y radio", card2 != null and (api.get_prop(card2, "effects") as Array).size() == 1
 		and is_equal_approx(float(api.get_prop(card2, "corner_radius")), 18.0))
 	# Estilos de texto con nombre.
-	var has_styles: bool = api.has_method("text_styles") or ic.has_method("apply_text_style")
-	print("INFO VAL-24 estilos de texto con nombre: %s" % ("sí" if has_styles else "no"))
+	var t_a = api.add_text(Vector2(40, 120), "Mis tareas", 28)
+	var t_b = api.add_text(Vector2(40, 400), "Hoy", 18)
+	api.set_prop(t_a, "font_weight", 700)
+	var sid: String = api.add_text_style("Título", t_a, [t_a])
+	api.apply_text_style("Título", [t_b])
+	api.update_text_style(sid, {"font_size": 30})
+	check("VAL-24: estilo «Título» aplicado y redefinido en los dos textos",
+		is_equal_approx(float(api.get_prop(t_a, "font_size")), 30.0) and is_equal_approx(float(api.get_prop(t_b, "font_size")), 30.0)
+		and int(api.get_prop(t_b, "font_weight")) == 700)
+	api.delete([t_a, t_b])
 	api.clear_selection()
 	await frames(10)
 	await shot("01_ui_kit")

@@ -33,6 +33,7 @@ signal selection_size_changed(count: int)
 ## Propiedades expuestas. Cada una: {value, mixed, editable}.
 const StrokeGeomRef = preload("res://script_gdscript/shapes/stroke_geom.gd")
 const PageFields = preload("res://script_gdscript/text/page_fields.gd")
+const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 
 const PROPS := [
 	"name", "pos_x", "pos_y", "width", "height", "rotation",
@@ -1317,6 +1318,7 @@ func _write(shape, prop, value) -> void:
 	if fx:
 		TextCore.set_vrt_runs(vrt, shape.get_meta("runs", []), false)
 	_write_prop(shape, prop, value)
+	_Symbols.note_write(shape, prop, value)
 	if fx and is_instance_valid(shape):
 		TextCore.refresh_letter_fx(shape)
 

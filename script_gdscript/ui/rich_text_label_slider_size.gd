@@ -167,6 +167,7 @@ func _ready() -> void:
 	_setup_font_color()
 	_setup_format_row()
 	_setup_metric_rows()
+	_setup_style_row()
 	_setup_prop_values()
 	_setup_advanced_button()
 	_fit_panel_height.call_deferred()
@@ -1608,6 +1609,15 @@ const _METRICS := [
 	["line_spacing", "txt_leading", "Interlineado", -100.0, 400.0, 1.0, "px"],
 	["letter_spacing", "txt_tracking", "Espaciado entre letras", -50.0, 200.0, 0.5, "px"],
 ]
+
+## Fila «Estilo» (estilos de texto con nombre, VAL-24), arriba del todo.
+func _setup_style_row() -> void:
+	var vb := get_node_or_null("Panel/VBoxContainer") as VBoxContainer
+	if vb == null or vb.has_node("TextStyleRow"):
+		return
+	var row: Control = preload("res://script_gdscript/ui/components/text_style_row.gd").new(11)
+	vb.add_child(row)
+	vb.move_child(row, 0)
 
 func _setup_metric_rows() -> void:
 	var vb := get_node_or_null("Panel/VBoxContainer") as VBoxContainer

@@ -242,6 +242,9 @@ func _clean_canvas_for_new_project() -> void:
 		container = tree.current_scene.find_child("ArtboardsContainer", true, false)
 
 	if container:
+		# Estilos de texto del documento anterior (VAL-24): el nuevo empieza sin ellos.
+		preload("res://script_gdscript/text/text_styles.gd").from_data(container, [])
+		preload("res://script_gdscript/shapes/symbols.gd").from_data(container, {})
 		var artboards: Array[Node] = []
 		for child in container.get_children():
 			if child is ArtboardEditor:

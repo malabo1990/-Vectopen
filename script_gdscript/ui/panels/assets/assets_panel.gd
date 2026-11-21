@@ -37,6 +37,8 @@ var _menu_sub_id := ""
 var _last_mouse := Vector2.ZERO
 var thumb_size := 56
 var _zoom: HSlider
+var link_check: CheckBox   # VAL-23: colocar como componente vinculado
+const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const CFG := "user://vectopen_assets_ui.cfg"
 
 func _init() -> void:
@@ -98,6 +100,13 @@ func _init() -> void:
 	_add_btn.custom_minimum_size = Vector2(0, 28)
 	_add_btn.pressed.connect(func() -> void: add_selection())
 	add_child(_add_btn)
+	link_check = CheckBox.new()
+	link_check.name = "LinkPlacements"
+	link_check.text = "Colocar vinculado (componente)"
+	link_check.tooltip_text = "Las copias colocadas de un mismo recurso quedan vinculadas: editar una actualiza las demás"
+	link_check.focus_mode = Control.FOCUS_NONE
+	link_check.add_theme_font_size_override("font_size", 11)
+	add_child(link_check)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 11)
@@ -117,6 +126,7 @@ func _init() -> void:
 	add_child(_cat_menu)
 	_item_menu = PopupMenu.new()
 	_item_menu.add_item("Colocar en el artboard", 0)
+	_item_menu.add_item("Colocar como componente vinculado", 4)
 	_item_menu.add_item("Renombrar…", 1)
 	_item_menu.add_separator()
 	_item_menu.add_item("Borrar", 3)
@@ -305,11 +315,39 @@ func add_selection(name: String = "", sub_id: String = "") -> Dictionary:
 	_status.text = ("✓ «%s» guardado en Recursos" % it["name"]) if not it.is_empty() else "No se pudo guardar"
 	return it
 
-func place_item(it: Dictionary, at: Vector2 = Vector2.INF) -> bool:
+func place_item(it: Dictionary, at: Vector2 = Vector2.INF, linked: Variant = null) -> bool:
 	var api := _api()
 	if api == null or it.is_empty():
 		return false
+	var link: bool = bool(linked) if linked != null else (link_check != null and link_check.button_pressed)
+	if link:
+		return _place_linked(api, it, at)
 	return bool(Lib.place(it, api.artboard(), at).get("ok", false))
+
+## Componente vinculado (VAL-23): la primera vez el recurso se coloca y se
+## convierte en componente; las siguientes son copias de ese componente.
+func _place_linked(api, it: Dictionary, at: Vector2) -> bool:
+	var asset_id := String(it["id"])
+	var sid := Symbols.for_asset(asset_id)
+	if sid != "":
+		var ab: Node2D = api.artboard()
+		var pos: Vector2 = at if at != Vector2.INF else (ab.artboard_size * 0.5 if ab and "artboard_size" in ab else Vector2.ZERO)
+		var n = api.place_symbol(sid, pos)
+		if n:
+			_status.text = "✓ Copia vinculada de «%s»" % it["name"]
+		return n != null
+	var res: Dictionary = Lib.place(it, api.artboard(), at)
+	if not res.get("ok", false) or not (res.get("node") is Node2D):
+		return false
+	var root = api.make_symbol(res["node"], String(it["name"]))
+	if root == null:
+		return false
+	var nid: String = Symbols.symbol_of(root)
+	var t: Dictionary = Symbols._table()
+	if t.has(nid):
+		t[nid]["asset"] = asset_id
+	_status.text = "✓ «%s» colocado como componente vinculado" % it["name"]
+	return true
 
 ## Archivos soltados en una sección → nuevos recursos ahí.
 func add_files(paths: PackedStringArray, sub_id: String = "") -> int:
@@ -450,6 +488,8 @@ func _on_item_menu(id: int) -> void:
 	match id:
 		0:
 			place_item(it)
+		4:
+			place_item(it, Vector2.INF, true)
 		1:
 			_ask("Renombrar recurso", String(it["name"]), func(t: String) -> void:
 				Lib.rename_asset(_menu_item_id, t)
