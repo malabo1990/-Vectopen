@@ -607,6 +607,8 @@ func _read_fill_paint(shape) -> Variant:
 			ls.append([lg.get_offset(i), lg.get_color(i)])
 		return {"type": "linear", "angle": 0.0, "stops": ls}
 	if _is_text(shape):
+		if shape.has_meta(TEXT_GRAD_META):
+			return (shape.get_meta(TEXT_GRAD_META) as Dictionary).duplicate(true)
 		return {"type": "solid", "color": _text_label_color(shape, "font_color", Color.BLACK)}
 	if "fill_color" in shape:
 		return {"type": "solid", "color": shape.fill_color}
@@ -1751,13 +1753,49 @@ func _write_font_face(shape, prop: String, value) -> void:
 ##  · solid  → fill_color (y quita el degradado)
 ##  · linear/radial → fill_gradient + tipo + ángulo (VectorShape); Line2D usa
 ##    su `gradient` nativo.
+## Degradado en el RELLENO de un texto (encargo 17): se guarda en esta meta y
+## se pinta con el efecto «superposición de degradado» a opacidad completa,
+## recortado a las letras (TextFx). Lineal / radial / cónico se dibujan
+## lineales con su ángulo (el efecto de texto solo tiene el lineal). Ojo:
+## el ángulo de fill_paint va en RADIANES y el del efecto en grados.
+const TEXT_GRAD_META := "text_fill_grad"
+const _TextFxRef = preload("res://script_gdscript/text/text_fx.gd")
+
+func _write_text_fill_grad(shape, value) -> void:
+	var fx: Array = (shape.get_meta("effects", []) as Array).duplicate(true) if shape.has_meta("effects") else []
+	fx = fx.filter(func(e) -> bool: return not (e is Dictionary and bool(e.get("_fill_paint", false))))
+	if value == null:
+		if shape.has_meta(TEXT_GRAD_META):
+			shape.remove_meta(TEXT_GRAD_META)
+	else:
+		var stops: Array = []
+		for st in value.get("stops", []):
+			if st is Array and st.size() >= 2:
+				stops.append([float(st[0]), st[1] if st[1] is Color else Color.WHITE])
+		if stops.size() < 2:
+			return
+		var d := {"type": String(value.get("type", "linear")), "angle": float(value.get("angle", 0.0)), "stops": stops}
+		shape.set_meta(TEXT_GRAD_META, d)
+		fx.insert(0, {"type": "gradient_overlay", "enabled": true, "opacity": 1.0, "_fill_paint": true,
+			"angle": rad_to_deg(d["angle"]), "colors": stops.map(func(x): return x[1]), "offsets": stops.map(func(x): return x[0])})
+	if fx.is_empty():
+		shape.remove_meta("effects")
+	else:
+		shape.set_meta("effects", fx)
+	_TextFxRef.sync(shape)
+
 func _write_fill_paint(shape, value) -> void:
 	if not (value is Dictionary):
 		return
 	var kind := String(value.get("type", "solid"))
+	if _is_text(shape) and kind != "solid":
+		_write_text_fill_grad(shape, value)
+		return
 	if kind == "solid":
 		var c: Color = value.get("color", Color.WHITE)
 		if _is_text(shape):
+			if shape.has_meta(TEXT_GRAD_META):
+				_write_text_fill_grad(shape, null)
 			_write_text_color(shape, "font_color", c)
 			return
 		if shape is VectorShape and shape.has_gradient_fill():

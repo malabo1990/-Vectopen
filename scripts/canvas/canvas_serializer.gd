@@ -281,6 +281,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		var _tfx = node.get_meta("effects", [])
 		if _tfx is Array and not (_tfx as Array).is_empty():
 			base["fx"] = _enc_deep(_tfx)
+		if node.has_meta("text_fill_grad"):   # relleno con degradado (encargo 17)
+			base["text_fill_grad"] = _enc_deep(node.get_meta("text_fill_grad"))
 		return base
 
 	if node is VectorCircle:
@@ -1276,6 +1278,7 @@ static func _text_from(d: Dictionary) -> Node2D:
 	cont.set_meta("text", d.get("text", ""))
 	cont.set_meta("font_size", int(d.get("font_size", 24)))
 	if d.has("text_style"): cont.set_meta(TextStyles.META_LINK, String(d["text_style"]))
+	if d.has("text_fill_grad"): cont.set_meta("text_fill_grad", _dec_deep(d["text_fill_grad"]))
 	if d.has("line_spacing"): cont.set_meta("line_spacing", int(d["line_spacing"]))
 	if d.has("letter_spacing"): cont.set_meta("letter_spacing", float(d["letter_spacing"]))
 	if d.has("font_family"): cont.set_meta("font_family", String(d["font_family"]))
