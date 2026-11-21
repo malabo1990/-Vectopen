@@ -22,6 +22,7 @@ const TextCore = preload("res://script_gdscript/text/text_core.gd")
 const TextStyles = preload("res://script_gdscript/text/text_styles.gd")
 const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
+const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
 
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
@@ -210,6 +211,8 @@ static func instantiate_elements(parent: Node, elements: Array) -> void:
 		if n:
 			parent.add_child(n)
 			_apply_transform(n, e_d)
+			if parent.is_inside_tree() and String(e_d.get("text", "")).contains("{"):
+				_PageFields.refresh_under(n)   # números de página al despertar una página
 
 
 static func _serialize_element(node: Node2D) -> Dictionary:

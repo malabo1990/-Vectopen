@@ -322,7 +322,12 @@ func _is_selection_tool() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# El manejo general del ratón global para deseleccionar o arrastrar si ya está activo
+	# Posición del PROPIO evento (no la del cursor del sistema: con tableta o
+	# eventos encadenados podía ir un paso por detrás y un clic sobre una
+	# figura se tomaba como clic en un hueco de la página → la arrastraba).
 	var global_mouse := get_global_mouse_position()
+	if event is InputEventMouse:
+		global_mouse = get_canvas_transform().affine_inverse() * (event as InputEventMouse).position
 	var local_mouse := to_local(global_mouse)
 	var total_rect := Rect2(Vector2.ZERO, artboard_size)
 

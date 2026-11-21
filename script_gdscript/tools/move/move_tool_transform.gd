@@ -459,6 +459,14 @@ func _snap_candidates_all() -> Array:
 		vistos[ab] = true
 		_snap_is_board[out.size()] = true
 		out.append(mgr.world_rect(ab))
+		# VAL-58: márgenes y columnas de la retícula de la página también
+		# atraen (antes solo se dibujaban: «para guías e imanes» sin imán).
+		if ab.has_method("column_rects") and (float(ab.get("layout_margin")) > 0.0 or int(ab.get("layout_columns")) > 1):
+			var gxf: Transform2D = (ab as Node2D).global_transform
+			for cr0 in ab.column_rects():
+				var grect := gxf * (cr0 as Rect2)
+				_snap_is_board[out.size()] = true
+				out.append(grect)
 		var dl: Node = ab.get_node_or_null("VectorDrawingLayer")
 		var raiz: Node = dl if dl else ab
 		for ch in raiz.get_children():

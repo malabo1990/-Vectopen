@@ -27,6 +27,7 @@ static func unique_child_name(parent: Node, base: String) -> String:
 		return unique_name_in(taken, b)
 	if not parent.has_node(NodePath(b)):
 		return b
+	b = _stem(b)   # «Diapositiva 2» ocupada → «Diapositiva 3», no «Diapositiva 2 2»
 	var key := parent.get_instance_id()
 	if not _next.has(key):
 		if _next.size() > 512:
@@ -52,6 +53,8 @@ static func unique_name_in(taken: Dictionary, base: String) -> String:
 	if b == "":
 		b = "Capa"
 	var n := b
+	if taken.has(n):
+		b = _stem(b)
 	var i := int(taken.get("/next/" + b, 2))
 	if taken.has(n):
 		n = "%s %d" % [b, i]
@@ -67,3 +70,12 @@ static func _sibling_named(parent: Node, n: String) -> bool:
 		if String(c.name) == n:
 			return true
 	return false
+
+
+## Raíz de un nombre numerado: «Diapositiva 2» → «Diapositiva» (al duplicar,
+## la copia se numera desde la raíz en vez de encadenar « 2 2 2»).
+static func _stem(b: String) -> String:
+	var sp := b.rfind(" ")
+	if sp > 0 and b.substr(sp + 1).is_valid_int():
+		return b.substr(0, sp)
+	return b

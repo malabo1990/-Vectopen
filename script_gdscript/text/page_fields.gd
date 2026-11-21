@@ -62,21 +62,33 @@ static func resolve(t: String, n: Node) -> String:
 static func refresh_all(tree: SceneTree) -> int:
 	var n_done := 0
 	for ab in pages(tree):
-		for t in (ab as Node).find_children("*", "Node2D", true, false):
-			if not t.has_meta("text"):
-				continue
-			var raw := String(t.get_meta("text", ""))
-			if not has_fields(raw):
-				continue
-			var shown := resolve(raw, t)
-			for nm in ["DisplayLabel", "Label"]:
-				var dl = t.get_node_or_null(nm)
-				if dl and "text" in dl and dl.text != shown:
-					dl.text = shown
-					n_done += 1
-			var vrt = t.get_node_or_null("VectorRichText")
-			if vrt and vrt.has_method("set_text"):
-				vrt.set_text(shown)
+		n_done += refresh_under(ab)
+	return n_done
+
+## Resuelve los campos de los textos de `root_node` (y él mismo). Se llama
+## también al DESPERTAR una página: abrir un documento recalculaba con las
+## páginas aún dormidas (sin nodos) y las despertadas después se quedaban con
+## «{pág} / {total}» (encargo 26).
+static func refresh_under(root_node: Node) -> int:
+	var n_done := 0
+	if not is_instance_valid(root_node) or not root_node.is_inside_tree():
+		return 0
+	for t in [root_node] + root_node.find_children("*", "Node2D", true, false):
+		if not t.has_meta("text"):
+			continue
+		var raw := String(t.get_meta("text", ""))
+		if not has_fields(raw):
+			continue
+		var shown := resolve(raw, t)
+		for nm in ["DisplayLabel", "Label"]:
+			var dl = t.get_node_or_null(nm)
+			if dl and "text" in dl and dl.text != shown:
+				dl.text = shown
+				n_done += 1
+		var vrt = t.get_node_or_null("VectorRichText")
+		if vrt and vrt.has_method("set_text") and String(vrt.get_text()) != shown:
+			vrt.set_text(shown)
+			n_done += 1
 	return n_done
 
 ## Firma del orden de páginas (para saber cuándo recalcular).

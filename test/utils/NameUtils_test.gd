@@ -23,3 +23,14 @@ func test_sin_padre_no_revienta() -> void:
 
 func test_base_vacia_usa_capa() -> void:
 	assert_str(NameUtils.unique_child_name(null, "   ")).is_equal("Capa")
+
+## VAL-59: duplicar «Diapositiva 2» da «Diapositiva 3», no «Diapositiva 2 2».
+func test_duplicar_nombre_numerado_sigue_la_serie() -> void:
+	var p := Node.new()
+	for nm in ["Diapositiva", "Diapositiva 2"]:
+		var c := Node.new()
+		c.name = nm
+		p.add_child(c)
+	assert_str(NameUtils.unique_child_name(p, "Diapositiva 2")).is_equal("Diapositiva 3")
+	assert_str(NameUtils.unique_name_in({"Rect 2": true}, "Rect 2")).is_equal("Rect 3")
+	p.free()
