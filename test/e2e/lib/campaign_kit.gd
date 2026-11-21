@@ -293,9 +293,12 @@ func undo_redo(n: int) -> void:
 	for i in n:
 		if not hm.can_undo():
 			break
+		var nm: String = hm.get_undo_name() if hm.has_method("get_undo_name") else ""
 		hm.undo()
 		done += 1
 		await t.process_frame
+		if OS.has_environment("UNDO_TRACE"):
+			print("UNDO %d «%s» → %d figuras" % [i, nm, count_shapes(cont)])
 	for i in done:
 		hm.redo()
 		await t.process_frame
