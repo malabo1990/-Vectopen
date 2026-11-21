@@ -83,6 +83,13 @@ static func execute(id: String, host: Node) -> void:
 					break
 		"insert_table", "table_add_row", "table_add_col", "table_delete_row", "table_delete_col":
 			_table_action(host, id)
+		"simplify_path":
+			var pm7 := host.get_node_or_null("/root/PluginManager")
+			if pm7 and pm7.api:
+				var removed: int = pm7.api.simplify_path(selection(host), 1.0)
+				var ge7 := host.get_node_or_null("/root/GlobalEvents")
+				if ge7 and ge7.has_signal("user_notice"):
+					ge7.user_notice.emit("info", "Simplificado: %d nodos menos." % removed)
 		"make_mask":
 			# La figura de ARRIBA de la selección recorta al resto (como Ctrl+7
 			# en Illustrator).

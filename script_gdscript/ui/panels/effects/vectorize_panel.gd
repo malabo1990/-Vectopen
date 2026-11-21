@@ -33,6 +33,7 @@ var _sl_detail: HSlider = null
 var _sl_colors: HSlider = null
 var _sl_corners: HSlider = null
 var _chk_bg: CheckBox = null
+var _chk_white: CheckBox = null
 var _chk_up: CheckBox = null
 var _chk_hide: CheckBox = null
 var _btn_go: Button = null
@@ -115,6 +116,8 @@ func _init() -> void:
 	_chk_bg = _check(self, "Quitar el fondo antes (IA)", "Elimina el fondo con un modelo de IA antes de vectorizar")
 	_chk_up = _check(self, "Mejorar ×4 antes (IA, imágenes pequeñas)", "Escala la imagen ×4 con IA: curvas más limpias en imágenes pequeñas")
 	_chk_hide = _check(self, "Ocultar la imagen original", "La imagen se oculta (no se borra) tras vectorizar")
+	_chk_white = _check(self, "Ignorar el fondo blanco", "No crea el trazado blanco del fondo de la imagen (logos escaneados)")
+	_chk_white.button_pressed = true
 	_chk_hide.button_pressed = true
 
 	_btn_go = _button(self, "Vectorizar", "Convierte la imagen seleccionada en trazados Bézier")
@@ -218,7 +221,7 @@ func vectorize_selection() -> Node2D:
 	_cleanup([src, String(res["svg"]), String(res.get("mid", ""))])
 	if not is_instance_valid(sp):
 		return null
-	var group := build_group(sp, svg, 0.25 if bool(job["up"]) else 1.0)
+	var group := build_group(sp, svg, 0.25 if bool(job["up"]) else 1.0, _chk_white == null or _chk_white.button_pressed)
 	if group == null:
 		_set_status("La imagen no produjo trazados (¿vacía o transparente?).", true)
 		return null
@@ -242,7 +245,7 @@ func _run_job(job: Dictionary) -> Dictionary:
 
 ## Crea el grupo de trazados sobre `sp`. `px_scale` = unidades de imagen por
 ## píxel del SVG (0.25 si se vectorizó la versión ×4).
-static func build_group(sp: Sprite2D, svg: String, px_scale: float = 1.0) -> Node2D:
+static func build_group(sp: Sprite2D, svg: String, px_scale: float = 1.0, drop_white_bg: bool = false) -> Node2D:
 	var group := Node2D.new()
 	group.name = NameUtils.unique_child_name(sp.get_parent(), "Vectorizado") if sp.get_parent() else "Vectorizado"
 	group.set_meta("shape_type", "group")
@@ -260,7 +263,31 @@ static func build_group(sp: Sprite2D, svg: String, px_scale: float = 1.0) -> Nod
 		# Relleno sin trazo (como la imagen original).
 		if "stroke_width" in p:
 			p.set("stroke_width", 0.0)
+	if drop_white_bg:
+		_drop_white_background(group, paths, tex_size * px_scale)
 	return group
+
+## Encargo 29: quita el FONDO blanco (el trazado casi blanco que cubre la
+## imagen entera). Los blancos interiores (huecos en el modo apilado) se
+## quedan: sin ellos se rellenarían con el color de debajo.
+static func _drop_white_background(group: Node2D, paths: Array, img_size: Vector2) -> void:
+	for p in paths:
+		if not is_instance_valid(p) or not ("fill_color" in p):
+			continue
+		var c: Color = p.fill_color
+		if c.r < 0.94 or c.g < 0.94 or c.b < 0.94:
+			continue
+		var bb := Rect2()
+		var pts: PackedVector2Array = VectorPath.closed_points(p.curve) if p is VectorPath and p.curve else PackedVector2Array()
+		if pts.is_empty():
+			continue
+		bb = Rect2(pts[0], Vector2.ZERO)
+		for q in pts:
+			bb = bb.expand(q)
+		bb = (p.transform * bb) if p is Node2D else bb
+		if bb.size.x >= img_size.x * 0.95 and bb.size.y >= img_size.y * 0.95:
+			group.remove_child(p)
+			p.free()
 
 func _commit_group(sp: Sprite2D, group: Node2D, hide_original: bool) -> void:
 	var parent := sp.get_parent()

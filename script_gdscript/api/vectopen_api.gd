@@ -102,6 +102,8 @@ const REFERENCE := [
 	["Tablas", "table_delete_col(tabla, columna)", "Borra una columna"],
 	["Tablas", "table_set(tabla, opciones)", "Cambia opciones: col_w, row_h, align, header, zebra, font_size, border, colors"],
 	["Tablas", "table_data(tabla) -> Array", "Textos de la tabla [[…]…]"],
+	["Organizar", "simplify_path(objeto_o_lista, tolerancia = 1.0) -> int", "Simplifica trazados Bézier (también dentro de grupos): menos nodos con la misma forma (± tolerancia px). Devuelve los nodos quitados"],
+	["Organizar", "count_nodes(objeto_o_lista) -> int", "Nodos (puntos) de los trazados, también dentro de grupos"],
 	["Organizar", "make_mask(mascara, objetos) -> bool", "Máscara de recorte: `objetos` quedan dentro de `mascara` (una figura o trazado) y recortados por su forma"],
 	["Organizar", "release_mask(mascara) -> Array", "Suelta la máscara: los objetos vuelven a su sitio sin recorte; devuelve la lista"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
@@ -127,7 +129,7 @@ const REFERENCE := [
 	["Documento", "export_pdf_pages(ruta, artboards = []) -> bool", "Todas las páginas (o las indicadas) en un PDF de varias páginas (await)"],
 	["Documento", "svg(artboard = null) -> String", "SVG del artboard como texto"],
 	["Documento", "vectorize_presets() -> Array", "Presets de vectorización"],
-	["Documento", "vectorize(imagen, preset, ocultar = true) -> Node2D", "Imagen → trazados Bézier (await)"],
+	["Documento", "vectorize(imagen, preset, ocultar = true, sin_fondo = true) -> Node2D", "Imagen → trazados Bézier (await); sin_fondo quita el trazado blanco del fondo"],
 	["Deshacer", "begin(nombre)", "Abre un paso de deshacer"],
 	["Deshacer", "end()", "Cierra el paso abierto con begin()"],
 	["Deshacer", "transaction(nombre, funcion)", "Ejecuta funcion como un paso"],
@@ -1312,7 +1314,7 @@ func vectorize_presets() -> Array:
 
 ## Vectoriza una imagen (Sprite2D) en trazados Bézier. Usar con await.
 ## Devuelve el grupo creado (o null).
-func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original: bool = true) -> Node2D:
+func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original: bool = true, drop_white_bg: bool = true) -> Node2D:
 	if not ClassDB.class_exists("VectorizerJob"):
 		error("vectorize: el vectorizador nativo no está cargado")
 		return null
@@ -1339,7 +1341,7 @@ func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original:
 	if err != "" or text == "":
 		error("vectorize: " + (err if err != "" else "sin resultado"))
 		return null
-	var g := VecPanel.build_group(sprite, text)
+	var g := VecPanel.build_group(sprite, text, 1.0, drop_white_bg)
 	if g == null:
 		error("vectorize: la imagen no produjo trazados")
 		return null
@@ -1507,6 +1509,73 @@ func table_data(t: Node) -> Array:
 		return []
 	Table.sync_from_children(tt)
 	return (tt.get_meta(Table.META)["data"] as Array).duplicate(true)
+
+# ── simplificar trazados (encargo 29) ────────────────────────────────────────
+const CurveFit = preload("res://script_gdscript/shapes/curve_fit.gd")
+const _StrokeGeomRef = preload("res://script_gdscript/shapes/stroke_geom.gd")
+
+func _paths_in(nodes: Variant) -> Array:
+	var out := []
+	for n in _as_list(nodes):
+		if not is_instance_valid(n):
+			continue
+		if n is VectorPath:
+			out.append(n)
+		for d in (n as Node).find_children("*", "", true, false):
+			if d is VectorPath:
+				out.append(d)
+	return out
+
+func count_nodes(nodes: Variant) -> int:
+	var total := 0
+	for p in _paths_in(nodes):
+		total += p.curve.point_count if p.curve else 0
+		for c in p.subpaths:
+			total += c.point_count if c else 0
+	return total
+
+## Curva simplificada (cerrada o abierta) con tolerancia en px.
+static func _simplify_curve(c: Curve2D, closed: bool, tol: float) -> Curve2D:
+	if c == null or c.point_count < 3:
+		return c
+	# Muestreo UNIFORME y fino (≤ tolerancia): el adaptativo deja pocos puntos
+	# en los arcos y el ajuste los unía con rectas (curvas aplanadas).
+	var dense := c.duplicate() as Curve2D
+	if closed and dense.point_count > 1 and not dense.get_point_position(0).is_equal_approx(dense.get_point_position(dense.point_count - 1)):
+		dense.add_point(dense.get_point_position(0), dense.get_point_in(0), Vector2.ZERO)
+	dense.bake_interval = clampf(tol, 0.5, 2.0)
+	var pts: PackedVector2Array = dense.get_baked_points()
+	if pts.size() < 4:
+		return c
+	var out := CurveFit.fit_closed(pts, maxf(0.05, tol)) if closed else CurveFit.fit(pts, maxf(0.05, tol))
+	if out == null or out.point_count < 2 or out.point_count >= c.point_count:
+		return c
+	if closed and out.point_count > 2 and out.get_point_position(0).distance_to(out.get_point_position(out.point_count - 1)) < 0.01:
+		# El cierre lo pone el trazado: el tramo final usa el tirador de
+		# entrada del PRIMER punto (se pasa ahí antes de quitar el repetido).
+		out.set_point_in(0, out.get_point_in(out.point_count - 1))
+		out.remove_point(out.point_count - 1)
+	return out
+
+func simplify_path(nodes: Variant, tolerance: float = 1.0) -> int:
+	var paths := _paths_in(nodes)
+	var before := count_nodes(paths)
+	begin("Simplificar trazado")
+	for p in paths:
+		var nc := _simplify_curve(p.curve, p.closed, tolerance)
+		if nc != p.curve:
+			set_prop(p, "curve", nc)
+		if not p.subpaths.is_empty():
+			var subs: Array[Curve2D] = []
+			var changed := false
+			for c in p.subpaths:
+				var s2 := _simplify_curve(c, true, tolerance)
+				changed = changed or s2 != c
+				subs.append(s2)
+			if changed:
+				set_prop(p, "subpaths", subs)
+	end()
+	return before - count_nodes(paths)
 
 # ── máscaras de recorte ──────────────────────────────────────────────────────
 ## ¿Puede `n` recortar a sus hijos con su forma? (figuras, trazados, polígonos)

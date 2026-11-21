@@ -319,12 +319,14 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0; 28: `proyecto_28_e2e` 22/0 — un script genera un calendario de 12 tablas en 0,3 s). Quedan 2.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0; 19: `proyecto_19_e2e` 17/0; 20: `proyecto_20_e2e` 21/0; 21: `proyecto_21_e2e` 24/0; 22: `proyecto_22_e2e` 23/0; 23: `proyecto_23_e2e` 23/0; 24: `proyecto_24_e2e` 19/0; 25: `proyecto_25_e2e` 17/0; 26: `proyecto_26_e2e` 14/0; 27: `proyecto_27_e2e` 16/0; 28: `proyecto_28_e2e` 22/0 — un script genera un calendario de 12 tablas en 0,3 s; 29: `proyecto_29_e2e` 14/0). Queda 1.
 
 Defectos destapados en la Fase B (2026-11-21):
 
 | ID | Encargo | Fallo | Estado |
 |---|---|---|---|
+| VAL-65 | 29 | Al vectorizar un logo escaneado, el fondo blanco salía como un trazado más (estorba al colocarlo sobre color) | Hecho: Vectorizar ▸ «Ignorar el fondo blanco» (activado; quita solo el blanco que cubre la imagen, no los huecos interiores) |
+| VAL-64 | 29 | No había «Simplificar trazado» (reducir nodos) | Hecho: clic derecho ▸ «Simplificar trazado» y API `simplify_path` / `count_nodes` (también dentro de grupos, un paso de deshacer). El ajuste de curvas ya no deforma la costura de un contorno cerrado ni duplica esquinas (logo: 125 → 40 nodos, 1,2 % de píxeles distintos) (`SimplifyPath_test`) |
 | VAL-63 | 27 | Al deshacer (o quitar) un parámetro del shader, el material conservaba el último valor (el color no volvía) | Hecho: los uniforms sin valor vuelven al de su código |
 | VAL-62 | 27 | Los parámetros (uniforms) de un shader propio no se podían editar en el Inspector | Hecho: `shader_params_box.gd` en la sección Shader (Modern y Pro): deslizador + número con su rango, color, interruptor, vec2; vista previa en vivo y un paso de deshacer |
 | VAL-61 | 26 | Al reabrir, los números de página («{pág} / {total}») de las páginas que se despertaban después se quedaban sin resolver | Hecho: se resuelven al despertar cada página |
@@ -352,7 +354,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 29 | Vectorizar un logo bitmap | Modern | VTracer, limpieza de nodos |
 | 30 | Vectorizar una foto y depurar | Pro | Umbrales, simplificación, rendimiento |
 
 Cada encargo: `test/e2e/proyecto_NN_e2e.gd`, fixture en

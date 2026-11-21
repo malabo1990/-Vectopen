@@ -80,8 +80,26 @@ static func _corners(pts: PackedVector2Array, error: float) -> PackedInt32Array:
 			var v0 := (pts[i] - pts[a]).normalized()
 			var v1 := (pts[b] - pts[i]).normalized()
 			if v0.dot(v1) < cos_lim and i - out[out.size() - 1] >= 2:
-				out.append(i)
-				i += 2
+				# Con muestreo fino, varios puntos seguidos alrededor de UNA
+				# esquina pasan el umbral: se toma solo el más agudo de la racha
+				# (antes salían 2–3 esquinas y tramos diminutos).
+				var best := i
+				var best_dot := v0.dot(v1)
+				var j := i + 1
+				while j < n - 1:
+					var aj := _walk(pts, j, -1, span)
+					var bj := _walk(pts, j, 1, span)
+					if aj < 0 or bj < 0:
+						break
+					var dj := (pts[j] - pts[aj]).normalized().dot((pts[bj] - pts[j]).normalized())
+					if dj >= cos_lim:
+						break
+					if dj < best_dot:
+						best_dot = dj
+						best = j
+					j += 1
+				out.append(best)
+				i = j + 1
 				continue
 		i += 1
 	out.append(n - 1)
@@ -116,6 +134,50 @@ static func _tangent_from(p: PackedVector2Array, i: int, dir: int) -> Vector2:
 		acc += (p[i + dir * k] - p[i]).normalized() / float(k)
 		k += 1
 	return acc.normalized() if acc.length_squared() > 1e-12 else (p[i + dir] - p[i]).normalized()
+
+## Contorno CERRADO → Curve2D (el último punto coincide con el primero; el
+## trazado cerrado no lo repite al dibujar). La costura no es una esquina
+## falsa: si hay esquinas reales se empieza en una; si no (círculos, manchas)
+## los dos lados de la costura comparten tangente (encargo 29: «Simplificar
+## trazado» deformaba el contorno junto al punto de inicio).
+static func fit_closed(points: PackedVector2Array, error: float) -> Curve2D:
+	var pts := _dedupe(points, maxf(error * 0.05, 0.001))
+	if pts.size() > 2 and pts[0].distance_to(pts[pts.size() - 1]) < maxf(error * 0.05, 0.001):
+		pts.remove_at(pts.size() - 1)
+	var n := pts.size()
+	if n < 4:
+		return fit(points, error)
+	# Esquinas en el contorno cíclico (se mira con el contorno duplicado).
+	var ring := pts.duplicate()
+	ring.append_array(pts)
+	var cs := _corners(ring, error)
+	var start := -1
+	for ci in cs:
+		if ci > 0 and ci < ring.size() - 1 and ci >= n / 2 and ci < n / 2 + n:
+			start = ci % n
+			break
+	if start >= 0:
+		var rot := pts.slice(start)
+		rot.append_array(pts.slice(0, start))
+		rot.append(rot[0])
+		return fit(rot, error)
+	# Sin esquinas: un solo bucle con la misma tangente a ambos lados.
+	var loop := pts.duplicate()
+	loop.append(pts[0])
+	var tc := (pts[1] - pts[n - 1]).normalized()
+	var segs: Array = []
+	_fit_cubic(loop, 0, loop.size() - 1, tc, -tc, error, segs)
+	var curve := Curve2D.new()
+	curve.add_point(segs[0][0], Vector2.ZERO, segs[0][1] - segs[0][0])
+	for i in segs.size():
+		var sg: Array = segs[i]
+		var out := Vector2.ZERO
+		if i + 1 < segs.size():
+			out = segs[i + 1][1] - segs[i + 1][0]
+		else:
+			out = segs[0][1] - segs[0][0]
+		curve.add_point(sg[3], sg[2] - sg[3], out)
+	return curve
 
 static func _fit_cubic(p: PackedVector2Array, first: int, last: int, t1: Vector2, t2: Vector2,
 		error: float, out: Array) -> void:

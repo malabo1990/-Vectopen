@@ -13,6 +13,7 @@ const _ITEMS := [
 	["TableAddCol", "table_add_col", "Tabla: añadir columna"],
 	["TableDeleteRow", "table_delete_row", "Tabla: borrar fila"],
 	["TableDeleteCol", "table_delete_col", "Tabla: borrar columna"],
+	["SimplifyPath", "simplify_path", "Simplificar trazado"],
 	["MakeMask", "make_mask", "Crear máscara de recorte"],
 	["ReleaseMask", "release_mask", "Soltar máscara"],
 	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
@@ -57,6 +58,8 @@ func _applies(action: String) -> bool:
 	if action == "text_on_path":
 		return not ContextMenuActions.text_on_path_pair(_menu).is_empty()
 	var sel := ContextMenuActions.selection(_menu)
+	if action == "simplify_path":
+		return sel.any(func(n) -> bool: return n is VectorPath or n.find_children("*", "VectorPath", true, false).size() > 0)
 	if action == "insert_table":
 		return sel.is_empty()
 	if action.begins_with("table_"):
