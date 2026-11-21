@@ -303,10 +303,15 @@ func save_reload(name: String) -> Array:
 ## Nodos internos de los efectos de texto (TextFxBack / TextFxFront): no son
 ## figuras del documento.
 func _internal_fx(c: Node) -> bool:
+	var q := c.get_parent()
+	while q:
+		if q is SubViewport:
+			return true   # copia temporal de una exportación a imagen
+		q = q.get_parent()
 	var p := c.get_parent()
 	while p:
-		if String(p.name).begins_with("TextFx"):
-			return true
+		if String(p.name).begins_with("TextFx") or p is SubViewport:
+			return true   # efectos de texto / copia temporal de una exportación a imagen
 		if p.has_meta("shape_type"):
 			return false
 		p = p.get_parent()

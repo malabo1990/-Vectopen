@@ -81,6 +81,8 @@ static func execute(id: String, host: Node) -> void:
 				if (b as Control).is_visible_in_tree():
 					(b as BaseButton).pressed.emit()
 					break
+		"insert_table", "table_add_row", "table_add_col", "table_delete_row", "table_delete_col":
+			_table_action(host, id)
 		"make_mask":
 			# La figura de ARRIBA de la selección recorta al resto (como Ctrl+7
 			# en Illustrator).
@@ -435,3 +437,43 @@ static func text_to_curves(host: Node) -> void:
 	var sm := host.get_node_or_null("/root/SelectionManager")
 	if sm and not groups.is_empty() and sm.has_method("select"):
 		sm.select(groups[0])
+
+
+# ── tablas (encargo 23) ──────────────────────────────────────────────────────
+const _Table = preload("res://script_gdscript/shapes/table.gd")
+
+## Celda [fila, columna] de la selección (si se eligió un texto de celda).
+static func _table_cell(n: Node) -> Array:
+	return n.get_meta("table_cell") if n and n.has_meta("table_cell") else []
+
+static func _table_action(host: Node, id: String) -> void:
+	var pm := host.get_node_or_null("/root/PluginManager")
+	if pm == null or pm.api == null:
+		return
+	var api = pm.api
+	if id == "insert_table":
+		var ab: Node2D = api.artboard()
+		if ab == null:
+			return
+		var sz: Vector2 = ab.artboard_size if "artboard_size" in ab else Vector2(800, 600)
+		var w := minf(600.0, sz.x * 0.8)
+		var t = api.add_table(Rect2(Vector2((sz.x - w) / 2.0, sz.y * 0.3), Vector2(w, 0)), 4, 3,
+			[["Columna 1", "Columna 2", "Columna 3"]])
+		if t: api.select([t])
+		return
+	var sel := selection(host)
+	if sel.is_empty():
+		return
+	var t: Node2D = _Table.table_of(sel[0])
+	if t == null:
+		return
+	var rc := _table_cell(sel[0])
+	var spec: Dictionary = t.get_meta(_Table.META)
+	var r: int = int(rc[0]) if not rc.is_empty() else int(spec["rows"]) - 1
+	var c: int = int(rc[1]) if not rc.is_empty() else int(spec["cols"]) - 1
+	match id:
+		"table_add_row": api.table_insert_row(t, r + 1)
+		"table_add_col": api.table_insert_col(t, c + 1)
+		"table_delete_row": api.table_delete_row(t, r)
+		"table_delete_col": api.table_delete_col(t, c)
+	api.select([t])

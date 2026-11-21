@@ -1063,6 +1063,12 @@ func draw_fill(points: PackedVector2Array) -> void:
 		draw_colored_polygon(points, Color.WHITE, _gradient_uvs(points), _ensure_grad_tex())
 	elif fill_color.a > 0.0:
 		draw_colored_polygon(points, fill_color)
+	elif clip_children != CanvasItem.CLIP_CHILDREN_DISABLED:
+		# VAL-54: una figura SIN relleno usada como máscara recorta por su
+		# forma (Godot recorta con el alfa de lo que dibuja el padre: sin
+		# área, los hijos solo se veían bajo el trazo del borde). En modo
+		# «solo recortar» este blanco no se ve. Igual que VectorPath.
+		draw_colored_polygon(points, Color.WHITE)
 
 ## Calcula el ancho de trazo y color con atenuación subpíxel para evitar que líneas < 1px se vean punteadas o desaparezcan.
 func _get_rendered_stroke_params(w: float = -1.0, col: Color = Color(-1, -1, -1, -1)) -> Array:

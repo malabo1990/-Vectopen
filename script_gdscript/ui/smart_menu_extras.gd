@@ -8,12 +8,18 @@ const _ITEMS := [
 	["TextOnPath", "text_on_path", "Texto en trazado"],
 	["ReleaseTextOnPath", "release_text_on_path", "Separar texto del trazado"],
 	["EditShape", "edit_shape", "Forma de la figura…"],
+	["InsertTable", "insert_table", "Insertar tabla"],
+	["TableAddRow", "table_add_row", "Tabla: añadir fila"],
+	["TableAddCol", "table_add_col", "Tabla: añadir columna"],
+	["TableDeleteRow", "table_delete_row", "Tabla: borrar fila"],
+	["TableDeleteCol", "table_delete_col", "Tabla: borrar columna"],
 	["MakeMask", "make_mask", "Crear máscara de recorte"],
 	["ReleaseMask", "release_mask", "Soltar máscara"],
 	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
 	["DetachSymbol", "detach_symbol", "Desvincular componente"],
 ]
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
+const _Table = preload("res://script_gdscript/shapes/table.gd")
 
 @onready var _menu: Control = get_parent() as Control
 
@@ -51,6 +57,10 @@ func _applies(action: String) -> bool:
 	if action == "text_on_path":
 		return not ContextMenuActions.text_on_path_pair(_menu).is_empty()
 	var sel := ContextMenuActions.selection(_menu)
+	if action == "insert_table":
+		return sel.is_empty()
+	if action.begins_with("table_"):
+		return sel.size() == 1 and _Table.table_of(sel[0]) != null
 	if action == "make_mask":
 		if sel.size() < 2:
 			return false

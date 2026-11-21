@@ -47,7 +47,7 @@ const REFERENCE := [
 	["Selección", "clear_selection()", "Quita la selección"],
 	["Propiedades", "props() -> Array", "Nombres de propiedades del Inspector"],
 	["Propiedades", "get_prop(objeto, prop)", "Lee una propiedad (Inspector o del nodo)"],
-	["Propiedades", "set_prop(objeto, prop, valor) -> bool", "Cambia una propiedad (con deshacer)"],
+	["Propiedades", "set_prop(objeto, prop, valor) -> bool", "Cambia una propiedad (con deshacer). También «locked» (bloquear la capa)"],
 	["Propiedades", "set_props(objeto, {prop: valor})", "Varias a la vez"],
 	["Propiedades", "set_fill(objeto, color)", "Color de relleno"],
 	["Propiedades", "set_stroke(objeto, color, grosor = -1)", "Color y grosor del trazo"],
@@ -89,6 +89,14 @@ const REFERENCE := [
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
 	["Texto", "release_text_on_path(trazo) -> Node2D", "Separa un texto en trazado: vuelve a mostrar el texto original y quita el trazo"],
+	["Tablas", "add_table(rect, filas, columnas, datos = [], opciones = {}) -> Node2D", "Tabla: cabecera, cebreado, bordes; datos = [[texto…]…]; opciones: header, zebra, font_size, align (por columna), border, colors"],
+	["Tablas", "table_set_cell(tabla, fila, columna, texto)", "Cambia el texto de una celda"],
+	["Tablas", "table_insert_row(tabla, en = -1)", "Añade una fila (al final con -1)"],
+	["Tablas", "table_delete_row(tabla, fila)", "Borra una fila"],
+	["Tablas", "table_insert_col(tabla, en = -1, ancho = 120)", "Añade una columna"],
+	["Tablas", "table_delete_col(tabla, columna)", "Borra una columna"],
+	["Tablas", "table_set(tabla, opciones)", "Cambia opciones: col_w, row_h, align, header, zebra, font_size, border, colors"],
+	["Tablas", "table_data(tabla) -> Array", "Textos de la tabla [[…]…]"],
 	["Organizar", "make_mask(mascara, objetos) -> bool", "Máscara de recorte: `objetos` quedan dentro de `mascara` (una figura o trazado) y recortados por su forma"],
 	["Organizar", "release_mask(mascara) -> Array", "Suelta la máscara: los objetos vuelven a su sitio sin recorte; devuelve la lista"],
 	["Organizar", "arrange(objeto, donde)", "Orden de capas: front, back, up, down"],
@@ -306,6 +314,12 @@ func set_prop(node: Node, prop: String, value: Variant) -> bool:
 	if ic and prop in ic.PROPS and ic._read(node, prop) != null:
 		before = ic._read(node, prop)
 		writer = func(v: Variant) -> void: ic._write(node, prop, v)
+	elif prop == "locked":
+		# Bloqueo de capa (como el candado del panel Capas): meta "locked".
+		before = bool(node.get_meta("locked", false))
+		writer = func(v: Variant) -> void:
+			if bool(v): node.set_meta("locked", true)
+			elif node.has_meta("locked"): node.remove_meta("locked")
 	elif prop in node:
 		before = node.get(prop)
 		writer = func(v: Variant) -> void:
@@ -1392,6 +1406,68 @@ func text_style_of(node: Node) -> String:
 
 func detach_text_style(nodes: Variant) -> void:
 	_ts_call(func() -> void: TextStyles.detach(_as_list(nodes)))
+
+# ── tablas ───────────────────────────────────────────────────────────────────
+const Table = preload("res://script_gdscript/shapes/table.gd")
+
+func _tbl_rec() -> Callable:
+	return func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+
+## Tabla en `rect` (esquina y ancho total; el alto lo dan las filas).
+func add_table(rect: Rect2, rows: int, cols: int, data: Array = [], options: Dictionary = {}) -> Node2D:
+	rows = maxi(1, rows)
+	cols = maxi(1, cols)
+	var spec := Table.default_spec(rows, cols, rect.size.x)
+	spec.merge(options, true)
+	for r in mini(rows, data.size()):
+		for c in mini(cols, (data[r] as Array).size()):
+			spec["data"][r][c] = str(data[r][c])
+	if rect.size.y > 0.0 and not options.has("row_h"):
+		spec["row_h"] = maxf(24.0, rect.size.y / rows)
+	var g := Node2D.new()
+	g.name = "Tabla"
+	g.set_meta("shape_type", "group")
+	g.set_meta(Table.META, spec)
+	g.position = rect.position
+	Table.rebuild(g)
+	return add(g)
+
+func _tbl(t: Node) -> Node2D:
+	var tt := Table.table_of(t)
+	if tt == null:
+		error("tabla: el objeto no es una tabla")
+	return tt
+
+func table_set_cell(t: Node, row: int, col: int, text: String) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · celda", func(s: Dictionary) -> void: Table.op_set_cell(s, row, col, text), _tbl_rec())
+
+func table_insert_row(t: Node, at: int = -1) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · añadir fila", func(s: Dictionary) -> void: Table.op_insert_row(s, int(s["rows"]) if at < 0 else at), _tbl_rec())
+
+func table_delete_row(t: Node, row: int) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · borrar fila", func(s: Dictionary) -> void: Table.op_delete_row(s, row), _tbl_rec())
+
+func table_insert_col(t: Node, at: int = -1, width: float = 120.0) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · añadir columna", func(s: Dictionary) -> void: Table.op_insert_col(s, int(s["cols"]) if at < 0 else at, width), _tbl_rec())
+
+func table_delete_col(t: Node, col: int) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · borrar columna", func(s: Dictionary) -> void: Table.op_delete_col(s, col), _tbl_rec())
+
+func table_set(t: Node, options: Dictionary) -> void:
+	var tt := _tbl(t)
+	if tt: Table.edit(tt, "Tabla · formato", func(s: Dictionary) -> void: s.merge(options, true), _tbl_rec())
+
+func table_data(t: Node) -> Array:
+	var tt := Table.table_of(t)
+	if tt == null:
+		return []
+	Table.sync_from_children(tt)
+	return (tt.get_meta(Table.META)["data"] as Array).duplicate(true)
 
 # ── máscaras de recorte ──────────────────────────────────────────────────────
 ## ¿Puede `n` recortar a sus hijos con su forma? (figuras, trazados, polígonos)
