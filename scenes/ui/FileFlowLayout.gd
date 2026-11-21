@@ -1210,11 +1210,14 @@ func _input(event: InputEvent) -> void:
 		_last_mouse = (event as InputEventMouse).global_position
 		if _dragging_path != "" and is_instance_valid(_drop_catcher) and _drop_catcher.visible:
 			_drop_catcher.mouse_filter = Control.MOUSE_FILTER_IGNORE if _over_drop_panel(_last_mouse) else Control.MOUSE_FILTER_STOP
-	if event is InputEventKey and event.pressed and not event.echo:
+	# VAL-67: solo con el explorador A LA VISTA. Oculto, se tragaba Esc (no se
+	# salía de editar un texto) y Espacio (mover el lienzo) si quedaba un
+	# archivo seleccionado o la vista grande «visible» dentro de un panel oculto.
+	if event is InputEventKey and event.pressed and not event.echo and is_visible_in_tree():
 		if event.keycode == KEY_SPACE and not _selected_path.is_empty():
 			_toggle_big_preview()
 			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_ESCAPE and _big_overlay and _big_overlay.visible:
+		elif event.keycode == KEY_ESCAPE and _big_overlay and _big_overlay.is_visible_in_tree():
 			_toggle_big_preview(false)
 			get_viewport().set_input_as_handled()
 

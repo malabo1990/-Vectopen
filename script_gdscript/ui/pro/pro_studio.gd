@@ -1886,7 +1886,7 @@ func _open_color_popover(target: String, anchor: Control) -> void:
 	_color_popover.global_position = Vector2(pos_x, pos_y)
 
 func _input(event: InputEvent) -> void:
-	if not (is_instance_valid(_color_popover) and _color_popover.visible):
+	if not (is_instance_valid(_color_popover) and _color_popover.is_visible_in_tree()):   # VAL-67
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		_color_popover.visible = false

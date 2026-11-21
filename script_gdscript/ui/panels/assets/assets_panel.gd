@@ -262,6 +262,7 @@ func _make_section(s: Dictionary, items: Array, searching: bool) -> Control:
 	grid.max_text_lines = 2
 	grid.auto_height = true
 	grid.select_mode = ItemList.SELECT_SINGLE
+	grid.allow_rmb_select = true   # sin esto el clic derecho no llega (menú del recurso)
 	grid.visible = searching or not bool(s.get("collapsed", false))
 	for it in items:
 		var tex: Texture2D = null

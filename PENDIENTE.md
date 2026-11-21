@@ -309,8 +309,20 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 - `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la
   batería completa; aislado pasa siempre: depende del orden de las pruebas.
-- e2e que siguen en rojo: `text_format_e2e` (3 fallos) y `text_advanced_e2e` (sin resultado) — ya fallaban antes del 2026-11-09; `pages_e2e` (clic en la miniatura 3 no va a la página 3) y `assets_ui_e2e` (clic derecho no abre el menú del recurso), ya fallaban el 2026-11-09 antes de tocar Capas; `theme_switch_strokes_e2e` (no encuentra los botones «Claro/Oscuro» del menú desde `823d1e7`), `text_render_e2e` (desde el 2026-11-02) y
-  `google_fonts_e2e` (necesita red).
+- e2e que siguen en rojo (revisado 2026-11-21): `pages_e2e` y
+  `theme_switch_strokes_e2e` ya pasan; `assets_ui_e2e` arreglado (la rejilla
+  no aceptaba el botón derecho y la prueba no desplazaba la lista: 37/0).
+  Siguen: `text_format_e2e` (3), `letter_fx_e2e` (3, = VAL-40),
+  `text_render_e2e` (3: «la letra asoma por fuera del efecto»),
+  `text_advanced_e2e` (sin resultado) y `google_fonts_e2e` (red).
+  **Pista de VAL-40 / «Escape sale de edición»**: en esas pruebas Escape
+  llega a `_input` pero no al editor nativo ni a `_unhandled_key_input`;
+  algo lo consume en `_input`. Ya corregidos (VAL-67): los popovers
+  (letras, color, trazo), el menú de Modern y el
+  explorador de archivos (que además se quedaba con ESPACIO) solo atienden
+  Esc cuando se ven de verdad; el canvas deja pasar Esc a la herramienta
+  mientras se edita y el editor nativo ya no lo consume. Falta localizar el
+  último consumidor (sospecha: un tooltip abierto de Godot).
 - Avisos «leaked at exit» al cerrar las pruebas con `quit()` (salen en todas;
   no se han visto al cerrar la app normal). Revisar si la app instalada
   cierra limpia (punto 20 de la lista del §5.2).

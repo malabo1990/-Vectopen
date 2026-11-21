@@ -492,6 +492,11 @@ func _handle_keyboard(event: InputEventKey) -> void:
 			if current_tool and current_tool.has_method("reset_text_checkpoint"):
 				current_tool.reset_text_checkpoint()
 			get_viewport().set_input_as_handled()
+		# Escape termina la edición: la herramienta de texto la gestiona (antes
+		# este «return» se la tragaba y Esc no salía de la edición).
+		elif event.keycode == KEY_ESCAPE and current_tool and current_tool.has_method("handle_input"):
+			if current_tool.handle_input(event):
+				get_viewport().set_input_as_handled()
 		return
 	var sm_edit := get_node_or_null("/root/SelectionManager")
 	if sm_edit and sm_edit.has_method("has_active_text_edit") and sm_edit.has_active_text_edit():

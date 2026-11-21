@@ -230,7 +230,10 @@ impl IControl for VectorRichText {
         } else if let Ok(key) = event.clone().try_cast::<InputEventKey>() {
             let undo_key = (key.is_ctrl_pressed() || key.is_meta_pressed())
                 && (key.get_keycode() == Key::Z || key.get_keycode() == Key::Y);
-            if self.editor.is_editing && key.is_pressed() && !undo_key {
+            // Escape la gestiona la herramienta (sale de la edición): antes se
+            // consumía aquí y Esc no salía (text_format_e2e, letter_fx_e2e).
+            let esc = key.get_keycode() == Key::ESCAPE;
+            if self.editor.is_editing && key.is_pressed() && !undo_key && !esc {
                 // Ctrl+Z / Ctrl+Y siguen al historial de Vectopen (el editor
                 // no tiene deshacer propio).
                 // Consumir la tecla: si no, sigue hasta los atajos globales del

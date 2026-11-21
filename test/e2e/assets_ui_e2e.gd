@@ -242,7 +242,16 @@ func _run() -> void:
 	# 9. clic derecho
 	g_gen = panel.grid_of(gen)
 	if g_gen.item_count > 0 and not (g_gen.get_item_metadata(0) as Dictionary).is_empty():
-		await click(g_gen.get_global_transform() * g_gen.get_item_rect(0).get_center(), MOUSE_BUTTON_RIGHT)
+		# Como el usuario: desplazar la lista hasta la sección (quedaba fuera de
+		# la zona visible y el clic caía en el panel).
+		var sc: Node = g_gen.get_parent()
+		while sc and not (sc is ScrollContainer):
+			sc = sc.get_parent()
+		if sc:
+			(sc as ScrollContainer).ensure_control_visible(g_gen)
+			await frames(3)
+		var at_r: Vector2 = g_gen.get_global_transform() * g_gen.get_item_rect(0).get_center()
+		await click(at_r, MOUSE_BUTTON_RIGHT)
 		await frames(3)
 		check("clic derecho abre el menú del recurso", panel._item_menu.visible)
 		panel._item_menu.hide()

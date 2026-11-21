@@ -441,7 +441,9 @@ func _execute_action(id: String) -> void:
 	ContextMenuActions.execute(id, self)
 
 func _input(event: InputEvent) -> void:
-	if not visible:
+	# VAL-67: visible en PANTALLA (dentro de un panel oculto la propiedad
+	# seguía en true y se tragaba Esc: no se salía de editar un texto).
+	if not is_visible_in_tree():
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		visible = false
