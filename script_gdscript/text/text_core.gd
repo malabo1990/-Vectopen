@@ -470,6 +470,30 @@ static func sync_vrt_from_meta(shape: Node2D, vrt) -> void:
 	var runs: Array = shape.get_meta("runs", [])
 	if not runs.is_empty() and TextRuns.runs_len(runs) == txt.length():
 		set_vrt_runs(vrt, runs)
+	elif absf(float(shape.get_meta("letter_spacing", 0.0))) > 0.001:
+		# Documento sin tramos con tracking de todo el texto (VAL-52).
+		apply_letter_spacing(shape, vrt, float(shape.get_meta("letter_spacing")))
+
+## Tracking (interletra) de TODO el texto en el motor nativo (VAL-52: antes
+## solo cambiaba la meta y la etiqueta oculta; el texto no se movía). Se
+## escribe ABSOLUTO en cada tramo (no se suma: los tramos vuelven al meta) y
+## las rampas de «letras avanzadas» se suman encima al dibujar.
+static func apply_letter_spacing(shape: Node2D, vrt, ls: float) -> void:
+	if vrt == null or not vrt.has_method("get_runs_meta"):
+		return
+	var n := String(vrt.get_text()).length()
+	if n == 0:
+		return
+	var runs: Array = vrt.get_runs_meta()
+	if runs.is_empty() or TextRuns.runs_len(runs) != n:
+		runs = shape.get_meta("runs", []) if TextRuns.runs_len(shape.get_meta("runs", [])) == n else [{"length": n}]
+	var out: Array = []
+	for r in runs:
+		var d: Dictionary = (r as Dictionary).duplicate()
+		d["letter_spacing"] = ls
+		out.append(d)
+	set_vrt_runs(vrt, out)
+	shape.set_meta("runs", vrt.get_runs_meta())
 
 ## Escala el tamaño de CADA run (desde la foto `base_runs`) por `ratio` y lo
 ## guarda en el meta: así redimensionar con Ctrl conserva tamaños por letra y

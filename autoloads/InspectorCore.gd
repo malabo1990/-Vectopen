@@ -1419,6 +1419,13 @@ func _write_prop(shape, prop, value) -> void:
 				var dl2 := _text_label(shape)
 				if dl2 and dl2.has_method("apply_font_from_meta"):
 					dl2.apply_font_from_meta()
+				var vrt2 = shape.get_node_or_null("VectorRichText")
+				if vrt2:
+					TextCore.apply_letter_spacing(shape, vrt2, float(value))
+					if dl2 and dl2.has_method("set_rich_runs"):
+						dl2.set_rich_runs(shape.get_meta("runs", []))
+					vrt2.queue_redraw()
+				_refit_text_shape(shape)
 		"font_family", "font_weight", "font_italic":
 			_write_font_face(shape, prop, value)
 		"letter_proportions":
@@ -2278,6 +2285,24 @@ func _refit_text_now(shape: Node2D) -> void:
 			vrt.set_frame_size(Vector2(w, 100000.0))
 			var csz: Vector2 = vrt.get_content_size()
 			h = maxf(40.0, csz.y + LetterFx.wave_extent(shape, String(shape.get_meta("text", "")).length()))
+			# Varias columnas: con el marco «infinito» todo cae en la primera y
+			# el alto era el de UNA columna (la 2.ª quedaba vacía y el texto
+			# desbordaba la página). Se busca el alto mínimo en que el texto
+			# cabe repartido en todas (columnas equilibradas, como InDesign).
+			var ncol := int(shape.get_meta("columns", 1))
+			if ncol > 1 and vrt.has_method("is_overset"):
+				var lo := maxf(20.0, h / ncol)
+				var hi := h
+				for _i in 12:
+					var mid := (lo + hi) * 0.5
+					vrt.set_frame_size(Vector2(w, mid))
+					if vrt.is_overset():
+						lo = mid
+					else:
+						hi = mid
+					if hi - lo < 1.0:
+						break
+				h = maxf(40.0, ceilf(hi) + 2.0)
 			vrt.set_frame_size(Vector2(w, h))
 			vrt.custom_minimum_size = Vector2(w, h)
 			vrt.size = Vector2(w, h)
