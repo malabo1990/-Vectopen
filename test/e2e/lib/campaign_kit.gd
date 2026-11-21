@@ -222,7 +222,7 @@ func text_on_path(text: String, size: float, color: Color, path: Node2D, params:
 func count_shapes(root_node: Node) -> int:
 	var n := 0
 	for c in root_node.find_children("*", "", true, false):
-		if (c is VectorShape or c is Line2D or c is Path2D or c is Sprite2D or c.has_meta("shape_type")) and not String(c.name).begins_with("_") and not (c.get_parent() is Line2D):
+		if (c is VectorShape or c is Line2D or c is Path2D or c is Sprite2D or c.has_meta("shape_type")) and not String(c.name).begins_with("_") and not (c.get_parent() is Line2D) and not _internal_fx(c):
 			n += 1
 	return n
 
@@ -260,6 +260,10 @@ func import_back(paths: Dictionary, label: String) -> void:
 func save_reload(name: String) -> Array:
 	var path := ProjectSettings.globalize_path(out_dir.path_join(name + ".vtc"))
 	var n0 := count_shapes(cont)
+	var names0 := {}
+	if OS.has_environment("UNDO_TRACE"):
+		for k in _counted(cont):
+			names0[k.get_slice(" (", 0).rstrip("0123456789@ ")] = names0.get(k.get_slice(" (", 0).rstrip("0123456789@ "), 0) + 1
 	var t0 := Time.get_ticks_msec()
 	check("guardar %s.vtc" % name, CS.write_vtc(path, cont))
 	note("%s_guardar_ms" % name, Time.get_ticks_msec() - t0)
@@ -283,12 +287,41 @@ func save_reload(name: String) -> Array:
 	await frames(20)
 	note("%s_abrir_ms" % name, Time.get_ticks_msec() - t0)
 	var n1 := count_shapes(cont)
+	if OS.has_environment("UNDO_TRACE"):
+		var names1 := {}
+		for k in _counted(cont):
+			var kk: String = k.get_slice(" (", 0).rstrip("0123456789@ ")
+			names1[kk] = names1.get(kk, 0) + 1
+		for k in names1:
+			if names1[k] != names0.get(k, 0): print("RELOAD ", k, " ", names0.get(k, 0), " → ", names1[k])
+		for k in names0:
+			if not names1.has(k): print("RELOAD ", k, " ", names0[k], " → 0")
 	check("reabrir %s sin pérdidas (%d figuras)" % [name, n0], n1 == n0, "%d → %d" % [n0, n1])
 	return abs
 
 ## Deshacer `n` pasos y rehacerlos: el documento vuelve a estar igual.
+## Nodos internos de los efectos de texto (TextFxBack / TextFxFront): no son
+## figuras del documento.
+func _internal_fx(c: Node) -> bool:
+	var p := c.get_parent()
+	while p:
+		if String(p.name).begins_with("TextFx"):
+			return true
+		if p.has_meta("shape_type"):
+			return false
+		p = p.get_parent()
+	return false
+
+func _counted(root_node: Node) -> Dictionary:
+	var out := {}
+	for c in root_node.find_children("*", "", true, false):
+		if (c is VectorShape or c is Line2D or c is Path2D or c is Sprite2D or c.has_meta("shape_type")) and not String(c.name).begins_with("_") and not (c.get_parent() is Line2D) and not _internal_fx(c):
+			out[str(root_node.get_path_to(c)) + " (" + c.get_class() + ")"] = true
+	return out
+
 func undo_redo(n: int) -> void:
 	var c0 := count_shapes(cont)
+	var set0 := _counted(cont) if OS.has_environment("UNDO_TRACE") else {}
 	var done := 0
 	for i in n:
 		if not hm.can_undo():
@@ -303,6 +336,12 @@ func undo_redo(n: int) -> void:
 		hm.redo()
 		await t.process_frame
 	await frames(4)
+	if OS.has_environment("UNDO_TRACE"):
+		var set1 := _counted(cont)
+		for k in set1:
+			if not set0.has(k): print("UNDO+ ", k)
+		for k in set0:
+			if not set1.has(k): print("UNDO- ", k)
 	check("deshacer y rehacer %d pasos" % done, done >= mini(n, 10) and count_shapes(cont) == c0, "%d pasos · %d → %d" % [done, c0, count_shapes(cont)])
 
 ## Tiempo medio de fotograma (ms) redibujando todo lo visible.

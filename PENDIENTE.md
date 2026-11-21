@@ -319,12 +319,13 @@ reencuadra la vista: `canvas.frame_artboard`), VAL-17 (Smart: clic derecho ▸
 
 ## 5. Fase B — Validación con proyectos reales (encargos 11–30)
 
-Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0). Quedan 13.
+Encargos 01–13 **aprobados** (11: `proyecto_11_e2e` 22/0; 12: `proyecto_12_e2e` 12/0; 13: `proyecto_13_e2e` 16/0 — 302 trazos a 60 fps, también con zoom 400 %; 14: `proyecto_14_e2e` 24/0; 15: `proyecto_15_e2e` 23/0; 16: `proyecto_16_e2e` 20/0; 17: `proyecto_17_e2e` 26/0; 18: `proyecto_18_e2e` 21/0). Quedan 12.
 
 Defectos destapados en la Fase B (2026-11-21):
 
 | ID | Encargo | Fallo | Estado |
 |---|---|---|---|
+| VAL-48 | 18 | Un texto con efectos guardaba sus capas internas (TextFxBack/Front) como hijos: al reabrir aparecía un nodo fantasma dentro del texto | Hecho (`TextFxNotSaved_test`) |
 | VAL-47 | 17 | Un TEXTO no admitía relleno con degradado (`fill_paint` se quedaba en sólido) | Hecho: degradado en el relleno del texto (se pinta con la superposición de degradado recortada a las letras; se guarda y se reabre). Ojo: el ángulo de `fill_paint` va en radianes |
 | VAL-46 | 15 | Con la página activa (queda SELECCIONADA al crearla o activarla), el primer clic con Mover sobre una figura de dentro arrastraba la página y no seleccionaba nada | Hecho: la página solo se arrastra desde un hueco vacío o con la herramienta Página (como Figma) |
 | VAL-45 | 15 | El bloqueo de las capas se perdía al guardar y reabrir | Hecho (`LockedPersist_test`) |
@@ -336,7 +337,6 @@ Defectos destapados en la Fase B (2026-11-21):
 
 | # | Encargo | Modo principal | Foco de la prueba |
 |---:|---|---|---|
-| 18 | Packaging con texto en curva | Pro | Texto sobre trayectoria, 3D de texto |
 | 19 | Menú de restaurante | Smart | Párrafos, estilos, export PDF |
 | 20 | Invitación con caligrafía | Smart | Pincel caligráfico, presión |
 | 21 | Póster tipográfico | Pro | Solo texto, interlineado, tracking |

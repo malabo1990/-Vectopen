@@ -224,7 +224,9 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 	# hijos → el anidado se perdía al guardar/recargar.
 	var _kids: Array = []
 	for _ch in node.get_children():
-		if _ch is Node2D:
+		# VAL-48: las capas internas (efectos de texto TextFxBack/Front…) se
+		# rehacen solas; guardarlas creaba un nodo fantasma al reabrir.
+		if _ch is Node2D and not _ch.has_meta("_vectopen_internal"):
 			var _ce := _serialize_element(_ch)
 			if not _ce.is_empty():
 				_kids.append(_ce)
