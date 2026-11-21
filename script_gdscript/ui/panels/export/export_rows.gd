@@ -163,6 +163,9 @@ func _init() -> void:
 	_dest_btn.clip_text = true
 	_dest_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_dest_btn.pressed.connect(_show_dest_menu)
+	var pdf_btn := _button(opts, "PDF de todas las páginas", "Todas las páginas del documento en un solo PDF (cada una con su tamaño y sangrado)")
+	pdf_btn.name = "ExportPagesPdf"
+	pdf_btn.pressed.connect(func() -> void: export_pages_pdf())
 	# Ajustes por formato (plegable): fichas PNG · JPEG · WEBP · SVG · PDF · EPS.
 	_fmt_toggle = _button(self, "Ajustes de formato  ▾", "Calidad, fondo y texto de cada formato")
 	_fmt_toggle.name = "FormatSettingsToggle"
@@ -485,6 +488,27 @@ func export_checked() -> PackedStringArray:
 		_set_status("Marca alguna fila (o arrástrala a una carpeta)", false)
 		return PackedStringArray()
 	return await export_rows_to(checked, dest_dir)
+
+## Todas las páginas en UN PDF en la carpeta de destino. Devuelve la ruta.
+func export_pages_pdf() -> String:
+	var api := _api()
+	var iem := get_node_or_null("/root/ImportExportManager")
+	if api == null or iem == null:
+		return ""
+	var abs: Array = api.artboards()
+	if abs.is_empty():
+		_set_status("No hay páginas que exportar", false)
+		return ""
+	var sm := get_node_or_null("/root/SaveManager")
+	var base := String(sm.current_path).get_file().get_basename() if sm and String(sm.current_path) != "" else "Documento"
+	var path: String = iem.unique_path(dest_dir, base, "pdf")
+	var err: Error = await iem.export_pdf_pages(abs, path)
+	if err == OK:
+		_last_written = PackedStringArray([path])
+		_set_status("✓ %d páginas en «%s»" % [abs.size(), path.get_file()], true)
+		return path
+	_set_status("No se pudo exportar el PDF (%s)" % error_string(err), false)
+	return ""
 
 ## Biblioteca: VOP reutilizables (soltar una fila en «Recientes»).
 var library_override := ""   # tests

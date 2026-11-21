@@ -446,7 +446,7 @@ func _create_new_title_at(local_pos: Vector2, font_size: int = 24) -> Node2D:
 		vrt.set_text_color(Color.BLACK)
 		vrt.set_font_size(float(font_size))
 		new_title.add_child(vrt)
-		label.visible = false
+		label.self_modulate = Color(1, 1, 1, 0)   # VAL-49: transparente, no visible=false (el CullManager vuelve a encender visible → texto doble)
 
 	target_artboard.add_child(new_title)
 	new_title.position = local_pos

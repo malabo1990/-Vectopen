@@ -995,6 +995,23 @@ static func _svg_text(it: Dictionary) -> String:
 # ═══════════════════════════════════ PDF ═════════════════════════════════════
 ## PDF 1.4 de una página del tamaño del artboard (1 px = 1 pt).
 static func to_pdf(data_in: Dictionary) -> PackedByteArray:
+	return to_pdf_pages([data_in])
+
+## PDF de VARIAS páginas (una por elemento de `pages`, cada una con su tamaño):
+## «Exportar todas las páginas a un PDF» (menús, revistas, presentaciones).
+static func to_pdf_pages(pages: Array) -> PackedByteArray:
+	var objs: Array = []   # PackedByteArray por objeto (1-based por índice+1)
+	objs.append("<< /Type /Catalog /Pages 2 0 R >>".to_utf8_buffer())
+	objs.append(PackedByteArray())   # árbol de páginas: al final
+	var kids := PackedStringArray()
+	for d in pages:
+		kids.append("%d 0 R" % _pdf_add_page(d, objs))
+	objs[1] = ("<< /Type /Pages /Kids [%s] /Count %d >>" % [" ".join(kids), kids.size()]).to_utf8_buffer()
+	return _pdf_serialize(objs)
+
+## Añade a `objs` una página (contenido, fuentes, transparencias, imágenes) y
+## devuelve el número de objeto de la página.
+static func _pdf_add_page(data_in: Dictionary, objs: Array) -> int:
 	# Tu fuente no está entre las 14 de un lector PDF: el texto va como curvas.
 	var data := texts_to_curves(data_in)
 	var size: Vector2 = data["size"]
@@ -1058,14 +1075,16 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 	if cur_clip != null:
 		content.append("Q")
 	var stream := "\n".join(content).to_utf8_buffer()
-	# objetos: 1 catálogo, 2 páginas, 3 página, 4 contenido, 5-8 fuentes, después gs e imágenes
-	var objs: Array = []   # PackedByteArray por objeto (1-based por índice+1)
-	objs.append("<< /Type /Catalog /Pages 2 0 R >>".to_utf8_buffer())
-	objs.append("<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_utf8_buffer())
+	var page_i := objs.size()
 	objs.append(PackedByteArray())   # página: se rellena al final
 	objs.append(_pdf_stream("", stream))
+	var content_ref := objs.size()
+	var font_res := ""
+	var fi := 0
 	for f in ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"]:
 		objs.append(("<< /Type /Font /Subtype /Type1 /BaseFont /%s /Encoding /WinAnsiEncoding >>" % f).to_utf8_buffer())
+		fi += 1
+		font_res += "/F%d %d 0 R " % [fi, objs.size()]
 	var gs_res := ""
 	for key in gstates:
 		var parts: PackedStringArray = String(key).split("|")
@@ -1102,8 +1121,11 @@ static func to_pdf(data_in: Dictionary) -> PackedByteArray:
 		var tr: Rect2 = data["trim"]
 		boxes = " /TrimBox [%s %s %s %s] /BleedBox [0 0 %s %s]" % [_n(tr.position.x * PT_PER_PX), _n((size.y - tr.end.y) * PT_PER_PX),
 			_n(tr.end.x * PT_PER_PX), _n((size.y - tr.position.y) * PT_PER_PX), _n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)]
-	objs[2] = ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s]" % [_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)] + boxes + " /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >>%s%s >> >>" % [
-		(" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
+	objs[page_i] = ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %s %s]" % [_n(size.x * PT_PER_PX), _n(size.y * PT_PER_PX)] + boxes + " /Contents %d 0 R /Resources << /Font << %s>>%s%s >> >>" % [
+		content_ref, font_res, (" /ExtGState << %s>>" % gs_res) if gs_res != "" else "", (" /XObject << %s>>" % img_res) if img_res != "" else ""]).to_utf8_buffer()
+	return page_i + 1
+
+static func _pdf_serialize(objs: Array) -> PackedByteArray:
 	var pdf := "%PDF-1.4\n%âãÏÓ\n".to_utf8_buffer()
 	var offsets := PackedInt64Array()
 	for i in objs.size():

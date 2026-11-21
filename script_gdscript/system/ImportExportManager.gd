@@ -489,6 +489,30 @@ func export_artboard(artboard: Node, format: ExportFormat, path: String, setting
 	_export_done(format_name, path, err, chk)
 	return err
 
+## Todas las páginas (o las de `artboards`, en ese orden) en UN PDF de varias
+## páginas, cada una con su tamaño y su sangrado. Usar con await.
+func export_pdf_pages(artboards: Array, path: String, settings: Dictionary = {}) -> Error:
+	var list := artboards.filter(func(a) -> bool: return is_instance_valid(a) and "artboard_size" in a)
+	if list.is_empty():
+		GlobalEvents.emit_safe("export_error", "PDF", "no hay páginas que exportar")
+		return ERR_INVALID_PARAMETER
+	var chk := _preflight_export("PDF", path, Vector2.ZERO)
+	if not chk["ok"]:
+		return ERR_CANT_CREATE
+	GlobalEvents.export_started.emit("PDF", path)
+	var transparent := bool(settings.get("transparent", false))
+	var pages: Array = []
+	for ab in list:
+		if ab.has_method("wake_now"):
+			ab.wake_now()   # las páginas dormidas no tienen nodos que recorrer
+		var pd := VectorExport.collect(ab, transparent)
+		if bool(settings.get("bleed", true)) and "bleed" in ab:
+			pd = VectorExport.with_bleed(pd, float(ab.bleed))
+		pages.append(pd)
+	var err := _write_bytes(path, VectorExport.to_pdf_pages(pages))
+	_export_done("PDF", path, err, chk)
+	return err
+
 # ── comprobaciones previas y avisos ─────────────────────────────────────────
 func _open_document() -> String:
 	var sm := get_node_or_null("/root/SaveManager")

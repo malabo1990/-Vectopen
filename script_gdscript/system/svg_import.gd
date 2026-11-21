@@ -915,7 +915,7 @@ static func _text_node(it: Dictionary) -> Node2D:
 		vrt.set_text_color(t.get_meta("text_color"))
 		vrt.set_font_size(float(label.base_font_size))
 		t.add_child(vrt)
-		label.visible = false
+		label.self_modulate = Color(1, 1, 1, 0)   # VAL-49: transparente, no visible=false (el CullManager vuelve a encender visible → texto doble)
 	return t
 
 const TextCore = preload("res://script_gdscript/text/text_core.gd")

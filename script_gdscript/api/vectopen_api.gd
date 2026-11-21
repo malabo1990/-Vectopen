@@ -111,6 +111,7 @@ const REFERENCE := [
 	["Documento", "add_artboard(tamaño, nombre) -> Node2D", "Artboard nuevo (y activo)"],
 	["Documento", "add_image(ruta_o_image, centro) -> Node2D", "Imagen"],
 	["Documento", "export(ruta, artboard = null, opciones = {}) -> bool", ".svg .pdf .eps .png .jpg .webp .vop .tscn .scn (await)"],
+	["Documento", "export_pdf_pages(ruta, artboards = []) -> bool", "Todas las páginas (o las indicadas) en un PDF de varias páginas (await)"],
 	["Documento", "svg(artboard = null) -> String", "SVG del artboard como texto"],
 	["Documento", "vectorize_presets() -> Array", "Presets de vectorización"],
 	["Documento", "vectorize(imagen, preset, ocultar = true) -> Node2D", "Imagen → trazados Bézier (await)"],
@@ -531,7 +532,7 @@ func add_text(pos: Vector2, text: String, font_size: int = 24, color: Color = Co
 		vrt.set_text_color(color)
 		vrt.set_font_size(float(font_size))
 		t.add_child(vrt)
-		label.visible = false
+		label.self_modulate = Color(1, 1, 1, 0)   # VAL-49: transparente, no visible=false (el CullManager vuelve a encender visible → texto doble)
 	t.position = pos
 	var size := label.get_theme_font(&"font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size) \
 		if label.get_theme_font(&"font") else Vector2(text.length() * font_size * 0.6, font_size * 1.2)
@@ -592,7 +593,7 @@ func add_text_box(rect: Rect2, text: String, font_size: int = 14, color: Color =
 		vrt.set_font_size(float(font_size))
 		vrt.set_columns(clampi(columns, 1, 16), maxf(0.0, gap))
 		t.add_child(vrt)
-		label.visible = false   # VAL-22: pinta el nativo (si no, salían los dos)
+		label.self_modulate = Color(1, 1, 1, 0)   # VAL-49: transparente, no visible=false (el CullManager vuelve a encender visible → texto doble)
 	t.position = rect.position
 	var out := add(t)
 	# Como add_text: el marco nace ajustado a su contenido (si no, el primer
@@ -1265,6 +1266,18 @@ func export(path: String, ab: Node2D = null, options: Dictionary = {}) -> bool:
 	var err: Error = await iem.export_artboard(a, iem.ExportFormat[fmt[ext]], path, options)
 	if err != OK:
 		error("export: no se pudo escribir «%s» (%s)" % [path, error_string(err)])
+	return err == OK
+
+## Un PDF con varias páginas: todas las del documento o las de `abs`.
+func export_pdf_pages(path: String, abs: Array = []) -> bool:
+	var iem := _n("ImportExportManager")
+	if iem == null:
+		error("export_pdf_pages: no hay exportador")
+		return false
+	var list := abs if not abs.is_empty() else artboards()
+	var err: Error = await iem.export_pdf_pages(list, path)
+	if err != OK:
+		error("export_pdf_pages: no se pudo escribir «%s» (%s)" % [path, error_string(err)])
 	return err == OK
 
 ## SVG del artboard como texto.
