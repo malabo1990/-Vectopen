@@ -33,6 +33,9 @@ var downloading := false
 var _http: HTTPRequest
 
 func _ready() -> void:
+	# una línea en el registro (logcat en Android): qué librerías nativas cargaron
+	print("[Vectopen] %s · %s · nativas: %s" % [current_version(), OS.get_name(),
+		load("res://script_gdscript/system/bug_report.gd").native_status()])
 	if OS.has_feature("editor") or DisplayServer.get_name() == "headless" or OS.has_environment("VECTOPEN_NO_UPDATE_CHECK"):
 		return
 	if auto_check_enabled() and Time.get_unix_time_from_system() - _cfg_get("last_check", 0.0) > CHECK_EVERY_S:

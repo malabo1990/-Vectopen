@@ -13,3 +13,8 @@ func test_otros_sistemas_mensaje_general() -> void:
 	assert_str(t).not_contains("Intel")
 	assert_str(t).contains("Reinstala")
 	assert_str(VP.unavailable_reason("macOS", "arm64")).not_contains("procesador Intel")
+
+func test_android_explica_que_aun_no_hay_vectorizador_en_movil() -> void:
+	var t := VP.unavailable_reason("Android", "arm64")
+	assert_str(t).contains("móviles")
+	assert_str(t).not_contains("Reinstala")

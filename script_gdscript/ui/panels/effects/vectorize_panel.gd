@@ -162,6 +162,8 @@ func _image_sprite() -> Sprite2D:
 static func unavailable_reason(os_name: String = OS.get_name(), arch: String = Engine.get_architecture_name()) -> String:
 	if os_name == "macOS" and arch in ["x86_64", "x86_32"]:
 		return "El vectorizador IA no está disponible en Mac con procesador Intel: su motor de IA (ONNX Runtime) no existe para esta plataforma. Sí funciona en Mac con Apple Silicon (M1 o posterior), Windows y Linux. Mientras, puedes importar el SVG vectorizado desde otra aplicación."
+	if os_name in ["Android", "iOS"]:
+		return "El vectorizador IA todavía no está disponible en móviles y tabletas (su motor de IA no se incluye en esta versión). Funciona en Windows, Linux y Mac con Apple Silicon."
 	return "El vectorizador no se ha podido cargar en este equipo (falta su librería nativa). Reinstala Vectopen o informa del problema desde Acerca de ▸ «Contactar / informar de un error»."
 
 func _refresh_target() -> void:

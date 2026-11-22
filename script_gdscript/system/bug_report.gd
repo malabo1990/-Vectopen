@@ -54,6 +54,14 @@ static func _log_tail(lines: int = 60) -> String:
 
 ## Informe completo (Markdown). `kind` ∈ KINDS, `message` = lo que escribe el
 ## usuario; `with_tech` = adjuntar los datos técnicos.
+## Qué librerías nativas (Rust) han cargado: texto, importadores, vectorizador.
+## Sin ellas Vectopen funciona con su versión GDScript, más lenta.
+static func native_status() -> String:
+	var parts: Array = []
+	for pair in [["texto", "VectorRichText"], ["importadores", "VectopenIO"], ["vectorizador", "ImageVectorizer"]]:
+		parts.append("%s %s" % [pair[0], "sí" if ClassDB.class_exists(pair[1]) else "no"])
+	return ", ".join(parts)
+
 static func build(kind: String, message: String, email: String = "", with_tech: bool = true) -> String:
 	var t := "<!-- vectopen-report kind=%s version=%s os=%s -->\n" % [kind, app_version(), OS.get_name()]
 	t += "## %s\n\n%s\n\n" % [KINDS.get(kind, "Informe"), message.strip_edges() if message.strip_edges() != "" else "_(sin descripción)_"]
@@ -66,6 +74,7 @@ static func build(kind: String, message: String, email: String = "", with_tech: 
 	t += "- Sistema: %s %s · %s\n" % [OS.get_name(), OS.get_version(), Engine.get_architecture_name()]
 	t += "- Interfaz: %s · renderizador: %s\n" % [_ui_mode(), RenderingServer.get_current_rendering_method()]
 	t += "- Vídeo: %s\n" % RenderingServer.get_video_adapter_name()
+	t += "- Librerías nativas: %s\n" % native_status()
 	var errs := recent_errors(10)
 	if not errs.is_empty():
 		t += "\n### Errores recientes\n\n```\n"

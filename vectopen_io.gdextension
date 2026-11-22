@@ -14,3 +14,7 @@ macos.debug.arm64 =       "res://rust/vectopen_io/target/debug/libvectopen_io.dy
 macos.release.arm64 =     "res://rust/vectopen_io/target/release/libvectopen_io.dylib"
 ios.debug =               "res://rust/vectopen_io/target/aarch64-apple-ios/debug/libvectopen_io.dylib"
 ios.release =             "res://rust/vectopen_io/target/aarch64-apple-ios/release/libvectopen_io.dylib"
+android.debug.arm64 =      "res://rust/vectopen_io/target/aarch64-linux-android/release/libvectopen_io.so"
+android.release.arm64 =    "res://rust/vectopen_io/target/aarch64-linux-android/release/libvectopen_io.so"
+android.debug.x86_64 =     "res://rust/vectopen_io/target/x86_64-linux-android/release/libvectopen_io.so"
+android.release.x86_64 =   "res://rust/vectopen_io/target/x86_64-linux-android/release/libvectopen_io.so"

@@ -56,7 +56,6 @@ Referencia (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
 
 | ID | Tarea | Estado |
 |---|---|---|
-| PLAT-06 | Librerías nativas en Android (falta el NDK; mientras, texto e importadores por GDScript) | Pendiente |
 | PLAT-08 | Interfaz para Android y tabletas (la APK es una vista previa) | **[usuario]** la diseña el usuario |
 
 ## 0 octies. Tanda del usuario (2026-11-13/21)
