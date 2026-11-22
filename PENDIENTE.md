@@ -19,7 +19,10 @@ Un punto por iteración:
 - Pruebas e2e en la Huion (`--screen 1`) con ajustes de fábrica; suite
   unitaria (`bash test/run_unit.sh`) en verde antes de cada commit.
 - Al cerrar algo, **se quita de este documento**.
-- Los puntos marcados **[decisión]** esperan al usuario: no se empiezan.
+- 2026-11-22: el usuario pide hacerlo TODO («hazlo todos»), probarlo él y
+  después publicar la 0.2.4-beta. Las decisiones pendientes se tomaron con
+  la recomendación de Claude (anotadas como **Decidido**); **[usuario]** =
+  solo lo puede hacer el usuario. No publicar hasta que el usuario lo pruebe.
 
 ---
 
@@ -40,7 +43,7 @@ Referencia (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
 
 | ID | Punto | Estado |
 |---|---|---|
-| — | Memoria ~31 KB por elemento (figuras ~22 KB, trazos ~24 KB): bajarla exige rehacer la estructura de VectorShape | **[decisión]** ¿merece la pena? |
+| — | Memoria ~31 KB por elemento (figuras ~22 KB, trazos ~24 KB): bajarla exige rehacer la estructura de VectorShape | **Decidido**: mejoras sin rehacer VectorShape (cachés, metas, nodos auxiliares por demanda) |
 | — | Dibujar con todo a la vista (50 000) y zoom: nivel de detalle / caché al alejar. Quedan ~1,8 llamadas de dibujo por elemento | En curso |
 | — | CullManager: «dormir» páginas lejanas (`stream_artboards`). Apagado: nunca funcionó; probar con documentos de muchas páginas antes de activarlo | Pendiente |
 | — | Seleccionar todo con 50 000 (5 s) y mover la selección (184 ms por paso) | En curso |
@@ -53,14 +56,19 @@ Referencia (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
 
 | ID | Tarea | Estado |
 |---|---|---|
-| PLAT-05 | Subir la clave permanente de Android como secretos de GitHub (`ANDROID_KEYSTORE_BASE64/USER/PASSWORD`; está en `~/.local/share/vectopen-release/`) | **[decisión]** |
+| PLAT-05 | Subir la clave permanente de Android como secretos de GitHub (`ANDROID_KEYSTORE_BASE64/USER/PASSWORD`; está en `~/.local/share/vectopen-release/`) | **Decidido**: subirla (sin mostrar valores) |
 | PLAT-06 | Librerías nativas en Android (falta el NDK; mientras, texto e importadores por GDScript) | Pendiente |
-| PLAT-08 | Interfaz para Android y tabletas (la APK es una vista previa) | **[decisión]** la diseña el usuario |
+| PLAT-08 | Interfaz para Android y tabletas (la APK es una vista previa) | **[usuario]** la diseña el usuario |
 
 ## 0 octies. Tanda del usuario (2026-11-13/21) — sin empezar
 
 Ninguna de estas peticiones está diseñada ni implementada: son el encargo
 tal cual lo pidió el usuario, para abrirlas una por iteración (§0).
+
+> **Decidido (USR-35/36/37)**: transporte = issue de GitHub pre-rellenado
+> (se abre en el navegador, el usuario lo revisa y envía; sin servidor ni
+> datos enviados a escondidas) + copia local en `user://bug_reports/`; una
+> GitHub Action etiqueta y clasifica los issues que llegan con la plantilla.
 
 | ID | Petición | Estado |
 |---|---|---|
@@ -563,12 +571,12 @@ utilizarlo como base para el futuro visor web.
 
 ## 3. Publicación y actualizaciones
 
-- [ ] **[decisión]** Mac Intel: el vectorizador IA no existe (ONNX Runtime no
+- [ ] **Decidido: avisarlo en la app** · Mac Intel: el vectorizador IA no existe (ONNX Runtime no
 	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
 	  avisarlo en la app.
-- [ ] **[decisión]** Windows: el paquete es un `.zip`; el botón de actualizar
+- [ ] **Decidido: instalador NSIS** · Windows: el paquete es un `.zip`; el botón de actualizar
 	  solo lo abre. Un instalador (`.exe`/`.msi`) permitiría actualizar de verdad.
-- [ ] **[decisión]** Firmar los binarios de Windows y macOS (avisos de
+- [ ] **[usuario]** (hace falta comprar un certificado) Firmar los binarios de Windows y macOS (avisos de
 	  «desarrollador desconocido»; hace falta certificado).
 
 ---
@@ -577,7 +585,7 @@ utilizarlo como base para el futuro visor web.
 
 | ID | Fallo | Estado |
 |---|---|---|
-| VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
+| VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **Decidido**: recorte propio de la máscara interior |
 | — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana) | Abierto (menor) |
 
 ---
