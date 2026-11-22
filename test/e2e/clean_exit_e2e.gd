@@ -31,6 +31,9 @@ func _run() -> void:
 			top = top.get_parent()
 		if top == n or OS.has_environment("ORPHAN_ALL"):
 			var sc: Script = n.get_script()
-			print("ORPHAN raíz %s «%s» script=%s hijos=%d" % [n.get_class(), n.name, sc.resource_path if sc else "-", n.get_child_count(true)])
+			var kids := ""
+			for c in n.get_children(true).slice(0, 6):
+				kids += "%s(%s%s) " % [c.name, c.get_class(), (":" + String(c.get("text"))) if "text" in c else ""]
+			print("ORPHAN raíz %s «%s» script=%s hijos=%d [%s]" % [n.get_class(), n.name, sc.resource_path if sc else "-", n.get_child_count(true), kids])
 	print("CLOSE pidiendo cierre (como la X)")
 	root.propagate_notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)

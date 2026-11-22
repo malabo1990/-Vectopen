@@ -23,6 +23,12 @@ const CACHES := {
 	"res://script_gdscript/ui/transform_panel.gd": ["_icon_cache"],
 	"res://script_gdscript/ui/panels/layer_icons.gd": ["_cache"],
 	"res://scripts/canvas/world_text_label.gd": ["_glyph_cache"],
+	"res://script_gdscript/shapes/vector_light.gd": ["_tex_cache"],
+	# Objetos de las librerías NATIVAS (Rust): al cerrar, Godot descarga las
+	# extensiones antes de revisar los objetos vivos y uno que quede se
+	# avisaba como «1 ObjectDB instance leaked» de clase «RefCounted».
+	"res://script_gdscript/system/native_io.gd": ["_io"],
+	"res://script_gdscript/shapes/stroke_geom.gd": ["_geom_io"],
 }
 
 static func clear_all() -> void:

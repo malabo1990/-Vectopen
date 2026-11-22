@@ -542,7 +542,7 @@ utilizarlo como base para el futuro visor web.
 
 | ID | Fallo | Estado |
 |---|---|---|
-| — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana) | Abierto (menor) |
+| — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana). Acotado (2026-11-23): SOLO con ventana (`--path . --screen 1 --quit-after 600` lo da; sin ventana, con los mismos autoloads y la escena principal, no); no es la sonda ni el diálogo de salir; no son los objetos nativos de `native_io` / `stroke_geom` (ya se vacían al cerrar). El GridContainer huérfano que lista la sonda es el panel del complemento Repetir antes de mostrarse: se libera al cerrar | Abierto (menor) |
 
 ---
 
