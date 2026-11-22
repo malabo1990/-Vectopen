@@ -32,14 +32,25 @@ func _run() -> void:
 		await process_frame
 	await _frames(30)
 	var fc = root.get_node("FontCore")
-	var fam := "Lobster"
-	# empezar sin caché
 	var g = fc.get_node("GoogleFonts")
+	# Una familia del catálogo que NO esté instalada en el sistema (si lo
+	# está, la app usa la del sistema y no descarga nada: antes la prueba
+	# fallaba en equipos con Lobster instalada).
+	var fam := ""
+	for cand in ["Lobster", "Pacifico", "Righteous", "Bungee", "Fredoka", "Caveat", "Comfortaa", "Lobster Two"]:
+		if g.has(cand) and not fc._system_names.has(cand):
+			fam = cand
+			break
+	_check(fam != "", "hay una familia de Google no instalada en el sistema para probar")
+	print("GOOGLE familia de prueba: ", fam)
+	# empezar sin caché
 	var d: String = g.dir_for(fam)
 	if DirAccess.dir_exists_absolute(d):
 		for f in DirAccess.get_files_at(d):
 			DirAccess.remove_absolute(d + f)
 	_check(fc.list_families().has("Playfair Display") and fc.list_families().has(fam), "el catálogo de Google está en la lista")
+	print("GOOGLE estado inicial: '%s' es_google=%s" % [fc.google_state(fam), fc.is_google(fam)])
+	g.failed.connect(func(fa, why): print("GOOGLE fallo %s: %s" % [fa, why]))
 	_check(fc.google_state(fam) == "remote", "sin descargar: estado remote")
 
 	# Un texto que usa la familia antes de tenerla

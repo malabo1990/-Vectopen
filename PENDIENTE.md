@@ -618,7 +618,6 @@ utilizarlo como base para el futuro visor web.
 | VAL-66 | Foto vectorizada (1 650 trazados, ~75 000 nodos): 13 s en dibujarse al abrirla. ~15 formas con huecos «pellizcados» cuestan ~0,5 s cada una (la triangulación de Godot falla y se rehace con todos los puntos): otro triangulador (nativo en Rust) o teselar con tolerancia | Abierto |
 | VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
 | VAL-56 | Tablas v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio (la v1 está hecha) | Pendiente |
-| — | `google_fonts_e2e` necesita red (descarga fuentes de Google): comprobarla con conexión | Abierto |
 | — | `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa: depende del orden de las pruebas | Abierto |
 | — | Avisos «leaked at exit» al cerrar las pruebas con `quit()`; comprobar que la app instalada cierra limpia | Abierto |
 
