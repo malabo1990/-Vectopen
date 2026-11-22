@@ -153,6 +153,23 @@ func run_mode(mode: String) -> void:
 	await K.frames(3)
 	K.check("%s: y se puede deshacer" % mode, absf(float(L.lamp_cone) - 80.0) < 6.0, str(L.lamp_cone))
 	K.check("%s: panel con tarjetas (tipo, luz, sombra)" % mode, p.find_child("Card_TIPO_DE_LUZ", true, false) != null and p.find_child("Card_SOMBRA", true, false) != null)
+	# compacto y sin tocar el borde inferior de la ventana
+	await K.frames(4)
+	var pr: Rect2 = p.get_global_rect()
+	var vh: float = root.get_visible_rect().size.y
+	K.check("%s: el panel no llega al borde inferior (deja margen)" % mode, pr.end.y <= vh - 12.0, "fin %.0f de %.0f" % [pr.end.y, vh])
+	var types_row: Control = p.find_child("Types", true, false)
+	K.check("%s: tipos de luz en UNA fila de iconos" % mode, types_row is HBoxContainer and (p.find_child("Type_spot", true, false) as Button).tooltip_text != "")
+	var fold: Button = p.find_child("ShadowFold", true, false)
+	var sh_grid: Control = p.find_child("Shadow", true, false)
+	if fold and sh_grid:
+		var h_open := p.get_combined_minimum_size().y
+		fold.pressed.emit()
+		await K.frames(4)
+		K.check("%s: Sombra se pliega (panel más corto)" % mode, not sh_grid.visible and p.get_combined_minimum_size().y < h_open - 40.0, "%.0f → %.0f" % [h_open, p.get_combined_minimum_size().y])
+		fold.pressed.emit()
+		await K.frames(4)
+	await K.shot("panel_compacto_" + mode)
 	# «Proyecta sombra» en una figura
 	api.select([deco])
 	await K.frames(3)

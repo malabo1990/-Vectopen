@@ -73,74 +73,129 @@ func _ready() -> void:
 	_apply_theme()
 	sync()
 
+## Margen que el panel deja siempre libre hasta el borde inferior.
+const BOTTOM_GAP := 16.0
+var _scroll: ScrollContainer
+var _content: VBoxContainer
+var _type_title: Label
+var _shadow_body: Control
+var _shadow_fold: Button
+
 func _build() -> void:
+	# Compacto: cabecera de una línea, tipos en UNA fila de iconos, filas de
+	# 22 px, Sombra plegable y altura limitada (con desplazamiento interior)
+	# para no llegar nunca al borde inferior de la ventana.
 	var m := MarginContainer.new()
 	for k in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		m.add_theme_constant_override(k, 10)
+		m.add_theme_constant_override(k, 8)
 	add_child(m)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	m.add_child(vb)
-	# cabecera: título + Restablecer
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 6)
+	m.add_child(outer)
 	var head := HBoxContainer.new()
-	vb.add_child(head)
+	outer.add_child(head)
 	_title = Label.new()
 	_title.text = tr("Iluminación")
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
 	_reset = Button.new()
 	_reset.name = "Reset"
-	_reset.text = "↺  " + tr("Restablecer")
-	_reset.tooltip_text = tr("Vuelve a los valores de fábrica (luz seleccionada o próxima luz)")
+	_reset.text = "↺"
+	_reset.tooltip_text = tr("Restablecer: valores de fábrica (luz seleccionada o próxima luz)")
 	_reset.focus_mode = Control.FOCUS_NONE
-	_reset.add_theme_font_size_override("font_size", 11)
+	_reset.custom_minimum_size = Vector2(26, 22)
+	_reset.add_theme_font_size_override("font_size", 13)
 	_reset.pressed.connect(reset_to_defaults)
 	head.add_child(_reset)
 	_hint = Label.new()
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.add_theme_font_size_override("font_size", 10)
-	vb.add_child(_hint)
-	# tarjeta Tipo
+	outer.add_child(_hint)
+	_scroll = ScrollContainer.new()
+	_scroll.name = "Scroll"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(_scroll)
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 6)
+	_scroll.add_child(vb)
+	_content = vb
+	# tarjeta Tipo: una fila de iconos
 	var tbox := _card(vb, tr("TIPO DE LUZ"))
-	var types := GridContainer.new()
+	_type_title = _sections[-1]
+	var types := HBoxContainer.new()
 	types.name = "Types"
-	types.columns = 2
-	types.add_theme_constant_override("h_separation", 6)
-	types.add_theme_constant_override("v_separation", 6)
+	types.add_theme_constant_override("separation", 4)
 	tbox.add_child(types)
 	for t in LightScript.TYPES:
 		var b := Button.new()
 		b.name = "Type_" + t
-		b.text = "%s  %s" % [TYPE_GLYPH.get(t, "•"), tr(String(LightScript.TYPE_INFO[t]["label"]))]
+		b.text = TYPE_GLYPH.get(t, "•")
+		b.tooltip_text = tr(String(LightScript.TYPE_INFO[t]["label"]))
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, 28)
+		b.custom_minimum_size = Vector2(0, 26)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 11)
+		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(func() -> void: _put("type", t))
 		types.add_child(b)
 		_type_buttons[t] = b
-	# tarjeta Luz
 	var lbox := _card(vb, tr("LUZ"))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 6)
+	grid.add_theme_constant_override("v_separation", 4)
 	lbox.add_child(grid)
 	for spec in ROWS:
 		_add_row(grid, spec)
-	# tarjeta Sombra
+	# tarjeta Sombra (plegable desde su título)
 	var sbox := _card(vb, tr("SOMBRA"))
+	var stitle: Label = _sections[-1]
+	_shadow_fold = Button.new()
+	_shadow_fold.name = "ShadowFold"
+	_shadow_fold.flat = true
+	_shadow_fold.focus_mode = Control.FOCUS_NONE
+	_shadow_fold.text = "▾"
+	_shadow_fold.tooltip_text = tr("Plegar / desplegar")
+	_shadow_fold.custom_minimum_size = Vector2(20, 16)
+	var srow := HBoxContainer.new()
+	stitle.reparent(srow)
+	stitle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	srow.add_child(_shadow_fold)
+	sbox.add_child(srow)
+	sbox.move_child(srow, 0)
 	var sg := GridContainer.new()
 	sg.name = "Shadow"
 	sg.columns = 2
 	sg.add_theme_constant_override("h_separation", 8)
-	sg.add_theme_constant_override("v_separation", 6)
+	sg.add_theme_constant_override("v_separation", 4)
 	sbox.add_child(sg)
+	_shadow_body = sg
+	_shadow_fold.pressed.connect(func() -> void:
+		sg.visible = not sg.visible
+		_shadow_fold.text = "▾" if sg.visible else "▸"
+		_fit.call_deferred())
 	for spec in SHADOW_ROWS:
 		_add_row(sg, spec)
 	_rows["__shadow_title"] = [sbox.get_parent().get_parent()]
+	get_viewport().size_changed.connect(func() -> void: _fit.call_deferred())
+	vb.minimum_size_changed.connect(func() -> void: _fit.call_deferred())
+	visibility_changed.connect(func() -> void:
+		if visible:
+			_fit.call_deferred())
+
+## Altura: la del contenido, pero sin pasar del borde inferior (BOTTOM_GAP);
+## lo que no cabe se desplaza dentro del panel.
+func _fit() -> void:
+	if not is_inside_tree() or _scroll == null or _content == null:
+		return
+	var want := _content.get_combined_minimum_size().y
+	var top := global_position.y
+	var head_h := _scroll.global_position.y - top
+	var avail := get_viewport_rect().size.y - top - head_h - BOTTOM_GAP - 8.0
+	_scroll.custom_minimum_size.y = clampf(want, 80.0, maxf(avail, 80.0))
+	size.y = 0.0   # que se ajuste al mínimo
+	reset_size()
 
 ## Tarjeta con título (devuelve su caja interior).
 func _card(parent: Control, title: String) -> VBoxContainer:
@@ -153,7 +208,7 @@ func _card(parent: Control, title: String) -> VBoxContainer:
 		inner.add_theme_constant_override(k, 6)
 	pc.add_child(inner)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 4)
 	inner.add_child(v)
 	var l := Label.new()
 	l.text = title
@@ -200,7 +255,7 @@ func _add_row(grid: GridContainer, spec: Array) -> void:
 		"num":
 			var nf := NF.new("", String(spec[6]), float(spec[3]), float(spec[4]), float(spec[5]))
 			nf.decimals = 0
-			nf.custom_minimum_size = Vector2(90, 24)
+			nf.custom_minimum_size = Vector2(90, 22)
 			var k_scale: float = spec[7]
 			# Arrastrar el número: vista previa en cada movimiento (sin
 			# historial: antes cada píxel era un paso de deshacer con todos sus
@@ -217,7 +272,7 @@ func _add_row(grid: GridContainer, spec: Array) -> void:
 			c = nf
 		"color":
 			var cp := ColorPickerButton.new()
-			cp.custom_minimum_size = Vector2(90, 24)
+			cp.custom_minimum_size = Vector2(90, 22)
 			cp.edit_alpha = key == "shadow_color"
 			# rueda de color: vista previa mientras se elige, un paso al cerrar
 			cp.color_changed.connect(func(col: Color) -> void: _preview(key, col))
@@ -300,6 +355,8 @@ func _sync_from(p: Dictionary) -> void:
 	var t := String(p.get("type", "point"))
 	for k in _type_buttons:
 		(_type_buttons[k] as Button).set_pressed_no_signal(k == t)
+	if _type_title:
+		_type_title.text = "%s · %s" % [tr("TIPO DE LUZ"), tr(String(LightScript.TYPE_INFO.get(t, {}).get("label", ""))).to_upper()]
 	var info: Dictionary = LightScript.TYPE_INFO.get(t, {})
 	for spec in ROWS + SHADOW_ROWS:
 		var key: String = spec[0]
