@@ -170,6 +170,45 @@ func run_mode(mode: String) -> void:
 		fold.pressed.emit()
 		await K.frames(4)
 	await K.shot("panel_compacto_" + mode)
+	# Botón central (lápiz de tableta) + arrastrar = desplazar el panel
+	var scr: ScrollContainer = p.find_child("Scroll", true, false)
+	if scr:
+		var vb := scr.get_v_scroll_bar()
+		var needs_scroll: bool = vb.max_value - vb.page > 0.5
+		scr.scroll_vertical = 0
+		await K.frames(2)
+		var c0 := scr.get_global_rect().get_center()
+		var mmv := InputEventMouseMotion.new()
+		mmv.position = c0
+		mmv.global_position = c0
+		_send(mmv)
+		await K.frames(2)
+		var md := InputEventMouseButton.new()
+		md.position = c0
+		md.global_position = c0
+		md.button_index = MOUSE_BUTTON_MIDDLE
+		md.pressed = true
+		md.button_mask = MOUSE_BUTTON_MASK_MIDDLE
+		_send(md)
+		await K.frames(2)
+		for i in range(1, 7):
+			var m3 := InputEventMouseMotion.new()
+			m3.position = c0 + Vector2(0, -12 * i)
+			m3.global_position = m3.position
+			m3.button_mask = MOUSE_BUTTON_MASK_MIDDLE
+			_send(m3)
+			await K.frames(1)
+		var mu := InputEventMouseButton.new()
+		mu.position = c0 + Vector2(0, -72)
+		mu.global_position = mu.position
+		mu.button_index = MOUSE_BUTTON_MIDDLE
+		mu.pressed = false
+		_send(mu)
+		await K.frames(3)
+		K.check("%s: botón central + arrastrar desplaza el panel Iluminación (si no cabe entero)" % mode, scr.scroll_vertical > 20 or not needs_scroll, "scroll %d, hace falta %s" % [scr.scroll_vertical, needs_scroll])
+		scr.scroll_vertical = 0
+		p._fit()
+		await K.frames(3)
 	# «Proyecta sombra» en una figura
 	api.select([deco])
 	await K.frames(3)
