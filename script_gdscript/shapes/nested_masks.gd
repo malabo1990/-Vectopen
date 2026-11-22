@@ -56,6 +56,8 @@ static func refresh_under(root: Node, vp: Viewport = null) -> int:
 		elif bake:
 			bake.queue_free()
 			_set_layer(m, 1)
+	# el borde de cada máscara, encima de su contenido recortado
+	load("res://script_gdscript/shapes/mask_stroke.gd").refresh_under(root)
 	return n
 
 static func _sig(m: Node2D) -> int:
