@@ -93,6 +93,10 @@ var _last_layout_size: Vector2 = Vector2(-1, -1)
 var _active_custom_cursor: int = -1        # Input.CursorShape currently overridden, -1 = none
 # Corner-radius drag state
 var _radius_drag_corner: int = -1          # 0 tl, 1 tr, 2 br, 3 bl
+## Mayús + clic (sin arrastrar) en un tirador de redondeo = siguiente tipo de
+## esquina (redonda → inversa → chaflán → muesca → zigzag → sierra → …).
+var _radius_shift_click := false
+var _radius_press_pos := Vector2.ZERO
 var _radius_drag_all: bool = true
 var _radius_before: Vector4 = Vector4.ZERO
 var _radius_hover: int = -1
@@ -522,6 +526,42 @@ func _end_radius_drag() -> void:
 	if ge and ge.has_signal("object_style_changed"):
 		ge.emit_safe("object_style_changed")
 
+## Siguiente tipo de esquina (Mayús + clic en un tirador de redondeo). Si las
+## cuatro esquinas son del mismo tipo cambian todas; si ya son distintas, o
+## con Alt, solo `corner`. Un paso de deshacer.
+func cycle_corner_style(corner: int, only_this: bool = false) -> void:
+	var shape := _radius_target()
+	if shape == null or not ("corner_styles" in shape) or not shape.has_method("set_corner_style_at"):
+		return
+	var before: PackedInt32Array = (shape.corner_styles as PackedInt32Array).duplicate()
+	var n: int = shape.CORNER_STYLES.size()
+	var nxt := (int(before[corner]) + 1) % n
+	var after := before.duplicate()
+	if only_this or shape.corner_styles_mixed():
+		after[corner] = nxt
+	else:
+		after = PackedInt32Array([nxt, nxt, nxt, nxt])
+	var apply := func(v: PackedInt32Array) -> void:
+		if is_instance_valid(shape):
+			shape.corner_styles = v
+			shape.queue_redraw()
+	var hm := get_node_or_null("/root/HistoryManager")
+	if hm and hm.has_method("register_action"):
+		hm.register_action("Tipo de esquina")
+		hm.add_do(apply.bind(after))
+		hm.add_undo(apply.bind(before))
+		hm.commit()
+	apply.call(after)
+	var names := {"round": "Redonda", "inverted": "Redondeado inverso", "chamfer": "Chaflán",
+		"notch": "Muesca", "zigzag": "Zigzag", "sawtooth": "Dientes de sierra"}
+	var un := get_node_or_null("/root/UserNotices")
+	if un and un.has_method("show_notice"):
+		un.show_notice("info", tr("Esquina: %s") % tr(String(names.get(String(shape.CORNER_STYLES[nxt]), ""))))
+	var ge := get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_signal("object_style_changed"):
+		ge.emit_safe("object_style_changed")
+	queue_redraw()
+
 # ── Custom cursors for the axis and rotation handles ────────────────────────
 func _on_special_handle_hover(handle_name: String, entered: bool) -> void:
 	if not entered:
@@ -923,10 +963,23 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 			if corner >= 0:
 				# Drag = all corners together; Alt = only this corner
 				_begin_radius_drag(corner, not (event.alt_pressed or Input.is_key_pressed(KEY_ALT)))
+				_radius_shift_click = event.shift_pressed or Input.is_key_pressed(KEY_SHIFT)
+				_radius_press_pos = event.global_position
 				accept_event()
 				return
 		elif not event.pressed and _radius_drag_corner >= 0:
-			_end_radius_drag()
+			var c := _radius_drag_corner
+			var only_this := not _radius_drag_all
+			var was_click: bool = _radius_shift_click and event.global_position.distance_to(_radius_press_pos) < 4.0
+			_radius_shift_click = false
+			if was_click:
+				var shape := _radius_target()
+				if shape:
+					shape.set_corner_radii(_radius_before)   # el clic no cambia el radio
+				_radius_drag_corner = -1
+				cycle_corner_style(c, only_this)
+			else:
+				_end_radius_drag()
 			accept_event()
 			return
 	elif event is InputEventMouseMotion:

@@ -186,6 +186,7 @@ var values := {
 	"sides": 5, "corner_radius": 0.0, "poly_angle": 0.0, "poly_aspect": 1.0,
 	"points_count": 5, "inner_radius_ratio": 0.382, "star_radius": 0.0, "inner_corner_radius": -1.0, "star_angle": 0.0,
 	"rect_radius": 0.0, "independent": false, "corner_tl": 0.0, "corner_tr": 0.0, "corner_br": 0.0, "corner_bl": 0.0,
+	"corner_style": "round", "corner_style_tl": "round", "corner_style_tr": "round", "corner_style_br": "round", "corner_style_bl": "round",
 	"shape_mode": "whole", "ring_ratio": 0.5, "start_angle_deg": 0.0, "end_angle_deg": 360.0,
 	"drop_curvature": 0.5, "custom_shape": "heart",
 }
@@ -382,6 +383,7 @@ func _build_params() -> void:
 			_hint("Redondeo valles -1 = igual que las puntas")
 		Kind.RECTANGLE:
 			_field("rect_radius", "Redondeo", 0, 1000, 0.5, "px", "◜")
+			_corner_style_row("corner_style", "Tipo de esquina")
 			var chk := CheckBox.new()
 			chk.text = "Esquinas independientes"
 			chk.focus_mode = Control.FOCUS_NONE
@@ -397,6 +399,7 @@ func _build_params() -> void:
 			if bool(values["independent"]):
 				for c in [["corner_tl", "Arriba izq."], ["corner_tr", "Arriba der."], ["corner_br", "Abajo der."], ["corner_bl", "Abajo izq."]]:
 					_field(c[0], c[1], 0, 1000, 0.5, "px", "◜")
+					_corner_style_row("corner_style_" + String(c[0]).substr(7), "   Tipo")
 		Kind.ELLIPSE:
 			var row := _row("Forma")
 			var opt := OptionButton.new()
@@ -422,6 +425,52 @@ func _build_params() -> void:
 				create_in_center())
 			_hint("Clic en una forma para crearla en el centro de la mesa de trabajo.")
 	_sync_fields()
+
+## Tipos de esquina del rectángulo (redonda, redondeado INVERSO, chaflán…),
+## con el dibujo de cada uno. Antes solo estaban en el inspector.
+const CORNER_STYLE_ITEMS := [["round", "Redonda"], ["inverted", "Redondeado inverso"], ["chamfer", "Chaflán"],
+	["notch", "Muesca"], ["zigzag", "Zigzag"], ["sawtooth", "Dientes de sierra"]]
+
+func _corner_style_row(key: String, text: String) -> void:
+	var row := _row(text)
+	var opt := OptionButton.new()
+	opt.name = "CornerStyle_" + key
+	opt.focus_mode = Control.FOCUS_NONE
+	for it in CORNER_STYLE_ITEMS:
+		opt.add_icon_item(_corner_icon(String(it[0])), it[1])
+		opt.set_item_metadata(opt.item_count - 1, it[0])
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opt.item_selected.connect(func(i: int) -> void:
+		if _syncing:
+			return
+		var st := String(opt.get_item_metadata(i))
+		var d := {key: st}
+		if key == "corner_style":
+			for k in ["corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl"]:
+				values[k] = st
+		_apply_values(d))
+	row.add_child(opt)
+	_fields[key] = opt
+
+## Icono 16 px del tipo de esquina: la esquina superior derecha dibujada.
+static func _corner_icon(style: String) -> Texture2D:
+	var n := 32
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var R := VectorRectangle.new()
+	R.size = Vector2(56, 56)
+	R.corner_radius = 22.0
+	R.corner_style = CORNER_STYLE_ITEMS.map(func(x): return x[0]).find(style)
+	var pts: PackedVector2Array = R.get_effect_points()
+	R.free()
+	var col := Color(0.35, 0.38, 0.45)
+	for y in n:
+		for x in n:
+			# vista de la esquina ↗: de (-4,-28)…(28,4) en coordenadas de la figura
+			var p := Vector2(-4.0 + x, -28.0 + y)
+			if Geometry2D.is_point_in_polygon(p, pts):
+				img.set_pixel(x, y, col)
+	img.resize(16, 16, Image.INTERPOLATE_BILINEAR)
+	return ImageTexture.create_from_image(img)
 
 func _row(text: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -611,7 +660,13 @@ func _read_from(s: Node) -> void:
 			values["corner_tr"] = c.y
 			values["corner_br"] = c.z
 			values["corner_bl"] = c.w
-			var indep := not (is_equal_approx(c.x, c.y) and is_equal_approx(c.y, c.z) and is_equal_approx(c.z, c.w))
+			var cs: PackedInt32Array = s.corner_styles
+			var names: Array = CORNER_STYLE_ITEMS.map(func(x): return x[0])
+			values["corner_style"] = names[clampi(int(s.corner_style), 0, names.size() - 1)]
+			for i in 4:
+				values[["corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl"][i]] = names[clampi(int(cs[i]), 0, names.size() - 1)]
+			var indep: bool = not (is_equal_approx(c.x, c.y) and is_equal_approx(c.y, c.z) and is_equal_approx(c.z, c.w)) \
+				or s.corner_styles_mixed()
 			if indep and not bool(values["independent"]):
 				values["independent"] = true
 				_build_params()
@@ -694,6 +749,12 @@ func create_in_center() -> Node:
 			r.corner_radius = float(values["rect_radius"])
 			if bool(values["independent"]):
 				r.set_corner_radii(Vector4(values["corner_tl"], values["corner_tr"], values["corner_br"], values["corner_bl"]))
+			var names: Array = CORNER_STYLE_ITEMS.map(func(x): return x[0])
+			if bool(values["independent"]):
+				for i in 4:
+					r.set_corner_style_at(i, maxi(names.find(String(values[["corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl"][i]])), 0))
+			else:
+				r.corner_style = maxi(names.find(String(values["corner_style"])), 0)
 			node = r
 		Kind.ELLIPSE:
 			var c := VectorCircle.new()
