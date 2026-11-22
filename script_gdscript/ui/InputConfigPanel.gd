@@ -31,7 +31,7 @@ const PANEL_SIZE := Vector2(820, 540)
 const CATEGORIES := [
 	["Herramientas", ["tool_select", "tool_rectangle", "tool_ellipse", "tool_star", "tool_bezier", "tool_brush", "tool_text", "tool_paragraph", "tool_artboard", "tool_hand"]],
 	["Vista", ["canvas_zoom_in", "canvas_zoom_out", "canvas_reset_zoom"]],
-	["Archivo", ["save", "new_project"]],
+	["Archivo", ["save", "new_project", "preview_document"]],
 	["Edición", ["undo", "redo", "copy", "paste", "cut", "select_all", "duplicate", "delete"]],
 	["Objeto", ["group", "ungroup", "text_to_curves"]],
 ]
@@ -41,7 +41,7 @@ const NAMES := {
 	"tool_star": "Estrella", "tool_bezier": "Bézier", "tool_brush": "Pincel", "tool_text": "Texto artístico",
 	"tool_paragraph": "Texto de párrafo", "tool_artboard": "Mesa de trabajo", "tool_hand": "Mano (desplazar la vista)",
 	"canvas_zoom_in": "Acercar", "canvas_zoom_out": "Alejar", "canvas_reset_zoom": "Restablecer el zoom",
-	"save": "Guardar", "new_project": "Documento nuevo",
+	"save": "Guardar", "new_project": "Documento nuevo", "preview_document": "Vista previa de documento",
 	"undo": "Deshacer", "redo": "Rehacer", "copy": "Copiar", "paste": "Pegar", "cut": "Cortar",
 	"select_all": "Seleccionar todo", "duplicate": "Duplicar", "delete": "Borrar",
 	"group": "Agrupar", "ungroup": "Desagrupar", "text_to_curves": "Convertir a curvas / contorno",

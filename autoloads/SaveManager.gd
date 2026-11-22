@@ -138,6 +138,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("new_project"):
 		new_project()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("preview_document"):
+		# VTP Preview: visor de solo lectura en su propia ventana.
+		load("res://script_gdscript/ui/vtp_preview.gd").open(get_tree())
+		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if (event.ctrl_pressed or event.meta_pressed) and event.keycode == KEY_N and not event.shift_pressed and not event.alt_pressed:
 			new_project()

@@ -25,6 +25,7 @@ const DEFAULTS: Dictionary = {
 	# --- Archivo ---
 	"save": [{"key": KEY_S, "ctrl": true}],
 	"new_project": [{"key": KEY_N, "ctrl": true}],
+	"preview_document": [{"key": KEY_P, "shift": true, "ctrl": true}],
 	# --- Edición ---
 	"undo": [{"key": KEY_Z, "ctrl": true}],
 	"redo": [{"key": KEY_Z, "shift": true, "ctrl": true}],

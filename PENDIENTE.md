@@ -212,6 +212,18 @@ sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 
 ## 0 nonies. VTP Preview — visor de documentos (2026-11-21) — propuesta
 
+> **Fase 1 hecha (2026-11-22)**: `script_gdscript/ui/vtp_preview.gd` — ventana
+> de solo lectura (Ctrl+Mayús+P, reasignable en «Teclado y ratón»; API
+> `preview_document`): mismo lector que el editor en un SubViewport propio
+> (el editor no ve sus páginas), modo seguro del serializador
+> (`canvas_serializer.safe_mode`: sin `shader_code`, sin rutas fuera de
+> `res://`), zoom con rueda / ± / teclas, desplazar arrastrando, ajustar
+> página / todo, páginas ◀ ▶ (también RePág/AvPág), fondo claro / oscuro /
+> cuadros, panel de información ocultable, aviso con archivos dañados
+> (`vtp_preview_e2e` 14/0). **Quedan las fases 2–4** (explorador con
+> miniaturas, caché, info de objetos) y la separación «modelo de documento /
+> nodos» para el runtime web.
+
 > Informe conceptual aportado por el usuario. **No hay diseño ni código
 > hecho**: es una propuesta para evaluar. El texto se guarda completo abajo;
 > las notas de arranque son mías, para conectar la propuesta con lo que ya

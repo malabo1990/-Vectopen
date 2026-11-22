@@ -26,6 +26,14 @@ const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 const _Blend = preload("res://script_gdscript/shapes/blend.gd")
 
+## Modo SEGURO (VTP Preview: un .vtp es contenido no confiable): no se
+## compila código de shader del archivo ni se cargan rutas fuera de res://
+## (texturas, modelos, shaders). Lo activa el visor mientras carga.
+static var safe_mode := false
+
+static func _safe_path(p: String) -> bool:
+	return not safe_mode or p.begins_with("res://")
+
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
 const VectorModel3DScript := preload("res://script_gdscript/shapes/VectorModel3D.gd")
@@ -983,7 +991,7 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 			node.set_meta(mk, _dec_param(d["fx_meta"][mk]))
 	if d.get("filters") is Array and not (d["filters"] as Array).is_empty():
 		node.set_meta("filters", _dec_deep(d["filters"]))
-	if d.get("custom_shader") is Dictionary:
+	if d.get("custom_shader") is Dictionary and not safe_mode:
 		node.set_meta("custom_shader", _dec_deep(d["custom_shader"]))
 	if node.has_meta("filters") or node.has_meta("custom_shader"):
 		load("res://script_gdscript/shapes/filter_fx.gd").sync(node)
@@ -999,11 +1007,11 @@ static func _apply_material(node: CanvasItem, md: Dictionary) -> void:
 		"shader":
 			var sm := ShaderMaterial.new()
 			var sh: Shader = null
-			if md.has("shader_path"):
+			if md.has("shader_path") and _safe_path(String(md["shader_path"])):
 				var r = load(md["shader_path"])
 				if r is Shader:
 					sh = r
-			if sh == null and md.has("shader_code"):
+			if sh == null and md.has("shader_code") and not safe_mode:
 				sh = Shader.new()
 				sh.code = String(md["shader_code"])
 			if sh:
@@ -1268,7 +1276,7 @@ static func _element_from(d: Dictionary) -> Node2D:
 				m3d.light_color = _to_col(l.get("color", [1, 1, 1, 1]))
 				m3d.ambient_energy = float(l.get("ambient", 1.0))
 			var mp: String = String(d.get("model_path", ""))
-			if not mp.is_empty():
+			if not mp.is_empty() and _safe_path(mp):
 				m3d.model_path = mp
 			return m3d
 		"group":
@@ -1284,7 +1292,7 @@ static func _image_from(d: Dictionary) -> Node2D:
 	var sp := Sprite2D.new()
 	sp.name = d.get("name", "Imagen")
 	sp.centered = d.get("centered", true)
-	if d.has("tex_path"):
+	if d.has("tex_path") and _safe_path(String(d["tex_path"])):
 		var t = load(d["tex_path"])
 		if t is Texture2D:
 			sp.texture = t

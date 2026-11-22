@@ -88,6 +88,7 @@ const REFERENCE := [
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
+	["Archivo", "preview_document(ruta = \"\") -> Window", "VTP Preview: abre un .vtp en un visor de solo lectura (sin ruta, pide el archivo); no toca el documento abierto ni ejecuta su código"],
 	["Componentes", "set_symbol_sync(activo)", "Sincronizar: apagado, los cambios dentro de una copia son retoques locales"],
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
@@ -1812,6 +1813,9 @@ func expand_blend(g: Node) -> void:
 	Blend.expand(bg)
 	Blend.recorder = Callable()
 	_notify_changed()
+
+func preview_document(p: String = "") -> Window:
+	return load("res://script_gdscript/ui/vtp_preview.gd").open(Engine.get_main_loop() as SceneTree, p)
 
 func set_symbol_sync(enabled: bool) -> void:
 	Symbols.sync_enabled = enabled
