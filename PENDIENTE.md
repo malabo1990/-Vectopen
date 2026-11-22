@@ -133,17 +133,19 @@ deshacer; .vtp; API `make_layout` / `release_layout` (`AutoLayout_test`
 
 #### 5. Maquetación editorial — lo que falta
 
-Hecho (2026-11-22): **páginas maestras** (`master_pages.gd`): Páginas ▸
-«PÁGINA MAESTRA» (marcar la página como maestra · «Usar maestra» en la
-página activa o en todas); lo de la maestra sale debajo del contenido de las
-páginas que la usan, no se puede tocar en ellas, los {pág} / {total} dan el
-número de cada página (las maestras no cuentan), se guarda, PNG / SVG; API
-`set_master_page` / `use_master` (`master_pages_e2e` 15/0). Falta:
+Hecho (2026-11-22): **páginas maestras** (Páginas ▸ «PÁGINA MAESTRA»; no
+cuentan en la numeración ni salen en «PDF de todas las páginas»),
+**combinación de datos** (clic derecho en una plantilla con {campos} ▸
+«Combinar datos (CSV)…» → fichas en rejilla en páginas «Catálogo», un paso
+de deshacer; API `data_merge`) e **índice de páginas** (clic derecho sin
+selección ▸ «Insertar índice de páginas»; API `make_toc`)
+(`master_pages_e2e` 16/0, `data_merge_e2e` 9/0, `DataMerge_test` 3/0).
+Falta:
 
-- **Combinación de datos** (catálogos): plantilla con {campo} + CSV → una
-  ficha por fila, en rejilla y en páginas nuevas.
-- **Índice automático** (nombres de página + número).
-- Excluir las maestras de «PDF de todas las páginas» y marcarlas en el lienzo.
+- Imágenes en la combinación de datos (campo con la ruta de una foto).
+- Índice que se actualice solo al renombrar / añadir páginas.
+- Pliegos enfrentados (páginas izquierda / derecha) y maestras distintas
+  para pares e impares.
 
 #### 7. Conclusión y visión técnica
 

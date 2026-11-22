@@ -493,6 +493,10 @@ func export_artboard(artboard: Node, format: ExportFormat, path: String, setting
 ## páginas, cada una con su tamaño y su sangrado. Usar con await.
 func export_pdf_pages(artboards: Array, path: String, settings: Dictionary = {}) -> Error:
 	var list := artboards.filter(func(a) -> bool: return is_instance_valid(a) and "artboard_size" in a)
+	# las páginas MAESTRAS no se imprimen (como InDesign): solo las que las usan
+	var no_masters := list.filter(func(a) -> bool: return not bool(a.get_meta("is_master", false)))
+	if not no_masters.is_empty():
+		list = no_masters
 	if list.is_empty():
 		GlobalEvents.emit_safe("export_error", "PDF", "no hay páginas que exportar")
 		return ERR_INVALID_PARAMETER

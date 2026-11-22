@@ -82,6 +82,10 @@ func _run() -> void:
 	var svg := ProjectSettings.globalize_path("user://master_pages/p1.svg")
 	await api.export(svg, p1)
 	K.check("SVG con la maestra", FileAccess.get_file_as_string(svg).to_lower().contains("#1a4dcc") or FileAccess.get_file_as_string(svg).contains("rgb(26,77,204)") or FileAccess.get_file_as_string(svg).length() > 400)
+	var pdf := ProjectSettings.globalize_path("user://master_pages/todas.pdf")
+	await api.export_pdf_pages(pdf)
+	var pdf_txt := FileAccess.get_file_as_bytes(pdf).get_string_from_ascii()
+	K.check("«PDF de todas las páginas» sin la maestra (2 páginas)", pdf_txt.count("/Type /Page ") + pdf_txt.count("/Type /Page\n") + pdf_txt.count("/Type /Page>") == 2 or pdf_txt.count("/Type /Page") - pdf_txt.count("/Type /Pages") == 2, str(pdf_txt.count("/Type /Page") - pdf_txt.count("/Type /Pages")))
 	await K.shot("maestra")
 	# Guardar / abrir
 	var abs: Array = await K.save_reload("maestras")

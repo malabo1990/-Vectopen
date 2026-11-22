@@ -19,6 +19,15 @@ static func can_make_layout(host: Node) -> bool:
 		return not _LayoutRef.is_layout(sel[0]) and (String(sel[0].get_meta("shape_type", "")) == "group" or sel[0] is VectorRectangle)
 	return sel.all(func(n) -> bool: return n.get_parent() == sel[0].get_parent())
 
+## Plantilla para combinar datos: UN grupo o texto con {campos}.
+static func can_data_merge(host: Node) -> bool:
+	var sel := selection(host)
+	if sel.size() != 1:
+		return false
+	var n: Node = sel[0]
+	var txts: Array = [n] + n.find_children("*", "Node2D", true, false)
+	return txts.any(func(t) -> bool: return t.has_meta("text") and String(t.get_meta("text")).contains("{"))
+
 static func is_layout_selected(host: Node) -> bool:
 	return selection(host).any(func(n) -> bool: return _LayoutRef.is_layout(n))
 
@@ -51,7 +60,7 @@ const NEEDS_SELECTION: Array[String] = [
 	"copy", "cut", "duplicate", "delete",
 	"bring_to_front", "bring_forward", "send_backward", "send_to_back",
 	"flip_h", "flip_v", "rotate_cw", "rotate_ccw", "group", "ungroup", "ungroup_all", "rename",
-	"make_blend", "expand_blend", "make_layout", "release_layout",
+	"make_blend", "expand_blend", "make_layout", "release_layout", "data_merge",
 	"toggle_visibility", "toggle_lock", "invert_fill_stroke",
 	"align_left", "align_center_h", "align_right", "align_top", "align_middle", "align_bottom",
 	"align_text_left", "align_text_center", "align_text_right",
@@ -144,6 +153,31 @@ static func execute(id: String, host: Node) -> void:
 			for n in selection(host):
 				if pm6 and pm6.api and int(n.get("clip_children")) != 0:
 					pm6.api.release_mask(n)
+		"data_merge":
+			var pmd := host.get_node_or_null("/root/PluginManager")
+			var seld := selection(host)
+			if pmd and pmd.api and seld.size() == 1:
+				var tpl: Node2D = seld[0]
+				var fd := FileDialog.new()
+				fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+				fd.access = FileDialog.ACCESS_FILESYSTEM
+				fd.filters = PackedStringArray(["*.csv, *.tsv, *.txt ; Datos (CSV)"])
+				fd.title = "Combinar datos: elige el CSV (primera fila = nombres de campo)"
+				host.get_tree().root.add_child(fd)
+				fd.file_selected.connect(func(path: String) -> void:
+					var pages: Array = pmd.api.data_merge(tpl, path)
+					var un := host.get_node_or_null("/root/UserNotices")
+					if un:
+						un.show_notice("success" if not pages.is_empty() else "error",
+							("Combinación hecha: %d página(s) «Catálogo»." % pages.size()) if not pages.is_empty() else "No se pudo combinar (¿el CSV tiene filas de datos?)")
+					fd.queue_free())
+				fd.canceled.connect(fd.queue_free)
+				fd.popup_centered(Vector2i(820, 520))
+		"insert_toc":
+			var pmt := host.get_node_or_null("/root/PluginManager")
+			if pmt and pmt.api:
+				var toc = pmt.api.make_toc()
+				if toc: pmt.api.select([toc])
 		"make_layout":
 			var pmy := host.get_node_or_null("/root/PluginManager")
 			var sely := selection(host)

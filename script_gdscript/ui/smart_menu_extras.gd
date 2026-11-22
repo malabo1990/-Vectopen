@@ -20,6 +20,8 @@ const _ITEMS := [
 	["DetachSymbol", "detach_symbol", "Desvincular componente"],
 	["MakeBlend", "make_blend", "Crear fusión (Blend)"],
 	["MakeLayout", "make_layout", "Convertir en contenedor (Auto Layout)"],
+	["DataMerge", "data_merge", "Combinar datos (CSV)…"],
+	["InsertToc", "insert_toc", "Insertar índice de páginas"],
 	["ReleaseLayout", "release_layout", "Quitar contenedor"],
 	["ExpandBlend", "expand_blend", "Expandir fusión"],
 ]
@@ -80,6 +82,10 @@ func _applies(action: String) -> bool:
 		return sel.any(func(n) -> bool: return int(n.get("clip_children")) != 0)
 	if action == "edit_shape":
 		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
+	if action == "data_merge":
+		return ContextMenuActions.can_data_merge(_menu)
+	if action == "insert_toc":
+		return sel.is_empty()
 	if action == "make_layout":
 		return ContextMenuActions.can_make_layout(_menu)
 	if action == "release_layout":

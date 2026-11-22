@@ -88,6 +88,8 @@ const REFERENCE := [
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
+	["Páginas", "data_merge(plantilla, csv, opciones = {}) -> Array", "Combinación de datos (catálogos): una ficha por fila del CSV (ruta o texto) a partir de la plantilla (grupo o texto con {campo}), en rejilla en páginas nuevas «Catálogo». Opciones: gap, margin. Devuelve las páginas; un paso de deshacer"],
+	["Páginas", "make_toc(posicion = Vector2(60, 60)) -> Node2D", "Índice: un texto con el nombre y el número de cada página (sin las maestras)"],
 	["Páginas", "set_master_page(pagina, es_maestra = true) -> void", "Marca una página como MAESTRA (cabecera, pie, número de página…): lo suyo aparece debajo de las páginas que la usan"],
 	["Páginas", "use_master(paginas, maestra) -> void", "Las páginas (una o lista) usan esa maestra (nombre o nodo; \"\" = ninguna)"],
 	["Contenedores", "make_layout(objetos, opciones = {}) -> Node2D", "Auto Layout: hace contenedor un grupo (o agrupa la selección; un rectángulo solo se convierte en contenedor con ese fondo). Opciones: mode \"row\"|\"column\"|\"grid\"|\"wrap\", gap, padding, align \"start\"|\"center\"|\"end\"|\"space-between\", cross, columns, wrap_width, auto (fondo a la medida)"],
@@ -1819,6 +1821,74 @@ const MasterPages = preload("res://script_gdscript/shapes/master_pages.gd")
 
 func _mp_rec() -> Callable:
 	return func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+
+const DataMerge = preload("res://script_gdscript/shapes/data_merge.gd")
+
+func data_merge(template: Node, csv: String, options: Dictionary = {}) -> Array:
+	if not (template is Node2D) or not is_instance_valid(template):
+		error("data_merge: hace falta una plantilla (grupo o texto)")
+		return []
+	var text := FileAccess.get_file_as_string(csv) if FileAccess.file_exists(csv) else csv
+	var rows := DataMerge.parse_csv(text)
+	if rows.is_empty():
+		error("data_merge: el CSV no tiene filas de datos")
+		return []
+	var src_page: Node2D = template.get_parent() as Node2D
+	while src_page and not ("artboard_size" in src_page):
+		src_page = src_page.get_parent() as Node2D
+	var psize: Vector2 = src_page.artboard_size if src_page else Vector2(794, 1123)
+	var box: Rect2 = AutoLayout.box(template)
+	var gap := float(options.get("gap", 16.0))
+	var margin := float(options.get("margin", 40.0))
+	var cell := box.size + Vector2(gap, gap)
+	var cols := maxi(1, int(floor((psize.x - margin * 2.0 + gap) / maxf(cell.x, 1.0))))
+	var rws := maxi(1, int(floor((psize.y - margin * 2.0 + gap) / maxf(cell.y, 1.0))))
+	var per := cols * rws
+	var CS = load("res://scripts/canvas/canvas_serializer.gd")
+	var data: Dictionary = CS._serialize_element(template)
+	var pages: Array = []
+	begin("Combinar datos")
+	for i in rows.size():
+		var pi := i / per
+		if pi >= pages.size():
+			pages.append(add_artboard(psize, "Catálogo %d" % (pi + 1)))
+		var page: Node2D = pages[pi]
+		var holder := Node2D.new()
+		CS.instantiate_elements(holder, [data])
+		var copy: Node2D = holder.get_child(0)
+		holder.remove_child(copy)
+		holder.free()
+		var k := i % per
+		var target := Vector2(margin + (k % cols) * cell.x, margin + (k / cols) * cell.y)
+		var placed := add(copy, page)
+		if placed == null:
+			continue
+		var cb: Rect2 = AutoLayout.box(placed)
+		if placed is VectorShape:
+			placed.set_doc_position(DVec2.from_v2(placed.position + target - cb.position))
+		else:
+			placed.position += target - cb.position
+		var row: Dictionary = rows[i]
+		var texts: Array = [placed] + placed.find_children("*", "Node2D", true, false)
+		for t in texts:
+			if t.has_meta("text") and String(t.get_meta("shape_type", "")).begins_with("text"):
+				var old := String(t.get_meta("text"))
+				var nv := DataMerge.fill(old, row)
+				if nv != old:
+					set_prop(t, "text", nv)
+	end()
+	_notify_changed()
+	return pages
+
+func make_toc(pos: Vector2 = Vector2(60, 60)) -> Node2D:
+	var PF = load("res://script_gdscript/text/page_fields.gd")
+	var list: Array = PF.pages(_host.get_tree() if _host else null)
+	var lines := PackedStringArray()
+	for i in list.size():
+		lines.append("%s\t%d" % [String(list[i].name), i + 1])
+	var ab := artboard()
+	var w: float = (ab.artboard_size.x if ab else 600.0) - pos.x * 2.0
+	return add_text_box(Rect2(pos, Vector2(maxf(w, 200.0), 30.0 * maxf(list.size(), 1))), "\n".join(lines), 16)
 
 func set_master_page(page: Node, on: bool = true) -> void:
 	if not (is_instance_valid(page) and "artboard_size" in page):

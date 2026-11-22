@@ -60,6 +60,8 @@ func rebuild() -> void:
 	# Object-specific actions first, like desktop editors do.
 	match kind:
 		"text":
+			if ContextMenuActions.can_data_merge(self):
+				_add(self, "data_merge", "Combinar datos (CSV)…")
 			_add(self, "align_text_left", "Alinear texto a la izquierda")
 			_add(self, "align_text_center", "Centrar texto")
 			_add(self, "align_text_right", "Alinear texto a la derecha")
@@ -83,7 +85,12 @@ func rebuild() -> void:
 				add_separator()
 			if ContextMenuActions.can_make_layout(self):
 				_add(self, "make_layout", "Convertir en contenedor (Auto Layout)")
+		"none":
+			_add(self, "insert_toc", "Insertar índice de páginas")
+			add_separator()
 		"group":
+			if ContextMenuActions.can_data_merge(self):
+				_add(self, "data_merge", "Combinar datos (CSV)…")
 			if ContextMenuActions.is_blend_selected(self):
 				_add(self, "expand_blend", "Expandir fusión")
 			if ContextMenuActions.is_layout_selected(self):

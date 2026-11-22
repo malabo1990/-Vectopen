@@ -203,6 +203,8 @@ func _build_level_2_contextual_items(kind: String) -> void:
 				_add_menu_item("make_layout", "Convertir en contenedor (Auto Layout)", "")
 			_add_separator()
 		"text":
+			if ContextMenuActions.can_data_merge(self):
+				_add_menu_item("data_merge", "Combinar datos (CSV)…", "")
 			_add_menu_item("align_text_left", "Alinear texto izquierda", "")
 			_add_menu_item("align_text_center", "Centrar texto", "")
 			_add_menu_item("align_text_right", "Alinear texto derecha", "")
@@ -214,7 +216,12 @@ func _build_level_2_contextual_items(kind: String) -> void:
 			if selb.size() == 1 and selb[0].has_meta("brush_ref"):
 				_add_menu_item("release_text_on_path", "Separar texto del trazado", "")
 			_add_separator()
+		"none":
+			_add_menu_item("insert_toc", "Insertar índice de páginas", "")
+			_add_separator()
 		"group":
+			if ContextMenuActions.can_data_merge(self):
+				_add_menu_item("data_merge", "Combinar datos (CSV)…", "")
 			if ContextMenuActions.is_blend_selected(self):
 				_add_menu_item("expand_blend", "Expandir fusión", "")
 			if ContextMenuActions.is_layout_selected(self):
