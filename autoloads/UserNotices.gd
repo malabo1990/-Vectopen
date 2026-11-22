@@ -54,13 +54,15 @@ func _on_import_error(fmt = "", msg = "") -> void:
 	show_notice("error", ("No se pudo importar %s: %s" % [str(fmt), str(msg)]) if str(msg) != "" else "No se pudo importar %s." % str(fmt))
 
 ## Muestra un aviso. level: "info" | "success" | "warning" | "error".
-func show_notice(level: String, message: String) -> void:
+## `action` (opcional): el clic en el aviso la ejecuta (p. ej. «Enviar a
+## técnico» abre el diálogo de contacto) en vez de solo cerrarlo.
+func show_notice(level: String, message: String, action: Callable = Callable()) -> void:
 	history.append([level, message])
 	if history.size() > 50:
 		history.pop_front()
 	if _queue.size() >= MAX_QUEUE:
 		_queue.pop_front()
-	_queue.append([level, message])
+	_queue.append([level, message, action])
 	if not _busy:
 		_next()
 
@@ -71,6 +73,9 @@ func _next() -> void:
 	_busy = true
 	var item: Array = _queue.pop_front()
 	_present(String(item[0]), String(item[1]))
+	if item.size() > 2 and (item[2] as Callable).is_valid() and is_instance_valid(_current):
+		_current.set_meta("action", item[2])
+		_current.tooltip_text = tr("Clic para enviar el informe al técnico")
 
 # ── cápsula ──────────────────────────────────────────────────────────────────
 func _present(level: String, message: String) -> void:
@@ -166,6 +171,8 @@ func _present(level: String, message: String) -> void:
 
 func _on_pill_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.pressed and is_instance_valid(_current):
+		if _current.has_meta("action"):
+			(_current.get_meta("action") as Callable).call_deferred()
 		_dismiss_by_id(_current.get_instance_id())
 
 func _dismiss_by_id(cid: int) -> void:

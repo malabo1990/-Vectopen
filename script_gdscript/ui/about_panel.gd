@@ -133,6 +133,20 @@ func _ready() -> void:
 		b.pressed.connect(func() -> void: OS.shell_open(url))
 		row.add_child(b)
 		_social.append(b)
+	# USR-36: contactar con el técnico / informar de un error
+	var contact := Button.new()
+	contact.name = "Contact"
+	contact.text = tr("Contactar / informar de un error")
+	contact.tooltip_text = tr("Escribe al técnico: se prepara un aviso en GitHub con el informe técnico (nada se envía solo)")
+	contact.focus_mode = Control.FOCUS_NONE
+	contact.custom_minimum_size = Vector2(0, 30)
+	contact.add_theme_font_size_override("font_size", 11)
+	contact.pressed.connect(func() -> void:
+		var eh := get_node_or_null("/root/ErrorHandler")
+		if eh and eh.has_method("open_contact"):
+			eh.open_contact("bug"))
+	v.add_child(contact)
+	_social.append(contact)
 	var sp := Button.new()
 	sp.name = "Support"
 	sp.text = "♥  " + tr("Apoyar Vectopen")

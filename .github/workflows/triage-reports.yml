@@ -1,0 +1,39 @@
+# Clasifica los avisos que llegan desde Vectopen («Contactar con el técnico»,
+# USR-37). La app NO envía nada: abre un issue pre-rellenado que el usuario
+# revisa y envía. Este workflow lee la marca <!-- vectopen-report kind=…
+# version=… os=… --> del cuerpo y pone etiquetas: tipo (bug / enhancement /
+# question), «from-app», el sistema y la versión. Solo etiqueta: no publica
+# nada ni guarda datos fuera de GitHub.
+name: Clasificar informes de la app
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    if: contains(github.event.issue.body, '<!-- vectopen-report')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || "";
+            const m = body.match(/<!-- vectopen-report kind=(\S+) version=(\S+) os=(\S+) -->/);
+            if (!m) return;
+            const [, kind, version, os] = m;
+            const typeLabel = {bug: "bug", suggestion: "enhancement", question: "question"}[kind] || "question";
+            const labels = ["from-app", typeLabel, `os:${os.toLowerCase()}`, `v${version}`];
+            for (const name of labels) {
+              try {
+                await github.rest.issues.getLabel({owner: context.repo.owner, repo: context.repo.repo, name});
+              } catch (e) {
+                await github.rest.issues.createLabel({owner: context.repo.owner, repo: context.repo.repo, name,
+                  color: name === "bug" ? "d73a4a" : name === "enhancement" ? "a2eeef" : "ededed"});
+              }
+            }
+            await github.rest.issues.addLabels({owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, labels});

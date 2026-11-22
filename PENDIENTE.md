@@ -60,31 +60,10 @@ Referencia (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
 | PLAT-06 | Librerías nativas en Android (falta el NDK; mientras, texto e importadores por GDScript) | Pendiente |
 | PLAT-08 | Interfaz para Android y tabletas (la APK es una vista previa) | **[usuario]** la diseña el usuario |
 
-## 0 octies. Tanda del usuario (2026-11-13/21) — sin empezar
+## 0 octies. Tanda del usuario (2026-11-13/21)
 
-Ninguna de estas peticiones está diseñada ni implementada: son el encargo
-tal cual lo pidió el usuario, para abrirlas una por iteración (§0).
-
-> **Decidido (USR-35/36/37)**: transporte = issue de GitHub pre-rellenado
-> (se abre en el navegador, el usuario lo revisa y envía; sin servidor ni
-> datos enviados a escondidas) + copia local en `user://bug_reports/`; una
-> GitHub Action etiqueta y clasifica los issues que llegan con la plantilla.
-
-| ID | Petición | Estado |
-|---|---|---|
-| USR-35 | Notificaciones de errores y bugs dentro de la app, con botón «Enviar a técnico» y reporte determinante (traza, `archivo:línea`, versión, SO, cola del log) | Pendiente |
-| USR-36 | Diálogo de Contacto con área de texto multilínea para escribir al técnico: motivo (bug/error/sugerencia), email opcional, abrible desde Ayuda y desde la notificación de error | Pendiente |
-| USR-37 | Action/servicio que RECIBA los reportes de bug (contrato de datos, almacenamiento y reintento, privacidad) | Pendiente |
-
-Notas de arranque:
-
-- USR-35/USR-36/USR-37 dependen de una decisión que el usuario aún no ha
-  tomado: transporte del reporte (issue pre-rellenado en GitHub, `mailto:`
-  o endpoint propio con backend). Sin eso solo se pueden hacer la captura y
-  el formulario local. `reports/` de la raíz es la salida de gdUnit4, no un
-  buzón: los reportes irían a `user://bug_reports/`.
-- USR-35: incluir también el manejador de fallos del build de release, no
-  solo los `push_error` de depuración.
+USR-35…39 hechos (2026-11-22). Lo que sigue es el informe de propuestas que
+aportó el usuario (backlog de producto).
 
 ### Informe técnico de propuestas de mejora (2026-11-21)
 
