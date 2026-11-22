@@ -610,11 +610,24 @@ func _on_new_raw_point(local_mouse: Vector2, pressure: float) -> void:
 		_update_live_preview()
 		return
 
-	var seg: PackedVector2Array = _catmull_segment(p0, p1, p2, p3, _settings.catmull_segments)
+	var seg: PackedVector2Array = _catmull_segment(p0, p1, p2, p3, _adaptive_segs(p1, p2, _settings.catmull_segments))
 	for pt in seg:
 		_committed_points.append(pt)
 
 	_update_live_preview()
+
+## VGSE fase 6: subdivisiones del tramo p1→p2 según su longitud EN PANTALLA
+## (un punto cada LIVE_SUBDIV_PX), con el tope del perfil para muestras muy
+## separadas. Antes siempre 10–14 por muestra aunque estuvieran a 0,3 px:
+## 10 000 muestras = 140 000 puntos (redibujar 11 ms de media, 32 ms el
+## peor fotograma, y el doble de memoria y de archivo).
+const LIVE_SUBDIV_PX := 1.5
+
+func _adaptive_segs(a: Vector2, b: Vector2, max_segs: int) -> int:
+	var z := 1.0
+	if is_instance_valid(canvas) and canvas.get_viewport():
+		z = canvas.get_viewport().get_canvas_transform().get_scale().x
+	return clampi(int(ceil(a.distance_to(b) * z / LIVE_SUBDIV_PX)), 1, maxi(1, max_segs))
 
 func _update_live_preview() -> void:
 	if not is_instance_valid(current_line):
