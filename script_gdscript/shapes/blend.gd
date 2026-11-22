@@ -186,6 +186,9 @@ static func signature(g: Node2D) -> int:
 		parts.append(outline(n))
 		for k in ["fill_color", "stroke_color", "stroke_width"]:
 			parts.append(n.get(k))
+		if _has_grad(n):
+			var gg: Gradient = n.get("fill_gradient")
+			parts.append([gg.offsets, gg.colors, n.get("fill_gradient_type"), n.get("fill_gradient_angle"), n.get("fill_gradient_p0"), n.get("fill_gradient_p1")])
 		parts.append(n.modulate)
 	return hash(var_to_str(parts))
 
@@ -234,13 +237,25 @@ static func rebuild(g: Node2D) -> void:
 				if orient:
 					xf = Transform2D((at[1] as Vector2).angle(), at[0])
 				pts = xf * (Transform2D(0.0, -c_now) * pts)
-			var curve := Curve2D.new()
-			for v in pts:
-				curve.add_point(v)
-			var s := VectorPath.new()
-			s.name = "Paso %d.%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
-			s.curve = curve
-			s.closed = closed
+			var grad := closed and (_has_grad(A) or _has_grad(Bn))
+			var s: Node2D
+			if grad:
+				# Con DEGRADADO: polígono (VectorShape, que sí lo dibuja) con el
+				# degradado interpolado entre las dos claves.
+				var pg := VectorPolygon.new()
+				pg.is_regular = false
+				pg.vertices = pts
+				_lerp_gradient(pg, A, Bn, lt)
+				s = pg
+			else:
+				var curve := Curve2D.new()
+				for v in pts:
+					curve.add_point(v)
+				var vp := VectorPath.new()
+				vp.curve = curve
+				vp.closed = closed
+				s = vp
+			s.name = "Paso %d-%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
 			s.fill_color = _get_col(A, "fill_color").lerp(_get_col(Bn, "fill_color"), lt)
 			s.stroke_color = _get_col(A, "stroke_color").lerp(_get_col(Bn, "stroke_color"), lt)
 			s.stroke_width = lerpf(float(A.get("stroke_width") if "stroke_width" in A else 0.0), float(Bn.get("stroke_width") if "stroke_width" in Bn else 0.0), lt)
@@ -249,6 +264,54 @@ static func rebuild(g: Node2D) -> void:
 			g.add_child(s)
 			g.move_child(s, Bn.get_index())   # justo debajo de la clave siguiente
 	g.set_meta("_blend_sig", signature(g))
+
+static func _has_grad(n: Node) -> bool:
+	return "fill_gradient" in n and n.get("fill_gradient") is Gradient and (n.get("fill_gradient") as Gradient).get_point_count() >= 2
+
+## Degradado de `n` como Gradient (un color liso = degradado de ese color).
+static func _grad_of(n: Node) -> Gradient:
+	if _has_grad(n):
+		return n.get("fill_gradient")
+	var g := Gradient.new()
+	var c := _get_col(n, "fill_color")
+	g.set_color(0, c)
+	g.set_color(1, c)
+	return g
+
+## Degradado del paso `t` entre A y B: paradas de los dos, colores mezclados;
+## tipo, ángulo y puntos también interpolados.
+static func _lerp_gradient(dst: Node, a: Node, b: Node, t: float) -> void:
+	var ga := _grad_of(a)
+	var gb := _grad_of(b)
+	var offs: Array = []
+	for g in [ga, gb]:
+		for i in g.get_point_count():
+			var o := snappedf(g.get_offset(i), 0.0001)
+			if not offs.has(o):
+				offs.append(o)
+	offs.sort()
+	var out := Gradient.new()
+	out.offsets = PackedFloat32Array(offs)
+	var cols := PackedColorArray()
+	for o in offs:
+		cols.append(ga.sample(o).lerp(gb.sample(o), t))
+	out.colors = cols
+	dst.fill_gradient = out
+	var src_t: Node = a if (_has_grad(a) and (t < 0.5 or not _has_grad(b))) else b
+	dst.fill_gradient_type = int(src_t.get("fill_gradient_type")) if "fill_gradient_type" in src_t else 0
+	var aa: float = float(a.get("fill_gradient_angle")) if _has_grad(a) else float(b.get("fill_gradient_angle"))
+	var ab: float = float(b.get("fill_gradient_angle")) if _has_grad(b) else aa
+	dst.fill_gradient_angle = lerp_angle(aa, ab, t)
+	var p0a: Vector2 = a.get("fill_gradient_p0") if _has_grad(a) else Vector2(-1, -1)
+	var p0b: Vector2 = b.get("fill_gradient_p0") if _has_grad(b) else Vector2(-1, -1)
+	var p1a: Vector2 = a.get("fill_gradient_p1") if _has_grad(a) else Vector2(-1, -1)
+	var p1b: Vector2 = b.get("fill_gradient_p1") if _has_grad(b) else Vector2(-1, -1)
+	if p0a != Vector2(-1, -1) and p0b != Vector2(-1, -1):
+		dst.fill_gradient_p0 = p0a.lerp(p0b, t)
+		dst.fill_gradient_p1 = p1a.lerp(p1b, t)
+	elif p0a != Vector2(-1, -1) or p0b != Vector2(-1, -1):
+		dst.fill_gradient_p0 = p0a if p0a != Vector2(-1, -1) else p0b
+		dst.fill_gradient_p1 = p1a if p1a != Vector2(-1, -1) else p1b
 
 static func _get_col(n: Node, k: String) -> Color:
 	return n.get(k) if k in n and n.get(k) is Color else Color(0, 0, 0, 0)
@@ -342,6 +405,72 @@ static func expand(g: Node2D) -> void:
 				mk[0].set_meta(mk[1], mk[2])
 		g.set_meta(META, p.duplicate())
 		g.add_to_group(GROUP))
+
+## «Invertir orden»: la cadena va al revés (C → B → A); el apilado de las
+## claves se respeta.
+static func reverse(g: Node2D) -> void:
+	var k := keys(g)
+	if k.size() < 2:
+		return
+	var set_order := func(list: Array) -> void:
+		for i in list.size():
+			if is_instance_valid(list[i]):
+				(list[i] as Node).set_meta(END_META, i)
+		rebuild(g)
+	var rev := k.duplicate()
+	rev.reverse()
+	_commit("Fusión · invertir orden", set_order.bind(rev), set_order.bind(k))
+
+## «Soltar fusión»: quita los pasos y deja las claves (y la guía) sueltas
+## donde estaba el grupo. Lo contrario de crearla.
+static func release(g: Node2D) -> void:
+	var parent := g.get_parent()
+	if parent == null:
+		return
+	var p: Dictionary = (g.get_meta(META) as Dictionary).duplicate()
+	var k := keys(g)
+	var sp := spine_of(g)
+	var at := g.get_index()
+	var members: Array = ([sp] if sp else []) + k
+	var marks: Array = []
+	for n in members:
+		for m in [END_META, SPINE_META]:
+			if n.has_meta(m):
+				marks.append([n, m, n.get_meta(m)])
+	var do_fn := func() -> void:
+		for c in g.get_children():
+			if c.has_meta(STEP_META):
+				g.remove_child(c)
+				c.queue_free()
+		var i := 0
+		for n in members:
+			if is_instance_valid(n) and n.get_parent() == g:
+				g.remove_child(n)
+				parent.add_child(n)
+				parent.move_child(n, mini(at + i, parent.get_child_count() - 1))
+				i += 1
+		for mk in marks:
+			if is_instance_valid(mk[0]) and mk[0].has_meta(mk[1]):
+				mk[0].remove_meta(mk[1])
+		g.remove_from_group(GROUP)
+		if g.get_parent():
+			g.get_parent().remove_child(g)
+	var undo_fn := func() -> void:
+		parent.add_child(g)
+		parent.move_child(g, mini(at, parent.get_child_count() - 1))
+		for n in members:
+			if is_instance_valid(n) and n.get_parent():
+				n.get_parent().remove_child(n)
+				g.add_child(n)
+		for mk in marks:
+			if is_instance_valid(mk[0]):
+				mk[0].set_meta(mk[1], mk[2])
+		if sp:
+			g.move_child(sp, 0)
+		g.set_meta(META, p.duplicate())
+		g.add_to_group(GROUP)
+		rebuild(g)
+	_commit("Fusión · soltar", do_fn, undo_fn)
 
 static func _commit(action: String, do_fn: Callable, undo_fn: Callable) -> void:
 	if recorder.is_valid():

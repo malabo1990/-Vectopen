@@ -86,6 +86,8 @@ const REFERENCE := [
 	["Componentes", "symbol_of(objeto) -> String", "Id del componente al que pertenece el objeto (\"\" si ninguno)"],
 	["Componentes", "detach_symbol(objeto) -> bool", "Desvincula una copia: queda como grupo normal"],
 	["Fusión", "make_blend_chain([a, b, c…], opciones = {}, guia = null) -> Node2D", "Fusión de varios objetos en cadena (A → B → C …): intermedios entre cada par; la guía recorre toda la cadena"],
+	["Fusión", "reverse_blend(fusion)", "Invierte el orden de la cadena de una fusión (C → B → A), con deshacer"],
+	["Fusión", "release_blend(fusion)", "Suelta una fusión: quita los pasos y deja los objetos sueltos, con deshacer"],
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
@@ -1798,6 +1800,28 @@ func make_blend_chain(objs: Array, options: Dictionary = {}, spine: Node = null)
 	Blend.recorder = Callable()
 	_notify_changed()
 	return g
+
+## Invierte el orden de la cadena de una fusión (con deshacer).
+func reverse_blend(g: Node) -> void:
+	var bg := Blend.blend_of(g)
+	if bg == null:
+		error("reverse_blend: no es una fusión")
+		return
+	Blend.recorder = _blend_rec()
+	Blend.reverse(bg)
+	Blend.recorder = Callable()
+	_notify_changed()
+
+## Suelta una fusión: quita los pasos y deja las claves sueltas (con deshacer).
+func release_blend(g: Node) -> void:
+	var bg := Blend.blend_of(g)
+	if bg == null:
+		error("release_blend: no es una fusión")
+		return
+	Blend.recorder = _blend_rec()
+	Blend.release(bg)
+	Blend.recorder = Callable()
+	_notify_changed()
 
 func make_blend(a: Node, b: Node, options: Dictionary = {}, spine: Node = null) -> Node2D:
 	if not (a is Node2D and b is Node2D) or not is_instance_valid(a) or not is_instance_valid(b):

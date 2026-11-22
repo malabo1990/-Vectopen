@@ -100,6 +100,52 @@ func chain_test() -> void:
 	K.check("cadena con guía: todos los pasos van sobre la guía", on_path and steps(gg).size() == 10)
 	await K.shot("cadena_guia")
 
+## Degradados: A con degradado rojo→amarillo, B azul liso → los pasos llevan
+## un degradado mezclado (y se ve en pantalla).
+func gradient_test() -> void:
+	var ab5: Node2D = await K.artboard(Vector2(1000, 400), "Fusión degradado", Color.WHITE)
+	await K.look_at(ab5)
+	var A = api.add_rect(Vector2(120, 200), Vector2(160, 160), 0.0, "GA")
+	api.set_props(A, {"stroke_width": 0.0})
+	var gr := Gradient.new()
+	gr.set_color(0, Color(1, 0, 0))
+	gr.set_color(1, Color(1, 1, 0))
+	A.fill_gradient = gr
+	A.fill_gradient_angle = 0.0
+	var B = api.add_rect(Vector2(880, 200), Vector2(160, 160), 0.0, "GB")
+	api.set_props(B, {"fill_color": Color(0, 0, 1), "stroke_width": 0.0})
+	var BL = load("res://script_gdscript/shapes/blend.gd")
+	var g: Node2D = api.make_blend(A, B, {"steps": 3})
+	await K.frames(4)
+	var st := steps(g)
+	K.check("degradado: 3 pasos", st.size() == 3, str(st.size()))
+	if st.size() != 3:
+		return
+	var mid: Node = st[1]
+	K.check("degradado: el paso del medio tiene degradado", "fill_gradient" in mid and mid.fill_gradient is Gradient)
+	if "fill_gradient" in mid and mid.fill_gradient is Gradient:
+		var c0: Color = (mid.fill_gradient as Gradient).sample(0.0)
+		var c1: Color = (mid.fill_gradient as Gradient).sample(1.0)
+		K.check("degradado: colores mezclados (rojo→azul y amarillo→azul a la mitad)", absf(c0.r - 0.5) < 0.05 and absf(c0.b - 0.5) < 0.05 and absf(c1.g - 0.5) < 0.05, "%s %s" % [c0, c1])
+		await K.frames(3)
+		await RenderingServer.frame_post_draw
+		var img := root.get_texture().get_image()
+		var tf: Transform2D = K.canvas.get_viewport().get_canvas_transform()
+		var ctr: Vector2 = (mid as Node2D).global_transform * BL._centroid((mid as Node2D).get_effect_points())
+		var pl := img.get_pixelv(Vector2i(tf * (ctr + Vector2(-60, 0))))
+		var pr := img.get_pixelv(Vector2i(tf * (ctr + Vector2(60, 0))))
+		K.check("degradado: se VE el degradado en el paso (izquierda ≠ derecha)", absf(pl.g - pr.g) > 0.15, "%s %s" % [pl, pr])
+	await K.shot("degradado")
+	# cambiar el degradado de A rehace los pasos
+	var gr2 := Gradient.new()
+	gr2.set_color(0, Color(0, 1, 0))
+	gr2.set_color(1, Color(0, 1, 0))
+	A.fill_gradient = gr2
+	BL.rebuild(g)
+	await K.frames(3)
+	var mid2: Node = steps(g)[1]
+	K.check("degradado: cambiar el de A rehace los pasos", (mid2.fill_gradient as Gradient).sample(0.0).g > 0.4, str((mid2.fill_gradient as Gradient).sample(0.0)))
+
 func _run() -> void:
 	K = load("res://test/e2e/lib/campaign_kit.gd").new(self, "user://blend")
 	if not await K.boot("modern"):
@@ -167,5 +213,6 @@ func _run() -> void:
 		await K.frames(3)
 		K.check("expandir: figuras independientes", not g2.has_meta("blend") and steps(g2).is_empty() and g2.get_child_count() >= 8)
 	await chain_test()
+	await gradient_test()
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)
