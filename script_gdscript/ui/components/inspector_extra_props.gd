@@ -77,6 +77,18 @@ const SPECS := {
 	"brush_geo": ["Forma del trazo", "option", [["none", "Normal"], ["wave", "Ondulado"], ["zigzag", "Zigzag"], ["rough", "Rugoso"]]],
 	"brush_geo_amount": ["Amplitud", "num", 0, 500, 5, "%", 100.0],
 	"brush_geo_size": ["Tamaño de onda", "num", 20, 2000, 10, "%", 100.0],
+	"table_header": ["Cabecera", "check"],
+	"table_zebra": ["Filas alternas", "check"],
+	"table_font_size": ["Letra", "num", 4, 400, 1, " px", 1.0],
+	"table_row_h": ["Alto de fila", "num", 8, 2000, 1, " px", 1.0],
+	"table_border": ["Bordes", "num", 0, 50, 0.5, " px", 1.0],
+	"table_align": ["Alinear columnas", "option", [["left", "Izquierda"], ["center", "Centro"], ["right", "Derecha"]]],
+	"table_header_bg": ["Fondo cabecera", "color"],
+	"table_header_fg": ["Texto cabecera", "color"],
+	"table_cell_bg": ["Fondo celdas", "color"],
+	"table_zebra_bg": ["Fondo alterno", "color"],
+	"table_text_color": ["Texto", "color"],
+	"table_border_color": ["Color bordes", "color"],
 }
 const STROKE_MODES := [["start", "Inicio", "Punta y remate del inicio"], ["end", "Fin", "Punta y remate del final"],
 	["style", "Estilo", "Sólido, discontinuo, punteado, doble; guion y hueco"], ["profile", "Perfil", "Perfil de grosor del trazo"]]
