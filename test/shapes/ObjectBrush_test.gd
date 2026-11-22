@@ -371,10 +371,24 @@ func test_patron_pieza_de_esquina_en_un_giro() -> void:
 		p.append(Vector2(100.0, i * 2.0))
 	var m: Dictionary = OB.build(p, _const(p.size(), 5.0), src, {"mode": "pattern", "spacing": 1.0, "corner_piece": 1})
 	var tc := _tile_colors(m)
-	assert_int(tc.size()).is_equal(10)
+	assert_int(tc.size()).is_greater_equal(9)
 	assert_int(tc.count(Color.YELLOW)).is_equal(1)
+	# CENTRADA en el giro: se extiende lo mismo por los dos lados de la «L»
+	var cols: PackedColorArray = m["colors"]
+	var pts: PackedVector2Array = m["points"]
+	var min_x := 1e9
+	var max_y := -1e9
+	for i in pts.size():
+		if cols[i] == Color.YELLOW:
+			min_x = minf(min_x, pts[i].x)
+			max_y = maxf(max_y, pts[i].y)
+	var d1 := 100.0 - min_x   # cuánto entra en el tramo horizontal
+	var d2 := max_y           # cuánto entra en el tramo vertical
+	assert_float(absf(d1 - d2)).override_failure_message("no centrada: %.1f vs %.1f" % [d1, d2]).is_less(2.5)
+	# los laterales de cada tramo son iguales entre sí (reparto uniforme)
 	var k := tc.find(Color.YELLOW)
-	assert_bool(k == 4 or k == 5).is_true()   # la tesela que contiene el giro
+	assert_int(k).is_greater(0)
+	assert_int(k).is_less(tc.size() - 1)
 	# en una recta no hay esquinas
 	var m2: Dictionary = OB.build(_line(2, 100.0), _const(2, 5.0), src, {"mode": "pattern", "spacing": 1.0, "corner_piece": 1})
 	assert_int(_tile_colors(m2).count(Color.YELLOW)).is_equal(0)

@@ -64,6 +64,27 @@ func _run() -> void:
 		if near(px(ab, q), Color(0.95, 0.8, 0.1)):
 			corner_hit = true
 	K.check("esquina con la pieza amarilla", corner_hit, str(px(ab, Vector2(690, 150))))
+	# Pieza CENTRADA en el giro: se ve amarillo a los dos lados por igual
+	var left_y := near(px(ab, Vector2(688, 150)), Color(0.95, 0.8, 0.1))
+	var down_y := near(px(ab, Vector2(700, 162)), Color(0.95, 0.8, 0.1))
+	K.check("la pieza de esquina está centrada en el giro (amarilla a ambos lados)", left_y and down_y, "%s %s" % [px(ab, Vector2(688, 150)), px(ab, Vector2(700, 162))])
+	# Editar las piezas de un trazo YA dibujado desde el inspector
+	var ic = root.get_node("InspectorCore")
+	api.select([l])
+	await K.frames(4)
+	K.check("el inspector ofrece las piezas del trazo", ic.current_props().has("pattern_corner_piece") and int(ic.current_props()["pattern_corner_piece"]["value"]) == 4, str(ic.current_props().get("pattern_corner_piece")))
+	ic.apply("pattern_corner_piece", 2.0)   # la figura 2 (verde) en las esquinas
+	await K.frames(4)
+	await RenderingServer.frame_post_draw
+	var green := Color(0.1, 0.7, 0.2)
+	K.check("Pieza de esquina 2 → la esquina pasa a la pieza verde (a ambos lados del giro)",
+		near(px(ab, Vector2(688, 150)), green) and near(px(ab, Vector2(700, 162)), green), "%s %s" % [px(ab, Vector2(688, 150)), px(ab, Vector2(700, 162))])
+	api.undo()
+	await K.frames(4)
+	await RenderingServer.frame_post_draw
+	K.check("deshacer → vuelve la pieza de esquina", near(px(ab, Vector2(688, 150)), Color(0.95, 0.8, 0.1)))
+	api.select([])
+	await K.frames(2)
 	# Guardar / abrir conserva las piezas
 	var abs: Array = await K.save_reload("patron")
 	var ok_reload := false

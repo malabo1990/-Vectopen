@@ -32,7 +32,6 @@ Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 
 | Fase | Punto | Estado |
 |---|---|---|
-| 2 | Pincel de patrón: la pieza de esquina va en la tesela que empieza en el giro; centrarla exactamente en la esquina (recolocando las teselas, como Illustrator) y editar las piezas de un trazo ya dibujado desde el inspector | Pendiente (mejora) |
 
 ---
 

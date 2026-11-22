@@ -424,6 +424,7 @@ func _build_ui() -> void:
 		"path_text_content", "path_text_size", "path_text_spacing",
 		"path_text_align", "path_text_offset", "path_text_start", "path_text_end",
 		"path_text_valign", "path_text_reverse", "path_text_flip",
+		"pattern_start_piece", "pattern_corner_piece", "pattern_end_piece",
 		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 		"brush_color_jitter", "brush_geo", "brush_geo_amount", "brush_geo_size", "brush_nib_angle",
 		"blend_mode", "blend_steps", "blend_spacing", "blend_orient",

@@ -551,17 +551,48 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 	var order := PackedInt32Array()
 	for ti in count:
 		order.append(sides[_pick(sides.size(), ti, int(pr["seed"]), pr)])
+	var starts := PackedFloat32Array()
+	var lens := PackedFloat32Array()
 	if count > 1 and bool(pr.get("repeat", true)):
 		if cp >= 0:
+			# Pieza de esquina CENTRADA en cada giro (como Illustrator): el trazo
+			# se parte en tramos entre esquinas y en cada tramo las teselas
+			# laterales se reparten por igual; la de esquina ocupa
+			# [giro − L/2, giro + L/2], con su centro justo en el giro.
+			var corner_len := float(aspects[cp]) * 2.0 * hmax * (1.0 + gap)
+			var cs: Array = []
+			var last_end := 0.0
 			for s_c in _corners(pts, cum, seg_len / 3.0, float(pr.get("corner_angle", 45.0))):
-				var tc := clampi(int((s_c - start) / seg_len), 0, count - 1)
-				order[tc] = cp
+				if s_c - corner_len * 0.5 >= last_end and s_c + corner_len * 0.5 <= total:
+					cs.append(s_c)
+					last_end = s_c + corner_len * 0.5
+			if not cs.is_empty():
+				order = PackedInt32Array()
+				var cursor := 0.0
+				var side_i := 0
+				for c in cs + [-1.0]:
+					var sec_end: float = total if c < 0.0 else c - corner_len * 0.5
+					var span := sec_end - cursor
+					if span > 0.001:
+						var k := maxi(1, int(round(span / maxf(nominal, 0.0001))))
+						for j in k:
+							starts.append(cursor + span * j / k)
+							lens.append(span / k)
+							order.append(sides[_pick(sides.size(), side_i, int(pr["seed"]), pr)])
+							side_i += 1
+					if c >= 0.0:
+						starts.append(c - corner_len * 0.5)
+						lens.append(corner_len)
+						order.append(cp)
+						cursor = c + corner_len * 0.5
+				count = starts.size()
 		if sp >= 0:
 			order[0] = sp
 		if ep >= 0:
 			order[count - 1] = ep
 	return {"pts": pts, "half": half, "cum": cum, "nrm": nrm, "total": total,
 		"count": count, "seg_len": seg_len, "gap": gap, "order": order, "start": start,
+		"starts": starts, "lens": lens,
 		"flip": -1.0 if bool(pr.get("flip", false)) else 1.0,
 		"vshift": -0.5 if bool(pr.get("baseline", false)) else 0.0}
 
@@ -632,12 +663,18 @@ static func _warp(ctx: Dictionary, ti: int, q: Vector2, aspect: float) -> Vector
 
 ## Distancia a lo largo del trazado de la coordenada u de la tesela `ti`.
 static func _s_of(ctx: Dictionary, ti: int, u: float, aspect: float) -> float:
+	var st: PackedFloat32Array = ctx.get("starts", PackedFloat32Array())
+	if st.size() > ti:   # teselas de largo propio (pieza de esquina centrada)
+		return st[ti] + clampf(u / aspect, 0.0, 1.0) * (ctx["lens"] as PackedFloat32Array)[ti] / (1.0 + float(ctx["gap"]))
 	var seg_len: float = ctx["seg_len"]
 	var body := seg_len / (1.0 + float(ctx["gap"]))
 	return float(ctx.get("start", 0.0)) + ti * seg_len + clampf(u / aspect, 0.0, 1.0) * body
 
 ## Como _s_of pero sin limitar u a la tesela (letras con espaciado extra).
 static func _s_free(ctx: Dictionary, ti: int, u: float, aspect: float) -> float:
+	var st: PackedFloat32Array = ctx.get("starts", PackedFloat32Array())
+	if st.size() > ti:
+		return st[ti] + u / maxf(aspect, 0.000001) * (ctx["lens"] as PackedFloat32Array)[ti] / (1.0 + float(ctx["gap"]))
 	var seg_len: float = ctx["seg_len"]
 	var body := seg_len / (1.0 + float(ctx["gap"]))
 	return float(ctx.get("start", 0.0)) + ti * seg_len + u / maxf(aspect, 0.000001) * body

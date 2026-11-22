@@ -64,6 +64,7 @@ const PROPS := [
 	"path_text_align", "path_text_offset", "path_text_flip",
 	"path_text_content", "path_text_size", "path_text_spacing", "path_text_start", "path_text_end",
 	"path_text_range", "path_text_valign", "path_text_reverse",
+	"pattern_start_piece", "pattern_corner_piece", "pattern_end_piece",
 	"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 	"brush_geo", "brush_geo_amount", "brush_geo_size", "brush_color_jitter", "brush_texture_image",
 	"brush_nib_angle", "blend_mode",
@@ -239,6 +240,13 @@ func _read(shape, prop):
 		return _BlendRef.read_prop(shape, String(prop))
 	if _AutoLayoutRef.handles(String(prop)):
 		return _AutoLayoutRef.read_prop(shape, String(prop))
+	if prop in ["pattern_start_piece", "pattern_corner_piece", "pattern_end_piece"]:
+		# Piezas del pincel de PATRÓN de un trazo ya dibujado (1.. = nº de
+		# figura de la fuente; 0 = ninguna).
+		if not _is_pattern_stroke(shape):
+			return null
+		var bp: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).get("params", {})
+		return float(int(bp.get(String(prop).trim_prefix("pattern_"), -1)) + 1)
 	if prop == "casts_shadow":
 		# «Proyecta sombra»: figuras de un documento que tiene luces
 		if shape.has_method("get_effect_points") and String(shape.get_meta("shape_type", "")) != "light" \
@@ -1374,6 +1382,13 @@ func _write(shape, prop, value) -> void:
 	if fx and is_instance_valid(shape):
 		TextCore.refresh_letter_fx(shape)
 
+## Trazo de pincel de objeto en modo PATRÓN (con piezas de inicio / esquina / final).
+func _is_pattern_stroke(shape: Node) -> bool:
+	if not (shape is Line2D) or String(shape.get_meta("brush_style", "")) != "object" or shape.has_meta("brush_ref"):
+		return false
+	var bo: Dictionary = shape.get_meta("brush_obj", {})
+	return String((bo.get("params", {}) as Dictionary).get("mode", "stamp")) == "pattern"
+
 func _write_prop(shape, prop, value) -> void:
 	if not is_instance_valid(shape):
 		return
@@ -1710,6 +1725,18 @@ func _write_prop(shape, prop, value) -> void:
 				bo2["params"] = prm2
 				shape.set_meta("brush_obj", bo2)
 				shape.queue_redraw()
+		"pattern_start_piece", "pattern_corner_piece", "pattern_end_piece":
+			if _is_pattern_stroke(shape):
+				var bop: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
+				var pp: Dictionary = bop.get("params", {})
+				var n_src: int = (bop.get("src", []) as Array).size()
+				pp[prop.trim_prefix("pattern_")] = clampi(int(round(float(value))) - 1, -1, maxi(n_src - 1, -1))
+				bop["params"] = pp
+				shape.set_meta("brush_obj", bop)
+				shape.queue_redraw()
+				for rc in shape.get_children(true):
+					if rc.has_method("visual_mesh"):   # el renderizador del trazo
+						rc.queue_redraw()
 		"path_text_valign", "path_text_reverse":
 			if shape is Line2D and shape.has_meta("brush_ref"):
 				var bo4: Dictionary = (shape.get_meta("brush_obj", {}) as Dictionary).duplicate(true)
