@@ -91,16 +91,6 @@ profesional y experiencia de usuario (UI/UX).
 herramienta de diseño vectorial y composición visual más flexible,
 eficiente y adecuada para proyectos profesionales.
 
-#### 1. Geometría avanzada: esquinas — lo que falta
-
-Hecho (2026-11-22): «Tipo de esquina» del rectángulo en el inspector (Modern
-y Pro): redonda, redondeado inverso (cóncavo), chaflán y muesca, con los
-radios por esquina y también un tipo por esquina (Tipo ↖ ↗ ↘ ↙), deshacer,
-.vtp y SVG/PDF (`corner_styles_e2e`, `RectCornerStyle_test`). Falta:
-
-- Perfiles especiales: zigzag, dientes de sierra (Sawtooth) y otros
-  patrones, con parámetros en vivo.
-
 #### 2. Iluminación y efectos visuales 2D
 
 Incorporar un sistema de iluminación 2D para ampliar las posibilidades de
@@ -206,7 +196,7 @@ profundidad) acercaría a Vectopen a un estudio de diseño completo en una
 sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 
 > **Prioridad sugerida** (no acordada): 1) layout, 2) iluminación 2D,
-> 3) maquetación editorial (esquinas y Blend: primera versión hecha). Cada bloque grande merece su propio documento de
+> 3) maquetación editorial (§1 esquinas hecho; Blend: primera versión). Cada bloque grande merece su propio documento de
 > diseño en `docs/roadmap/` antes de codear.
 
 ## 0 nonies. VTP Preview — visor de documentos (2026-11-21) — propuesta

@@ -50,3 +50,16 @@ func test_tipo_distinto_en_cada_esquina() -> void:
 	n.free()
 	r.corner_style = 1   # «Tipo de esquina» cambia las cuatro
 	assert_array(Array(r.corner_styles)).is_equal([1, 1, 1, 1])
+
+func test_zigzag_y_sierra() -> void:
+	for st in [4, 5]:
+		var r := _rect(st)
+		var pts := r.get_effect_points()
+		var a := _area(pts)
+		# entre el chaflán (9200) y la muesca (8400): los dientes entran hacia dentro
+		assert_float(a).is_less(9200.0)
+		assert_float(a).is_greater(8400.0)
+		assert_int(pts.size()).is_greater(12)   # muchos más puntos que el chaflán
+		for p in pts:
+			assert_bool(Rect2(-50, -50, 100, 100).grow(0.001).has_point(p)).is_true()
+	assert_str(VectorRectangle.CORNER_STYLES[4]).is_equal("zigzag")

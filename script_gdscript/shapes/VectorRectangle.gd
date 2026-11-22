@@ -36,10 +36,11 @@ var _r_bl: float = 0.0
 ## Forma de las esquinas (informe de propuestas §1): 0 redonda · 1 redondeado
 ## INVERSO (arco cóncavo hacia dentro) · 2 chaflán (corte recto) · 3 muesca
 ## (corte cuadrado). El tamaño de cada esquina es su radio.
-const CORNER_STYLES := ["round", "inverted", "chamfer", "notch"]
-@export_range(0, 3) var corner_style: int = 0:
+const CORNER_STYLES := ["round", "inverted", "chamfer", "notch", "zigzag", "sawtooth"]
+const _MAX_STYLE := 5
+@export_range(0, 5) var corner_style: int = 0:
 	set(v):
-		var cs := clampi(v, 0, 3)
+		var cs := clampi(v, 0, _MAX_STYLE)
 		corner_style = cs
 		corner_styles = PackedInt32Array([cs, cs, cs, cs])
 	get:
@@ -50,7 +51,7 @@ const CORNER_STYLES := ["round", "inverted", "chamfer", "notch"]
 	set(v):
 		var o := PackedInt32Array([0, 0, 0, 0])
 		for i in mini(4, v.size()):
-			o[i] = clampi(v[i], 0, 3)
+			o[i] = clampi(v[i], 0, _MAX_STYLE)
 		corner_styles = o
 		queue_redraw()
 
@@ -59,7 +60,7 @@ func corner_styles_mixed() -> bool:
 
 func set_corner_style_at(i: int, v: int) -> void:
 	var o := corner_styles.duplicate()
-	o[clampi(i, 0, 3)] = clampi(v, 0, 3)
+	o[clampi(i, 0, 3)] = clampi(v, 0, _MAX_STYLE)
 	corner_styles = o
 
 ## Los 4 radios como Vector4 (tl, tr, br, bl) — para el panel de transformación.
@@ -279,11 +280,31 @@ func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 				verts.append(a)
 				verts.append(center)
 				verts.append(b)
+			4, 5:   # zigzag (simétrico) / dientes de sierra, sobre el chaflán
+				_teeth(verts, a, b, center, r, corner_styles[k] == 5)
 			_:
 				for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
 					var angle: float = start_angle + (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
 					verts.append(center + Vector2(cos(angle), sin(angle)) * r)
 	return verts
+
+## Dientes entre `a` y `b` (el chaflán), hacia el centro del redondeo:
+## unos 6 px por diente; zigzag = picos simétricos, sierra = rampa + corte.
+func _teeth(verts: PackedVector2Array, a: Vector2, b: Vector2, center: Vector2, r: float, saw: bool) -> void:
+	var n := clampi(int(round(a.distance_to(b) / 6.0)), 2, 64)
+	var mid := (a + b) * 0.5
+	var inward := (center - mid).normalized()
+	var amp := minf(r * 0.18, a.distance_to(b) / float(n))
+	verts.append(a)
+	for i in n:
+		var p0 := a.lerp(b, float(i) / n)
+		var p1 := a.lerp(b, float(i + 1) / n)
+		if saw:
+			verts.append(p1 + inward * amp)   # rampa hasta el pico…
+			verts.append(p1)                  # …y corte recto
+		else:
+			verts.append((p0 + p1) * 0.5 + inward * amp)
+			verts.append(p1)
 
 func set_selected(selected: bool):
 	is_selected = selected
