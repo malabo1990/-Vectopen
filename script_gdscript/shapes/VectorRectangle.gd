@@ -240,7 +240,7 @@ func _draw_side_strokes(rect: Rect2) -> void:
 		var area := (quad[1] - quad[0]).cross(quad[3] - quad[0]) + (quad[3] - quad[2]).cross(quad[1] - quad[2])
 		if absf(area) < 0.0001:
 			continue
-		draw_colored_polygon(quad, col)
+		draw_flat_polygon(quad, col)
 
 func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 	var max_r: float = min(rect.size.x, rect.size.y) / 2.0
@@ -286,6 +286,28 @@ func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 				for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
 					var angle: float = start_angle + (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
 					verts.append(center + Vector2(cos(angle), sin(angle)) * r)
+	return _clean_overlaps(verts)
+
+## En una figura estrecha con mucho redondeo, las esquinas en chaflán, muesca,
+## zigzag o sierra de dos lados se PISAN: el contorno se cruza (sin relleno) o
+## deja «paredes» de grosor cero que el borde pintaba como líneas sueltas. Se
+## queda la silueta exterior limpia (unión consigo mismo). Sin cruces, igual.
+func _clean_overlaps(verts: PackedVector2Array) -> PackedVector2Array:
+	var fancy := false
+	for k in 4:
+		if int(corner_styles[k]) >= 2:
+			fancy = true
+	if not fancy or verts.size() < 4:
+		return verts
+	var outs: Array = []
+	var holes := 0
+	for m in Geometry2D.merge_polygons(verts, verts):
+		if Geometry2D.is_polygon_clockwise(m):
+			holes += 1
+		else:
+			outs.append(m)
+	if outs.size() == 1 and (holes > 0 or (outs[0] as PackedVector2Array).size() != verts.size()):
+		return outs[0]
 	return verts
 
 ## Dientes entre `a` y `b` (el chaflán), hacia el centro del redondeo:

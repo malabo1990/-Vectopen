@@ -11,6 +11,7 @@
 @tool
 extends Path2D
 class_name VectorPath
+const _FlatFill = preload("res://script_gdscript/shapes/flat_fill.gd")
 const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 const StrokeMarkers = preload("res://script_gdscript/shapes/stroke_markers.gd")
 const StrokeGeom = preload("res://script_gdscript/shapes/stroke_geom.gd")
@@ -225,7 +226,7 @@ func _draw() -> void:
 						big_mesh["indices"], big_mesh["points"], PackedColorArray([fc]))
 				else:
 					for poly in _cached_fill(pts):
-						draw_colored_polygon(poly, fc)
+						_FlatFill.draw(self, poly, fc)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				_draw_stroke_mesh(pts, true)
 		else:
@@ -244,7 +245,7 @@ func _draw() -> void:
 						mesh["indices"], mesh["points"], PackedColorArray([fc2]))
 				else:
 					for poly in _cached_evenodd(rings):
-						draw_colored_polygon(poly, fc2)
+						_FlatFill.draw(self, poly, fc2)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
@@ -254,7 +255,7 @@ func _draw() -> void:
 		# Illustrator), cerrando con una recta del último punto al primero.
 		if _is_mask() and pts.size() >= 3:
 			for poly in fill_polygons(pts):
-				draw_colored_polygon(poly, _area_color())
+				_FlatFill.draw(self, poly, _area_color())
 		if stroke_width > 0.0:
 			# Bajo una punta la línea acaba en su base (punta afilada, y con el
 			# estilo doble las dos líneas mueren dentro de la flecha).

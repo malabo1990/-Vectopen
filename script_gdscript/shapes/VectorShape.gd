@@ -477,6 +477,7 @@ func _ensure_inner_shadow_ci() -> bool:
 	return _inner_shadow_ci.is_valid()
 
 const FxPolyGpu = preload("res://script_gdscript/shapes/fx_poly_gpu.gd")
+const _FlatFill = preload("res://script_gdscript/shapes/flat_fill.gd")
 const FxLight = preload("res://script_gdscript/shapes/fx_light.gd")
 ## Canvas items / materiales de 3D y Bisel y relieve (dos pasadas cada uno:
 ## sombras en multiplicar y luces en trama, como Photoshop).
@@ -1062,13 +1063,17 @@ func draw_fill(points: PackedVector2Array) -> void:
 	if has_gradient_fill():
 		draw_colored_polygon(points, Color.WHITE, _gradient_uvs(points), _ensure_grad_tex())
 	elif fill_color.a > 0.0:
-		draw_colored_polygon(points, fill_color)
+		draw_flat_polygon(points, fill_color)
 	elif clip_children != CanvasItem.CLIP_CHILDREN_DISABLED:
 		# VAL-54: una figura SIN relleno usada como máscara recorta por su
 		# forma (Godot recorta con el alfa de lo que dibuja el padre: sin
 		# área, los hijos solo se veían bajo el trazo del borde). En modo
 		# «solo recortar» este blanco no se ve. Igual que VectorPath.
-		draw_colored_polygon(points, Color.WHITE)
+		draw_flat_polygon(points, Color.WHITE)
+
+## Relleno de un color con la orden de dibujo más ligera (flat_fill.gd).
+func draw_flat_polygon(points: PackedVector2Array, col: Color) -> void:
+	_FlatFill.draw(self, points, col)
 
 ## Calcula el ancho de trazo y color con atenuación subpíxel para evitar que líneas < 1px se vean punteadas o desaparezcan.
 func _get_rendered_stroke_params(w: float = -1.0, col: Color = Color(-1, -1, -1, -1)) -> Array:
