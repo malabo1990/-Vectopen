@@ -156,6 +156,14 @@ func _image_sprite() -> Sprite2D:
 			return s
 	return null
 
+## Por qué no hay vectorizador, dicho para el usuario. En un Mac con
+## procesador Intel no existe: ONNX Runtime (la IA del vectorizador) no tiene
+## versión para esa plataforma (decidido: avisarlo en la app).
+static func unavailable_reason(os_name: String = OS.get_name(), arch: String = Engine.get_architecture_name()) -> String:
+	if os_name == "macOS" and arch in ["x86_64", "x86_32"]:
+		return "El vectorizador IA no está disponible en Mac con procesador Intel: su motor de IA (ONNX Runtime) no existe para esta plataforma. Sí funciona en Mac con Apple Silicon (M1 o posterior), Windows y Linux. Mientras, puedes importar el SVG vectorizado desde otra aplicación."
+	return "El vectorizador no se ha podido cargar en este equipo (falta su librería nativa). Reinstala Vectopen o informa del problema desde Acerca de ▸ «Contactar / informar de un error»."
+
 func _refresh_target() -> void:
 	if _busy:
 		return
@@ -165,7 +173,7 @@ func _refresh_target() -> void:
 	for b in [_btn_go, _btn_bg, _btn_up]:
 		b.disabled = sp == null or not native
 	if not native:
-		_set_status("El vectorizador nativo no está cargado (vectopen_vectorizer.gdextension).", true)
+		_set_status(unavailable_reason(), true)
 	elif sp == null:
 		_set_status("Selecciona una imagen del lienzo.", false)
 	else:

@@ -525,9 +525,6 @@ utilizarlo como base para el futuro visor web.
 
 ## 3. Publicación y actualizaciones
 
-- [ ] **Decidido: avisarlo en la app** · Mac Intel: el vectorizador IA no existe (ONNX Runtime no
-	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
-	  avisarlo en la app.
 - [ ] **Decidido: instalador NSIS** · Windows: el paquete es un `.zip`; el botón de actualizar
 	  solo lo abre. Un instalador (`.exe`/`.msi`) permitiría actualizar de verdad.
 - [ ] **[usuario]** (hace falta comprar un certificado) Firmar los binarios de Windows y macOS (avisos de

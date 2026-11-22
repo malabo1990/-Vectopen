@@ -1327,7 +1327,7 @@ func vectorize_presets() -> Array:
 ## Devuelve el grupo creado (o null).
 func vectorize(sprite: Sprite2D, preset: String = "Ilustración", hide_original: bool = true, drop_white_bg: bool = true) -> Node2D:
 	if not ClassDB.class_exists("VectorizerJob"):
-		error("vectorize: el vectorizador nativo no está cargado")
+		error("vectorize: " + VecPanel.unavailable_reason())
 		return null
 	if not is_instance_valid(sprite) or sprite.texture == null:
 		error("vectorize: hace falta una imagen")
