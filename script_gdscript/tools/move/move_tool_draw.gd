@@ -24,6 +24,38 @@ func _draw_hover_shape(c: Node2D) -> void:
 		# Baseline cue under the text box
 		c.draw_line(Vector2(lr.position.x, lr.end.y), lr.end, COLOR_HOVER, w * 2.0)
 
+## USR-38: si lo seleccionado está DENTRO de un grupo, contorno discontinuo
+## del grupo que lo contiene y su nombre: se ve en qué contenedor se trabaja.
+func _draw_group_context(c: Node2D) -> void:
+	if selected_shapes.is_empty() or selected_shapes.size() > MAX_OUTLINED_SELECTION or is_marquee:
+		return
+	var first: Node = selected_shapes[0]
+	if not is_instance_valid(first):
+		return
+	var p: Node = first.get_parent()
+	if not (p is Node2D) or "artboard_size" in p or String(p.name) in ["VectorDrawingLayer", "ArtboardsContainer"]:
+		return
+	if not (p.has_meta("shape_type") or p is VectorShape):
+		return
+	for s in selected_shapes:
+		if not is_instance_valid(s) or s.get_parent() != p:
+			return
+	var vp := c.get_viewport()
+	var zsc: float = vp.get_canvas_transform().get_scale().x if vp else 1.0
+	var px: float = 1.0 / maxf(zsc, 0.0002)
+	var r: Rect2 = _global_rect(p as Node2D)
+	var lr := Rect2(c.to_local(r.position), c.to_local(r.end) - c.to_local(r.position)).grow(3.0 * px)
+	var col := Color(COLOR_BBOX.r, COLOR_BBOX.g, COLOR_BBOX.b, 0.7)
+	var dash := 4.0 * px
+	var pts := [lr.position, Vector2(lr.end.x, lr.position.y), lr.end, Vector2(lr.position.x, lr.end.y)]
+	for i in 4:
+		c.draw_dashed_line(pts[i], pts[(i + 1) % 4], col, px, dash)
+	var font: Font = ThemeDB.fallback_font
+	var fs := 11
+	c.draw_set_transform(lr.position + Vector2(0, -4.0 * px), 0.0, Vector2(px, px))
+	c.draw_string(font, Vector2.ZERO, String(p.name), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 ## Dibuja las guías del imán: líneas de alineación (bordes/centros) que cruzan
 ## toda la vista + marcas en los bordes exactos, y las barras de separación
 ## (distribución / hueco igualado) con la distancia en px.
@@ -280,6 +312,7 @@ func draw_preview(c: Node2D) -> void:
 		return
 
 	_draw_hover_shape(c)
+	_draw_group_context(c)
 
 	# Guías del imán inteligente (solo mientras se arrastra una figura)
 	if is_dragging_shape and (not _snap_guides.is_empty() or not _snap_spacing.is_empty()):

@@ -516,6 +516,20 @@ func _populate_files_section() -> void:
 	ck.button_pressed = sm.autosave_enabled
 	ck.toggled.connect(func(on: bool) -> void: sm.set_autosave(on))
 	r1.add_child(ck)
+	var r_sel := HBoxContainer.new()
+	_slot_container.add_child(r_sel)
+	var l_sel := Label.new()
+	l_sel.text = tr("Selección directa (atravesar grupos)")
+	l_sel.tooltip_text = tr("El clic coge el objeto que hay bajo el cursor aunque esté dentro de un grupo; Ctrl + clic coge el grupo. Apagado: el clic coge el grupo, doble clic entra en él y Ctrl + clic coge el objeto.")
+	l_sel.mouse_filter = Control.MOUSE_FILTER_STOP
+	l_sel.size_flags_horizontal = SIZE_EXPAND | SIZE_FILL
+	r_sel.add_child(l_sel)
+	var ck_sel := CheckBox.new()
+	ck_sel.name = "DeepSelectCheck"
+	var SP = load("res://script_gdscript/tools/move/select_prefs.gd")
+	ck_sel.button_pressed = SP.deep_select()
+	ck_sel.toggled.connect(func(on: bool) -> void: SP.set_deep_select(on))
+	r_sel.add_child(ck_sel)
 	var r2 := HBoxContainer.new()
 	_slot_container.add_child(r2)
 	var l2 := Label.new()

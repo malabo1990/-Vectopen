@@ -8,6 +8,7 @@
 # =============================================================================
 class_name MoveTool
 extends "res://script_gdscript/tools/move/move_tool_draw.gd"
+const _SelectPrefs = preload("res://script_gdscript/tools/move/select_prefs.gd")
 # Herramienta Mover. Dividida en módulos (script_gdscript/tools/move/):
 #   move_tool_core → transform → ops → threading → keyboard → 3d → draw → MoveTool
 # Aquí quedan el ciclo de vida, la entrada (ratón/teclado) y el doble clic.
@@ -499,7 +500,12 @@ func _on_press(gm: Vector2) -> bool:
 	var hit: Node2D = _shape_at(gm)
 	if hit:
 		# 13.2 Cmd/Ctrl + Clic: selección directa de objeto dentro de un grupo (deep select)
-		if (Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)) and _es_grupo_movetool(hit):
+		# Con «Selección directa» (Ajustes) es al revés: el clic atraviesa los
+		# grupos y Ctrl + clic coge el grupo.
+		var ctrl_k: bool = Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)
+		if _SelectPrefs.deep_select() and ctrl_k:
+			pass   # grupo de primer nivel tal cual
+		elif (ctrl_k or _SelectPrefs.deep_select()) and _es_grupo_movetool(hit):
 			var actual: Node2D = hit
 			while true:
 				var h: Node2D = _hijo_bajo_punto(actual, gm)
@@ -508,9 +514,21 @@ func _on_press(gm: Vector2) -> bool:
 				actual = h
 			hit = actual
 		elif _es_grupo_movetool(hit):
+			# USR-38: ya se está DENTRO del grupo (hay un hijo seleccionado):
+			# el clic elige lo que hay bajo el cursor en ese mismo nivel (un
+			# hermano, o el propio hijo) y, si no hay nada ahí, sube de nivel.
+			# Antes se devolvía siempre el hijo ya seleccionado: clicar un
+			# hermano y arrastrar movía el objeto equivocado.
 			var sel_dentro := _primer_seleccionado_en_rama(hit)
 			if sel_dentro != null:
-				hit = sel_dentro
+				var ctx: Node = sel_dentro.get_parent()
+				var tope: Node = hit.get_parent()
+				while is_instance_valid(ctx) and ctx != tope:
+					var bajo: Node2D = _hijo_bajo_punto(ctx, gm)
+					if is_instance_valid(bajo):
+						hit = bajo
+						break
+					ctx = ctx.get_parent()
 		_pending_shift_deselect = null
 		if selected_shapes.has(hit):
 			if Input.is_key_pressed(KEY_SHIFT):

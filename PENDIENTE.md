@@ -69,7 +69,6 @@ tal cual lo pidió el usuario, para abrirlas una por iteración (§0).
 | USR-35 | Notificaciones de errores y bugs dentro de la app, con botón «Enviar a técnico» y reporte determinante (traza, `archivo:línea`, versión, SO, cola del log) | Pendiente |
 | USR-36 | Diálogo de Contacto con área de texto multilínea para escribir al técnico: motivo (bug/error/sugerencia), email opcional, abrible desde Ayuda y desde la notificación de error | Pendiente |
 | USR-37 | Action/servicio que RECIBA los reportes de bug (contrato de datos, almacenamiento y reintento, privacidad) | Pendiente |
-| USR-38 | Bug: no se pueden editar ni arrastrar los elementos hijos de un padre (la selección salta al padre) | Pendiente |
 | USR-39 | Grosor de trazo tipo Affinity: arrastrar el número para cambiarlo, presets, vista previa en vivo, unidades y un solo paso de deshacer | Pendiente |
 
 Notas de arranque:
@@ -81,13 +80,6 @@ Notas de arranque:
   buzón: los reportes irían a `user://bug_reports/`.
 - USR-35: incluir también el manejador de fallos del build de release, no
   solo los `push_error` de depuración.
-- USR-38: reproducir antes de tocar nada (¿falla selección, bounding box,
-  inspector o arrastre? ¿con grupo, artboard anidado, hijo de texto?).
-  Sospechosos: `script_gdscript/tools/MoveTool.gd` (`_edit_frame_for()`,
-  `target_artboard`), `SelectionManager` (hit-test que devuelve el padre),
-  `InspectorCore`/`HistoryManager` (padre con transformación) y
-  `Layertree.gd` / `layers_system.gd` (clic en la capa hija selecciona la
-  hija). Prueba que falle primero: seleccionar hijo → mover → Ctrl+Z.
 - USR-39: el arrastre del deslizador debe registrar **un** paso de
   `HistoryManager` al soltar, no uno por píxel. Respetar el grosor por lado
   que ya existe (`VectorRectangle.stroke_sides`).
@@ -96,7 +88,7 @@ Notas de arranque:
 
 Informe aportado por el usuario. Se guarda como backlog de producto; el
 texto original termina a media frase («La incorporación») y se cierra abajo
-con una línea de resumen. El §6 de este informe es el mismo USR-38.
+con una línea de resumen. (Su §6 era USR-38: hecho, quitado.)
 
 **Área:** Geometría vectorial, herramientas de composición, maquetación
 profesional y experiencia de usuario (UI/UX).
@@ -257,39 +249,6 @@ las posibilidades de precisión y control editorial de Adobe InDesign.
 Es importante que el sistema de Layout permita trabajar con estructuras
 complejas, grupos, contenedores y elementos anidados sin tener que ajustar
 manualmente cada objeto.
-
-#### 6. Mejoras de UI/UX: selección y jerarquía de objetos
-
-He observado un posible problema en la interacción con objetos anidados.
-
-Cuando intento seleccionar o arrastrar un objeto que pertenece a un grupo o
-contenedor, la selección parece saltar automáticamente al objeto padre. Esto
-dificulta mover y editar elementos individuales.
-
-**Comportamiento esperado:**
-
-- Priorizar la selección del objeto situado directamente bajo el cursor.
-- Permitir seleccionar objetos hijos sin activar automáticamente el grupo
-  padre.
-- Mantener la posibilidad de seleccionar el objeto padre mediante una acción
-  específica.
-- Permitir arrastrar elementos hijos independientemente.
-- Incorporar una opción para atravesar grupos y contenedores durante la
-  selección.
-- Diferenciar visualmente el objeto seleccionado, su contenedor y su
-  jerarquía.
-
-**Propuesta adicional:**
-
-Implementar un sistema de selección inteligente con diferentes niveles de
-profundidad, similar al funcionamiento de Figma y otros editores
-profesionales.
-
-La prioridad debe ser respetar el objeto seleccionado y evitar que la
-jerarquía de grupos interfiera inesperadamente con las acciones del usuario.
-
-> Es el mismo USR-38: ese punto es el bug, este es el comportamiento
-> esperado (tipo Figma) para el arreglo. No son dos tareas.
 
 #### 7. Conclusión y visión técnica
 
@@ -649,12 +608,12 @@ utilizarlo como base para el futuro visor web.
 ## 3. Publicación y actualizaciones
 
 - [ ] **[decisión]** Mac Intel: el vectorizador IA no existe (ONNX Runtime no
-      tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
-      avisarlo en la app.
+	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
+	  avisarlo en la app.
 - [ ] **[decisión]** Windows: el paquete es un `.zip`; el botón de actualizar
-      solo lo abre. Un instalador (`.exe`/`.msi`) permitiría actualizar de verdad.
+	  solo lo abre. Un instalador (`.exe`/`.msi`) permitiría actualizar de verdad.
 - [ ] **[decisión]** Firmar los binarios de Windows y macOS (avisos de
-      «desarrollador desconocido»; hace falta certificado).
+	  «desarrollador desconocido»; hace falta certificado).
 
 ---
 
