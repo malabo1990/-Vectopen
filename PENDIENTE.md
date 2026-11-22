@@ -260,9 +260,8 @@ Blend, layout automático, maquetación multipágina y selección por
 profundidad) acercaría a Vectopen a un estudio de diseño completo en una
 sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 
-> **Prioridad sugerida** (no acordada): 1) USR-38 (hijos), 2) USR-39
-> (grosor), 3) esquinas avanzadas, 4) layout, 5) Blend, 6) iluminación 2D,
-> 7) maquetación editorial. Cada bloque grande merece su propio documento de
+> **Prioridad sugerida** (no acordada): 1) USR-39 (grosor), 2) esquinas
+> avanzadas, 3) layout, 4) Blend, 5) iluminación 2D, 6) maquetación editorial. Cada bloque grande merece su propio documento de
 > diseño en `docs/roadmap/` antes de codear.
 
 ## 0 nonies. VTP Preview — visor de documentos (2026-11-21) — propuesta
