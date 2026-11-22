@@ -564,10 +564,6 @@ utilizarlo como base para el futuro visor web.
 
 ## 3. Publicación y actualizaciones
 
-- [ ] Antes de publicar: recompilar `vectopen_io` para Windows y macOS
-	  (`rust/build_cross.sh`): trae `fill_mesh` (relleno nativo, VAL-66). Sin
-	  ella esos sistemas usan el relleno GDScript (más lento, igual de correcto).
-
 - [ ] **[decisión]** Mac Intel: el vectorizador IA no existe (ONNX Runtime no
 	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
 	  avisarlo en la app.
