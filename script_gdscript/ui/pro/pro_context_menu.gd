@@ -144,6 +144,14 @@ func _add(menu: PopupMenu, action_id: String, text: String, accel: int = 0) -> v
 	_ids.append(action_id)
 	menu.add_item(tr(text), idx, accel)
 	var item := menu.get_item_index(idx)
+	# icono propio de la acción (los mismos que en Modern y Smart)
+	var own := "res://icon/UI/menu/%s.svg" % action_id
+	if ResourceLoader.exists(own):
+		var tm := get_node_or_null("/root/ThemeManager")
+		var raw: Texture2D = load(own)
+		menu.set_item_icon(item, tm.make_white_icon(raw, 16) if tm and tm.has_method("make_white_icon") else raw)
+		menu.set_item_icon_max_width(item, 16)
+		menu.set_item_icon_modulate(item, menu.get_theme_color("font_color"))   # blanco × color del texto
 	menu.set_item_disabled(item, not ContextMenuActions.is_enabled(action_id, self))
 
 func _add_submenu(text: String, sub: PopupMenu, enabled: bool) -> void:

@@ -365,7 +365,7 @@ func _add_separator() -> void:
 	_vbox.add_child(sep)
 
 const _MENU_ICON_DIR := "res://icon/UI/menu/"
-const _ICON_ALIASES := {"ungroup_all": "ungroup", "distribute_horizontal": "flip_h", "distribute_vertical": "flip_v"}
+const _ICON_ALIASES := {"ungroup_all": "ungroup"}
 
 func _add_menu_item(id: String, label: String, shortcut: String) -> void:
 	var tm = get_node_or_null("/root/ThemeManager")

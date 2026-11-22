@@ -109,11 +109,17 @@ func _ensure_button(list: Container, spec: Array) -> Button:
 	b = (ref.duplicate(0) as Button) if ref else Button.new()
 	b.name = String(spec[0])
 	b.text = tr(String(spec[2]))
-	# Icono en blanco: los colores del tema (copiados de «Copy») lo tiñen igual que al resto.
-	var raw: Texture2D = load("res://icon/UI/stroke_curve.svg")
+	# Icono PROPIO de cada acción (icon/UI/menu/<acción>.svg; antes todas
+	# llevaban la misma curva). En blanco: el tema lo tiñe como al resto.
+	var own := "res://icon/UI/menu/%s.svg" % String(spec[1])
+	var raw: Texture2D = load(own) if ResourceLoader.exists(own) else load("res://icon/UI/stroke_curve.svg")
 	var tm := get_node_or_null("/root/ThemeManager")
 	b.icon = tm.make_white_icon(raw, 16) if tm and tm.has_method("make_white_icon") else raw
-	b.tooltip_text = ""
+	# textos largos: con «…» (si no, el icono se salía por la izquierda) y
+	# el texto completo al pasar el ratón
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.clip_text = true
+	b.tooltip_text = tr(String(spec[2]))
 	for c in b.get_children():
 		c.queue_free()   # sin atajo de teclado
 	var action: String = spec[1]
