@@ -217,8 +217,15 @@ func _draw() -> void:
 			if stroke_behind_fill and stroke_width > 0.0:
 				_draw_stroke_mesh(pts, true)
 			if fc.a > 0.0 and pts.size() >= 3:
-				for poly in _cached_fill(pts):
-					draw_colored_polygon(poly, fc)
+				# Contornos grandes: teselado nativo («no cero»), mucho más
+				# rápido que unir con Clipper + triangular (VAL-66).
+				var big_mesh := _cached_evenodd_mesh([pts], false) if pts.size() >= NATIVE_FILL_FROM else {}
+				if not big_mesh.is_empty():
+					RenderingServer.canvas_item_add_triangle_array(get_canvas_item(),
+						big_mesh["indices"], big_mesh["points"], PackedColorArray([fc]))
+				else:
+					for poly in _cached_fill(pts):
+						draw_colored_polygon(poly, fc)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				_draw_stroke_mesh(pts, true)
 		else:
@@ -231,8 +238,13 @@ func _draw() -> void:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
 			if fc2.a > 0.0:
-				for poly in _cached_evenodd(rings):
-					draw_colored_polygon(poly, fc2)
+				var mesh := _cached_evenodd_mesh(rings)
+				if not mesh.is_empty():
+					RenderingServer.canvas_item_add_triangle_array(get_canvas_item(),
+						mesh["indices"], mesh["points"], PackedColorArray([fc2]))
+				else:
+					for poly in _cached_evenodd(rings):
+						draw_colored_polygon(poly, fc2)
 			if stroke_width > 0.0 and not stroke_behind_fill:
 				for r in rings:
 					_draw_stroke_mesh(r, true)
@@ -308,6 +320,33 @@ func _cached_evenodd(rings: Array) -> Array:
 	_eo_cache = res
 	_eo_key = key
 	return _eo_cache
+
+## VAL-66: relleno par-impar teselado en NATIVO (lyon, rust/vectopen_io
+## fill.rs): robusto con huecos «pellizcados» y anillos que se cruzan, donde
+## el triangulador de Godot fallaba y se rehacía con todos los puntos
+## (~0,5 s por forma al abrir una foto vectorizada). {} si no hay librería
+## nativa (Android) o no se pudo teselar: entonces _cached_evenodd.
+var _eo_mesh_key: Array = []
+var _eo_mesh: Dictionary = {}
+
+const NATIVE_FILL_FROM := 200   # puntos: contornos sin huecos por debajo, por GDScript
+
+func _cached_evenodd_mesh(rings: Array, evenodd: bool = true) -> Dictionary:
+	var key := [evenodd, curve.get_instance_id() if curve else 0, curve.get_baked_length() if curve else 0.0]
+	for c in subpaths:
+		key.append(c.get_baked_length() if c else 0.0)
+	for r in rings:
+		key.append((r as PackedVector2Array).size())
+	if key == _eo_mesh_key:
+		return _eo_mesh
+	_eo_mesh_key = key
+	_eo_mesh = {}
+	var io: Object = StrokeGeom._native_geom()
+	if io != null and io.has_method("fill_mesh"):
+		var m: Dictionary = io.fill_mesh(rings, evenodd)
+		if (m.get("indices", PackedInt32Array()) as PackedInt32Array).size() >= 3:
+			_eo_mesh = m
+	return _eo_mesh
 
 ## ¿Este trazado recorta a sus hijos (máscara de recorte)?
 func _is_mask() -> bool:

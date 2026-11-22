@@ -14,6 +14,7 @@ usvg = "0.45"
 # Affinity: descompresores en Rust puro (sin C → compila igual en los 3 sistemas).
 ruzstd = "0.7"
 miniz_oxide = "0.8"
+lyon_tessellation = "1.0"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff"] }
 
 [profile.release]

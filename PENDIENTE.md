@@ -601,6 +601,10 @@ utilizarlo como base para el futuro visor web.
 
 ## 3. Publicación y actualizaciones
 
+- [ ] Antes de publicar: recompilar `vectopen_io` para Windows y macOS
+      (`rust/build_cross.sh`): trae `fill_mesh` (relleno nativo, VAL-66). Sin
+      ella esos sistemas usan el relleno GDScript (más lento, igual de correcto).
+
 - [ ] **[decisión]** Mac Intel: el vectorizador IA no existe (ONNX Runtime no
 	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o
 	  avisarlo en la app.
@@ -615,7 +619,6 @@ utilizarlo como base para el futuro visor web.
 
 | ID | Fallo | Estado |
 |---|---|---|
-| VAL-66 | Foto vectorizada (1 650 trazados, ~75 000 nodos): 13 s en dibujarse al abrirla. ~15 formas con huecos «pellizcados» cuestan ~0,5 s cada una (la triangulación de Godot falla y se rehace con todos los puntos): otro triangulador (nativo en Rust) o teselar con tolerancia | Abierto |
 | VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
 | VAL-56 | Tablas v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio (la v1 está hecha) | Pendiente |
 | — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana) | Abierto (menor) |

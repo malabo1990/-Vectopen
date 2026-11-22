@@ -6,6 +6,7 @@
 //! carga en un sistema, Vectopen usa los importadores GDScript de siempre.
 
 pub mod affinity;
+pub mod fill;
 pub mod guard;
 pub mod model;
 pub mod raster;
@@ -60,6 +61,26 @@ impl VectopenIO {
         d.set("v", &vv);
         d.set("k", &kv);
         d.set("beyond", &bv);
+        d
+    }
+
+    /// Relleno con huecos (VectorPath._cached_evenodd nativo, ver fill.rs):
+    /// `rings` = Array de PackedVector2Array. Devuelve {points, indices}
+    /// (vacíos si no se pudo teselar: el GDScript sigue con lo suyo).
+    #[func]
+    fn fill_mesh(&self, rings: VarArray, evenodd: bool) -> VarDictionary {
+        let mut rr: Vec<Vec<[f32; 2]>> = Vec::with_capacity(rings.len());
+        for r in rings.iter_shared() {
+            if let Ok(pv) = r.try_to::<PackedVector2Array>() {
+                rr.push(pv.as_slice().iter().map(|v| [v.x, v.y]).collect());
+            }
+        }
+        let (v, i) = fill::fill_rings(&rr, evenodd);
+        let mut d = VarDictionary::new();
+        let pv: PackedVector2Array = v.iter().map(|p| Vector2::new(p[0], p[1])).collect();
+        let iv: PackedInt32Array = i.iter().map(|&x| x as i32).collect();
+        d.set("points", &pv);
+        d.set("indices", &iv);
         d
     }
 
