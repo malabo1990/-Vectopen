@@ -17,7 +17,7 @@ extends RefCounted
 const META := "blend"
 const GROUP := "_vectopen_blend"
 const STEP_META := "_blend_step"
-const END_META := "_blend_end"      # 0 = A, 1 = B
+const END_META := "_blend_end"      # posición en la cadena: 0 = A, 1 = B, 2 = C…
 const SPINE_META := "_blend_spine"
 const SAMPLES := 128
 const _SG = preload("res://script_gdscript/shapes/stroke_geom.gd")
@@ -142,21 +142,25 @@ static func _at(p: PackedVector2Array, cum: PackedFloat32Array, f: float) -> Arr
 	return [p[p.size() - 1], (p[p.size() - 1] - p[maxi(p.size() - 2, 0)]).normalized()]
 
 # ── crear / rehacer / expandir ───────────────────────────────────────────────
-static func ends(g: Node2D) -> Array:
-	var a: Node2D = null
-	var b: Node2D = null
-	var spine: Node2D = null
+## Objetos clave de la fusión, en orden de la cadena (A → B → C …).
+static func keys(g: Node2D) -> Array:
+	var out: Array = []
 	for c in g.get_children():
-		if not (c is Node2D):
-			continue
-		if c.has_meta(END_META):
-			if int(c.get_meta(END_META)) == 0:
-				a = c
-			else:
-				b = c
-		elif c.has_meta(SPINE_META):
-			spine = c
-	return [a, b, spine]
+		if c is Node2D and c.has_meta(END_META):
+			out.append(c)
+	out.sort_custom(func(x, y) -> bool: return int(x.get_meta(END_META)) < int(y.get_meta(END_META)))
+	return out
+
+static func spine_of(g: Node2D) -> Node2D:
+	for c in g.get_children():
+		if c is Node2D and c.has_meta(SPINE_META):
+			return c
+	return null
+
+## [primera clave, última clave, guía] (compatibilidad con la fusión de dos).
+static func ends(g: Node2D) -> Array:
+	var k := keys(g)
+	return [k[0] if k.size() > 0 else null, k[-1] if k.size() > 1 else null, spine_of(g)]
 
 static func params(g: Node2D) -> Dictionary:
 	var p := DEFAULTS.duplicate()
@@ -172,7 +176,8 @@ static func _count(g: Node2D, a_pts: PackedVector2Array, b_pts: PackedVector2Arr
 
 ## Firma de lo que define la fusión (A, B, guía, parámetros).
 static func signature(g: Node2D) -> int:
-	var e := ends(g)
+	var e: Array = keys(g)
+	e.append(spine_of(g))
 	var parts: Array = [var_to_str(params(g))]
 	for n in e:
 		if n == null:
@@ -192,49 +197,57 @@ static func rebuild(g: Node2D) -> void:
 		if c.has_meta(STEP_META):
 			g.remove_child(c)
 			c.queue_free()
-	var e := ends(g)
-	var A: Node2D = e[0]
-	var B: Node2D = e[1]
-	var S: Node2D = e[2]
-	if A == null or B == null:
+	# Cadena A → B → C …: intermedios entre cada par consecutivo de claves; la
+	# guía (si la hay) se reparte a lo largo de TODA la cadena.
+	var K := keys(g)
+	var S: Node2D = spine_of(g)
+	if K.size() < 2:
 		return
-	var closed := _closed(A) and _closed(B)
-	var pa := resample(outline(A), SAMPLES, closed)
-	var pb := align(pa, resample(outline(B), SAMPLES, closed), closed)
+	var closed := true
+	for k in K:
+		closed = closed and _closed(k)
 	var spine := PackedVector2Array()
 	var scum := PackedFloat32Array()
 	if S != null:
 		spine = outline(S)
 		scum = _cum(spine, false)
-	var n := _count(g, pa, pb, scum[scum.size() - 1] if scum.size() > 0 else 0.0)
-	var ca := _centroid(pa)
-	var cb := _centroid(pb)
+	var spine_len: float = scum[scum.size() - 1] if scum.size() > 0 else 0.0
+	var segs := K.size() - 1
 	var orient := bool(params(g)["orient"])
-	var insert_at := B.get_index()
-	for i in n:
-		var t := float(i + 1) / float(n + 1)
-		var pts := _lerp_pts(pa, pb, t)
-		if spine.size() >= 2:
-			var at: Array = _at(spine, scum, t)
-			var c_now := ca.lerp(cb, t)
-			var xf := Transform2D(0.0, at[0])
-			if orient:
-				xf = Transform2D((at[1] as Vector2).angle(), at[0])
-			pts = xf * (Transform2D(0.0, -c_now) * pts)
-		var curve := Curve2D.new()
-		for v in pts:
-			curve.add_point(v)
-		var s := VectorPath.new()
-		s.name = "Paso %d" % (i + 1)
-		s.curve = curve
-		s.closed = closed
-		s.fill_color = _get_col(A, "fill_color").lerp(_get_col(B, "fill_color"), t)
-		s.stroke_color = _get_col(A, "stroke_color").lerp(_get_col(B, "stroke_color"), t)
-		s.stroke_width = lerpf(float(A.get("stroke_width") if "stroke_width" in A else 0.0), float(B.get("stroke_width") if "stroke_width" in B else 0.0), t)
-		s.modulate.a = lerpf(A.modulate.a, B.modulate.a, t)
-		s.set_meta(STEP_META, i)
-		g.add_child(s)
-		g.move_child(s, insert_at + i)
+	var prev := resample(outline(K[0]), SAMPLES, closed)
+	for si in segs:
+		var A: Node2D = K[si]
+		var Bn: Node2D = K[si + 1]
+		var pa := prev
+		var pb := align(pa, resample(outline(Bn), SAMPLES, closed), closed)
+		prev = pb
+		var n := _count(g, pa, pb, spine_len / segs if spine_len > 0.0 else 0.0)
+		var ca := _centroid(pa)
+		var cb := _centroid(pb)
+		for i in n:
+			var lt := float(i + 1) / float(n + 1)
+			var pts := _lerp_pts(pa, pb, lt)
+			if spine.size() >= 2:
+				var at: Array = _at(spine, scum, (float(si) + lt) / float(segs))
+				var c_now := ca.lerp(cb, lt)
+				var xf := Transform2D(0.0, at[0])
+				if orient:
+					xf = Transform2D((at[1] as Vector2).angle(), at[0])
+				pts = xf * (Transform2D(0.0, -c_now) * pts)
+			var curve := Curve2D.new()
+			for v in pts:
+				curve.add_point(v)
+			var s := VectorPath.new()
+			s.name = "Paso %d.%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
+			s.curve = curve
+			s.closed = closed
+			s.fill_color = _get_col(A, "fill_color").lerp(_get_col(Bn, "fill_color"), lt)
+			s.stroke_color = _get_col(A, "stroke_color").lerp(_get_col(Bn, "stroke_color"), lt)
+			s.stroke_width = lerpf(float(A.get("stroke_width") if "stroke_width" in A else 0.0), float(Bn.get("stroke_width") if "stroke_width" in Bn else 0.0), lt)
+			s.modulate.a = lerpf(A.modulate.a, Bn.modulate.a, lt)
+			s.set_meta(STEP_META, si * 1000 + i)
+			g.add_child(s)
+			g.move_child(s, Bn.get_index())   # justo debajo de la clave siguiente
 	g.set_meta("_blend_sig", signature(g))
 
 static func _get_col(n: Node, k: String) -> Color:
@@ -243,8 +256,18 @@ static func _get_col(n: Node, k: String) -> Color:
 ## Crea la fusión de `a` y `b` (hermanos) con `opts`; `spine` opcional.
 ## Devuelve el grupo. El historial lo pone quien llama (API) con `recorder`.
 static func make(a: Node2D, b: Node2D, opts: Dictionary = {}, spine: Node2D = null) -> Node2D:
-	var parent := a.get_parent()
-	if parent == null or b.get_parent() != parent:
+	return make_chain([a, b], opts, spine)
+
+## Fusión de VARIOS objetos (A → B → C …), en el orden de `objs` (la API y el
+## menú los pasan de abajo arriba, como Illustrator). Todos hermanos.
+static func make_chain(objs: Array, opts: Dictionary = {}, spine: Node2D = null) -> Node2D:
+	if objs.size() < 2:
+		return null
+	var parent: Node = (objs[0] as Node).get_parent()
+	for o in objs:
+		if not (o is Node2D) or (o as Node).get_parent() != parent:
+			return null
+	if parent == null:
 		return null
 	var g := Node2D.new()
 	g.name = "Fusión"
@@ -252,16 +275,18 @@ static func make(a: Node2D, b: Node2D, opts: Dictionary = {}, spine: Node2D = nu
 	var p := DEFAULTS.duplicate()
 	p.merge(opts, true)
 	g.set_meta(META, p)
-	var lo := mini(a.get_index(), b.get_index())
+	var lo: int = objs.map(func(o) -> int: return (o as Node).get_index()).min()
 	var do_fn := func() -> void:
 		parent.add_child(g)
 		parent.move_child(g, lo)
-		for n in [a, b, spine]:
-			if n != null:
-				n.get_parent().remove_child(n)
-				g.add_child(n)
-		a.set_meta(END_META, 0)
-		b.set_meta(END_META, 1)
+		var all: Array = objs.duplicate()
+		if spine != null:
+			all.append(spine)
+		for n in all:
+			n.get_parent().remove_child(n)
+			g.add_child(n)
+		for i in objs.size():
+			(objs[i] as Node).set_meta(END_META, i)
 		if spine:
 			spine.set_meta(SPINE_META, true)
 			g.move_child(spine, 0)
@@ -272,7 +297,8 @@ static func make(a: Node2D, b: Node2D, opts: Dictionary = {}, spine: Node2D = nu
 			if c.has_meta(STEP_META):
 				g.remove_child(c)
 				c.queue_free()
-		for n in [spine, a, b]:
+		var all: Array = [spine] + objs
+		for n in all:
 			if n != null and n.get_parent() == g:
 				g.remove_child(n)
 				parent.add_child(n)

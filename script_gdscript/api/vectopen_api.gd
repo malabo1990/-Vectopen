@@ -85,6 +85,7 @@ const REFERENCE := [
 	["Componentes", "symbols() -> Array", "Componentes del documento: [{id, name, count}]"],
 	["Componentes", "symbol_of(objeto) -> String", "Id del componente al que pertenece el objeto (\"\" si ninguno)"],
 	["Componentes", "detach_symbol(objeto) -> bool", "Desvincula una copia: queda como grupo normal"],
+	["Fusión", "make_blend_chain([a, b, c…], opciones = {}, guia = null) -> Node2D", "Fusión de varios objetos en cadena (A → B → C …): intermedios entre cada par; la guía recorre toda la cadena"],
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
@@ -1782,6 +1783,21 @@ const Blend = preload("res://script_gdscript/shapes/blend.gd")
 
 func _blend_rec() -> Callable:
 	return func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+
+## Fusión de VARIOS objetos (A → B → C …) en el orden de la lista.
+func make_blend_chain(objs: Array, options: Dictionary = {}, spine: Node = null) -> Node2D:
+	if objs.size() < 2 or objs.any(func(o) -> bool: return not (o is Node2D) or not is_instance_valid(o)):
+		error("make_blend_chain: hacen falta dos figuras o más")
+		return null
+	var parent: Node = (objs[0] as Node).get_parent()
+	if objs.any(func(o) -> bool: return (o as Node).get_parent() != parent) or (spine != null and spine.get_parent() != parent):
+		error("make_blend_chain: las figuras (y la guía) deben estar en la misma capa")
+		return null
+	Blend.recorder = _blend_rec()
+	var g := Blend.make_chain(objs, options, spine as Node2D)
+	Blend.recorder = Callable()
+	_notify_changed()
+	return g
 
 func make_blend(a: Node, b: Node, options: Dictionary = {}, spine: Node = null) -> Node2D:
 	if not (a is Node2D and b is Node2D) or not is_instance_valid(a) or not is_instance_valid(b):

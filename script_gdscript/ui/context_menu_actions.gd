@@ -33,24 +33,27 @@ static func is_layout_selected(host: Node) -> bool:
 
 ## Fusión: [A, B, guía|null] con la selección (2 figuras, o 3 si una es un
 ## trazado abierto = la guía), todas en la misma capa; [] si no vale.
+## [claves de abajo arriba, guía o null] para «Crear fusión», o [] si no
+## vale: 2 o más figuras hermanas (+ como mucho UN trazado abierto = guía,
+## si hay al menos otras dos).
 static func blend_parts(host: Node) -> Array:
 	var sel: Array = selection(host).filter(func(n) -> bool: return n is Node2D and is_instance_valid(n))
-	if sel.size() < 2 or sel.size() > 3:
+	if sel.size() < 2:
 		return []
 	var spine: Node2D = null
-	if sel.size() == 3:
-		for n in sel:
-			if n is VectorPath and not (n as VectorPath).closed:
-				spine = n
-		if spine == null:
+	if sel.size() >= 3:
+		var open_paths: Array = sel.filter(func(n) -> bool: return n is VectorPath and not (n as VectorPath).closed)
+		if open_paths.size() == 1:
+			spine = open_paths[0]
+			sel.erase(spine)
+	var parent: Node = sel[0].get_parent()
+	for n in sel:
+		if n.get_parent() != parent or _BlendRef.blend_of(n) != null:
 			return []
-		sel.erase(spine)
-	if sel[0].get_parent() != sel[1].get_parent() or (spine and spine.get_parent() != sel[0].get_parent()):
-		return []
-	if _BlendRef.blend_of(sel[0]) != null or _BlendRef.blend_of(sel[1]) != null:
+	if spine and spine.get_parent() != parent:
 		return []
 	sel.sort_custom(func(a, b) -> bool: return a.get_index() < b.get_index())
-	return [sel[0], sel[1], spine]
+	return [sel, spine]
 
 static func is_blend_selected(host: Node) -> bool:
 	return selection(host).any(func(n) -> bool: return _BlendRef.blend_of(n) != null)
@@ -193,7 +196,7 @@ static func execute(id: String, host: Node) -> void:
 			var pmb := host.get_node_or_null("/root/PluginManager")
 			var parts := blend_parts(host)
 			if pmb and pmb.api and not parts.is_empty():
-				var gb = pmb.api.make_blend(parts[0], parts[1], {"steps": 5}, parts[2])
+				var gb = pmb.api.make_blend_chain(parts[0], {"steps": 5}, parts[1])
 				if gb: pmb.api.select([gb])
 		"expand_blend":
 			var pme := host.get_node_or_null("/root/PluginManager")

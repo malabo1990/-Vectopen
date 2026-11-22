@@ -115,8 +115,9 @@ ajustes en el inspector con deshacer; «Expandir fusión»; .vtp; API
 `make_blend` / `blend_set` / `expand_blend` (`Blend_test` 7/0, `blend_e2e`
 13/0). Falta:
 
-- Fusión de MÁS de dos objetos (A → B → C) y de grupos / objetos complejos
-  (hoy: dos figuras sueltas; los grupos se interpolan como su contorno no).
+- Fusión de grupos / objetos complejos (los grupos no se interpolan como su
+  contorno). La de MÁS de dos objetos (A → B → C, con guía por toda la
+  cadena) está hecha (2026-11-22, `make_blend_chain`, `blend_e2e` 29/0).
 - Interpolar también escala / rotación de forma explícita (hoy van dentro de
   la forma) y degradados.
 - Herramienta propia de fusión (clic en A y en B en el lienzo).

@@ -16,6 +16,90 @@ func _init() -> void:
 func steps(g: Node) -> Array:
 	return g.get_children().filter(func(c) -> bool: return c.has_meta("_blend_step"))
 
+## Fusión de TRES objetos (A → B → C) desde el menú, con y sin guía.
+func chain_test() -> void:
+	var ab3: Node2D = await K.artboard(Vector2(1200, 500), "Cadena", Color.WHITE)
+	await K.look_at(ab3)
+	var A = api.add_rect(Vector2(100, 250), Vector2(100, 100), 0.0, "A")
+	api.set_props(A, {"fill_color": Color(0.9, 0.1, 0.1), "stroke_width": 0.0})
+	var B = api.add_ellipse(Vector2(600, 250), Vector2(100, 100), "B")
+	api.set_props(B, {"fill_color": Color(0.1, 0.8, 0.1), "stroke_width": 0.0})
+	var C = api.add_rect(Vector2(1100, 250), Vector2(60, 160), 0.0, "C")
+	api.set_props(C, {"fill_color": Color(0.1, 0.2, 0.9), "stroke_width": 0.0})
+	api.select([A, B, C])
+	await K.frames(4)
+	var menu: Node = null
+	for n in root.find_children("*", "", true, false):
+		if n.get_script() and String(n.get_script().resource_path).ends_with("modern_context_menu.gd"):
+			menu = n
+	var CMA = load("res://script_gdscript/ui/context_menu_actions.gd")
+	K.check("cadena: con TRES figuras se ofrece «Crear fusión»", not CMA.blend_parts(menu if menu else root).is_empty())
+	CMA.execute("make_blend", menu if menu else root)
+	await K.frames(4)
+	var g: Node2D = A.get_parent()
+	var BL = load("res://script_gdscript/shapes/blend.gd")
+	K.check("cadena: un grupo de fusión con las tres claves en orden", BL.is_blend(g) and BL.keys(g) == [A, B, C], str(BL.keys(g)))
+	var st := steps(g)
+	K.check("cadena: 5 pasos entre A-B y 5 entre B-C", st.size() == 10, str(st.size()))
+	if st.size() == 10:
+		var ab_mid: Node = st.filter(func(x) -> bool: return int(x.get_meta("_blend_step")) == 2)[0]
+		var bc_mid: Node = st.filter(func(x) -> bool: return int(x.get_meta("_blend_step")) == 1002)[0]
+		var c1: Color = ab_mid.fill_color
+		var c2: Color = bc_mid.fill_color
+		K.check("cadena: entre A y B mezcla rojo→verde (sin azul)", c1.r > 0.3 and c1.g > 0.3 and c1.b < 0.2, str(c1))
+		K.check("cadena: entre B y C mezcla verde→azul (sin rojo)", c2.g > 0.3 and c2.b > 0.3 and c2.r < 0.2, str(c2))
+		var x1: float = (ab_mid as Node2D).position.x + BL._centroid(BL.outline(ab_mid)).x
+		var x2: float = (bc_mid as Node2D).position.x + BL._centroid(BL.outline(bc_mid)).x
+		K.check("cadena: cada tramo está entre sus dos claves", x1 > 150 and x1 < 550 and x2 > 650 and x2 < 1050, "%.0f %.0f" % [x1, x2])
+		# orden de apilado: pasos A-B debajo de B, pasos B-C debajo de C
+		K.check("cadena: apilado A < pasos < B < pasos < C", A.get_index() < ab_mid.get_index() and ab_mid.get_index() < B.get_index() and B.get_index() < bc_mid.get_index() and bc_mid.get_index() < C.get_index())
+	await K.shot("cadena")
+	# cambiar la clave del medio rehace los dos tramos
+	api.set_props(B, {"fill_color": Color(1, 1, 0)})
+	await K.frames(4)
+	var mid2: Node = steps(g).filter(func(x) -> bool: return int(x.get_meta("_blend_step")) == 1002)[0]
+	K.check("cadena: cambiar B rehace también el tramo B-C", (mid2.fill_color as Color).r > 0.3, str(mid2.fill_color))
+	api.undo()   # color de B
+	await K.frames(3)
+	api.undo()   # crear fusión
+	await K.frames(4)
+	K.check("cadena: deshacer → tres figuras sueltas, sin pasos", A.get_parent() == ab3 or A.get_parent().get_parent() == ab3 and not BL.is_blend(A.get_parent()), str(A.get_parent()))
+	K.check("cadena: deshacer quita las marcas de clave", not A.has_meta("_blend_end") and not C.has_meta("_blend_end"))
+	api.redo()
+	await K.frames(4)
+	g = A.get_parent()
+	K.check("cadena: rehacer → fusión otra vez", BL.is_blend(g) and steps(g).size() == 10)
+	# guardar / abrir conserva la cadena
+	var abs: Array = await K.save_reload("cadena")
+	var g2: Node2D = null
+	for x in abs:
+		for c in x.find_children("*", "Node2D", true, false):
+			if BL.is_blend(c) and BL.keys(c).size() == 3:
+				g2 = c
+	K.check("cadena: reabrir conserva las tres claves y los 10 pasos", g2 != null and steps(g2).size() == 10)
+	# con guía: tres claves + un trazado abierto
+	var ab4: Node2D = await K.artboard(Vector2(1000, 600), "Cadena guía", Color.WHITE)
+	await K.look_at(ab4)
+	var p1 = api.add_ellipse(Vector2(100, 500), Vector2(60, 60), "G1")
+	var p2 = api.add_ellipse(Vector2(500, 100), Vector2(60, 60), "G2")
+	var p3 = api.add_ellipse(Vector2(900, 500), Vector2(60, 60), "G3")
+	var guide = api.add_path(PackedVector2Array([Vector2(100, 500), Vector2(500, 100), Vector2(900, 500)]), false, "Guía")
+	api.select([p1, p2, p3, guide])
+	await K.frames(4)
+	CMA.execute("make_blend", menu if menu else root)
+	await K.frames(4)
+	var gg: Node2D = p1.get_parent()
+	K.check("cadena con guía: 3 claves + guía", BL.is_blend(gg) and BL.keys(gg).size() == 3 and BL.spine_of(gg) == guide)
+	var on_path := true
+	for s in steps(gg):
+		var c: Vector2 = (s as Node2D).position + BL._centroid(BL.outline(s))
+		var d := Geometry2D.get_closest_point_to_segment(c, Vector2(100, 500), Vector2(500, 100)).distance_to(c)
+		d = minf(d, Geometry2D.get_closest_point_to_segment(c, Vector2(500, 100), Vector2(900, 500)).distance_to(c))
+		if d > 6.0:
+			on_path = false
+	K.check("cadena con guía: todos los pasos van sobre la guía", on_path and steps(gg).size() == 10)
+	await K.shot("cadena_guia")
+
 func _run() -> void:
 	K = load("res://test/e2e/lib/campaign_kit.gd").new(self, "user://blend")
 	if not await K.boot("modern"):
@@ -82,5 +166,6 @@ func _run() -> void:
 		api.expand_blend(g2)
 		await K.frames(3)
 		K.check("expandir: figuras independientes", not g2.has_meta("blend") and steps(g2).is_empty() and g2.get_child_count() >= 8)
+	await chain_test()
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)
