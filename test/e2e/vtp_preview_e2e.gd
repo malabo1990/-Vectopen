@@ -31,6 +31,9 @@ func _run() -> void:
 	api.add_ellipse(Vector2(300, 200), Vector2(200, 200), "Círculo")
 	var path := ProjectSettings.globalize_path("user://vtp_preview/doc.vtc")
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	for old in DirAccess.get_files_at(path.get_base_dir()):
+		if old.get_extension() in ["vtc", "vtp"]:
+			DirAccess.remove_absolute(path.get_base_dir().path_join(old))
 	K.check("guardar el documento", K.CS.write_vtc(path, K.cont))
 	var main_abs := get_nodes_in_group("artboards").size()
 	var main_children: int = K.cont.get_child_count()
@@ -58,6 +61,21 @@ func _run() -> void:
 	K.check("panel de información con las páginas", String(w._info.text).contains("2"))
 	await K.frames(4)
 	await K.shot("visor")
+	# Explorador (fase 2): la carpeta del documento, con sus metadatos
+	K.check("el explorador lista la carpeta del documento", w.folder == path.get_base_dir() and w.docs.any(func(d): return String(d["name"]) == "doc.vtc"))
+	var p2 := ProjectSettings.globalize_path("user://vtp_preview/otro.vtc")
+	K.check("guardar otro documento", K.CS.write_vtc(p2, K.cont))
+	w.set_folder(path.get_base_dir())
+	K.check("con los dos documentos", w._list.item_count == 2, str(w._list.item_count))
+	w._filter.text = "otro"
+	w._filter.text_changed.emit("otro")
+	K.check("el filtro deja solo «otro»", w._list.item_count == 1 and String(w._list.get_item_metadata(0)).ends_with("otro.vtc"))
+	w._list.select(0)
+	w._list.item_selected.emit(0)
+	await K.frames(4)
+	K.check("clic en la lista abre ese documento", w.path.ends_with("otro.vtc") and w.pages.size() == 2)
+	w._filter.text = ""
+	w._filter.text_changed.emit("")
 	# Un archivo que no es un documento
 	var bad := ProjectSettings.globalize_path("user://vtp_preview/malo.vtc")
 	var f := FileAccess.open(bad, FileAccess.WRITE)

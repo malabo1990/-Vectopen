@@ -209,8 +209,11 @@ sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 > `res://`), zoom con rueda / ± / teclas, desplazar arrastrando, ajustar
 > página / todo, páginas ◀ ▶ (también RePág/AvPág), fondo claro / oscuro /
 > cuadros, panel de información ocultable, aviso con archivos dañados
-> (`vtp_preview_e2e` 14/0). **Quedan las fases 2–4** (explorador con
-> miniaturas, caché, info de objetos) y la separación «modelo de documento /
+> (`vtp_preview_e2e` 14/0). **Fase 2 hecha**: explorador en la misma ventana
+> (carpeta, lista de documentos con fecha y tamaño, del más reciente al más
+> antiguo, filtro por nombre, un clic abre la vista previa; recuerda la
+> carpeta) (`vtp_preview_e2e` 19/0). **Quedan las fases 3–4** (miniaturas y
+> su caché, info de objetos y capas) y la separación «modelo de documento /
 > nodos» para el runtime web.
 
 > Informe conceptual aportado por el usuario. **No hay diseño ni código

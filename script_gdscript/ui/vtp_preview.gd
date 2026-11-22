@@ -31,6 +31,14 @@ var _lbl_page: Label
 var _lbl_zoom: Label
 var _bg_i := 0
 var _dragging := false
+# Explorador (fase 2): carpeta, lista de documentos con metadatos, filtro.
+var folder := ""
+var docs: Array = []          # [{path, name, mtime, size}]
+var _list: ItemList
+var _filter: LineEdit
+var _lbl_folder: Label
+var _explorer: VBoxContainer
+const PREFS_PATH := "user://vectopen_files.cfg"
 
 ## Abre el visor (una ventana nueva) con `p`. Devuelve la ventana.
 static func open(tree: SceneTree, p: String = "") -> Window:
@@ -42,9 +50,10 @@ static func open(tree: SceneTree, p: String = "") -> Window:
 		tm.adopt(w.get_node("UiRoot"))
 	w.popup_centered(Vector2i(1100, 720))
 	if p != "":
+		w.set_folder(p.get_base_dir())
 		w.load_file(p)
 	else:
-		w.ask_file()
+		w.set_folder(w._last_folder())
 	return w
 
 func _init() -> void:
@@ -83,11 +92,40 @@ func _init() -> void:
 	_btn(bar, "ZoomIn", "+", func() -> void: zoom_by(1.25))
 	_btn(bar, "Background", tr("Fondo"), cycle_background)
 	_btn(bar, "Info", tr("Información"), func() -> void: _info_panel.visible = not _info_panel.visible)
+	_btn(bar, "Explorer", tr("Explorador"), func() -> void: _explorer.visible = not _explorer.visible)
 	# ── zona central + panel ──
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 0)
 	root.add_child(body)
+	# ── explorador (izquierda) ──
+	_explorer = VBoxContainer.new()
+	_explorer.name = "Explorer"
+	_explorer.custom_minimum_size = Vector2(250, 0)
+	body.add_child(_explorer)
+	var frow := HBoxContainer.new()
+	_explorer.add_child(frow)
+	_btn(frow, "Folder", tr("Carpeta…"), ask_folder)
+	_lbl_folder = Label.new()
+	_lbl_folder.name = "FolderLabel"
+	_lbl_folder.clip_text = true
+	_lbl_folder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frow.add_child(_lbl_folder)
+	_filter = LineEdit.new()
+	_filter.name = "Filter"
+	_filter.placeholder_text = tr("Buscar documento…")
+	_filter.clear_button_enabled = true
+	_filter.text_changed.connect(func(_t: String) -> void: _fill_list())
+	_explorer.add_child(_filter)
+	_list = ItemList.new()
+	_list.name = "Docs"
+	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_list.max_columns = 1
+	_list.item_selected.connect(func(i: int) -> void:
+		var p := String(_list.get_item_metadata(i))
+		if p != path:
+			load_file(p))
+	_explorer.add_child(_list)
 	var stage := Control.new()
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
@@ -149,6 +187,63 @@ static func _checker_tex() -> Texture2D:
 			img.set_pixel(x, y, Color(0.8, 0.8, 0.8) if (x / 8 + y / 8) % 2 == 0 else Color(0.95, 0.95, 0.95))
 	return ImageTexture.create_from_image(img)
 
+# ── explorador ───────────────────────────────────────────────────────────────
+func ask_folder() -> void:
+	var fd := FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	if folder != "":
+		fd.current_dir = folder
+	add_child(fd)
+	fd.dir_selected.connect(func(d: String) -> void:
+		set_folder(d)
+		fd.queue_free())
+	fd.canceled.connect(fd.queue_free)
+	fd.popup_centered(Vector2i(800, 520))
+
+## Lista los documentos de `d` (no recursivo), del más reciente al más antiguo.
+func set_folder(d: String) -> void:
+	folder = d
+	docs.clear()
+	var da := DirAccess.open(d)
+	if da:
+		for f in da.get_files():
+			var ext := f.get_extension().to_lower()
+			if ext in ["vtp", "vtc"]:
+				var fp := d.path_join(f)
+				var fa := FileAccess.open(fp, FileAccess.READ)
+				var sz := fa.get_length() if fa else 0
+				docs.append({"path": fp, "name": f, "mtime": FileAccess.get_modified_time(fp), "size": sz})
+	docs.sort_custom(func(a, b) -> bool: return int(a["mtime"]) > int(b["mtime"]))
+	_lbl_folder.text = d.get_file() if d.get_file() != "" else d
+	_lbl_folder.tooltip_text = d
+	var cfg := ConfigFile.new()
+	cfg.load(PREFS_PATH)
+	cfg.set_value("preview", "folder", d)
+	cfg.save(PREFS_PATH)
+	_fill_list()
+
+func _fill_list() -> void:
+	_list.clear()
+	var q := _filter.text.strip_edges().to_lower()
+	for d in docs:
+		if q != "" and not String(d["name"]).to_lower().contains(q):
+			continue
+		var when := Time.get_datetime_string_from_unix_time(int(d["mtime"]), true).substr(0, 16)
+		var i := _list.add_item("%s  ·  %s  ·  %.0f KB" % [d["name"], when, float(d["size"]) / 1024.0])
+		_list.set_item_metadata(i, d["path"])
+		_list.set_item_tooltip(i, String(d["path"]))
+		if String(d["path"]) == path:
+			_list.select(i)
+
+func _last_folder() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(PREFS_PATH) == OK:
+		var f := String(cfg.get_value("preview", "folder", ""))
+		if f != "" and DirAccess.dir_exists_absolute(f):
+			return f
+	return OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+
 # ── archivo ──────────────────────────────────────────────────────────────────
 func ask_file() -> void:
 	var fd := FileDialog.new()
@@ -195,6 +290,8 @@ func load_file(p: String) -> bool:
 	page_i = 0
 	_fill_info(manifest)
 	fit_page.call_deferred()
+	if _list and folder == p.get_base_dir():
+		_fill_list()
 	return true
 
 func _fill_info(manifest: Dictionary) -> void:
