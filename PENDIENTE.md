@@ -131,27 +131,19 @@ deshacer; .vtp; API `make_layout` / `release_layout` (`AutoLayout_test`
   rejilla, ancho de línea solo en salto de línea).
 - Tiradores en el lienzo para el margen y la separación (como Figma).
 
-#### 5. Maquetación profesional y composición editorial
+#### 5. Maquetación editorial — lo que falta
 
-Ampliar las capacidades de composición y maquetación para facilitar la
-creación de documentos grandes y productos gráficos profesionales.
+Hecho (2026-11-22): **páginas maestras** (`master_pages.gd`): Páginas ▸
+«PÁGINA MAESTRA» (marcar la página como maestra · «Usar maestra» en la
+página activa o en todas); lo de la maestra sale debajo del contenido de las
+páginas que la usan, no se puede tocar en ellas, los {pág} / {total} dan el
+número de cada página (las maestras no cuentan), se guarda, PNG / SVG; API
+`set_master_page` / `use_master` (`master_pages_e2e` 15/0). Falta:
 
-**Posibles aplicaciones:**
-
-- Catálogos comerciales.
-- Documentación técnica.
-- Manuales y publicaciones.
-- Presentaciones profesionales.
-- Interfaces de productos digitales.
-- Documentos extensos con múltiples páginas.
-- Composiciones editoriales complejas.
-
-La experiencia de trabajo debería combinar la rapidez de Figma y Penpot con
-las posibilidades de precisión y control editorial de Adobe InDesign.
-
-Es importante que el sistema de Layout permita trabajar con estructuras
-complejas, grupos, contenedores y elementos anidados sin tener que ajustar
-manualmente cada objeto.
+- **Combinación de datos** (catálogos): plantilla con {campo} + CSV → una
+  ficha por fila, en rejilla y en páginas nuevas.
+- **Índice automático** (nombres de página + número).
+- Excluir las maestras de «PDF de todas las páginas» y marcarlas en el lienzo.
 
 #### 7. Conclusión y visión técnica
 

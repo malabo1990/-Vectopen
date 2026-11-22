@@ -670,7 +670,8 @@ func _hit_top_level(raiz: Node, gpos: Vector2, excluir: Array) -> Node2D:
 	var hijos: Array = raiz.get_children()
 	for i in range(hijos.size() - 1, -1, -1):
 		var n = hijos[i]
-		if not (n is Node2D) or String(n.name) in excluir or String(n.name) == "Contorno_Stroke":
+		if not (n is Node2D) or String(n.name) in excluir or String(n.name) == "Contorno_Stroke" \
+				or String(n.name).begins_with("_"):   # capas internas (maestra, fusiones…)
 			continue
 		if _es_grupo_movetool(n):
 			if _rama_contiene_punto(n, gpos):

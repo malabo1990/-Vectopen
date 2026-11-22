@@ -191,6 +191,11 @@ static func _page_props(ab: Node) -> Dictionary:
 			var v = ab.get(k)
 			if (k == "layout_columns" and int(v) != 1) or (k != "layout_columns" and float(v) != 0.0):
 				p[k] = v
+	# páginas maestras (informe §5)
+	if bool(ab.get_meta("is_master", false)):
+		p["is_master"] = true
+	if String(ab.get_meta("master", "")) != "":
+		p["master"] = String(ab.get_meta("master"))
 	return {"page": p} if not p.is_empty() else {}
 
 static func _read_page_props(ab: Node, d: Dictionary) -> void:
@@ -202,12 +207,17 @@ static func _read_page_props(ab: Node, d: Dictionary) -> void:
 	for k in ["layout_margin", "layout_columns", "layout_gutter", "bleed"]:
 		if p.has(k) and k in ab:
 			ab.set(k, p[k])
+	if bool(p.get("is_master", false)):
+		ab.set_meta("is_master", true)
+	if String(p.get("master", "")) != "":
+		ab.set_meta("master", String(p["master"]))
 
 static func serialize_elements(node: Node) -> Array:
 	var out := []
 	for child in node.get_children():
 		if child.name == "ArtboardTitle" or child.name == "DisplayLabel" \
-				or child.name == "TitleEdit" or child.name == "Contorno_Stroke":
+				or child.name == "TitleEdit" or child.name == "Contorno_Stroke" \
+				or String(child.name).begins_with("_MasterLayer"):   # capa de la maestra: se rehace
 			continue
 		if child is Node2D:
 			var e := _serialize_element(child)

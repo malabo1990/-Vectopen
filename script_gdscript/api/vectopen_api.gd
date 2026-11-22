@@ -88,6 +88,8 @@ const REFERENCE := [
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
+	["Páginas", "set_master_page(pagina, es_maestra = true) -> void", "Marca una página como MAESTRA (cabecera, pie, número de página…): lo suyo aparece debajo de las páginas que la usan"],
+	["Páginas", "use_master(paginas, maestra) -> void", "Las páginas (una o lista) usan esa maestra (nombre o nodo; \"\" = ninguna)"],
 	["Contenedores", "make_layout(objetos, opciones = {}) -> Node2D", "Auto Layout: hace contenedor un grupo (o agrupa la selección; un rectángulo solo se convierte en contenedor con ese fondo). Opciones: mode \"row\"|\"column\"|\"grid\"|\"wrap\", gap, padding, align \"start\"|\"center\"|\"end\"|\"space-between\", cross, columns, wrap_width, auto (fondo a la medida)"],
 	["Contenedores", "release_layout(contenedor) -> void", "Quita el Auto Layout: los objetos quedan donde están"],
 	["Luces", "add_light(posicion, tipo = \"point\", opciones = {}) -> Node2D", "Luz 2D: tipo \"point\" (radial) o \"directional\" (sol); opciones: color, energy, radius, angle, falloff (0–1), mode \"add\"|\"mix\"|\"sub\", shadows (las figuras de la página proyectan sombra). Sale en PNG/JPEG/WEBP"],
@@ -1813,6 +1815,25 @@ func expand_blend(g: Node) -> void:
 	_notify_changed()
 
 const AutoLayout = preload("res://script_gdscript/shapes/auto_layout.gd")
+const MasterPages = preload("res://script_gdscript/shapes/master_pages.gd")
+
+func _mp_rec() -> Callable:
+	return func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+
+func set_master_page(page: Node, on: bool = true) -> void:
+	if not (is_instance_valid(page) and "artboard_size" in page):
+		error("set_master_page: hace falta una página")
+		return
+	MasterPages.recorder = _mp_rec()
+	MasterPages.set_is_master(page, on)
+	MasterPages.recorder = Callable()
+
+func use_master(pages_v: Variant, master: Variant) -> void:
+	var list := _as_list(pages_v).filter(func(p) -> bool: return is_instance_valid(p) and "artboard_size" in p)
+	var nm := String(master.name) if master is Node else String(master)
+	MasterPages.recorder = _mp_rec()
+	MasterPages.set_master(list, nm)
+	MasterPages.recorder = Callable()
 
 func make_layout(nodes: Variant, options: Dictionary = {}) -> Node2D:
 	var list := _as_list(nodes).filter(func(n) -> bool: return is_instance_valid(n) and n is Node2D)

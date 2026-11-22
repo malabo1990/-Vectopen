@@ -627,6 +627,7 @@ func _build_paginas_panel_content() -> void:
 	# VAL-06: retícula de la página (antes «Sangrado» y «Márgenes» sueltos que
 	# no estaban conectados a nada).
 	_paginas_panel.add_child(PageLayoutSection.new())
+	_paginas_panel.add_child(load("res://script_gdscript/ui/components/master_pages_section.gd").new())
 	_style_pages_extras()
 
 func _switch_left_tab(tab: String) -> void:
@@ -1306,7 +1307,7 @@ func _mostrar_mas(more: TreeItem) -> void:
 ## nodo interno de render de una herramienta?
 ## Nodos internos de render (sombra / 3D / contorno del texto…): ni ellos ni
 ## lo que cuelga de ellos son capas.
-const INTERNAL_NAMES := ["Contorno_Stroke", "Render_Visual", "TextFxBack", "TextFxFront"]
+const INTERNAL_NAMES := ["Contorno_Stroke", "Render_Visual", "TextFxBack", "TextFxFront", "_MasterLayer"]
 
 func _es_interno(n: Node) -> bool:
 	var p := n

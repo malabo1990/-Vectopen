@@ -35,7 +35,9 @@ static func pages(tree: SceneTree) -> Array:
 				out.append(c)
 	if out.is_empty():
 		out = tree.get_nodes_in_group("artboards")
-	return out
+	# las páginas MAESTRAS no cuentan (como InDesign): «1 / 2» en un documento
+	# de dos páginas más su maestra
+	return out.filter(func(p) -> bool: return not bool(p.get_meta("is_master", false)))
 
 ## Página (artboard) que contiene a `n`.
 static func page_of(n: Node) -> Node:
@@ -52,6 +54,8 @@ static func resolve(t: String, n: Node) -> String:
 		return t
 	var list := pages(n.get_tree())
 	var ab := page_of(n)
+	if ab and bool(ab.get_meta("is_master", false)):
+		return t   # en la propia maestra se ven los marcadores
 	var idx := list.find(ab) + 1 if ab else 0
 	var out := t
 	for k in TOKENS_PAGE:

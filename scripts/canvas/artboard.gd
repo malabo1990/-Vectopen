@@ -280,6 +280,7 @@ func _post_wake() -> void:
 	if is_inside_tree() and not (get_parent() is SubViewport):
 		(func() -> void:
 			if is_inside_tree():
+				load("res://script_gdscript/shapes/master_pages.gd").refresh_all(get_tree())
 				load("res://script_gdscript/shapes/nested_masks.gd").refresh_under(self)).call_deferred()
 
 ## Fuerza la materialización total AHORA (p.ej. antes de serializar para guardar,
@@ -579,6 +580,8 @@ func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Ar
 	else:
 		elements = dormant_content() if is_dormant else Ser.serialize_elements(self)
 	Ser.instantiate_elements(artboard_copy, elements)
+	if only.is_empty():   # página maestra debajo del contenido (informe §5)
+		load("res://script_gdscript/shapes/master_pages.gd").attach_to_copy(self, artboard_copy)
 
 	sub_viewport.add_child(artboard_copy)
 	add_child(sub_viewport)
