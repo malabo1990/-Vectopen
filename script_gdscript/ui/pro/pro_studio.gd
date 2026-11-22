@@ -1039,6 +1039,7 @@ func _build_transform_page() -> void:
 		"brush_texture", "brush_texture_mode", "brush_texture_scale", "brush_texture_strength",
 		"brush_color_jitter", "brush_geo", "brush_geo_amount", "brush_geo_size", "brush_nib_angle",
 		"blend_mode", "blend_steps", "blend_spacing", "blend_orient",
+		"layout_mode", "layout_gap", "layout_padding", "layout_align", "layout_cross", "layout_columns", "layout_wrap_width", "layout_auto",
 		"lamp_type", "lamp_color", "lamp_energy", "lamp_radius", "lamp_angle", "lamp_falloff", "lamp_mode", "lamp_shadows",
 		"lamp_cone", "lamp_shadow_color", "lamp_shadow_soft", "casts_shadow",
 		"table_header", "table_zebra", "table_font_size", "table_row_h", "table_border", "table_align",

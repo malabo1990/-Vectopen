@@ -113,41 +113,23 @@ ajustes en el inspector con deshacer; «Expandir fusión»; .vtp; API
   la forma) y degradados.
 - Herramienta propia de fusión (clic en A y en B en el lienzo).
 
-#### 4. Sistema de Layout: Grid, Flex y contenedores
+#### 4. Contenedores (Auto Layout) — lo que falta
 
-Incorporar un sistema de organización automática de objetos inspirado en
-Figma, Penpot y los sistemas de contenedores de interfaces.
+Hecho (2026-11-22): `script_gdscript/shapes/auto_layout.gd` — clic derecho ▸
+«Convertir en contenedor (Auto Layout)» (selección, grupo o un rectángulo
+solo, que pasa a ser el fondo) / «Quitar contenedor»; modos fila (HBox),
+columna (VBox), rejilla y fila que salta de línea (content flow);
+separación, margen interior, alineación principal (inicio / centro / final /
+repartir) y cruzada, columnas, ancho de línea, tamaño automático (el fondo
+se ajusta); se recoloca solo al cambiar o mover un hijo; inspector con
+deshacer; .vtp; API `make_layout` / `release_layout` (`AutoLayout_test`
+7/0, `auto_layout_e2e` 12/0). Falta:
 
-Actualmente, sería interesante reducir la necesidad de posicionar
-manualmente cada elemento.
-
-**Sistemas propuestos:**
-
-- **Grid Layout:** organización mediante filas y columnas.
-- **Flex Layout:** distribución flexible y automática de elementos.
-- **HBoxContainer:** distribución horizontal.
-- **VBoxContainer:** distribución vertical.
-- **Content Flow:** reorganización automática del contenido según el espacio
-  disponible.
-
-**Propiedades configurables:**
-
-- Margin (margen exterior).
-- Padding (espacio interior).
-- Gap (separación entre elementos).
-- Alineación horizontal y vertical.
-- Distribución del espacio disponible.
-- Ancho y alto automáticos.
-- Tamaños mínimos y máximos.
-- Ajuste y reorganización responsiva.
-- Orden de los elementos.
-
-También sería interesante permitir convertir rectángulos y grupos en
-contenedores con reglas de distribución automática.
-
-> Nota: Godot ya trae `HBoxContainer`/`VBoxContainer`/`GridContainer`; el
-> trabajo real es exponerlos como objetos del documento sin romper el modelo
-> de formas actual (grupos, capas, .vtp).
+- Margen EXTERIOR por hijo, tamaños mínimo / máximo y «rellenar» (un hijo
+  que ocupa el espacio sobrante).
+- Ocultar en el inspector las filas que no aplican al modo (columnas solo en
+  rejilla, ancho de línea solo en salto de línea).
+- Tiradores en el lienzo para el margen y la separación (como Figma).
 
 #### 5. Maquetación profesional y composición editorial
 

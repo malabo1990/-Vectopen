@@ -31,6 +31,7 @@ func commit() -> void:
 	_Blend.on_history_step()
 	_VectorLight.on_history_step(get_tree())
 	_NestedMasks.on_history_step(get_tree())
+	_AutoLayout.on_history_step(get_tree())
 
 ## Componentes vinculados (VAL-23): tras cada paso se propagan los cambios.
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
@@ -40,6 +41,8 @@ const _Blend = preload("res://script_gdscript/shapes/blend.gd")
 const _VectorLight = preload("res://script_gdscript/shapes/vector_light.gd")
 ## Máscaras anidadas (VAL-43): la interior se dibuja con recorte propio.
 const _NestedMasks = preload("res://script_gdscript/shapes/nested_masks.gd")
+## Contenedores Auto Layout (informe §4): se recolocan tras cada paso.
+const _AutoLayout = preload("res://script_gdscript/shapes/auto_layout.gd")
 
 ## Ver UndoRedoManager.merge_last_two.
 func merge_last_two(first_name: String, new_name: String = "") -> bool:
@@ -52,6 +55,7 @@ func undo() -> void:
 		_Blend.on_history_step()
 		_VectorLight.on_history_step(get_tree())
 		_NestedMasks.on_history_step(get_tree())
+		_AutoLayout.on_history_step(get_tree())
 		undo_performed.emit(_undo_redo.get_undo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true
@@ -63,6 +67,7 @@ func redo() -> void:
 		_Blend.on_history_step()
 		_VectorLight.on_history_step(get_tree())
 		_NestedMasks.on_history_step(get_tree())
+		_AutoLayout.on_history_step(get_tree())
 		redo_performed.emit(_undo_redo.get_redo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true

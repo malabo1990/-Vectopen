@@ -104,7 +104,7 @@ func _build_ui() -> void:
 		{"name": "shapes", "label": "⬠", "tooltip": "Polygons and shapes", "icon": "res://icon/UI/hexagon-plus.svg"},
 		{"name": "bezier", "label": "∿", "tooltip": "Bézier Curve (D)", "icon": "res://icon/UI/design_nodoblack.svg"},
 		{"name": "brush", "label": "🖌", "tooltip": "Brush (B)", "icon": "res://icon/UI/draw.svg"},
-		{"name": "light", "label": "☀", "tooltip": "Luz (iluminación 2D)", "icon": "res://icon/UI/sun-dim.svg"},
+		{"name": "light", "label": "☀", "tooltip": "Luz (iluminación 2D)", "icon": "res://icon/UI/light-sun.svg"},
 		{"name": "text", "label": "T", "tooltip": "Text (T)", "icon": "res://icon/UI/text-square.svg"},
 		{"name": "image", "label": "🖼", "tooltip": "Image", "icon": "res://icon/UI/media-image.svg"},
 		{"name": "model3d", "label": "3D", "tooltip": "Import 3D Model (.glb / .gltf)", "icon": "res://icon/UI/cube.svg"}

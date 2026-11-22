@@ -199,6 +199,8 @@ func _build_level_2_contextual_items(kind: String) -> void:
 	match kind:
 		"shape":
 			_add_menu_item("invert_fill_stroke", "Invertir trazo / relleno", "Shift+X")
+			if ContextMenuActions.can_make_layout(self):
+				_add_menu_item("make_layout", "Convertir en contenedor (Auto Layout)", "")
 			_add_separator()
 		"text":
 			_add_menu_item("align_text_left", "Alinear texto izquierda", "")
@@ -215,6 +217,10 @@ func _build_level_2_contextual_items(kind: String) -> void:
 		"group":
 			if ContextMenuActions.is_blend_selected(self):
 				_add_menu_item("expand_blend", "Expandir fusión", "")
+			if ContextMenuActions.is_layout_selected(self):
+				_add_menu_item("release_layout", "Quitar contenedor", "")
+			elif ContextMenuActions.can_make_layout(self):
+				_add_menu_item("make_layout", "Convertir en contenedor (Auto Layout)", "")
 			_add_menu_item("ungroup_all", "Desagrupar todo", "Ctrl+Shift+G")
 			_add_separator()
 		"multi":
@@ -222,6 +228,8 @@ func _build_level_2_contextual_items(kind: String) -> void:
 				_add_menu_item("text_on_path", "Texto en trazado", "")
 			if not ContextMenuActions.blend_parts(self).is_empty():
 				_add_menu_item("make_blend", "Crear fusión (Blend)", "")
+			if ContextMenuActions.can_make_layout(self):
+				_add_menu_item("make_layout", "Convertir en contenedor (Auto Layout)", "")
 			_add_menu_item("distribute_horizontal", "Distribuir horizontal", "")
 			_add_menu_item("distribute_vertical", "Distribuir vertical", "")
 			_add_separator()

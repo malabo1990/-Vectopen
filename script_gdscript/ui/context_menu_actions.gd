@@ -9,6 +9,18 @@ class_name ContextMenuActions
 extends RefCounted
 
 const _BlendRef = preload("res://script_gdscript/shapes/blend.gd")
+const _LayoutRef = preload("res://script_gdscript/shapes/auto_layout.gd")
+
+static func can_make_layout(host: Node) -> bool:
+	var sel := selection(host)
+	if sel.is_empty():
+		return false
+	if sel.size() == 1:
+		return not _LayoutRef.is_layout(sel[0]) and (String(sel[0].get_meta("shape_type", "")) == "group" or sel[0] is VectorRectangle)
+	return sel.all(func(n) -> bool: return n.get_parent() == sel[0].get_parent())
+
+static func is_layout_selected(host: Node) -> bool:
+	return selection(host).any(func(n) -> bool: return _LayoutRef.is_layout(n))
 
 ## Fusión: [A, B, guía|null] con la selección (2 figuras, o 3 si una es un
 ## trazado abierto = la guía), todas en la misma capa; [] si no vale.
@@ -39,7 +51,7 @@ const NEEDS_SELECTION: Array[String] = [
 	"copy", "cut", "duplicate", "delete",
 	"bring_to_front", "bring_forward", "send_backward", "send_to_back",
 	"flip_h", "flip_v", "rotate_cw", "rotate_ccw", "group", "ungroup", "ungroup_all", "rename",
-	"make_blend", "expand_blend",
+	"make_blend", "expand_blend", "make_layout", "release_layout",
 	"toggle_visibility", "toggle_lock", "invert_fill_stroke",
 	"align_left", "align_center_h", "align_right", "align_top", "align_middle", "align_bottom",
 	"align_text_left", "align_text_center", "align_text_right",
@@ -132,6 +144,17 @@ static func execute(id: String, host: Node) -> void:
 			for n in selection(host):
 				if pm6 and pm6.api and int(n.get("clip_children")) != 0:
 					pm6.api.release_mask(n)
+		"make_layout":
+			var pmy := host.get_node_or_null("/root/PluginManager")
+			var sely := selection(host)
+			if pmy and pmy.api and not sely.is_empty():
+				var gy = pmy.api.make_layout(sely, {"mode": "row"})
+				if gy: pmy.api.select([gy])
+		"release_layout":
+			var pmr := host.get_node_or_null("/root/PluginManager")
+			for n in selection(host):
+				if pmr and pmr.api and _LayoutRef.is_layout(n):
+					pmr.api.release_layout(n)
 		"make_blend":
 			var pmb := host.get_node_or_null("/root/PluginManager")
 			var parts := blend_parts(host)

@@ -26,6 +26,7 @@ const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 const _Blend = preload("res://script_gdscript/shapes/blend.gd")
 const _VectorLight = preload("res://script_gdscript/shapes/vector_light.gd")
+const _AutoLayout = preload("res://script_gdscript/shapes/auto_layout.gd")
 
 ## Modo SEGURO (VTP Preview: un .vtp es contenido no confiable): no se
 ## compila código de shader del archivo ni se cargan rutas fuera de res://
@@ -870,6 +871,11 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 		d["table"] = node.get_meta("table")
 	if node.has_meta("table_cell"):
 		d["table_cell"] = node.get_meta("table_cell")
+	# Contenedor Auto Layout (informe §4) y su fondo.
+	if node.has_meta(_AutoLayout.META):
+		d["layout"] = node.get_meta(_AutoLayout.META)
+	if node.has_meta(_AutoLayout.BG_META):
+		d["layout_bg"] = true
 	# Fusión (Blend): parámetros del grupo y papel de cada hijo.
 	if node.has_meta(_Blend.META):
 		d["blend"] = node.get_meta(_Blend.META)
@@ -972,6 +978,11 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	for _gk in ["fill_global", "stroke_global"]:
 		if d.has(_gk):
 			node.set_meta(_gk, String(d[_gk]))
+	if d.get("layout") is Dictionary:
+		node.set_meta(_AutoLayout.META, d["layout"])
+		_AutoLayout.adopt(node)
+	if bool(d.get("layout_bg", false)):
+		node.set_meta(_AutoLayout.BG_META, true)
 	if d.get("blend") is Dictionary:
 		node.set_meta(_Blend.META, d["blend"])
 		_Blend.adopt(node)

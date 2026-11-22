@@ -88,6 +88,8 @@ const REFERENCE := [
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
+	["Contenedores", "make_layout(objetos, opciones = {}) -> Node2D", "Auto Layout: hace contenedor un grupo (o agrupa la selección; un rectángulo solo se convierte en contenedor con ese fondo). Opciones: mode \"row\"|\"column\"|\"grid\"|\"wrap\", gap, padding, align \"start\"|\"center\"|\"end\"|\"space-between\", cross, columns, wrap_width, auto (fondo a la medida)"],
+	["Contenedores", "release_layout(contenedor) -> void", "Quita el Auto Layout: los objetos quedan donde están"],
 	["Luces", "add_light(posicion, tipo = \"point\", opciones = {}) -> Node2D", "Luz 2D: tipo \"point\" (radial) o \"directional\" (sol); opciones: color, energy, radius, angle, falloff (0–1), mode \"add\"|\"mix\"|\"sub\", shadows (las figuras de la página proyectan sombra). Sale en PNG/JPEG/WEBP"],
 	["Archivo", "preview_document(ruta = \"\") -> Window", "VTP Preview: abre un .vtp en un visor de solo lectura (sin ruta, pide el archivo); no toca el documento abierto ni ejecuta su código"],
 	["Componentes", "set_symbol_sync(activo)", "Sincronizar: apagado, los cambios dentro de una copia son retoques locales"],
@@ -1808,6 +1810,43 @@ func expand_blend(g: Node) -> void:
 	Blend.recorder = _blend_rec()
 	Blend.expand(bg)
 	Blend.recorder = Callable()
+	_notify_changed()
+
+const AutoLayout = preload("res://script_gdscript/shapes/auto_layout.gd")
+
+func make_layout(nodes: Variant, options: Dictionary = {}) -> Node2D:
+	var list := _as_list(nodes).filter(func(n) -> bool: return is_instance_valid(n) and n is Node2D)
+	if list.is_empty():
+		error("make_layout: nada seleccionado")
+		return null
+	begin("Contenedor · crear")
+	var g: Node2D = null
+	var bg: Node2D = null
+	if list.size() == 1 and String(list[0].get_meta("shape_type", "")) == "group":
+		g = list[0]
+	elif list.size() == 1 and list[0] is VectorRectangle:
+		# un rectángulo solo: se convierte en contenedor con ese fondo
+		bg = list[0]
+		g = group([bg], "Contenedor")
+	else:
+		g = group(list, "Contenedor")
+	if g == null:
+		end()
+		return null
+	AutoLayout.recorder = func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+	AutoLayout.make(g, options, bg)
+	AutoLayout.recorder = Callable()
+	end()
+	_notify_changed()
+	return g
+
+func release_layout(g: Node) -> void:
+	if not AutoLayout.is_layout(g):
+		error("release_layout: no es un contenedor")
+		return
+	AutoLayout.recorder = func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+	AutoLayout.release(g)
+	AutoLayout.recorder = Callable()
 	_notify_changed()
 
 const _VectorLightScript = preload("res://script_gdscript/shapes/vector_light.gd")

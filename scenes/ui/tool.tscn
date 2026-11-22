@@ -19,7 +19,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_bezier.tscn" id="103_bezier"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_brush.tscn" id="104_brush"]
 [ext_resource type="Script" path="res://script_gdscript/ui/panel_light.gd" id="105_light"]
-[ext_resource type="Texture2D" path="res://icon/UI/sun-dim.svg" id="106_sun"]
+[ext_resource type="Texture2D" path="res://icon/UI/light-sun.svg" id="106_sun"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_av7yx"]
 bg_color = Color(0.973, 0.973, 0.98, 1)

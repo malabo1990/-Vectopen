@@ -81,9 +81,15 @@ func rebuild() -> void:
 			if not ContextMenuActions.blend_parts(self).is_empty():
 				_add(self, "make_blend", "Crear fusión (Blend)")
 				add_separator()
+			if ContextMenuActions.can_make_layout(self):
+				_add(self, "make_layout", "Convertir en contenedor (Auto Layout)")
 		"group":
 			if ContextMenuActions.is_blend_selected(self):
 				_add(self, "expand_blend", "Expandir fusión")
+			if ContextMenuActions.is_layout_selected(self):
+				_add(self, "release_layout", "Quitar contenedor")
+			elif ContextMenuActions.can_make_layout(self):
+				_add(self, "make_layout", "Convertir en contenedor (Auto Layout)")
 			_add(self, "ungroup", "Desagrupar", KEY_G | KEY_MASK_CTRL | KEY_MASK_SHIFT)
 			add_separator()
 

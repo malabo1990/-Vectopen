@@ -37,6 +37,7 @@ const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const _GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 const _TableProps = preload("res://script_gdscript/shapes/table_props.gd")
 const _BlendRef = preload("res://script_gdscript/shapes/blend.gd")
+const _AutoLayoutRef = preload("res://script_gdscript/shapes/auto_layout.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 
 const PROPS := [
@@ -72,6 +73,8 @@ const PROPS := [
 	"blend_steps", "blend_mode", "blend_spacing", "blend_orient",
 	"lamp_type", "lamp_color", "lamp_energy", "lamp_radius", "lamp_angle", "lamp_falloff", "lamp_mode", "lamp_shadows",
 	"lamp_cone", "lamp_shadow_color", "lamp_shadow_soft", "casts_shadow",
+	"layout_mode", "layout_gap", "layout_padding", "layout_align", "layout_cross",
+	"layout_columns", "layout_wrap_width", "layout_auto",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -234,6 +237,8 @@ func _read(shape, prop):
 		return _TableProps.read(shape, String(prop))
 	if _BlendRef.handles(String(prop)):
 		return _BlendRef.read_prop(shape, String(prop))
+	if _AutoLayoutRef.handles(String(prop)):
+		return _AutoLayoutRef.read_prop(shape, String(prop))
 	if prop == "casts_shadow":
 		# «Proyecta sombra»: figuras de un documento que tiene luces
 		if shape.has_method("get_effect_points") and String(shape.get_meta("shape_type", "")) != "light" \
@@ -1377,6 +1382,9 @@ func _write_prop(shape, prop, value) -> void:
 		return
 	if _BlendRef.handles(String(prop)):
 		_BlendRef.write_prop(shape, String(prop), value)
+		return
+	if _AutoLayoutRef.handles(String(prop)):
+		_AutoLayoutRef.write_prop(shape, String(prop), value)
 		return
 	if prop == "casts_shadow":
 		shape.set_meta("casts_shadow", bool(value))
