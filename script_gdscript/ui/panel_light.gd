@@ -22,6 +22,7 @@ const ROWS := [
 	["energy", "Intensidad", "num", 0, 1600, 5, "%", 100.0],
 	["radius", "Alcance", "num", 4, 20000, 5, " px", 1.0, "radius"],
 	["angle", "Dirección", "num", -180, 180, 1, "°", 1.0, "angle"],
+	["height", "Altura", "num", 0, 100, 1, "%", 100.0, "shadows"],
 	["cone", "Apertura", "num", 5, 170, 1, "°", 1.0, "cone"],
 	["falloff", "Borde duro", "num", 0, 100, 1, "%", 100.0, "radius"],
 	["mode", "Mezcla", "option", [["add", "Sumar (aclara)"], ["mix", "Mezclar"], ["sub", "Restar (oscurece)"]]],
@@ -201,7 +202,15 @@ func _add_row(grid: GridContainer, spec: Array) -> void:
 			nf.decimals = 0
 			nf.custom_minimum_size = Vector2(90, 24)
 			var k_scale: float = spec[7]
-			nf.value_changed.connect(func(v: float) -> void: _put(key, v / k_scale))
+			# Arrastrar el número: vista previa en cada movimiento (sin
+			# historial: antes cada píxel era un paso de deshacer con todos sus
+			# procesos → 50-160 ms por fotograma) y UN paso al soltar.
+			nf.value_changed.connect(func(v: float) -> void:
+				if nf.get("_is_dragging"):
+					_preview(key, v / k_scale)
+				else:
+					_put(key, v / k_scale))
+			nf.drag_ended.connect(func() -> void: _put(key, nf.value / k_scale))
 			# tiempo real mientras se escribe (la sombra y la luz siguen al número)
 			nf.live_typing = true
 			nf.live_value.connect(func(v: float) -> void: _preview(key, v / k_scale))
@@ -210,7 +219,9 @@ func _add_row(grid: GridContainer, spec: Array) -> void:
 			var cp := ColorPickerButton.new()
 			cp.custom_minimum_size = Vector2(90, 24)
 			cp.edit_alpha = key == "shadow_color"
-			cp.color_changed.connect(func(col: Color) -> void: _put(key, col))
+			# rueda de color: vista previa mientras se elige, un paso al cerrar
+			cp.color_changed.connect(func(col: Color) -> void: _preview(key, col))
+			cp.popup_closed.connect(func() -> void: _put(key, cp.color))
 			c = cp
 		"check":
 			var cb := CheckButton.new()
@@ -262,6 +273,8 @@ func _put(key: String, value) -> void:
 		if _live_orig[key][0] == l.get_instance_id():
 			l.set("lamp_" + key, _live_orig[key][1])   # el historial parte de aquí
 		_live_orig.erase(key)
+	if l and l.get("lamp_" + key) == value:
+		return   # nada cambió (p. ej. cerrar la rueda sin tocar): sin paso de deshacer
 	if l:
 		var ic := get_node_or_null("/root/InspectorCore")
 		ic.apply("lamp_" + key, value)

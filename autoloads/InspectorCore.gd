@@ -72,7 +72,7 @@ const PROPS := [
 	"table_text_color", "table_border_color",
 	"blend_steps", "blend_mode", "blend_spacing", "blend_orient",
 	"lamp_type", "lamp_color", "lamp_energy", "lamp_radius", "lamp_angle", "lamp_falloff", "lamp_mode", "lamp_shadows",
-	"lamp_cone", "lamp_shadow_color", "lamp_shadow_soft", "lamp_shadow_length", "lamp_shadow_fade", "casts_shadow",
+	"lamp_cone", "lamp_shadow_color", "lamp_shadow_soft", "lamp_shadow_length", "lamp_shadow_fade", "lamp_height", "casts_shadow",
 	"layout_mode", "layout_gap", "layout_padding", "layout_align", "layout_cross",
 	"layout_columns", "layout_wrap_width", "layout_auto",
 ]

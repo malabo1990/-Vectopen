@@ -79,6 +79,10 @@ var lamp_shadow_length := 150.0:   # px que se alarga la sombra
 	set(v):
 		lamp_shadow_length = clampf(v, 0.0, 20000.0)
 		rebuild()
+var lamp_height := 0.5:   # altura de la luz: 0 = rasante (sombras largas) · 1 = cenital (cortas)
+	set(v):
+		lamp_height = clampf(v, 0.0, 1.0)
+		rebuild()
 var lamp_shadow_fade := 0.7:   # 0 = sombra uniforme · 1 = se desvanece del todo hacia su final
 	set(v):
 		lamp_shadow_fade = clampf(v, 0.0, 1.0)
@@ -94,7 +98,7 @@ func _init() -> void:
 ## Ajustes de fábrica (botón «Restablecer» del panel).
 const DEFAULTS := {"color": Color(1.0, 0.92, 0.75), "energy": 1.2, "radius": 300.0, "angle": 45.0,
 	"cone": 45.0, "falloff": 0.0, "mode": "add", "shadows": true, "shadow_color": Color(0, 0, 0, 0.6),
-	"shadow_soft": 0.3, "shadow_length": 150.0, "shadow_fade": 0.7}
+	"shadow_soft": 0.3, "shadow_length": 150.0, "shadow_fade": 0.7, "height": 0.5}
 
 ## Firma de lo que mueve las sombras (esta luz y la posición de las figuras):
 ## si cambia —arrastrar la luz o una figura, el panel, los tiradores— las
@@ -135,13 +139,17 @@ func _ready() -> void:
 	(func() -> void:
 		await get_tree().process_frame
 		if is_inside_tree():
+			var pg := _page()
+			if pg:
+				mark_content(pg)
 			refresh_occluders()).call_deferred()
 
 func params() -> Dictionary:
 	return {"type": lamp_type, "color": lamp_color, "energy": lamp_energy, "radius": lamp_radius,
 		"angle": lamp_angle, "falloff": lamp_falloff, "mode": lamp_mode, "shadows": lamp_shadows,
 		"cone": lamp_cone, "shadow_color": lamp_shadow_color, "shadow_soft": lamp_shadow_soft,
-		"shadow_length": lamp_shadow_length, "shadow_fade": lamp_shadow_fade}
+		"shadow_length": lamp_shadow_length, "shadow_fade": lamp_shadow_fade,
+		"height": lamp_height}
 
 func set_params(p: Dictionary) -> void:
 	for k in p:
@@ -150,10 +158,13 @@ func set_params(p: Dictionary) -> void:
 
 ## Cono del foco: radial recortado a `cone` grados hacia +X (la luz se gira).
 static func _cone_tex(falloff: float, cone: float) -> Texture2D:
-	var key := "cone_%.2f_%d" % [snappedf(falloff, 0.05), int(cone)]
+	# variantes cada 2° y 128 px: generar 256² píxeles en GDScript al cambiar
+	# la apertura costaba decenas de ms por fotograma
+	var key := "cone_%.2f_%d" % [snappedf(falloff, 0.1), int(cone / 2.0) * 2]
 	if _tex_cache.has(key):
 		return _tex_cache[key]
-	var n := 256
+	cone = float(int(cone / 2.0) * 2)
+	var n := 128
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	var half := deg_to_rad(cone) * 0.5
 	var soft_a := maxf(half * 0.25, 0.02)
@@ -233,7 +244,7 @@ func rebuild() -> void:
 		"spot":
 			pl.texture = _cone_tex(lamp_falloff, lamp_cone)
 			pl.rotation = deg_to_rad(lamp_angle) - global_rotation
-			pl.texture_scale = lamp_radius / 128.0
+			pl.texture_scale = lamp_radius / 64.0   # textura de 128 px
 		"directional", "ambient":
 			pl.texture = _flat_tex()
 			pl.rotation = 0.0
@@ -242,7 +253,10 @@ func rebuild() -> void:
 			pl.texture = _radial(lamp_falloff)
 			pl.rotation = 0.0
 			pl.texture_scale = lamp_radius / 128.0
-	refresh_occluders()
+	# las sombras las rehace _process UNA vez por fotograma (antes cada
+	# propiedad las rehacía al momento y otra vez en _process)
+	if not is_inside_tree():
+		refresh_occluders()
 	queue_redraw()
 
 # ── sombras: oclusores internos en las figuras de la misma página ───────────
@@ -274,11 +288,11 @@ func refresh_occluders() -> void:
 	var page := _page()
 	if page == null:
 		return
-	mark_content(page)
 	var lights: Array = []
 	for l in page.find_children("*", "Node2D", true, false):
 		if l.is_in_group(GROUP) and bool(l.get("lamp_shadows")) and bool(TYPE_INFO.get(String(l.get("lamp_type")), {}).get("shadows", false)) and (l as Node2D).visible:
 			lights.append(l)
+	var fill := ambient_fill(page)
 	for s in _shapes_under(page):
 		var old_occ: Node = s.get_node_or_null(OCC_NAME)
 		if old_occ:
@@ -303,16 +317,14 @@ func refresh_occluders() -> void:
 			center += q
 		var gcenter: Vector2 = sxf * (center / pts.size())
 		for l in lights:
-			var info := shadow_for(l, gcenter)
+			var info := shadow_for(l, gcenter, fill)
 			if info.is_empty():
 				continue   # la luz no llega a esta figura: sin sombra
 			var off: Vector2 = inv.basis_xform(info["offset"])
-			var col: Color = l.lamp_shadow_color
-			col.a *= float(info["strength"])
-			# realista: cuanto más se separa la sombra, más difusa (penumbra)
+			# cuanto más se separa la sombra, más difusa (penumbra)
 			var spread: float = (info["offset"] as Vector2).length() * 0.35
-			list.append({"poly": pts, "off": off, "color": col,
-				"soft": float(l.lamp_shadow_soft) * (8.0 + spread) / scale_k,
+			list.append({"poly": pts, "off": off, "color": info["color"],
+				"soft": float(l.lamp_shadow_soft) * (8.0 + spread) * float(info["soft_k"]) / scale_k,
 				"fade": float(l.lamp_shadow_fade)})
 		sh.shadows = list
 		sh.queue_redraw()
@@ -334,29 +346,58 @@ static func influence(l: Node2D, gp: Vector2) -> float:
 		k *= clampf((half - ang) / edge, 0.0, 1.0)
 	return k
 
-## Sombra 2D que la luz `l` da a una figura con centro global `gp`:
-## {"offset": desplazamiento global de la silueta, "strength": 0..1} o {}.
-## La sombra es la MISMA silueta, plana, corrida en sentido contrario a la luz
-## (como una sombra paralela, no un volumen extruido): más lejos de una luz
-## puntual = se corre más y se ve más débil.
-static func shadow_for(l: Node2D, gp: Vector2) -> Dictionary:
+## Sombra 2D que la luz `l` da a una figura con centro global `gp`, como
+## sería de verdad. Depende de TODAS las propiedades de la luz:
+##   · intensidad → más luz, sombra más marcada (poca luz, sombra tenue);
+##   · alcance / apertura / dirección → solo donde llega la luz (influence);
+##   · altura → rasante = sombra larga, cenital = corta; la puntual además
+##     alarga la sombra cuanto más lejos está la figura;
+##   · borde duro → luz dura = sombra nítida, luz suave = sombra difusa;
+##   · color → la sombra toma el tono complementario (luz cálida, sombra fría);
+##   · mezcla «Restar» → la figura tapa el oscurecimiento: su «sombra» aclara;
+##   · `fill` = luz ambiente de la página, que rellena (aclara) las sombras.
+## {"offset", "strength" 0..1, "soft_k", "color"} o {} si no hay sombra.
+static func shadow_for(l: Node2D, gp: Vector2, fill: float = 0.0) -> Dictionary:
 	var t := String(l.get("lamp_type"))
 	if not bool(TYPE_INFO.get(t, {}).get("shadows", false)) or not bool(l.get("lamp_shadows")):
 		return {}
 	var k := influence(l, gp)
-	if k <= 0.01:
+	var energy := float(l.get("lamp_energy"))
+	var e := 1.0 - exp(-energy * 1.4)
+	var strength := sqrt(k) * e * (1.0 - clampf(fill, 0.0, 0.9))
+	if strength <= 0.01:
 		return {}
 	var length: float = float(l.get("lamp_shadow_length")) * maxf(l.global_transform.get_scale().x, 0.0001)
+	var h := float(l.get("lamp_height"))
+	var hf := (1.15 - h) * 1.6
 	var dir: Vector2
-	var amount := 1.0
+	var amount := hf
 	if t == "directional":
 		dir = Vector2.from_angle(deg_to_rad(float(l.get("lamp_angle"))))
 	else:
 		var d := gp - l.global_position
 		dir = d.normalized() if d.length() > 0.001 else Vector2.DOWN
-		# cerca de la luz la sombra apenas se separa; lejos, se alarga
-		amount = 0.25 + 0.75 * (1.0 - k)
-	return {"offset": dir * length * amount, "strength": sqrt(k)}
+		amount = (0.25 + 0.75 * (1.0 - k)) * hf
+	var col: Color = l.get("lamp_shadow_color")
+	if String(l.get("lamp_mode")) == "sub":
+		col = Color(1, 1, 1, col.a * 0.6)
+	else:
+		var lc: Color = l.get("lamp_color")
+		var comp := Color(1.0 - lc.r, 1.0 - lc.g, 1.0 - lc.b) * 0.5
+		var a0 := col.a
+		col = col.lerp(comp, 0.45 * lc.s)
+		col.a = a0
+	col.a *= strength
+	var soft_k := 1.4 - float(l.get("lamp_falloff"))
+	return {"offset": dir * length * amount, "strength": strength, "soft_k": soft_k, "color": col}
+
+## Luz ambiente de la página (rellena las sombras): 0..0.9.
+static func ambient_fill(page: Node) -> float:
+	var f := 0.0
+	for a in page.get_tree().get_nodes_in_group(GROUP):
+		if String(a.get("lamp_type")) == "ambient" and (a as Node2D).visible and String(a.get("lamp_mode")) != "sub" and a._page() == page:
+			f += float(a.get("lamp_energy")) * 0.45
+	return clampf(f, 0.0, 0.9)
 
 ## La página y lo suyo entran en la capa que alumbran las luces.
 static func mark_content(page: Node) -> void:
@@ -378,6 +419,9 @@ static func on_history_step(tree: SceneTree) -> void:
 				sh.queue_free()
 		return
 	for l in tree.get_nodes_in_group(GROUP):
+		var pg = l._page()
+		if pg:
+			mark_content(pg)
 		l.call_deferred("refresh_occluders")
 
 # ── selección y símbolo en el lienzo ─────────────────────────────────────────

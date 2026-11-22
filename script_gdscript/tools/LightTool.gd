@@ -13,7 +13,7 @@ const LightScript = preload("res://script_gdscript/shapes/vector_light.gd")
 ## Ajustes de la próxima luz (tipo y parámetros), compartidos con el panel.
 static var settings := {"type": "point", "color": Color(1.0, 0.92, 0.75), "energy": 1.2,
 	"radius": 300.0, "angle": 45.0, "cone": 45.0, "falloff": 0.0, "mode": "add",
-	"shadows": true, "shadow_color": Color(0, 0, 0, 0.6), "shadow_soft": 0.3, "shadow_length": 150.0, "shadow_fade": 0.7}
+	"shadows": true, "shadow_color": Color(0, 0, 0, 0.6), "shadow_soft": 0.3, "shadow_length": 150.0, "shadow_fade": 0.7, "height": 0.5}
 
 var start_pos := Vector2.ZERO
 var current_pos := Vector2.ZERO

@@ -81,13 +81,14 @@ func _run() -> void:
 
 	# ── 2. Sombra 2D: oscura junto a la figura, se desvanece hacia el final ──
 	L.lamp_angle = 0.0
+	L.lamp_energy = 1.5   # la sombra depende de la intensidad: luz clara para medir
 	var near: float = await darkening(L, C + Vector2(50, 0))
-	var far: float = await darkening(L, C + Vector2(165, 0))
+	var far: float = await darkening(L, C + Vector2(145, 0))
 	K.check("la sombra se desvanece hacia su final", near > far + 0.03, "cerca %.3f, final %.3f" % [near, far])
 	var beyond: float = await darkening(L, C + Vector2(260, 0))
 	K.check("más allá de su longitud no hay sombra", beyond < 0.012, "%.3f" % beyond)
 	L.lamp_shadow_fade = 0.0
-	var far_u: float = await darkening(L, C + Vector2(165, 0))
+	var far_u: float = await darkening(L, C + Vector2(145, 0))
 	K.check("Desvanecer 0 → la sombra llega oscura al final", far_u > far + 0.02, "%.3f vs %.3f" % [far_u, far])
 	L.lamp_shadow_fade = 0.7
 	L.lamp_shadow_soft = 1.0
@@ -242,6 +243,103 @@ func _run() -> void:
 	await settle()
 	K.check("ambiente: sin sombra", shadow_count() == 0)
 	A.queue_free()
+	await K.frames(4)
+	# ── 7. La sombra depende de TODAS las propiedades de la luz ───────────────
+	var D = api.add_light(Vector2(120, 120), "directional", {"energy": 1.0, "color": Color(1, 1, 1),
+		"angle": 0.0, "shadow_length": 150.0, "shadow_fade": 0.3, "shadow_soft": 0.3, "shadow_color": Color(0, 0, 0, 0.7)})
+	await settle()
+	# arrastrar «Intensidad» en el panel con el ratón: cambia en directo, va
+	# fluido y queda UN solo paso de deshacer al soltar
+	api.select([D])
+	await K.frames(6)
+	var ef: Control = null
+	for n in root.find_children("Light_energy", "", true, false):
+		if (n as Control).is_visible_in_tree():
+			ef = n
+	K.check("el panel muestra Intensidad", ef != null)
+	if ef:
+		var p0: Vector2 = ef.get_global_rect().get_center()
+		var mv := InputEventMouseMotion.new()
+		mv.position = p0
+		mv.global_position = p0
+		_send(mv)
+		await process_frame
+		var pr := InputEventMouseButton.new()
+		pr.position = p0
+		pr.global_position = p0
+		pr.button_index = MOUSE_BUTTON_LEFT
+		pr.pressed = true
+		pr.button_mask = MOUSE_BUTTON_MASK_LEFT
+		_send(pr)
+		await process_frame
+		var t0 := Time.get_ticks_usec()
+		for i in range(1, 11):
+			var m2 := InputEventMouseMotion.new()
+			m2.position = p0 + Vector2(i * 6, 0)
+			m2.global_position = m2.position
+			m2.button_mask = MOUSE_BUTTON_MASK_LEFT
+			_send(m2)
+			await process_frame
+		var ms := (Time.get_ticks_usec() - t0) / 10000.0
+		var mid_e := float(D.lamp_energy)
+		K.check("arrastrar Intensidad: cambia a mitad del arrastre", mid_e > 1.05, "%.2f" % mid_e)
+		K.check("arrastrar Intensidad: fluido (< 34 ms por fotograma)", ms < 34.0, "%.1f ms" % ms)
+		var rl := InputEventMouseButton.new()
+		rl.position = p0 + Vector2(60, 0)
+		rl.global_position = rl.position
+		rl.button_index = MOUSE_BUTTON_LEFT
+		rl.pressed = false
+		_send(rl)
+		await K.frames(4)
+		api.undo()
+		await K.frames(3)
+		# UN Ctrl+Z vuelve al valor de antes de arrastrar → el arrastre fue un solo paso
+		K.check("un Ctrl+Z deshace el arrastre entero (un solo paso)", absf(float(D.lamp_energy) - 1.0) < 0.01, "%.2f" % D.lamp_energy)
+	api.select([])
+	await K.frames(3)
+	var sp := C + Vector2(55, 0)
+	D.lamp_energy = 0.3
+	var d_low: float = await darkening(D, sp)
+	D.lamp_energy = 2.0
+	var d_high: float = await darkening(D, sp)
+	K.check("intensidad: más luz → sombra más marcada", d_high > d_low + 0.03, "%.3f vs %.3f" % [d_high, d_low])
+	D.lamp_energy = 1.0
+	D.lamp_height = 0.9
+	var far_hi: float = await darkening(D, C + Vector2(130, 0))
+	D.lamp_height = 0.1
+	var far_lo: float = await darkening(D, C + Vector2(130, 0))
+	K.check("altura: luz rasante → sombra larga; cenital → corta", far_lo > far_hi + 0.03, "rasante %.3f, cenital %.3f" % [far_lo, far_hi])
+	D.lamp_height = 0.5
+	D.lamp_falloff = 0.0
+	var edge_soft: float = await darkening(D, C + Vector2(70, 40))
+	D.lamp_falloff = 1.0
+	var edge_hard: float = await darkening(D, C + Vector2(70, 40))
+	K.check("borde duro: luz suave → penumbra más ancha que con luz dura", edge_soft > edge_hard + 0.005, "%.3f vs %.3f" % [edge_soft, edge_hard])
+	D.lamp_falloff = 0.0
+	# color: con luz roja la sombra pierde sobre todo el rojo (tono complementario)
+	D.lamp_color = Color(1, 0.3, 0.2)
+	D.lamp_shadows = false
+	await settle()
+	var img_off := root.get_texture().get_image()
+	D.lamp_shadows = true
+	await settle()
+	var img_on := root.get_texture().get_image()
+	var spx := Vector2i(K.canvas.get_viewport().get_canvas_transform() * ab.to_global(sp))
+	var c_off := img_off.get_pixelv(spx)
+	var c_on := img_on.get_pixelv(spx)
+	K.check("color: con luz roja la sombra tira al tono complementario", (c_off.r - c_on.r) > (c_off.b - c_on.b) + 0.02, "%s → %s" % [c_off, c_on])
+	D.lamp_color = Color(1, 1, 1)
+	D.lamp_mode = "sub"
+	var d_sub: float = await darkening(D, sp)
+	K.check("mezcla Restar: la figura tapa el oscurecimiento (su sombra aclara)", d_sub < -0.02, "%.3f" % d_sub)
+	D.lamp_mode = "add"
+	var d_noamb: float = await darkening(D, sp)
+	var Amb = api.add_light(Vector2(60, 60), "ambient", {"energy": 1.2, "color": Color(1, 1, 1)})
+	await settle()
+	var d_amb: float = await darkening(D, sp)
+	K.check("luz ambiente: rellena (aclara) las sombras de las demás luces", d_amb < d_noamb - 0.03, "%.3f vs %.3f" % [d_amb, d_noamb])
+	Amb.queue_free()
+	D.queue_free()
 	await K.frames(4)
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)

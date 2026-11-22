@@ -96,6 +96,7 @@ const SPECS := {
 	"lamp_shadow_soft": ["Difuminado de sombra", "num", 0, 100, 1, "%", 100.0],
 	"lamp_shadow_length": ["Longitud de sombra", "num", 0, 5000, 5, " px", 1.0],
 	"lamp_shadow_fade": ["Desvanecer sombra", "num", 0, 100, 1, "%", 100.0],
+	"lamp_height": ["Altura de la luz", "num", 0, 100, 1, "%", 100.0],
 	"casts_shadow": ["Proyecta sombra", "check"],
 	"lamp_color": ["Color de la luz", "color"],
 	"lamp_energy": ["Intensidad", "num", 0, 1600, 5, "%", 100.0],
