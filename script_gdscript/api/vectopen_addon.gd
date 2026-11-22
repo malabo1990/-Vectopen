@@ -24,6 +24,16 @@ var info: Dictionary = {}
 var _op_ids: Array[String] = []
 var _panels: Array[Control] = []
 
+## Al cerrar la app: los paneles que nunca se llegaron a mostrar están fuera
+## del árbol y nadie más los libera (fuga «leaked at exit» con el ejemplo
+## Repetir: un GridContainer con 6 SpinBox).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		for c in _panels:
+			if is_instance_valid(c) and c.get_parent() == null:
+				c.free()
+		_panels.clear()
+
 ## Para sobrescribir.
 func _enable() -> void:
 	pass

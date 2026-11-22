@@ -129,3 +129,8 @@ func emit_safe(signal_name: String, arg1 = null, arg2 = null, arg3 = null) -> vo
 			[true, false, false]: emit_signal(signal_name, arg1)
 			[true, true, false]: emit_signal(signal_name, arg1, arg2)
 			[true, true, true]: emit_signal(signal_name, arg1, arg2, arg3)
+
+## Al cerrar: vaciar las cachés estáticas de texturas / iconos / shaders
+## mientras el RenderingServer aún existe (si no: «leaked at exit»).
+func _exit_tree() -> void:
+	load("res://script_gdscript/system/static_caches.gd").clear_all()

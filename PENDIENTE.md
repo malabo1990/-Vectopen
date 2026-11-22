@@ -618,7 +618,7 @@ utilizarlo como base para el futuro visor web.
 | VAL-66 | Foto vectorizada (1 650 trazados, ~75 000 nodos): 13 s en dibujarse al abrirla. ~15 formas con huecos «pellizcados» cuestan ~0,5 s cada una (la triangulación de Godot falla y se rehace con todos los puntos): otro triangulador (nativo en Rust) o teselar con tolerancia | Abierto |
 | VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
 | VAL-56 | Tablas v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio (la v1 está hecha) | Pendiente |
-| — | Avisos «leaked at exit» al cerrar las pruebas con `quit()`; comprobar que la app instalada cierra limpia | Abierto |
+| — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana) | Abierto (menor) |
 
 ---
 
