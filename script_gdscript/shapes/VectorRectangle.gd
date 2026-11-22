@@ -33,6 +33,15 @@ var _r_bl: float = 0.0
 	set(v): _r_bl = maxf(0.0, v); queue_redraw()
 	get: return _r_bl
 
+## Forma de las esquinas (informe de propuestas §1): 0 redonda · 1 redondeado
+## INVERSO (arco cóncavo hacia dentro) · 2 chaflán (corte recto) · 3 muesca
+## (corte cuadrado). El tamaño de cada esquina es su radio.
+const CORNER_STYLES := ["round", "inverted", "chamfer", "notch"]
+@export_range(0, 3) var corner_style: int = 0:
+	set(v):
+		corner_style = clampi(v, 0, 3)
+		queue_redraw()
+
 ## Los 4 radios como Vector4 (tl, tr, br, bl) — para el panel de transformación.
 func get_corner_radii() -> Vector4:
 	return Vector4(_r_tl, _r_tr, _r_br, _r_bl)
@@ -225,17 +234,35 @@ func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 		{"center": rect.position + Vector2(rbl, rect.size.y - rbl), "start": PI / 2.0, "r": rbl},            # BL
 	]
 
+	var tips := [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
 	var verts := PackedVector2Array()
-	for corner in corners:
+	for k in corners.size():
+		var corner: Dictionary = corners[k]
 		var center: Vector2 = corner["center"]
 		var start_angle: float = corner["start"]
 		var r: float = corner["r"]
 		if r <= 0.0:
 			verts.append(center)   # esquina viva
 			continue
-		for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
-			var angle: float = start_angle + (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
-			verts.append(center + Vector2(cos(angle), sin(angle)) * r)
+		var a := center + Vector2(cos(start_angle), sin(start_angle)) * r            # sobre un lado
+		var b := center + Vector2(cos(start_angle + PI / 2.0), sin(start_angle + PI / 2.0)) * r  # sobre el otro
+		match corner_style:
+			1:   # inverso: arco con centro en la punta de la esquina, hacia dentro
+				var tip: Vector2 = tips[k]
+				for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
+					var ang: float = start_angle - PI / 2.0 - (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
+					verts.append(tip + Vector2(cos(ang), sin(ang)) * r)
+			2:   # chaflán
+				verts.append(a)
+				verts.append(b)
+			3:   # muesca: entra en ángulo recto hasta el centro del redondeo
+				verts.append(a)
+				verts.append(center)
+				verts.append(b)
+			_:
+				for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):
+					var angle: float = start_angle + (float(i) / ROUNDED_RECT_CORNER_SEGMENTS) * (PI / 2.0)
+					verts.append(center + Vector2(cos(angle), sin(angle)) * r)
 	return verts
 
 func set_selected(selected: bool):

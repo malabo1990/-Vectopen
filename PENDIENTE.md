@@ -91,30 +91,16 @@ profesional y experiencia de usuario (UI/UX).
 herramienta de diseño vectorial y composición visual más flexible,
 eficiente y adecuada para proyectos profesionales.
 
-#### 1. Geometría avanzada: esquinas y redondeado inverso
+#### 1. Geometría avanzada: esquinas — lo que falta
 
-Ampliar las opciones de edición de esquinas para ofrecer mayor control
-sobre la geometría de los objetos.
+Hecho (2026-11-22): «Tipo de esquina» del rectángulo en el inspector (Modern
+y Pro): redonda, redondeado inverso (cóncavo), chaflán y muesca, con los
+radios por esquina, deshacer, .vtp y SVG/PDF (`corner_styles_e2e`,
+`RectCornerStyle_test`). Falta:
 
-**Mejoras propuestas:**
-
-- Incorporar el redondeado inverso de esquinas (Inverted Corner Radius).
-- Añadir controles individuales para cada esquina.
-- Integrar todas estas propiedades en el Inspector.
-- Permitir modificar esquinas cóncavas y convexas.
-- Ofrecer diferentes perfiles geométricos de esquina.
-
-**Edición avanzada:**
-
-Incorporar perfiles personalizados para generar esquinas con formas
-especiales, como zigzag, dientes de sierra (Sawtooth) y otros patrones
-geométricos.
-
-La edición debería permitir ajustar los parámetros y visualizar los cambios
-en tiempo real.
-
-> Relacionado: el core Bézier de
-> `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
+- Tipo distinto en CADA esquina (hoy uno para las cuatro).
+- Perfiles especiales: zigzag, dientes de sierra (Sawtooth) y otros
+  patrones, con parámetros en vivo.
 
 #### 2. Iluminación y efectos visuales 2D
 

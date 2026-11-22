@@ -322,6 +322,8 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		var rr: Vector4 = node.get_corner_radii()
 		if not (rr.x == rr.y and rr.y == rr.z and rr.z == rr.w):
 			base["corners"] = [rr.x, rr.y, rr.z, rr.w]   # tl, tr, br, bl
+		if node.corner_style != 0:
+			base["corner_style"] = node.corner_style
 		_add_style(base, node)
 		return base
 	if node is VectorPolygon:
@@ -1100,6 +1102,7 @@ static func _element_from(d: Dictionary) -> Node2D:
 			if d.has("corners") and d["corners"] is Array and d["corners"].size() == 4:
 				var cc: Array = d["corners"]
 				r.set_corner_radii(Vector4(cc[0], cc[1], cc[2], cc[3]))
+			r.corner_style = int(d.get("corner_style", 0))
 			_read_style(r, d)
 			r.name = d.get("name", "Rectangulo")
 			return r

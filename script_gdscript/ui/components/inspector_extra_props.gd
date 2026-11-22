@@ -25,6 +25,7 @@ const SPECS := {
 	"corner_tr": ["Esquina ↗", "num", 0, 5000, 0.5, " px", 1.0],
 	"corner_br": ["Esquina ↘", "num", 0, 5000, 0.5, " px", 1.0],
 	"corner_bl": ["Esquina ↙", "num", 0, 5000, 0.5, " px", 1.0],
+	"corner_style": ["Tipo de esquina", "option", [["round", "Redonda"], ["inverted", "Redondeado inverso"], ["chamfer", "Chaflán"], ["notch", "Muesca"]]],
 	"sides": ["Lados", "num", 3, 64, 1, "", 1.0],
 	"is_regular": ["Regular", "check"],
 	"poly_angle": ["Giro", "num", -360, 360, 0.5, "°", 1.0],

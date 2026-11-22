@@ -46,7 +46,7 @@ const PROPS := [
 	"columns", "column_gap",
 	"font_family", "font_weight", "font_italic",
 	"fill_paint", "stroke_paint", "text_align", "text_valign", "text",
-	"corner_tl", "corner_tr", "corner_br", "corner_bl",
+	"corner_tl", "corner_tr", "corner_br", "corner_bl", "corner_style",
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
 	"stroke_profile", "stroke_pointer_scale",
@@ -294,6 +294,10 @@ func _read(shape, prop):
 			return null
 		"corner_tl":
 			if "corner_tl" in shape: return shape.corner_tl
+			return null
+		"corner_style":
+			if "corner_style" in shape and shape is VectorRectangle:
+				return VectorRectangle.CORNER_STYLES[int(shape.corner_style)]
 			return null
 		"corner_tr":
 			if "corner_tr" in shape: return shape.corner_tr
@@ -1408,6 +1412,10 @@ func _write_prop(shape, prop, value) -> void:
 			elif shape is Line2D: shape.width = maxf(0.1, float(value))
 		"corner_radius":
 			if "corner_radius" in shape: shape.corner_radius = maxf(0.0, float(value))
+		"corner_style":
+			if shape is VectorRectangle:
+				var ci := VectorRectangle.CORNER_STYLES.find(String(value))
+				shape.corner_style = ci if ci >= 0 else int(value) if String(value).is_valid_int() else 0
 		"corner_tl":
 			if "corner_tl" in shape: shape.corner_tl = maxf(0.0, float(value))
 		"corner_tr":
