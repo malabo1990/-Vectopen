@@ -24,6 +24,7 @@ const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
+const _Blend = preload("res://script_gdscript/shapes/blend.gd")
 
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
@@ -850,6 +851,12 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 		d["table"] = node.get_meta("table")
 	if node.has_meta("table_cell"):
 		d["table_cell"] = node.get_meta("table_cell")
+	# Fusión (Blend): parámetros del grupo y papel de cada hijo.
+	if node.has_meta(_Blend.META):
+		d["blend"] = node.get_meta(_Blend.META)
+	for bm in [_Blend.STEP_META, _Blend.END_META, _Blend.SPINE_META]:
+		if node.has_meta(bm):
+			d[bm] = node.get_meta(bm)
 	for _gk in ["fill_global", "stroke_global"]:   # colores globales (encargo 25)
 		if node.has_meta(_gk):
 			d[_gk] = String(node.get_meta(_gk))
@@ -942,6 +949,12 @@ static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	for _gk in ["fill_global", "stroke_global"]:
 		if d.has(_gk):
 			node.set_meta(_gk, String(d[_gk]))
+	if d.get("blend") is Dictionary:
+		node.set_meta(_Blend.META, d["blend"])
+		_Blend.adopt(node)
+	for bm in [_Blend.STEP_META, _Blend.END_META, _Blend.SPINE_META]:
+		if d.has(bm):
+			node.set_meta(bm, d[bm])
 	if d.get("table_cell") is Array:
 		node.set_meta("table_cell", [int(d["table_cell"][0]), int(d["table_cell"][1])])
 	if d.has("symbol_id"):

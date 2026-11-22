@@ -8,11 +8,38 @@
 class_name ContextMenuActions
 extends RefCounted
 
+const _BlendRef = preload("res://script_gdscript/shapes/blend.gd")
+
+## Fusión: [A, B, guía|null] con la selección (2 figuras, o 3 si una es un
+## trazado abierto = la guía), todas en la misma capa; [] si no vale.
+static func blend_parts(host: Node) -> Array:
+	var sel: Array = selection(host).filter(func(n) -> bool: return n is Node2D and is_instance_valid(n))
+	if sel.size() < 2 or sel.size() > 3:
+		return []
+	var spine: Node2D = null
+	if sel.size() == 3:
+		for n in sel:
+			if n is VectorPath and not (n as VectorPath).closed:
+				spine = n
+		if spine == null:
+			return []
+		sel.erase(spine)
+	if sel[0].get_parent() != sel[1].get_parent() or (spine and spine.get_parent() != sel[0].get_parent()):
+		return []
+	if _BlendRef.blend_of(sel[0]) != null or _BlendRef.blend_of(sel[1]) != null:
+		return []
+	sel.sort_custom(func(a, b) -> bool: return a.get_index() < b.get_index())
+	return [sel[0], sel[1], spine]
+
+static func is_blend_selected(host: Node) -> bool:
+	return selection(host).any(func(n) -> bool: return _BlendRef.blend_of(n) != null)
+
 ## Actions that only make sense with at least one selected shape.
 const NEEDS_SELECTION: Array[String] = [
 	"copy", "cut", "duplicate", "delete",
 	"bring_to_front", "bring_forward", "send_backward", "send_to_back",
 	"flip_h", "flip_v", "rotate_cw", "rotate_ccw", "group", "ungroup", "ungroup_all", "rename",
+	"make_blend", "expand_blend",
 	"toggle_visibility", "toggle_lock", "invert_fill_stroke",
 	"align_left", "align_center_h", "align_right", "align_top", "align_middle", "align_bottom",
 	"align_text_left", "align_text_center", "align_text_right",
@@ -105,6 +132,17 @@ static func execute(id: String, host: Node) -> void:
 			for n in selection(host):
 				if pm6 and pm6.api and int(n.get("clip_children")) != 0:
 					pm6.api.release_mask(n)
+		"make_blend":
+			var pmb := host.get_node_or_null("/root/PluginManager")
+			var parts := blend_parts(host)
+			if pmb and pmb.api and not parts.is_empty():
+				var gb = pmb.api.make_blend(parts[0], parts[1], {"steps": 5}, parts[2])
+				if gb: pmb.api.select([gb])
+		"expand_blend":
+			var pme := host.get_node_or_null("/root/PluginManager")
+			for n in selection(host):
+				if pme and pme.api and _BlendRef.blend_of(n) != null:
+					pme.api.expand_blend(n)
 		"make_symbol":
 			var pm3 := host.get_node_or_null("/root/PluginManager")
 			var sel3 := selection(host)

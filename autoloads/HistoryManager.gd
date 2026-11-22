@@ -28,9 +28,12 @@ func add_undo(callable: Callable) -> void:
 func commit() -> void:
 	_undo_redo.commit_action()
 	_Symbols.on_history_step()
+	_Blend.on_history_step()
 
 ## Componentes vinculados (VAL-23): tras cada paso se propagan los cambios.
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
+## Fusiones (Blend): se rehacen si cambian sus extremos.
+const _Blend = preload("res://script_gdscript/shapes/blend.gd")
 
 ## Ver UndoRedoManager.merge_last_two.
 func merge_last_two(first_name: String, new_name: String = "") -> bool:
@@ -40,6 +43,7 @@ func undo() -> void:
 	if _undo_redo.can_undo():
 		_undo_redo.undo()
 		_Symbols.on_history_step(true)
+		_Blend.on_history_step()
 		undo_performed.emit(_undo_redo.get_undo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true
@@ -48,6 +52,7 @@ func redo() -> void:
 	if _undo_redo.can_redo():
 		_undo_redo.redo()
 		_Symbols.on_history_step(true)
+		_Blend.on_history_step()
 		redo_performed.emit(_undo_redo.get_redo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true

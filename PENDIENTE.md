@@ -121,56 +121,22 @@ Esta funcionalidad permitiría crear ilustraciones, interfaces y
 composiciones visuales más elaboradas sin depender de aplicaciones
 externas.
 
-#### 3. Blend Tool: fusión e interpolación de objetos
+#### 3. Fusión (Blend) — lo que falta
 
-Incorporar una herramienta Blend equivalente a la de Adobe Illustrator y
-Affinity Designer.
+Hecho (2026-11-22): `script_gdscript/shapes/blend.gd` — clic derecho ▸
+«Crear fusión (Blend)» con dos figuras (o tres, si una es un trazado abierto
+= guía) en Smart, Modern y Pro; forma, color de relleno y trazo, grosor y
+opacidad interpolados; pasos fijos o por distancia; a lo largo de la guía,
+orientados o no; no destructiva (se rehace sola al cambiar A, B o la guía);
+ajustes en el inspector con deshacer; «Expandir fusión»; .vtp; API
+`make_blend` / `blend_set` / `expand_blend` (`Blend_test` 7/0, `blend_e2e`
+13/0). Falta:
 
-Su función principal sería generar automáticamente una secuencia de objetos
-intermedios entre dos o más elementos vectoriales.
-
-**Modos principales:**
-
-1. **Specified Steps:** definir el número exacto de objetos intermedios. Por
-   ejemplo, generar 34 elementos entre el objeto A y el objeto B.
-2. **Specified Distance:** establecer la distancia entre los objetos
-   generados.
-3. **Smooth Color:** realizar una transición progresiva de color entre los
-   elementos iniciales y finales.
-4. **Blend Along Path:** distribuir los objetos intermedios siguiendo una
-   trayectoria personalizada.
-
-**Propiedades de interpolación:**
-
-- Posición.
-- Escala.
-- Rotación.
-- Color.
-- Opacidad.
-- Propiedades de trazo compatibles.
-
-**Funciones adicionales:**
-
-- Actualización automática cuando se modifican los objetos originales.
-- Control de orientación de los elementos siguiendo una trayectoria.
-- Posibilidad de utilizar grupos y objetos complejos.
-- Edición no destructiva.
-- Conversión del resultado en objetos vectoriales independientes mediante
-  Expand Blend.
-
-**Ejemplos de aplicación:**
-
-- Transformar visualmente un cuadrado en un círculo mediante elementos
-  intermedios.
-- Crear transiciones entre polígonos y estrellas.
-- Generar secuencias geométricas repetitivas.
-- Crear efectos de profundidad y perspectiva.
-- Diseñar patrones decorativos.
-- Distribuir elementos a lo largo de una curva.
-
-El objetivo es disponer de una herramienta de fusión flexible, con controles
-propios en el Inspector y una experiencia de edición similar a Illustrator y
-Affinity Designer.
+- Fusión de MÁS de dos objetos (A → B → C) y de grupos / objetos complejos
+  (hoy: dos figuras sueltas; los grupos se interpolan como su contorno no).
+- Interpolar también escala / rotación de forma explícita (hoy van dentro de
+  la forma) y degradados.
+- Herramienta propia de fusión (clic en A y en B en el lienzo).
 
 #### 4. Sistema de Layout: Grid, Flex y contenedores
 
@@ -240,8 +206,8 @@ Blend, layout automático, maquetación multipágina y selección por
 profundidad) acercaría a Vectopen a un estudio de diseño completo en una
 sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 
-> **Prioridad sugerida** (no acordada): 1) esquinas avanzadas, 2) layout,
-> 3) Blend, 4) iluminación 2D, 5) maquetación editorial. Cada bloque grande merece su propio documento de
+> **Prioridad sugerida** (no acordada): 1) layout, 2) iluminación 2D,
+> 3) maquetación editorial (esquinas y Blend: primera versión hecha). Cada bloque grande merece su propio documento de
 > diseño en `docs/roadmap/` antes de codear.
 
 ## 0 nonies. VTP Preview — visor de documentos (2026-11-21) — propuesta

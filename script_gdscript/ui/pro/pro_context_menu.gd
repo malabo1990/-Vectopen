@@ -78,7 +78,12 @@ func rebuild() -> void:
 			if not ContextMenuActions.text_on_path_pair(self).is_empty():
 				_add(self, "text_on_path", "Texto en trazado")
 				add_separator()
+			if not ContextMenuActions.blend_parts(self).is_empty():
+				_add(self, "make_blend", "Crear fusión (Blend)")
+				add_separator()
 		"group":
+			if ContextMenuActions.is_blend_selected(self):
+				_add(self, "expand_blend", "Expandir fusión")
 			_add(self, "ungroup", "Desagrupar", KEY_G | KEY_MASK_CTRL | KEY_MASK_SHIFT)
 			add_separator()
 

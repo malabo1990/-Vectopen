@@ -36,6 +36,7 @@ const PageFields = preload("res://script_gdscript/text/page_fields.gd")
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const _GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 const _TableProps = preload("res://script_gdscript/shapes/table_props.gd")
+const _BlendRef = preload("res://script_gdscript/shapes/blend.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 
 const PROPS := [
@@ -67,6 +68,7 @@ const PROPS := [
 	"table_header", "table_zebra", "table_font_size", "table_row_h", "table_border",
 	"table_align", "table_header_bg", "table_header_fg", "table_cell_bg", "table_zebra_bg",
 	"table_text_color", "table_border_color",
+	"blend_steps", "blend_mode", "blend_spacing", "blend_orient",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -227,6 +229,8 @@ func _read(shape, prop):
 		return _read(ptxt, prop)
 	if _TableProps.handles(String(prop)):
 		return _TableProps.read(shape, String(prop))
+	if _BlendRef.handles(String(prop)):
+		return _BlendRef.read_prop(shape, String(prop))
 	# Un modelo 3D hereda relleno y trazo de VectorShape pero no los dibuja:
 	# no se ofrecen (eran controles sin efecto en el inspector).
 	if String(prop).begins_with("stroke_") or prop in ["fill_color", "fill_paint"]:
@@ -1353,6 +1357,9 @@ func _write_prop(shape, prop, value) -> void:
 		return
 	if _TableProps.handles(String(prop)):
 		_TableProps.write(shape, String(prop), value)
+		return
+	if _BlendRef.handles(String(prop)):
+		_BlendRef.write_prop(shape, String(prop), value)
 		return
 	match prop:
 		"name":

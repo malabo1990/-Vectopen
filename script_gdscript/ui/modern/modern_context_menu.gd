@@ -213,11 +213,15 @@ func _build_level_2_contextual_items(kind: String) -> void:
 				_add_menu_item("release_text_on_path", "Separar texto del trazado", "")
 			_add_separator()
 		"group":
+			if ContextMenuActions.is_blend_selected(self):
+				_add_menu_item("expand_blend", "Expandir fusión", "")
 			_add_menu_item("ungroup_all", "Desagrupar todo", "Ctrl+Shift+G")
 			_add_separator()
 		"multi":
 			if not ContextMenuActions.text_on_path_pair(self).is_empty():
 				_add_menu_item("text_on_path", "Texto en trazado", "")
+			if not ContextMenuActions.blend_parts(self).is_empty():
+				_add_menu_item("make_blend", "Crear fusión (Blend)", "")
 			_add_menu_item("distribute_horizontal", "Distribuir horizontal", "")
 			_add_menu_item("distribute_vertical", "Distribuir vertical", "")
 			_add_separator()

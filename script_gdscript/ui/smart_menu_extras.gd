@@ -18,6 +18,8 @@ const _ITEMS := [
 	["ReleaseMask", "release_mask", "Soltar máscara"],
 	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
 	["DetachSymbol", "detach_symbol", "Desvincular componente"],
+	["MakeBlend", "make_blend", "Crear fusión (Blend)"],
+	["ExpandBlend", "expand_blend", "Expandir fusión"],
 ]
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const _Table = preload("res://script_gdscript/shapes/table.gd")
@@ -76,6 +78,10 @@ func _applies(action: String) -> bool:
 		return sel.any(func(n) -> bool: return int(n.get("clip_children")) != 0)
 	if action == "edit_shape":
 		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
+	if action == "make_blend":
+		return not ContextMenuActions.blend_parts(_menu).is_empty()
+	if action == "expand_blend":
+		return ContextMenuActions.is_blend_selected(_menu)
 	if action == "make_symbol":
 		return not sel.is_empty() and not sel.any(func(n) -> bool: return _Symbols.instance_of(n) != null)
 	if action == "detach_symbol":

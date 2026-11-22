@@ -85,6 +85,9 @@ const REFERENCE := [
 	["Componentes", "symbols() -> Array", "Componentes del documento: [{id, name, count}]"],
 	["Componentes", "symbol_of(objeto) -> String", "Id del componente al que pertenece el objeto (\"\" si ninguno)"],
 	["Componentes", "detach_symbol(objeto) -> bool", "Desvincula una copia: queda como grupo normal"],
+	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
+	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
+	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
 	["Componentes", "set_symbol_sync(activo)", "Sincronizar: apagado, los cambios dentro de una copia son retoques locales"],
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
 	["Texto", "text_on_path(texto, trazado, params) -> Line2D", "Texto en trazado: el texto sigue la curva una vez, apoyado en ella y enlazado (se rehace al editar el texto o la curva). params: align (0 inicio · 0,5 centro · 1 final), offset, flip"],
@@ -1770,6 +1773,45 @@ func detach_symbol(node: Node) -> bool:
 	var ok := Symbols.detach(node)
 	Symbols.recorder = Callable()
 	return ok
+
+# ── fusión / Blend (informe de propuestas §3) ─────────────────────────────────
+const Blend = preload("res://script_gdscript/shapes/blend.gd")
+
+func _blend_rec() -> Callable:
+	return func(action: String, d: Callable, u: Callable) -> void: _record(action, d, u, false)
+
+func make_blend(a: Node, b: Node, options: Dictionary = {}, spine: Node = null) -> Node2D:
+	if not (a is Node2D and b is Node2D) or not is_instance_valid(a) or not is_instance_valid(b):
+		error("make_blend: hacen falta dos figuras")
+		return null
+	if a.get_parent() != b.get_parent() or (spine != null and spine.get_parent() != a.get_parent()):
+		error("make_blend: las figuras (y la guía) deben estar en la misma capa")
+		return null
+	Blend.recorder = _blend_rec()
+	var g := Blend.make(a, b, options, spine as Node2D)
+	Blend.recorder = Callable()
+	_notify_changed()
+	return g
+
+func blend_set(g: Node, options: Dictionary) -> void:
+	var bg := Blend.blend_of(g)
+	if bg == null:
+		error("blend_set: no es una fusión")
+		return
+	Blend.recorder = _blend_rec()
+	Blend.set_params(bg, options)
+	Blend.recorder = Callable()
+	_notify_changed()
+
+func expand_blend(g: Node) -> void:
+	var bg := Blend.blend_of(g)
+	if bg == null:
+		error("expand_blend: no es una fusión")
+		return
+	Blend.recorder = _blend_rec()
+	Blend.expand(bg)
+	Blend.recorder = Callable()
+	_notify_changed()
 
 func set_symbol_sync(enabled: bool) -> void:
 	Symbols.sync_enabled = enabled
