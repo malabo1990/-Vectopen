@@ -21,6 +21,7 @@
 [ext_resource type="Script" path="res://script_gdscript/ui/panel_light.gd" id="105_light"]
 [ext_resource type="Texture2D" path="res://icon/UI/light-sun.svg" id="106_sun"]
 [ext_resource type="Script" path="res://script_gdscript/ui/panel_blend.gd" id="107_blend"]
+[ext_resource type="Script" path="res://script_gdscript/ui/panel_layout.gd" id="108_layout"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_av7yx"]
 bg_color = Color(0.973, 0.973, 0.98, 1)
@@ -205,3 +206,12 @@ offset_top = 21.0
 offset_right = -15.0
 offset_bottom = 260.0
 script = ExtResource("107_blend")
+
+[node name="layout" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = -325.0
+offset_top = 21.0
+offset_right = -15.0
+offset_bottom = 300.0
+script = ExtResource("108_layout")
