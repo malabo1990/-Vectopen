@@ -22,7 +22,7 @@ var _text_popup: PopupMenu = null
 ## Herramientas de dibujo que cuelgan del botón "shapes".
 const SHAPE_TOOLS := ["pentagon", "triangle", "star", "star4", "star5", "rectangle", "ellipse", "waterdrop"]
 ## Panel de opciones que cada botón muestra en el lateral ("" = ninguno).
-const TOOL_PANEL := {"shapes": "polygon", "bezier": "bezier", "nodeselection": "bezier", "brush": "brush",
+const TOOL_PANEL := {"shapes": "polygon", "bezier": "bezier", "nodeselection": "bezier", "brush": "brush", "light": "light",
 	"text": "text", "paragraph": "text"}
 
 static func _button_of(tool_id: String) -> String:
@@ -104,6 +104,7 @@ func _build_ui() -> void:
 		{"name": "shapes", "label": "⬠", "tooltip": "Polygons and shapes", "icon": "res://icon/UI/hexagon-plus.svg"},
 		{"name": "bezier", "label": "∿", "tooltip": "Bézier Curve (D)", "icon": "res://icon/UI/design_nodoblack.svg"},
 		{"name": "brush", "label": "🖌", "tooltip": "Brush (B)", "icon": "res://icon/UI/draw.svg"},
+		{"name": "light", "label": "☀", "tooltip": "Luz (iluminación 2D)", "icon": "res://icon/UI/sun-dim.svg"},
 		{"name": "text", "label": "T", "tooltip": "Text (T)", "icon": "res://icon/UI/text-square.svg"},
 		{"name": "image", "label": "🖼", "tooltip": "Image", "icon": "res://icon/UI/media-image.svg"},
 		{"name": "model3d", "label": "3D", "tooltip": "Import 3D Model (.glb / .gltf)", "icon": "res://icon/UI/cube.svg"}

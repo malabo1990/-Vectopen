@@ -29,11 +29,14 @@ func commit() -> void:
 	_undo_redo.commit_action()
 	_Symbols.on_history_step()
 	_Blend.on_history_step()
+	_VectorLight.on_history_step(get_tree())
 
 ## Componentes vinculados (VAL-23): tras cada paso se propagan los cambios.
 const _Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 ## Fusiones (Blend): se rehacen si cambian sus extremos.
 const _Blend = preload("res://script_gdscript/shapes/blend.gd")
+## Luces 2D con sombras: los oclusores siguen a las figuras.
+const _VectorLight = preload("res://script_gdscript/shapes/vector_light.gd")
 
 ## Ver UndoRedoManager.merge_last_two.
 func merge_last_two(first_name: String, new_name: String = "") -> bool:
@@ -44,6 +47,7 @@ func undo() -> void:
 		_undo_redo.undo()
 		_Symbols.on_history_step(true)
 		_Blend.on_history_step()
+		_VectorLight.on_history_step(get_tree())
 		undo_performed.emit(_undo_redo.get_undo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true
@@ -53,6 +57,7 @@ func redo() -> void:
 		_undo_redo.redo()
 		_Symbols.on_history_step(true)
 		_Blend.on_history_step()
+		_VectorLight.on_history_step(get_tree())
 		redo_performed.emit(_undo_redo.get_redo_name())
 		if DataRepository:
 			DataRepository.is_project_modified = true

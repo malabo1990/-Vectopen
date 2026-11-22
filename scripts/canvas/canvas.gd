@@ -288,6 +288,9 @@ func switch_tool(tool_type: String) -> void:
 			handled = false   # la Mano la instancia ToolManager
 		"artboard":
 			if ArtboardTool_Script: change_tool(_new_tool(ArtboardTool_Script))
+		"light":
+			# Iluminación 2D: coloca luces (tipo y ajustes en el panel Iluminación)
+			change_tool(_new_tool(load("res://script_gdscript/tools/LightTool.gd")))
 		"shape_builder", "shapebuilder":
 			var sb_script = preload("res://script_gdscript/tools/ShapeBuilderTool.gd")
 			if sb_script: change_tool(_new_tool(sb_script))

@@ -18,6 +18,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_selector.tscn" id="102_panel"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_bezier.tscn" id="103_bezier"]
 [ext_resource type="PackedScene" path="res://scenes/ui/panels/panel_brush.tscn" id="104_brush"]
+[ext_resource type="Script" path="res://script_gdscript/ui/panel_light.gd" id="105_light"]
+[ext_resource type="Texture2D" path="res://icon/UI/sun-dim.svg" id="106_sun"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_av7yx"]
 bg_color = Color(0.973, 0.973, 0.98, 1)
@@ -92,6 +94,16 @@ expand_icon = true
 script = ExtResource("99_new")
 tool_name = "brush"
 target_node = NodePath("../../../../brush")
+
+[node name="button_toollight" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" node_paths=PackedStringArray("target_node")]
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+tooltip_text = "Luz (iluminación 2D)"
+icon = ExtResource("106_sun")
+expand_icon = true
+script = ExtResource("99_new")
+tool_name = "light"
+target_node = NodePath("../../../../light")
 
 [node name="button_toolimage" type="Button" parent="PanelContainer/MarginContainer/ToolbarContainer_button_tool" unique_id=523689234]
 custom_minimum_size = Vector2(34, 34)
@@ -174,3 +186,12 @@ offset_left = -325.0
 offset_top = 21.0
 offset_right = -15.0
 offset_bottom = 380.0
+
+[node name="light" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = -325.0
+offset_top = 21.0
+offset_right = -15.0
+offset_bottom = 340.0
+script = ExtResource("105_light")

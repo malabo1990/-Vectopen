@@ -25,6 +25,7 @@ const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
 const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 const _Blend = preload("res://script_gdscript/shapes/blend.gd")
+const _VectorLight = preload("res://script_gdscript/shapes/vector_light.gd")
 
 ## Modo SEGURO (VTP Preview: un .vtp es contenido no confiable): no se
 ## compila código de shader del archivo ni se cargan rutas fuera de res://
@@ -249,6 +250,14 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 				_kids.append(_ce)
 	if not _kids.is_empty():
 		base["children"] = _kids
+
+	# Luz 2D (informe §2): sus parámetros; la luz de Godot se rehace al abrir.
+	if node.has_meta("shape_type") and String(node.get_meta("shape_type")) == "light" and node.has_method("params"):
+		base["kind"] = "light"
+		var lp: Dictionary = node.params()
+		lp["color"] = _col(lp["color"])
+		base["light"] = lp
+		return base
 
 	# Texto (contenedor Node2D con meta)
 	if node.has_meta("shape_type") and String(node.get_meta("shape_type")).begins_with("text_"):
@@ -873,6 +882,8 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 	# Capa bloqueada (VAL-45: el bloqueo se perdía al guardar y reabrir).
 	if bool(node.get_meta("locked", false)):
 		d["locked"] = true
+	if node.get_meta("casts_shadow", true) == false:
+		d["casts_shadow"] = false
 	# Copia de un componente vinculado (VAL-23) y sus retoques locales.
 	if node.has_meta(Symbols.META_ID):
 		d["symbol_id"] = String(node.get_meta(Symbols.META_ID))
@@ -952,6 +963,8 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	if bool(d.get("locked", false)):
 		node.set_meta("locked", true)
+	if d.get("casts_shadow", true) == false:
+		node.set_meta("casts_shadow", false)
 	if d.has("blend_mode"):
 		_BlendModes.apply(node, String(d["blend_mode"]))
 	if d.get("table") is Dictionary:
@@ -1097,6 +1110,14 @@ static func _dec_param(v):
 static func _element_from(d: Dictionary) -> Node2D:
 	var kind := String(d.get("kind", ""))
 	match kind:
+		"light":
+			var L: Node2D = _VectorLight.new()
+			L.name = d.get("name", "Luz")
+			var lp: Dictionary = (d.get("light", {}) as Dictionary).duplicate()
+			if lp.has("color"):
+				lp["color"] = _to_col(lp["color"])
+			L.set_params(lp)
+			return L
 		"circle":
 			var c := VectorCircle.new()
 			c.size = _arr_to_v2(d.get("size", [40, 40]))

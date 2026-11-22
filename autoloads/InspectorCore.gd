@@ -70,6 +70,8 @@ const PROPS := [
 	"table_align", "table_header_bg", "table_header_fg", "table_cell_bg", "table_zebra_bg",
 	"table_text_color", "table_border_color",
 	"blend_steps", "blend_mode", "blend_spacing", "blend_orient",
+	"lamp_type", "lamp_color", "lamp_energy", "lamp_radius", "lamp_angle", "lamp_falloff", "lamp_mode", "lamp_shadows",
+	"lamp_cone", "lamp_shadow_color", "lamp_shadow_soft", "casts_shadow",
 ]
 
 ## Propiedades de texto: se leen/escriben como meta del contenedor + se aplican
@@ -232,6 +234,15 @@ func _read(shape, prop):
 		return _TableProps.read(shape, String(prop))
 	if _BlendRef.handles(String(prop)):
 		return _BlendRef.read_prop(shape, String(prop))
+	if prop == "casts_shadow":
+		# «Proyecta sombra»: figuras de un documento que tiene luces
+		if shape.has_method("get_effect_points") and String(shape.get_meta("shape_type", "")) != "light" \
+				and not get_tree().get_nodes_in_group("_vectopen_lights").is_empty():
+			return bool(shape.get_meta("casts_shadow", true))
+		return null
+	if String(prop).begins_with("lamp_"):
+		# Luz 2D: solo existe en los objetos «Luz»
+		return shape.get(prop) if String(shape.get_meta("shape_type", "")) == "light" and prop in shape else null
 	# Un modelo 3D hereda relleno y trazo de VectorShape pero no los dibuja:
 	# no se ofrecen (eran controles sin efecto en el inspector).
 	if String(prop).begins_with("stroke_") or prop in ["fill_color", "fill_paint"]:
@@ -1366,6 +1377,15 @@ func _write_prop(shape, prop, value) -> void:
 		return
 	if _BlendRef.handles(String(prop)):
 		_BlendRef.write_prop(shape, String(prop), value)
+		return
+	if prop == "casts_shadow":
+		shape.set_meta("casts_shadow", bool(value))
+		for l in get_tree().get_nodes_in_group("_vectopen_lights"):
+			l.call_deferred("refresh_occluders")
+		return
+	if String(prop).begins_with("lamp_"):
+		if String(shape.get_meta("shape_type", "")) == "light" and prop in shape:
+			shape.set(prop, value)
 		return
 	match prop:
 		"name":

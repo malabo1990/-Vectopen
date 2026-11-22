@@ -35,7 +35,7 @@ const EDGE_GAP := 10.0
 
 # Paneles flotantes de herramienta (hijos de Herramientas) que en Modern se
 # acoplan al DockedInspector en lugar de flotar junto al lienzo.
-const TOOL_PANEL_NAMES := ["polygon", "text", "Selector", "bezier", "brush"]
+const TOOL_PANEL_NAMES := ["polygon", "text", "Selector", "bezier", "brush", "light"]
 
 # Elementos existentes de main.tscn a armonizar
 @export var barra_visual_panel: Control
@@ -910,20 +910,21 @@ func _update_toolbar_subpanels_direction(is_pro: bool, is_modern: bool = false) 
 			bez.offset_left = -325.0
 			bez.offset_right = -15.0
 
-	var bru = tools.get_node_or_null("brush") as Control
-	if is_instance_valid(bru):
-		bru.z_index = 100
-		if is_docked_left:
-			bru.offset_left = left_base
-			bru.offset_right = left_base + 310.0
-		else:
-			bru.offset_left = -325.0
-			bru.offset_right = -15.0
+	for pname in ["brush", "light"]:
+		var bru = tools.get_node_or_null(pname) as Control
+		if is_instance_valid(bru):
+			bru.z_index = 100
+			if is_docked_left:
+				bru.offset_left = left_base
+				bru.offset_right = left_base + 310.0
+			else:
+				bru.offset_left = -325.0
+				bru.offset_right = -15.0
 
 	# Ajuste final con la geometría REAL: cada subpanel queda a EDGE_GAP del
 	# borde exterior del panel de capas (antes: polígonos pegado, texto a 4
 	# px, selector a 27…), también cada vez que se abre.
-	for sub_name in ["polygon", "text", "Selector", "bezier", "brush"]:
+	for sub_name in ["polygon", "text", "Selector", "bezier", "brush", "light"]:
 		var sp = tools.get_node_or_null(sub_name) as Control
 		if is_instance_valid(sp):
 			if not sp.visibility_changed.is_connected(_align_subpanel):

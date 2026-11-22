@@ -88,6 +88,7 @@ const REFERENCE := [
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
 	["Fusión", "blend_set(fusion, opciones) -> void", "Cambia pasos / modo / separación / orientación de una fusión (un paso de deshacer)"],
 	["Fusión", "expand_blend(fusion) -> void", "Expandir: los intermedios pasan a ser figuras independientes"],
+	["Luces", "add_light(posicion, tipo = \"point\", opciones = {}) -> Node2D", "Luz 2D: tipo \"point\" (radial) o \"directional\" (sol); opciones: color, energy, radius, angle, falloff (0–1), mode \"add\"|\"mix\"|\"sub\", shadows (las figuras de la página proyectan sombra). Sale en PNG/JPEG/WEBP"],
 	["Archivo", "preview_document(ruta = \"\") -> Window", "VTP Preview: abre un .vtp en un visor de solo lectura (sin ruta, pide el archivo); no toca el documento abierto ni ejecuta su código"],
 	["Componentes", "set_symbol_sync(activo)", "Sincronizar: apagado, los cambios dentro de una copia son retoques locales"],
 	["Componentes", "sync_symbols() -> int", "Propaga ya los cambios pendientes (normalmente es automático)"],
@@ -1813,6 +1814,16 @@ func expand_blend(g: Node) -> void:
 	Blend.expand(bg)
 	Blend.recorder = Callable()
 	_notify_changed()
+
+const _VectorLightScript = preload("res://script_gdscript/shapes/vector_light.gd")
+
+func add_light(pos: Vector2, type: String = "point", options: Dictionary = {}) -> Node2D:
+	var l: Node2D = _VectorLightScript.new()
+	l.position = pos
+	var p := {"type": type}
+	p.merge(options, true)
+	l.set_params(p)
+	return add(l)
 
 func preview_document(p: String = "") -> Window:
 	return load("res://script_gdscript/ui/vtp_preview.gd").open(Engine.get_main_loop() as SceneTree, p)

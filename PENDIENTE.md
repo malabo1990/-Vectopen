@@ -99,24 +99,23 @@ profesional y experiencia de usuario (UI/UX).
 herramienta de diseño vectorial y composición visual más flexible,
 eficiente y adecuada para proyectos profesionales.
 
-#### 2. Iluminación y efectos visuales 2D
+#### 2. Iluminación 2D — lo que falta
 
-Incorporar un sistema de iluminación 2D para ampliar las posibilidades de
-ilustración y composición gráfica.
+Hecho (2026-11-22): herramienta **Luz** ☀ en la barra de herramientas
+(Smart / Pro: columna; Modern: barra inferior) con su panel
+**Iluminación**: tipos puntual, foco, direccional y ambiente (registro
+`VectorLight.TYPE_INFO`, preparado para más tipos), color, intensidad,
+alcance, dirección, apertura del foco, borde, mezcla y **sombra** (activada
+por defecto, color y suavidad); clic = colocar, arrastrar = alcance y
+dirección; con una luz seleccionada el panel la edita (deshacer). Cada
+figura: «Proyecta sombra». .vtp, PNG / JPEG / WEBP; API `add_light`
+(`lights_e2e` 14/0, `light_tool_e2e` 30/0). Falta (después, a petición del
+usuario):
 
-**Funciones propuestas:**
-
-- Fuentes de luz puntuales y direccionales.
-- Sombras dinámicas.
-- Iluminación radial.
-- Efectos de brillo y resplandor (Glow).
-- Control de intensidad, dirección, distancia y color.
-- Degradados luminosos.
-- Interacción entre iluminación y objetos.
-
-Esta funcionalidad permitiría crear ilustraciones, interfaces y
-composiciones visuales más elaboradas sin depender de aplicaciones
-externas.
+- Luz y sombras en SVG / PDF.
+- Limitar una luz a su página (hoy alumbra también lo que está cerca fuera).
+- Tipos avanzados: luz de área / línea, luz con textura (gobo), luz normal
+  map / relieve, sombras de longitud limitada.
 
 #### 3. Fusión (Blend) — lo que falta
 
