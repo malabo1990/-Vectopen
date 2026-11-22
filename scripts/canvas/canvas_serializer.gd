@@ -331,7 +331,9 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 		var rr: Vector4 = node.get_corner_radii()
 		if not (rr.x == rr.y and rr.y == rr.z and rr.z == rr.w):
 			base["corners"] = [rr.x, rr.y, rr.z, rr.w]   # tl, tr, br, bl
-		if node.corner_style != 0:
+		if node.corner_styles_mixed():
+			base["corner_styles"] = Array(node.corner_styles)
+		elif node.corner_style != 0:
 			base["corner_style"] = node.corner_style
 		_add_style(base, node)
 		return base
@@ -1124,6 +1126,8 @@ static func _element_from(d: Dictionary) -> Node2D:
 				var cc: Array = d["corners"]
 				r.set_corner_radii(Vector4(cc[0], cc[1], cc[2], cc[3]))
 			r.corner_style = int(d.get("corner_style", 0))
+			if d.get("corner_styles") is Array and (d["corner_styles"] as Array).size() == 4:
+				r.corner_styles = PackedInt32Array(d["corner_styles"])
 			_read_style(r, d)
 			r.name = d.get("name", "Rectangulo")
 			return r

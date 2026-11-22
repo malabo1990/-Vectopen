@@ -1025,7 +1025,7 @@ func _build_transform_page() -> void:
 	# Lo que el modelo tiene y Pro no mostraba (UX-06): objeto, esquinas,
 	# parámetros de la figura y columnas de texto.
 	_sec_transform.add_child(InspectorExtraProps.create(["name", "opacity", "visible",
-		"corner_radius", "corner_tl", "corner_tr", "corner_br", "corner_bl", "corner_style",
+		"corner_radius", "corner_tl", "corner_tr", "corner_br", "corner_bl", "corner_style", "corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl",
 		"sides", "is_regular", "poly_angle", "poly_aspect",
 		"points_count", "inner_radius_ratio", "inner_corner_radius", "star_angle",
 		"shape_mode", "start_angle_deg", "end_angle_deg", "drop_curvature",

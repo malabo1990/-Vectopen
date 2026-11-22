@@ -417,7 +417,7 @@ func _build_ui() -> void:
 	_build_3d_model_section()
 
 	# Lo que el modelo tiene y Modern no mostraba (UX-06).
-	content_container.add_child(InspectorExtraProps.create(["name", "visible", "corner_style",
+	content_container.add_child(InspectorExtraProps.create(["name", "visible", "corner_style", "corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl",
 		"is_regular", "poly_angle", "poly_aspect", "inner_corner_radius", "star_angle",
 		"drop_curvature", "text_align", "text_valign", "indent_left", "indent_right", "indent_first",
 		"columns", "column_gap", "light_rotation_x", "light_rotation_y",

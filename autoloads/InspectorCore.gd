@@ -48,6 +48,7 @@ const PROPS := [
 	"font_family", "font_weight", "font_italic",
 	"fill_paint", "stroke_paint", "text_align", "text_valign", "text",
 	"corner_tl", "corner_tr", "corner_br", "corner_bl", "corner_style",
+	"corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl",
 	"stroke_cap_start", "stroke_cap_end", "stroke_style",
 	"stroke_pointer_start", "stroke_pointer_end", "stroke_align",
 	"stroke_profile", "stroke_pointer_scale",
@@ -302,6 +303,11 @@ func _read(shape, prop):
 		"corner_style":
 			if "corner_style" in shape and shape is VectorRectangle:
 				return VectorRectangle.CORNER_STYLES[int(shape.corner_style)]
+			return null
+		"corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl":
+			if shape is VectorRectangle:
+				var ki := ["corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl"].find(prop)
+				return VectorRectangle.CORNER_STYLES[int(shape.corner_styles[ki])]
 			return null
 		"corner_tr":
 			if "corner_tr" in shape: return shape.corner_tr
@@ -1419,6 +1425,11 @@ func _write_prop(shape, prop, value) -> void:
 			elif shape is Line2D: shape.width = maxf(0.1, float(value))
 		"corner_radius":
 			if "corner_radius" in shape: shape.corner_radius = maxf(0.0, float(value))
+		"corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl":
+			if shape is VectorRectangle:
+				var kw := ["corner_style_tl", "corner_style_tr", "corner_style_br", "corner_style_bl"].find(prop)
+				var cv := VectorRectangle.CORNER_STYLES.find(String(value))
+				shape.set_corner_style_at(kw, cv if cv >= 0 else 0)
 		"corner_style":
 			if shape is VectorRectangle:
 				var ci := VectorRectangle.CORNER_STYLES.find(String(value))

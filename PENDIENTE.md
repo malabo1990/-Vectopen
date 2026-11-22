@@ -95,10 +95,9 @@ eficiente y adecuada para proyectos profesionales.
 
 Hecho (2026-11-22): «Tipo de esquina» del rectángulo en el inspector (Modern
 y Pro): redonda, redondeado inverso (cóncavo), chaflán y muesca, con los
-radios por esquina, deshacer, .vtp y SVG/PDF (`corner_styles_e2e`,
-`RectCornerStyle_test`). Falta:
+radios por esquina y también un tipo por esquina (Tipo ↖ ↗ ↘ ↙), deshacer,
+.vtp y SVG/PDF (`corner_styles_e2e`, `RectCornerStyle_test`). Falta:
 
-- Tipo distinto en CADA esquina (hoy uno para las cuatro).
 - Perfiles especiales: zigzag, dientes de sierra (Sawtooth) y otros
   patrones, con parámetros en vivo.
 

@@ -39,8 +39,28 @@ var _r_bl: float = 0.0
 const CORNER_STYLES := ["round", "inverted", "chamfer", "notch"]
 @export_range(0, 3) var corner_style: int = 0:
 	set(v):
-		corner_style = clampi(v, 0, 3)
+		var cs := clampi(v, 0, 3)
+		corner_style = cs
+		corner_styles = PackedInt32Array([cs, cs, cs, cs])
+	get:
+		# las cuatro iguales → ese tipo; distintas → el de arriba-izquierda
+		return corner_styles[0] if corner_styles.size() == 4 else 0
+## Tipo de CADA esquina (tl, tr, br, bl): «Tipo de esquina» las cambia todas.
+@export var corner_styles: PackedInt32Array = PackedInt32Array([0, 0, 0, 0]):
+	set(v):
+		var o := PackedInt32Array([0, 0, 0, 0])
+		for i in mini(4, v.size()):
+			o[i] = clampi(v[i], 0, 3)
+		corner_styles = o
 		queue_redraw()
+
+func corner_styles_mixed() -> bool:
+	return not (corner_styles[0] == corner_styles[1] and corner_styles[1] == corner_styles[2] and corner_styles[2] == corner_styles[3])
+
+func set_corner_style_at(i: int, v: int) -> void:
+	var o := corner_styles.duplicate()
+	o[clampi(i, 0, 3)] = clampi(v, 0, 3)
+	corner_styles = o
 
 ## Los 4 radios como Vector4 (tl, tr, br, bl) — para el panel de transformación.
 func get_corner_radii() -> Vector4:
@@ -246,7 +266,7 @@ func _generate_rounded_rect_vertices(rect: Rect2) -> PackedVector2Array:
 			continue
 		var a := center + Vector2(cos(start_angle), sin(start_angle)) * r            # sobre un lado
 		var b := center + Vector2(cos(start_angle + PI / 2.0), sin(start_angle + PI / 2.0)) * r  # sobre el otro
-		match corner_style:
+		match corner_styles[k]:
 			1:   # inverso: arco con centro en la punta de la esquina, hacia dentro
 				var tip: Vector2 = tips[k]
 				for i in range(ROUNDED_RECT_CORNER_SEGMENTS + 1):

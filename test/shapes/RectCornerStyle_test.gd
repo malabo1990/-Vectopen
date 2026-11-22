@@ -35,3 +35,18 @@ func test_se_guarda_y_se_reabre() -> void:
 	var n: Node2D = CS._element_from(d)
 	assert_int(int(n.corner_style)).is_equal(2)
 	n.free()
+
+func test_tipo_distinto_en_cada_esquina() -> void:
+	var r := _rect(0)
+	r.set_corner_style_at(1, 2)   # ↗ chaflán
+	r.set_corner_style_at(2, 3)   # ↘ muesca
+	assert_bool(r.corner_styles_mixed()).is_true()
+	var q := 400.0
+	var expect := 10000.0 - 2.0 * (q - PI * q / 4.0) - q / 2.0 - q
+	assert_float(_area(r.get_effect_points())).is_equal_approx(expect, 5.0)
+	var d: Dictionary = CS._serialize_element(r)
+	var n: Node2D = CS._element_from(d)
+	assert_array(Array(n.corner_styles)).is_equal([0, 2, 3, 0])
+	n.free()
+	r.corner_style = 1   # «Tipo de esquina» cambia las cuatro
+	assert_array(Array(r.corner_styles)).is_equal([1, 1, 1, 1])

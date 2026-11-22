@@ -258,7 +258,7 @@ static func _shape(s: VectorShape, xf: Transform2D, op: float, out: Dictionary) 
 	var subs: Array = []
 	if s is VectorRectangle:
 		# Esquinas inversas / chaflán / muesca: el contorno tal cual se dibuja.
-		subs = [_rect(xf, s.size, s.get_shape_corner_radii())] if int(s.get("corner_style")) == 0 \
+		subs = [_rect(xf, s.size, s.get_shape_corner_radii())] if int(s.get("corner_style")) == 0 and not s.corner_styles_mixed() \
 			else _lines(xf, [s.get_effect_points()], true)
 	elif s is VectorCircle and String(s.shape_mode) == "whole":
 		subs = [_ellipse(xf, s.size / 2.0)]
