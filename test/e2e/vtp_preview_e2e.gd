@@ -99,6 +99,23 @@ func _run() -> void:
 			break
 		await process_frame
 	K.check("segunda vez: salen de la caché (no se renderizan)", w.thumbs.size() == 2 and w.thumbs_made == made0, "%d → %d" % [made0, w.thumbs_made])
+	# Fase 4: capas de la página y datos del objeto
+	w.load_file(path)
+	await K.frames(4)
+	w.go_page(0)
+	await K.frames(3)
+	var names: Array = []
+	var it: TreeItem = w._layers.get_root().get_first_child() if w._layers.get_root() else null
+	while it:
+		names.append(it.get_text(0))
+		it = it.get_next()
+	K.check("árbol de capas de la página (sin nodos internos)", names.has("Caja") and not names.has("ArtboardTitle"), str(names))
+	var caja2: Node = w.pages[0].find_child("Caja", true, false)
+	var c_doc: Vector2 = w._box(caja2).get_center()
+	K.check("clic en el objeto lo encuentra", w.object_at(c_doc) == caja2)
+	w.pick(caja2)
+	K.check("datos del objeto (tipo, tamaño, relleno)", String(w._obj_info.text).contains("Caja") and String(w._obj_info.text).contains("300 × 200") and String(w._obj_info.text).contains("250, 200") and String(w._obj_info.text).contains("#e63333"), w._obj_info.text)
+	K.check("fuera de los objetos no elige nada", w.object_at(c_doc + Vector2(5000, 5000)) == null)
 	# Un archivo que no es un documento
 	var bad := ProjectSettings.globalize_path("user://vtp_preview/malo.vtc")
 	var f := FileAccess.open(bad, FileAccess.WRITE)

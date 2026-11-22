@@ -46,6 +46,12 @@ var thumbs := {}               # ruta → Texture2D
 var _thumb_queue: Array = []
 var _thumb_busy := false
 var thumbs_made := 0           # cuántas se renderizaron (no venían de caché)
+const THUMB_MAX := 400         # tope de la caché: se borran las más antiguas
+# Fase 4: capas de la página y datos del objeto elegido.
+var _layers: Tree
+var _obj_info: Label
+var picked: Node = null
+var _press_pos := Vector2.ZERO
 
 ## Abre el visor (una ventana nueva) con `p`. Devuelve la ventana.
 static func open(tree: SceneTree, p: String = "") -> Window:
@@ -174,7 +180,31 @@ func _init() -> void:
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_info_panel.add_child(_info)
+	var info_box := VBoxContainer.new()
+	info_box.name = "InfoBox"
+	_info_panel.add_child(info_box)
+	info_box.add_child(_info)
+	_info.size_flags_vertical = Control.SIZE_FILL
+	var lt := Label.new()
+	lt.text = tr("Capas de la página")
+	info_box.add_child(lt)
+	_layers = Tree.new()
+	_layers.name = "Layers"
+	_layers.hide_root = true
+	_layers.custom_minimum_size = Vector2(0, 160)
+	_layers.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_layers.item_selected.connect(func() -> void:
+		var it := _layers.get_selected()
+		if it:
+			var n = instance_from_id(int(it.get_metadata(0)))
+			if n is Node:
+				pick(n))
+	info_box.add_child(_layers)
+	_obj_info = Label.new()
+	_obj_info.name = "ObjectInfo"
+	_obj_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_obj_info.text = tr("Clic en un objeto para ver sus datos.")
+	info_box.add_child(_obj_info)
 	_apply_background()
 	_update_labels()
 
@@ -224,6 +254,7 @@ func set_folder(d: String) -> void:
 	docs.sort_custom(func(a, b) -> bool: return int(a["mtime"]) > int(b["mtime"]))
 	_list.fixed_icon_size = Vector2i(THUMB_PX / 2, THUMB_PX / 2)
 	_thumb_queue = docs.map(func(x): return x)
+	prune_thumbs()
 	_next_thumb.call_deferred()
 	_lbl_folder.text = d.get_file() if d.get_file() != "" else d
 	_lbl_folder.tooltip_text = d
@@ -379,6 +410,8 @@ func load_file(p: String) -> bool:
 	title = "%s — %s" % [tr("Vista previa"), p.get_file()]
 	page_i = 0
 	_fill_info(manifest)
+	picked = null
+	_fill_layers()
 	fit_page.call_deferred()
 	if _list and folder == p.get_base_dir():
 		_fill_list()
@@ -409,6 +442,7 @@ func go_page(i: int) -> void:
 		return
 	page_i = clampi(i, 0, pages.size() - 1)
 	fit_page()
+	_fill_layers()
 
 func _rect_of(pg: Node2D) -> Rect2:
 	return Rect2(pg.position, pg.artboard_size)
@@ -473,8 +507,136 @@ func _on_stage_input(ev: InputEvent) -> void:
 			zoom_by(1.0 / 1.15, mb.position)
 		elif mb.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE]:
 			_dragging = mb.pressed
+			if mb.button_index == MOUSE_BUTTON_LEFT:
+				if mb.pressed:
+					_press_pos = mb.position
+				elif mb.position.distance_to(_press_pos) < 4.0:
+					var hit := object_at(screen_to_doc(mb.position))
+					if hit:
+						pick(hit)
 	elif ev is InputEventMouseMotion and _dragging:
 		_cam.position -= (ev as InputEventMouseMotion).relative / _cam.zoom.x
+
+# ── fase 4: capas y datos de objetos ────────────────────────────────────────
+func screen_to_doc(sp: Vector2) -> Vector2:
+	var vs := Vector2(_vp.size)
+	return _cam.position + (sp - vs / 2.0) / _cam.zoom.x
+
+static func _is_internal(n: Node) -> bool:
+	var nm := String(n.name)
+	return nm == "ArtboardTitle" or nm.begins_with("_") or nm == "StrokeRender" or nm == "Contorno_Stroke" \
+		or nm.begins_with("TextFx") or n.has_meta(&"_vectopen_internal")
+
+## Caja en coordenadas del documento (del visor).
+func _box(n: Node2D) -> Rect2:
+	var pts := PackedVector2Array()
+	if n.has_method("get_effect_points"):
+		pts = n.get_effect_points()
+	elif n is Line2D:
+		pts = (n as Line2D).points
+	elif n is Sprite2D and (n as Sprite2D).texture:
+		var sz := (n as Sprite2D).texture.get_size()
+		pts = PackedVector2Array([-sz / 2, sz / 2])
+	if pts.is_empty():
+		return Rect2(n.global_position, Vector2.ZERO)
+	var xf := _doc.get_global_transform().affine_inverse() * n.get_global_transform()
+	var r := Rect2(xf * pts[0], Vector2.ZERO)
+	for p in pts:
+		r = r.expand(xf * p)
+	return r
+
+## Objeto de más arriba bajo `dp` en la página actual (grupos: el grupo).
+func object_at(dp: Vector2) -> Node:
+	var pg := current_page()
+	if pg == null:
+		return null
+	var kids := pg.get_children()
+	for i in range(kids.size() - 1, -1, -1):
+		var n: Node = kids[i]
+		if not (n is Node2D) or _is_internal(n) or not (n as Node2D).visible:
+			continue
+		if n.get_child_count() > 0 and not n.has_method("get_effect_points"):
+			# grupo: su caja es la de sus hijos
+			var r := Rect2()
+			var first := true
+			for c in n.find_children("*", "Node2D", true, false):
+				if _is_internal(c) or not c.has_method("get_effect_points"):
+					continue
+				var b := _box(c)
+				r = b if first else r.merge(b)
+				first = false
+			if not first and r.grow(2.0).has_point(dp):
+				return n
+		elif _box(n).grow(2.0).has_point(dp):
+			return n
+	return null
+
+func pick(n: Node) -> void:
+	picked = n
+	var t := "%s\n" % String(n.name)
+	var kind := String(n.get_meta("shape_type", ""))
+	if kind == "":
+		kind = n.get_class()
+		if n.get_script():
+			kind = String(n.get_script().resource_path.get_file().get_basename())
+	t += "%s: %s\n" % [tr("Tipo"), kind]
+	if n is Node2D:
+		var r := _box(n)
+		var pg := current_page()
+		var rel := r.position - (pg.position if pg else Vector2.ZERO)   # respecto a la página
+		t += "%s: %d, %d\n%s: %d × %d px\n" % [tr("Posición"), int(round(rel.x)), int(round(rel.y)), tr("Tamaño"), int(round(r.size.x)), int(round(r.size.y))]
+	for k in ["fill_color", "stroke_color"]:
+		if k in n and n.get(k) is Color:
+			t += "%s: #%s\n" % [tr("Relleno") if k == "fill_color" else tr("Trazo"), (n.get(k) as Color).to_html(false)]
+	if "stroke_width" in n:
+		t += "%s: %s px\n" % [tr("Grosor"), String.num(float(n.get("stroke_width")), 2)]
+	if n is CanvasItem:
+		t += "%s: %d %%\n" % [tr("Opacidad"), int(round((n as CanvasItem).modulate.a * 100.0))]
+	if n.get_child_count() > 0:
+		t += "%s: %d\n" % [tr("Elementos dentro"), n.get_children().filter(func(c): return not _is_internal(c)).size()]
+	_obj_info.text = t
+
+func _fill_layers() -> void:
+	if _layers == null:
+		return
+	_layers.clear()
+	var root := _layers.create_item()
+	var pg := current_page()
+	if pg == null:
+		return
+	_add_layer_items(root, pg)
+
+func _add_layer_items(parent: TreeItem, n: Node) -> void:
+	var kids := n.get_children()
+	for i in range(kids.size() - 1, -1, -1):   # de arriba a abajo, como Capas
+		var c: Node = kids[i]
+		if not (c is Node2D) or _is_internal(c):
+			continue
+		var it := _layers.create_item(parent)
+		it.set_text(0, String(c.name))
+		it.set_metadata(0, c.get_instance_id())
+		if c.get_child_count() > 0 and not c.has_method("get_effect_points"):
+			_add_layer_items(it, c)
+			it.collapsed = true
+
+## Caché de miniaturas: como mucho THUMB_MAX archivos (se borran los más
+## antiguos; las de documentos cambiados o borrados acaban saliendo).
+static func prune_thumbs(max_files: int = THUMB_MAX) -> int:
+	var dir := ProjectSettings.globalize_path(THUMB_DIR)
+	if not DirAccess.dir_exists_absolute(dir):
+		return 0
+	var files: Array = []
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".png"):
+			var fp := dir.path_join(f)
+			files.append([FileAccess.get_modified_time(fp), fp])
+	if files.size() <= max_files:
+		return 0
+	files.sort_custom(func(a, b) -> bool: return int(a[0]) < int(b[0]))
+	var n := files.size() - max_files
+	for i in n:
+		DirAccess.remove_absolute(files[i][1])
+	return n
 
 func _unhandled_key_input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey) or not ev.pressed:

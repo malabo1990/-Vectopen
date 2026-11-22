@@ -215,10 +215,13 @@ sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 > carpeta) (`vtp_preview_e2e` 19/0). **Fase 3 hecha**: miniaturas de la
 > primera página en segundo plano (una cada vez, modo seguro), en caché
 > `user://thumbnails/` con clave ruta + fecha + tamaño (si el documento
-> cambia, la antigua deja de usarse) (`vtp_preview_e2e` 23/0). **Queda la
-> fase 4** (info de objetos y capas, recursos, navegación avanzada), limpiar
-> miniaturas huérfanas y la separación «modelo de documento / nodos» para el
-> runtime web.
+> cambia, la antigua deja de usarse; tope de 400, se borran las más
+> antiguas). **Fase 4 hecha**: árbol de capas de la página y datos del objeto
+> (clic en el lienzo o en el árbol: tipo, posición respecto a la página,
+> tamaño, relleno, trazo, grosor, opacidad) (`vtp_preview_e2e` 27/0).
+> **Queda** la separación «modelo de documento / nodos» del lector (criterio
+> 9: núcleo común editor / visor / futuro runtime web): decisión
+> arquitectónica de fondo, conviene acordarla antes.
 
 > Informe conceptual aportado por el usuario. **No hay diseño ni código
 > hecho**: es una propuesta para evaluar. El texto se guarda completo abajo;
