@@ -39,13 +39,16 @@ Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 
 Referencia (`scene_benchmark_e2e`, `E2E_ENV="BENCH_N=… BENCH_MODE=high|low"`):
 50 000 elementos en modo débil → crear 15 s, cargar 12 s, 9,6 fps, 1,5 GB.
+Medido 2026-11-23 (tras el relleno ligero): crear 16,3 s, guardar 1,7 s, cargar
+13,4 s, todo a la vista 9,4 fps (desplazar 10,3, zoom 6,3, zoom 100 % 71,5),
+1,47 GB (1,59 GB tras cargar: la comprobación «< 1400 MB» falla — VAL-39).
 
 | ID | Punto | Estado |
 |---|---|---|
 | — | Memoria ~31 KB por elemento (figuras ~22 KB, trazos ~24 KB): bajarla exige rehacer la estructura de VectorShape | **Decidido**: mejoras sin rehacer VectorShape (cachés, metas, nodos auxiliares por demanda). Hecho (2026-11-22): relleno con la orden de dibujo más ligera (`flat_fill.gd`: draw_colored_polygon reservaba ~8 KB por figura) → rectángulo 25,4 → 22,4 KB y ~3-5 KB menos en polígonos y trazados rellenos. Medido lo que queda: nodo de Godot 2,6 KB, las 62 variables del script ~5,7 KB, borde ~2 KB, historial ~2 KB por elemento — ya no se baja sin rehacer VectorShape |
 | — | Dibujar con todo a la vista (50 000) y zoom: nivel de detalle / caché al alejar. Quedan ~1,8 llamadas de dibujo por elemento | En curso |
 | — | CullManager: «dormir» páginas lejanas (`stream_artboards`). Apagado: nunca funcionó; probar con documentos de muchas páginas antes de activarlo | Pendiente |
-| — | Seleccionar todo con 50 000 (5 s) y mover la selección (184 ms por paso) | En curso |
+| — | Seleccionar todo con 50 000 y mover la selección. Medido 2026-11-23: seleccionar todo 0,89 s (antes 5 s), mover 53 ms por paso (antes 184 ms) | Mejorado; mover aún < 20 fps |
 | VAL-39 | 50 000 elementos en modo débil: hasta 3 GB y 5,6 fps con todo a la vista (7 500 trazos incluidos) | Abierto (depende de la decisión de memoria) |
 | MEM-06 | Texto: ~35 KB por texto (nodo + Label oculto + texto nativo); el Label oculto lo usan 85 sitios | Abierto |
 
@@ -542,6 +545,7 @@ utilizarlo como base para el futuro visor web.
 
 | ID | Fallo | Estado |
 |---|---|---|
+| — | Exportar: arrastrar un archivo de la lista al lienzo con OTRO control encima que acepta soltados (prueba 21 de `export_panel_ui_e2e`) → lo recibe ese control y no se importa. Falla igual en la etiqueta del 21-11 (anterior a esta tanda) | Abierto |
 | — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana). Acotado (2026-11-23): SOLO con ventana (`--path . --screen 1 --quit-after 600` lo da; sin ventana, con los mismos autoloads y la escena principal, no); no es la sonda ni el diálogo de salir; no son los objetos nativos de `native_io` / `stroke_geom` (ya se vacían al cerrar). El GridContainer huérfano que lista la sonda es el panel del complemento Repetir antes de mostrarse: se libera al cerrar | Abierto (menor) |
 
 ---

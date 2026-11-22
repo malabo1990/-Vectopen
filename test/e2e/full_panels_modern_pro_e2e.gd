@@ -71,6 +71,13 @@ func click(c: Control, what: String) -> void:
 	if c == null or not c.is_visible_in_tree():
 		check("se ve y se puede pulsar: " + what, false, "no visible")
 		return
+	# como un usuario: si queda fuera de la vista, desplazar el panel hasta él
+	var sc: Node = c.get_parent()
+	while sc and not (sc is ScrollContainer):
+		sc = sc.get_parent()
+	if sc:
+		(sc as ScrollContainer).ensure_control_visible(c)
+		await frames(3)
 	var at := c.get_global_rect().get_center()
 	await push_mouse(at)
 	var hit := root.gui_get_hovered_control()

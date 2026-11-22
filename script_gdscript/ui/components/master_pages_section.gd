@@ -55,7 +55,24 @@ func _ready() -> void:
 	chk_all.text = tr("Todas las páginas")
 	chk_all.add_theme_font_size_override("font_size", 11)
 	add_child(chk_all)
+	_labels = [l]
+	var tm := get_node_or_null("/root/ThemeManager")
+	if tm and tm.has_signal("theme_changed"):
+		tm.theme_changed.connect(func(_m) -> void: _restyle())
+	_restyle()
 	refresh()
+
+var _labels: Array = []
+
+## Colores del tema (claro / oscuro), como la sección Retícula. Antes el
+## título salía blanco sobre fondo claro (ilegible en el tema claro).
+func _restyle() -> void:
+	_title.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+	for lb in _labels:
+		(lb as Label).add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+	for cb in [chk_master, chk_all]:
+		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+			(cb as CheckBox).add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
 
 func _active() -> Node:
 	var cv = get_tree().get_first_node_in_group("_vectopen_canvas") if is_inside_tree() else null
