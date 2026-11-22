@@ -87,8 +87,26 @@ static func _walk(n: Node, inv: Transform2D, opacity: float, out: Dictionary) ->
 	else:
 		for ch in n.get_children():   # grupo
 			_walk(ch, inv, op, out)
+		_tag_blend(n, n0, out)
 		return
 	_child_layers(n, n0, inv, op, out)
+	_tag_blend(n, n0, out)
+
+## Modo de fusión del panel Capas: los elementos de `n` (y de sus hijos que
+## no tengan uno propio) lo llevan al SVG (mix-blend-mode) y al PDF (/BM).
+const BLEND_CSS := {"multiply": "multiply", "screen": "screen", "overlay": "overlay",
+	"lighten": "lighten", "darken": "darken", "difference": "difference"}
+const BLEND_PDF := {"multiply": "Multiply", "screen": "Screen", "overlay": "Overlay",
+	"lighten": "Lighten", "darken": "Darken", "difference": "Difference"}
+
+static func _tag_blend(n: Node, n0: int, out: Dictionary) -> void:
+	var bm := String(n.get_meta("blend_mode", "normal"))
+	if not BLEND_CSS.has(bm):
+		return
+	var items: Array = out["items"]
+	for i in range(n0, items.size()):
+		if not (items[i] as Dictionary).has("blend"):
+			items[i]["blend"] = bm
 
 ## Trazo de pincel con su forma REAL: contorno con presión y remates
 ## (relleno del color del trazo); pincel de figuras y texto en trazado, cada
@@ -555,6 +573,8 @@ static func texts_to_curves(data: Dictionary) -> Dictionary:
 			if not subs.is_empty():
 				var p := _item(subs, it["color"], null, 0.0, float(it["opacity"]), 0, false)
 				p["nonzero_glyphs"] = true
+				if it.has("blend"):
+					p["blend"] = it["blend"]
 				items.append(p)
 				continue
 		items.append(it)
@@ -857,14 +877,17 @@ static func to_svg(data: Dictionary) -> String:
 					defs.append(_svg_shadow("s%d" % gid, it["shadow"]))
 					extra += ' filter="url(#s%d)"' % gid
 				body.append('<path d="%s"%s/>' % [_svg_d(it["subs"]), extra])
+				_svg_blend(body, it)
 			"text":
 				body.append(_svg_text(it))
+				_svg_blend(body, it)
 			"image":
 				var xf: Transform2D = it["xf"]
 				var b64 := Marshalls.raw_to_base64((it["image"] as Image).save_png_to_buffer())
 				body.append('<image width="%s" height="%s" transform="%s"%s href="data:image/png;base64,%s"/>' % [
 					_n(it["size"].x), _n(it["size"].y), _matrix(xf),
 					(' opacity="%s"' % _n(it["opacity"])) if it["opacity"] < 0.999 else "", b64])
+				_svg_blend(body, it)
 	if cur_clip != null:
 		body.append("</g>")
 	var out := '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -873,6 +896,11 @@ static func to_svg(data: Dictionary) -> String:
 		out += "<defs>\n" + "\n".join(defs) + "\n</defs>\n"
 	out += "\n".join(body) + "\n</svg>\n"
 	return out
+
+static func _svg_blend(body: PackedStringArray, it: Dictionary) -> void:
+	var bm := String(it.get("blend", ""))
+	if BLEND_CSS.has(bm) and not body.is_empty():
+		body[body.size() - 1] = '<g style="mix-blend-mode:%s">%s</g>' % [BLEND_CSS[bm], body[body.size() - 1]]
 
 static func _n(v: float) -> String:
 	var s := "%.3f" % v
@@ -1038,8 +1066,8 @@ static func _pdf_add_page(data_in: Dictionary, objs: Array) -> int:
 				var ca: float = (fill.a if fill != null else 1.0) * float(it["opacity"])
 				var CA: float = (stroke.a if stroke != null else 1.0) * float(it["opacity"])
 				var s := "q "
-				if ca < 0.999 or CA < 0.999:
-					s += "/%s gs " % _gs(gstates, ca, CA)
+				if ca < 0.999 or CA < 0.999 or it.has("blend"):
+					s += "/%s gs " % _gs(gstates, ca, CA, String(it.get("blend", "")))
 				if fill != null:
 					s += _pdf_col(fill, false) + " "
 				if stroke != null:
@@ -1070,7 +1098,7 @@ static func _pdf_add_page(data_in: Dictionary, objs: Array) -> int:
 			"image":
 				images.append([it["image"], float(it["opacity"])])
 				var w: Vector2 = it["size"]
-				var g := ("/%s gs " % _gs(gstates, it["opacity"], 1.0)) if float(it["opacity"]) < 0.999 else ""
+				var g := ("/%s gs " % _gs(gstates, it["opacity"], 1.0, String(it.get("blend", "")))) if (float(it["opacity"]) < 0.999 or it.has("blend")) else ""
 				content.append("q %s cm %s%s 0 0 %s 0 %s cm /Im%d Do Q" % [_pdf_matrix(it["xf"]), g, _n(w.x), _n(-w.y), _n(w.y), images.size()])
 	if cur_clip != null:
 		content.append("Q")
@@ -1088,7 +1116,8 @@ static func _pdf_add_page(data_in: Dictionary, objs: Array) -> int:
 	var gs_res := ""
 	for key in gstates:
 		var parts: PackedStringArray = String(key).split("|")
-		objs.append(("<< /Type /ExtGState /ca %s /CA %s >>" % [parts[0], parts[1]]).to_utf8_buffer())
+		var bm_pdf := (" /BM /%s" % parts[2]) if parts.size() > 2 and parts[2] != "" else ""
+		objs.append(("<< /Type /ExtGState /ca %s /CA %s%s >>" % [parts[0], parts[1], bm_pdf]).to_utf8_buffer())
 		gs_res += "/%s %d 0 R " % [gstates[key], objs.size()]
 	var img_res := ""
 	for i in images.size():
@@ -1147,8 +1176,8 @@ static func _pdf_stream(dict: String, data: PackedByteArray) -> PackedByteArray:
 	b.append_array("\nendstream".to_utf8_buffer())
 	return b
 
-static func _gs(gstates: Dictionary, ca: float, CA: float) -> String:
-	var key := "%s|%s" % [_n(clampf(ca, 0, 1)), _n(clampf(CA, 0, 1))]
+static func _gs(gstates: Dictionary, ca: float, CA: float, bm: String = "") -> String:
+	var key := "%s|%s|%s" % [_n(clampf(ca, 0, 1)), _n(clampf(CA, 0, 1)), BLEND_PDF.get(bm, "")]
 	if not gstates.has(key):
 		gstates[key] = "GS%d" % (gstates.size() + 1)
 	return gstates[key]

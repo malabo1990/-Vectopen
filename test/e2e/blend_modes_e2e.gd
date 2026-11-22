@@ -90,6 +90,12 @@ func _run() -> void:
 			var png := ProjectSettings.globalize_path("user://blend_modes/fusion.png")
 			var ok: bool = await api.export(png, a)
 			var img := Image.load_from_file(png) if ok else null
+			var svg_p := ProjectSettings.globalize_path("user://blend_modes/fusion.svg")
+			var pdf_p := ProjectSettings.globalize_path("user://blend_modes/fusion.pdf")
+			await api.export(svg_p, a)
+			await api.export(pdf_p, a)
+			K.check("SVG con mix-blend-mode", FileAccess.get_file_as_string(svg_p).contains("mix-blend-mode:screen"))
+			K.check("PDF con /BM /Screen", FileAccess.get_file_as_bytes(pdf_p).get_string_from_ascii().contains("/BM /Screen"))
 			K.check("PNG exportado con el modo", img != null and near(img.get_pixel(400, 300), expect["Pantalla"], 0.08), str(img.get_pixel(400, 300)) if img else "-")
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)
