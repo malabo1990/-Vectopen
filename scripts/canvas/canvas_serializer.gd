@@ -23,6 +23,7 @@ const TextStyles = preload("res://script_gdscript/text/text_styles.gd")
 const Symbols = preload("res://script_gdscript/shapes/symbols.gd")
 const GlobalColors = preload("res://script_gdscript/shapes/global_colors.gd")
 const _PageFields = preload("res://script_gdscript/text/page_fields.gd")
+const _BlendModes = preload("res://script_gdscript/shapes/blend_modes.gd")
 
 
 const VectorStarScript := preload("res://script_gdscript/shapes/VectorStar.gd")
@@ -873,6 +874,11 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 		d["vis_layer"] = node.visibility_layer
 	# SHADER / material
 	var mat := node.material
+	# Modo de fusión (panel Capas): se guarda la meta y se rehace al abrir.
+	if node.has_meta(_BlendModes.META):
+		d["blend_mode"] = String(node.get_meta(_BlendModes.META))
+	if _BlendModes.is_blend_material(node):
+		mat = null
 	if mat is ShaderMaterial:
 		var sm := mat as ShaderMaterial
 		var md := {"mat": "shader", "params": {}}
@@ -919,6 +925,8 @@ static func _add_visual_state(d: Dictionary, node: CanvasItem) -> void:
 static func _read_visual_state(node: CanvasItem, d: Dictionary) -> void:
 	if bool(d.get("locked", false)):
 		node.set_meta("locked", true)
+	if d.has("blend_mode"):
+		_BlendModes.apply(node, String(d["blend_mode"]))
 	if d.get("table") is Dictionary:
 		node.set_meta("table", d["table"])
 	for _gk in ["fill_global", "stroke_global"]:
