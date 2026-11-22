@@ -118,7 +118,40 @@ func test_docked_inspector_selection_label() -> void:
 	inspector._on_selection_size_changed(3)
 	assert_that(inspector.lbl_selection.text).is_equal(tr("%d objects selected") % 3)
 
+## El ancho del lateral se guarda por modo en user://vectopen_layers_ui.cfg,
+## que es el MISMO archivo de la app del usuario: si el usuario redimensionó
+## el lateral de Pro (p. ej. a 280), la prueba lo leía y fallaba (272/280).
+## Se aparta mientras dura la prueba y se devuelve después.
+const _LS_CFG := "user://vectopen_layers_ui.cfg"
+const _W_KEYS := ["inspector_width_modern", "inspector_width_professional"]
+
+func _stash_widths() -> Dictionary:
+	var cfg := ConfigFile.new()
+	var saved := {}
+	if cfg.load(_LS_CFG) != OK:
+		return saved
+	for k in _W_KEYS:
+		if cfg.has_section_key("panel", k):
+			saved[k] = cfg.get_value("panel", k)
+			cfg.erase_section_key("panel", k)
+	cfg.save(_LS_CFG)
+	return saved
+
+func _restore_widths(saved: Dictionary) -> void:
+	if saved.is_empty():
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(_LS_CFG)
+	for k in saved:
+		cfg.set_value("panel", k, saved[k])
+	cfg.save(_LS_CFG)
+
 func test_adaptive_ui_manager_orchestration() -> void:
+	var saved_w := _stash_widths()
+	_orchestration()
+	_restore_widths(saved_w)
+
+func _orchestration() -> void:
 	var host: Control = auto_free(Control.new())
 	add_child(host)
 
