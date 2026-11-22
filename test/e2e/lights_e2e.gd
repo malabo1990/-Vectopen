@@ -37,7 +37,7 @@ func _run() -> void:
 	await K.look_at(ab)
 	var near_p := Vector2(250, 300)
 	var far_p := Vector2(820, 80)
-	var behind_p := Vector2(560, 300)
+	var behind_p := Vector2(465, 300)   # justo detrás del muro (sombra 2D corta)
 	var base_near: float = await shot_px(ab, near_p)
 	var L = api.add_light(Vector2(200, 300), "point", {"radius": 300.0, "energy": 1.5, "color": Color(1, 1, 1), "shadows": false})
 	K.check("se crea la luz", L != null and String(L.get_meta("shape_type", "")) == "light")

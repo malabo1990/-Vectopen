@@ -84,14 +84,17 @@ Hecho (2026-11-22): herramienta **Luz** ☀ en la barra de herramientas
 (Smart / Pro: columna; Modern: barra inferior) con su panel
 **Iluminación**: tipos puntual, foco, direccional y ambiente (registro
 `VectorLight.TYPE_INFO`, preparado para más tipos), color, intensidad,
-alcance, dirección, apertura del foco, borde, mezcla y **sombra EXTERIOR**
-(proyección de cada figura desde la luz, detrás de la figura, con color,
-longitud y difuminado; la figura queda iluminada); clic = colocar, arrastrar
+alcance, dirección, apertura del foco, borde, mezcla y **sombra 2D**
+(silueta plana corrida en sentido contrario a la luz, oscura junto a la
+figura y que se difumina y desvanece hacia su final; solo donde llega la luz:
+dentro del cono del foco y del alcance de la puntual; color, longitud,
+difuminado y desvanecer; tiempo real al cambiar la luz, escribir en el panel,
+arrastrar un tirador o mover figuras; la luz cae suave hasta su final); clic = colocar, arrastrar
 = alcance y dirección; **tiradores** en el lienzo (● alcance + dirección,
 ◆ apertura del foco) con un paso de deshacer; panel con tarjetas y
 «↺ Restablecer»; la caja de selección ya no se tiñe (las luces solo alumbran
 el contenido). Cada figura: «Proyecta sombra». .vtp, PNG / JPEG / WEBP; API
-`add_light` (`lights_e2e` 15/0, `light_tool_e2e` 48/0). Falta (después, a
+`add_light` (`lights_e2e` 15/0, `light_tool_e2e` 48/0, `light_matrix_e2e` 32/0). Falta (después, a
 petición del usuario):
 
 - Luz y sombras en SVG / PDF.

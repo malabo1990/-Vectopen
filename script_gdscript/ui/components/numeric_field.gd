@@ -18,6 +18,10 @@ signal value_changed(v: float)
 signal drag_started()
 signal drag_ended()
 signal submitted(v: float)
+## Mientras se ESCRIBE (solo con `live_typing`): vista previa del valor, sin
+## confirmar. Al cancelar (Esc) llega el valor de antes.
+signal live_value(v: float)
+var live_typing := false
 
 @export var value: float = 0.0:
 	set(v):
@@ -118,6 +122,7 @@ func _build_ui() -> void:
 	_line_edit.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	_line_edit.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_line_edit.text_submitted.connect(_on_line_edit_submitted)
+	_line_edit.text_changed.connect(_on_line_edit_text_changed)
 	_line_edit.focus_exited.connect(_on_line_edit_focus_exited)
 	_box.add_child(_line_edit)
 
@@ -244,8 +249,16 @@ func _exit_edit(commit: bool) -> void:
 			value_changed.emit(value)
 	else:
 		value = _pre_edit_val
+		if live_typing:
+			live_value.emit(value)
 
 	_refresh_display()
+
+func _on_line_edit_text_changed(t: String) -> void:
+	if not live_typing or not _is_editing or t.strip_edges() == "":
+		return
+	var v := clampf(eval_math(t, _pre_edit_val), min_value, max_value)
+	live_value.emit(v)
 
 func _on_line_edit_submitted(_t: String) -> void:
 	_exit_edit(true)

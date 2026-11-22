@@ -31,6 +31,7 @@ const SHADOW_ROWS := [
 	["shadow_color", "Color de sombra", "color"],
 	["shadow_length", "Longitud", "num", 0, 5000, 5, " px", 1.0],
 	["shadow_soft", "Difuminado", "num", 0, 100, 1, "%", 100.0],
+	["shadow_fade", "Desvanecer", "num", 0, 100, 1, "%", 100.0],
 ]
 ## Glifo de cada tipo en su botón.
 const TYPE_GLYPH := {"point": "●", "spot": "◣", "directional": "➚", "ambient": "◌"}
@@ -201,6 +202,9 @@ func _add_row(grid: GridContainer, spec: Array) -> void:
 			nf.custom_minimum_size = Vector2(90, 24)
 			var k_scale: float = spec[7]
 			nf.value_changed.connect(func(v: float) -> void: _put(key, v / k_scale))
+			# tiempo real mientras se escribe (la sombra y la luz siguen al número)
+			nf.live_typing = true
+			nf.live_value.connect(func(v: float) -> void: _preview(key, v / k_scale))
 			c = nf
 		"color":
 			var cp := ColorPickerButton.new()
@@ -237,10 +241,27 @@ func selected_light() -> Node:
 		return sel[0]
 	return null
 
+## Vista previa sin historial (se escribe un número): se guarda el valor de
+## antes para que el paso de deshacer vaya desde él.
+var _live_orig := {}
+
+func _preview(key: String, value) -> void:
+	var l := selected_light()
+	if l == null or _syncing:
+		return
+	var prop := "lamp_" + key
+	if not _live_orig.has(key) or _live_orig[key][0] != l.get_instance_id():
+		_live_orig[key] = [l.get_instance_id(), l.get(prop)]
+	l.set(prop, value)
+
 func _put(key: String, value) -> void:
 	if _syncing:
 		return
 	var l := selected_light()
+	if l and _live_orig.has(key):
+		if _live_orig[key][0] == l.get_instance_id():
+			l.set("lamp_" + key, _live_orig[key][1])   # el historial parte de aquí
+		_live_orig.erase(key)
 	if l:
 		var ic := get_node_or_null("/root/InspectorCore")
 		ic.apply("lamp_" + key, value)
@@ -291,7 +312,7 @@ func _sync_from(p: Dictionary) -> void:
 		for n in _rows[key]:
 			(n as Control).visible = show
 	var sh := bool(info.get("shadows", false))
-	for key in ["shadows", "shadow_color", "shadow_soft"]:
+	for key in ["shadows", "shadow_color", "shadow_length", "shadow_soft", "shadow_fade"]:
 		for n in _rows[key]:
 			(n as Control).visible = sh
 	for n in _rows["__shadow_title"]:

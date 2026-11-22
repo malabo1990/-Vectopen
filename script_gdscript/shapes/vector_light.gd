@@ -79,6 +79,10 @@ var lamp_shadow_length := 150.0:   # px que se alarga la sombra
 	set(v):
 		lamp_shadow_length = clampf(v, 0.0, 20000.0)
 		rebuild()
+var lamp_shadow_fade := 0.7:   # 0 = sombra uniforme · 1 = se desvanece del todo hacia su final
+	set(v):
+		lamp_shadow_fade = clampf(v, 0.0, 1.0)
+		rebuild()
 
 var _light: Light2D = null
 static var _tex_cache := {}
@@ -90,7 +94,37 @@ func _init() -> void:
 ## Ajustes de fábrica (botón «Restablecer» del panel).
 const DEFAULTS := {"color": Color(1.0, 0.92, 0.75), "energy": 1.2, "radius": 300.0, "angle": 45.0,
 	"cone": 45.0, "falloff": 0.0, "mode": "add", "shadows": true, "shadow_color": Color(0, 0, 0, 0.6),
-	"shadow_soft": 0.3, "shadow_length": 150.0}
+	"shadow_soft": 0.3, "shadow_length": 150.0, "shadow_fade": 0.7}
+
+## Firma de lo que mueve las sombras (esta luz y la posición de las figuras):
+## si cambia —arrastrar la luz o una figura, el panel, los tiradores— las
+## sombras se rehacen en ese mismo fotograma (tiempo real).
+var _light_sig := 0
+var _shapes_sig := 0
+var _sig_tick := 0
+
+func _process(_d: float) -> void:
+	if not _on_canvas():
+		return
+	var page := _page()
+	if page == null:
+		return
+	var changed := false
+	var ls := hash([global_transform, params(), visible])
+	if ls != _light_sig:
+		_light_sig = ls
+		changed = true
+	_sig_tick += 1
+	if changed or _sig_tick % 2 == 0:   # figuras: cada 2 fotogramas basta
+		var parts: Array = []
+		for sh in _shapes_under(page):
+			parts.append((sh as Node2D).global_transform)
+		var ss := hash(parts)
+		if ss != _shapes_sig:
+			_shapes_sig = ss
+			changed = true
+	if changed:
+		refresh_occluders()
 
 func _ready() -> void:
 	add_to_group(GROUP)
@@ -107,7 +141,7 @@ func params() -> Dictionary:
 	return {"type": lamp_type, "color": lamp_color, "energy": lamp_energy, "radius": lamp_radius,
 		"angle": lamp_angle, "falloff": lamp_falloff, "mode": lamp_mode, "shadows": lamp_shadows,
 		"cone": lamp_cone, "shadow_color": lamp_shadow_color, "shadow_soft": lamp_shadow_soft,
-		"shadow_length": lamp_shadow_length}
+		"shadow_length": lamp_shadow_length, "shadow_fade": lamp_shadow_fade}
 
 func set_params(p: Dictionary) -> void:
 	for k in p:
@@ -133,7 +167,7 @@ static func _cone_tex(falloff: float, cone: float) -> Texture2D:
 			var ang := absf(v.angle())
 			var a_edge := clampf((half - ang) / soft_a, 0.0, 1.0)
 			var r_fall := 1.0 if r <= inner else clampf(1.0 - (r - inner) / maxf(1.0 - inner, 0.001), 0.0, 1.0)
-			img.set_pixel(x, y, Color(1, 1, 1, a_edge * r_fall))
+			img.set_pixel(x, y, Color(1, 1, 1, a_edge * r_fall * r_fall))
 	var t := ImageTexture.create_from_image(img)
 	_tex_cache[key] = t
 	return t
@@ -152,9 +186,15 @@ static func _radial(falloff: float) -> Texture2D:
 	if _tex_cache.has(key):
 		return _tex_cache[key]
 	var g := Gradient.new()
+	# caída suave hasta el final del alcance (no un corte): curva tipo
+	# cuadrática, la luz se apaga poco a poco hacia el borde
+	var inner := clampf(key * 0.9, 0.0, 0.9)
 	g.set_color(0, Color(1, 1, 1, 1))
 	g.set_color(1, Color(1, 1, 1, 0))
-	g.set_offset(0, clampf(key * 0.9, 0.0, 0.9))
+	g.set_offset(0, inner)
+	for f in [0.25, 0.5, 0.75]:
+		var a := pow(1.0 - f, 2.0)
+		g.add_point(inner + (1.0 - inner) * f, Color(1, 1, 1, a))
 	var t := GradientTexture2D.new()
 	t.gradient = g
 	t.fill = GradientTexture2D.FILL_RADIAL
@@ -258,17 +298,65 @@ func refresh_occluders() -> void:
 		var sxf: Transform2D = (s as Node2D).global_transform
 		var inv := sxf.affine_inverse()
 		var scale_k := maxf(sxf.get_scale().x, 0.0001)
+		var center := Vector2.ZERO
+		for q in pts:
+			center += q
+		var gcenter: Vector2 = sxf * (center / pts.size())
 		for l in lights:
-			var dir_mode := String(l.lamp_type) == "directional"
-			var src: Vector2
-			if dir_mode:
-				src = inv.basis_xform(Vector2.from_angle(deg_to_rad(float(l.lamp_angle))))
-			else:
-				src = inv * (l as Node2D).global_position
-			var polys := _ShadowNode.project(pts, src, float(l.lamp_shadow_length) / scale_k, dir_mode)
-			list.append({"polys": polys, "color": l.lamp_shadow_color, "soft": float(l.lamp_shadow_soft) * 24.0 / scale_k})
+			var info := shadow_for(l, gcenter)
+			if info.is_empty():
+				continue   # la luz no llega a esta figura: sin sombra
+			var off: Vector2 = inv.basis_xform(info["offset"])
+			var col: Color = l.lamp_shadow_color
+			col.a *= float(info["strength"])
+			# realista: cuanto más se separa la sombra, más difusa (penumbra)
+			var spread: float = (info["offset"] as Vector2).length() * 0.35
+			list.append({"poly": pts, "off": off, "color": col,
+				"soft": float(l.lamp_shadow_soft) * (8.0 + spread) / scale_k,
+				"fade": float(l.lamp_shadow_fade)})
 		sh.shadows = list
 		sh.queue_redraw()
+
+## Cuánto alumbra la luz `l` el punto global `gp` (0 = nada, 1 = de lleno).
+## Puntual: cae con la distancia hasta el alcance. Foco: además, solo dentro
+## del cono. Direccional: igual en toda la página. Ambiente: sin dirección.
+static func influence(l: Node2D, gp: Vector2) -> float:
+	var t := String(l.get("lamp_type"))
+	if t == "directional" or t == "ambient":
+		return 1.0
+	var d := gp - l.global_position
+	var radius: float = float(l.get("lamp_radius")) * maxf(l.global_transform.get_scale().x, 0.0001)
+	var k := clampf(1.0 - d.length() / maxf(radius, 0.001), 0.0, 1.0)
+	if t == "spot" and k > 0.0:
+		var half := deg_to_rad(float(l.get("lamp_cone"))) * 0.5
+		var ang := absf(Vector2.from_angle(deg_to_rad(float(l.get("lamp_angle")))).angle_to(d))
+		var edge := maxf(half * 0.25, 0.02)
+		k *= clampf((half - ang) / edge, 0.0, 1.0)
+	return k
+
+## Sombra 2D que la luz `l` da a una figura con centro global `gp`:
+## {"offset": desplazamiento global de la silueta, "strength": 0..1} o {}.
+## La sombra es la MISMA silueta, plana, corrida en sentido contrario a la luz
+## (como una sombra paralela, no un volumen extruido): más lejos de una luz
+## puntual = se corre más y se ve más débil.
+static func shadow_for(l: Node2D, gp: Vector2) -> Dictionary:
+	var t := String(l.get("lamp_type"))
+	if not bool(TYPE_INFO.get(t, {}).get("shadows", false)) or not bool(l.get("lamp_shadows")):
+		return {}
+	var k := influence(l, gp)
+	if k <= 0.01:
+		return {}
+	var length: float = float(l.get("lamp_shadow_length")) * maxf(l.global_transform.get_scale().x, 0.0001)
+	var dir: Vector2
+	var amount := 1.0
+	if t == "directional":
+		dir = Vector2.from_angle(deg_to_rad(float(l.get("lamp_angle"))))
+	else:
+		var d := gp - l.global_position
+		dir = d.normalized() if d.length() > 0.001 else Vector2.DOWN
+		# cerca de la luz la sombra apenas se separa; lejos, se alarga
+		amount = 0.25 + 0.75 * (1.0 - k)
+	return {"offset": dir * length * amount, "strength": sqrt(k)}
 
 ## La página y lo suyo entran en la capa que alumbran las luces.
 static func mark_content(page: Node) -> void:
