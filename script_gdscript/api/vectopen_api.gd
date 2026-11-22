@@ -1618,13 +1618,8 @@ func make_mask(mask_shape: Node2D, nodes: Variant) -> bool:
 	if list.is_empty():
 		error("make_mask: nada que recortar")
 		return false
-	# VAL-43: Godot no dibuja máscaras ANIDADAS (clip_children dentro de otro
-	# clip_children se ignora): se rechaza con un aviso en vez de dejar un
-	# recorte que no recorta.
-	if _nested_mask(mask_shape, list):
-		_notice("warning", "No se pueden anidar máscaras de recorte (una máscara dentro de otra). Suelta la máscara interior o recorta con Booleanas ▸ Intersección.")
-		warn("make_mask: máscaras anidadas no admitidas")
-		return false
+	# VAL-43: las máscaras ANIDADAS ya se dibujan (recorte propio de la
+	# interior, nested_masks.gd); antes se rechazaban.
 	var recs := []
 	for n in list:
 		recs.append({"n": n, "parent": n.get_parent(), "idx": n.get_index(), "xf": (n as Node2D).global_transform})

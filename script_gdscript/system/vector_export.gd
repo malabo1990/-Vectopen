@@ -190,6 +190,45 @@ static func _simplify_ring(r: PackedVector2Array, tol: float) -> PackedVector2Ar
 ## VAL-14: capas metidas dentro de una figura (p. ej. una foto dentro de un
 ## círculo). Si la figura es máscara (`clip_children`), su contorno recorta a
 ## esas capas; en «solo recorte» la figura no se dibuja.
+## Intersección de dos recortes (listas de contornos {"ops", "closed"}).
+static func _intersect_subs(a: Array, b: Array) -> Array:
+	var out: Array = []
+	for sa in a:
+		var pa := _sub_poly(sa)
+		for sb in b:
+			var pb := _sub_poly(sb)
+			if pa.size() < 3 or pb.size() < 3:
+				continue
+			for r in Geometry2D.intersect_polygons(pa, pb):
+				out.append(_poly_sub(r))
+	if out.is_empty():   # no se cruzan: nada visible
+		out.append(_poly_sub(PackedVector2Array([Vector2.ZERO, Vector2(0.001, 0), Vector2(0, 0.001)])))
+	return out
+
+## Contorno → polígono (curvas en 12 tramos).
+static func _sub_poly(sub: Dictionary) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var last := Vector2.ZERO
+	for o in sub["ops"]:
+		match o[0]:
+			"M", "L":
+				last = o[1]
+				out.append(last)
+			"C":
+				var p0 := last
+				for i in range(1, 13):
+					var t := i / 12.0
+					var u := 1.0 - t
+					out.append(p0 * u * u * u + o[1] * 3.0 * u * u * t + o[2] * 3.0 * u * t * t + o[3] * t * t * t)
+				last = o[3]
+	return out
+
+static func _poly_sub(p: PackedVector2Array) -> Dictionary:
+	var ops: Array = [["M", p[0]]]
+	for i in range(1, p.size()):
+		ops.append(["L", p[i]])
+	return {"ops": ops, "closed": true}
+
 static func _child_layers(n: Node, n0: int, inv: Transform2D, op: float, out: Dictionary) -> void:
 	if n.has_method("get_source_shapes"):   # booleano vivo: sus hijos son operandos
 		return
@@ -207,9 +246,19 @@ static func _child_layers(n: Node, n0: int, inv: Transform2D, op: float, out: Di
 	if subs.is_empty():
 		return
 	var clip := {"subs": subs}
+	# VAL-43: máscaras ANIDADAS → el recorte es la INTERSECCIÓN de la interior
+	# con esta (antes mandaba solo la interior). Una intersección por recorte
+	# interior distinto, para que los elementos sigan agrupados igual.
+	var combined := {}
 	for i in range(n1, items.size()):
-		if items[i].get("clip") == null:   # máscaras anidadas: manda la interior
+		var inner = items[i].get("clip")
+		if inner == null:
 			items[i]["clip"] = clip
+		else:
+			var key: int = inner.get_instance_id() if inner is Object else hash(inner)
+			if not combined.has(key):
+				combined[key] = {"subs": _intersect_subs(inner["subs"], subs)}
+			items[i]["clip"] = combined[key]
 	if mode == CanvasItem.CLIP_CHILDREN_ONLY:
 		for i in range(n1 - 1, n0 - 1, -1):
 			items.remove_at(i)

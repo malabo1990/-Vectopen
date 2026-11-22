@@ -4,7 +4,7 @@
 # Retrato estilizado 800 × 1000: silueta de la cara (Bézier) que recorta una
 # «foto» (imagen) y unas sombras; pelo (Bézier) que recorta un degradado de
 # mechones (Bézier dentro de Bézier); ojo con iris recortado por el párpado
-# (las máscaras anidadas se rechazan: VAL-43). «Crear máscara de recorte» desde el menú contextual con
+# (y el ojo DENTRO de la cara: máscaras anidadas, VAL-43). «Crear máscara de recorte» desde el menú contextual con
 # la selección (la de arriba recorta), editar un nodo de la máscara después
 # (el recorte la sigue), soltar y volver a crear, deshacer, exportar SVG
 # (clipPath) y PDF, guardar y reabrir con las máscaras intactas.
@@ -117,9 +117,8 @@ func _run() -> void:
 		[Vector2(370, 470), Vector2(-20, -22), Vector2(-20, 18)],
 	], "Párpado", Color.WHITE)
 	K.check("ojo: el párpado recorta el iris", api.make_mask(lid, [iris]))
-	# VAL-43 (abierto): Godot no dibuja una máscara dentro de otra → se rechaza
-	# con aviso en vez de dar un recorte roto. El ojo queda encima de la cara.
-	K.check("máscara anidada rechazada con aviso (VAL-43)", not api.make_mask(face, [lid]) and lid.get_parent() == ab)
+	# VAL-43: una máscara dentro de otra ya se dibuja (recorte propio).
+	K.check("máscara anidada: el ojo dentro de la cara (VAL-43)", api.make_mask(face, [lid]) and lid.get_parent() == face)
 	await K.frames(4)
 	await K.shot("01_retrato")
 	# ── Editar un nodo de la máscara: el recorte la sigue ────────────────────
@@ -158,7 +157,7 @@ func _run() -> void:
 			var h2: Node = a.find_child("Pelo*", false, false)
 			K.check("reabrir: la silueta sigue recortando (foto, sombra)", f2 != null and f2.clip_children != 0 and f2.get_child_count() >= 2, str(f2.get_child_count()) if f2 else "-")
 			K.check("reabrir: el pelo sigue recortando sus mechones", h2 != null and h2.clip_children != 0 and h2.get_child_count() == 9)
-			var l2: Node = a.find_child("Párpado*", false, false)
+			var l2: Node = a.find_child("Párpado*", true, false)
 			K.check("reabrir: la máscara del ojo", l2 != null and l2.clip_children != 0 and l2.get_child_count() == 1)
 			await K.look_at(a)
 			await K.shot("02_reabierto")

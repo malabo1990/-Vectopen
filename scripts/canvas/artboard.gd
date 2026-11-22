@@ -268,11 +268,19 @@ func wake(immediate: bool = false) -> void:
 		_restoring = false
 		_dormant = []
 		queue_redraw()
+		_post_wake()
 		return
 	# Amortizado: encolar y drenar en _process
 	_waking_queue = _dormant
 	_dormant = []
 	set_process(true)
+
+## Página ya cargada: máscaras anidadas (VAL-43) con su recorte propio.
+func _post_wake() -> void:
+	if is_inside_tree() and not (get_parent() is SubViewport):
+		(func() -> void:
+			if is_inside_tree():
+				load("res://script_gdscript/shapes/nested_masks.gd").refresh_under(self)).call_deferred()
 
 ## Fuerza la materialización total AHORA (p.ej. antes de serializar para guardar,
 ## o al seleccionar contenido de la página).
@@ -286,6 +294,7 @@ func wake_now() -> void:
 		_waking_queue = []
 		set_process(false)
 		queue_redraw()
+		_post_wake()
 
 func _process(_delta: float) -> void:
 	if _waking_queue.is_empty():
@@ -299,6 +308,7 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 	if _waking_queue.is_empty():
 		set_process(false)
+		_post_wake()
 
 ## ¿La herramienta activa es de selección (Mover / Página)? Solo entonces la
 ## página seleccionada se queda el clic para arrastrarse o redimensionarse.
@@ -572,6 +582,8 @@ func render_to_image(img_scale: float = 1.0, transparent: bool = false, only: Ar
 
 	sub_viewport.add_child(artboard_copy)
 	add_child(sub_viewport)
+	# VAL-43: máscaras anidadas también en la imagen exportada
+	load("res://script_gdscript/shapes/nested_masks.gd").refresh_under(artboard_copy, sub_viewport)
 
 	if is_inside_tree():
 		# 3 fotogramas: texto nativo y capas de efectos/shaders necesitan uno más.
