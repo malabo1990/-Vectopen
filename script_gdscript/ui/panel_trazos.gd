@@ -7,6 +7,7 @@
 @tool
 extends PanelContainer
 class_name PanelTrazos
+const _StrokeWidthField = preload("res://script_gdscript/ui/components/stroke_width_field.gd")
 const StrokeProfile = preload("res://script_gdscript/shapes/stroke_profile.gd")
 
 ## Referencias a controles UI
@@ -103,7 +104,6 @@ const _LABEL_W := 52
 var _num_width: Control = null
 var _chips: Dictionary = {}      # "start" | "end" | "style" | "profile" -> Button
 var _swatches: Dictionary = {}   # mismo -> Swatch
-var _live_w_before: Dictionary = {}
 
 func _ready() -> void:
 	_init_refs()
@@ -356,16 +356,9 @@ func _build_compact_ui() -> void:
 		lbl.text = tr("Grosor")
 		lbl.add_theme_font_size_override("font_size", 11)
 		row_color.add_child(lbl)
-		_num_width = _NumField.new("", "≡", tr("Grosor del trazo (arrastra para ajustar)"))
-		_num_width.min_value = 0
-		_num_width.max_value = 500
-		_num_width.step = 0.5
-		_num_width.adaptive_step = true   # hasta 0,005 (mucho zoom)
-		_num_width.suffix = "px"
-		_num_width.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_num_width.value_changed.connect(_on_size_changed)
-		_num_width.scrub_changed.connect(_on_width_scrub)
-		_num_width.scrub_ended.connect(_on_width_scrub_end)
+		# USR-39: campo común (arrastre en vivo + un paso de deshacer,
+		# grosores predefinidos y unidad px/pt/mm).
+		_num_width = _StrokeWidthField.new("≡")
 		row_color.add_child(_num_width)
 	var at := (vb.get_node("RowAlign") as Node).get_index() + 1
 	var ends := _row(vb, "RowEnds", tr("Extremos"), at)
@@ -485,26 +478,6 @@ func _update_swatches(props: Dictionary) -> void:
 			_num_width.set_value_no_signal(float(props["stroke_width"]["value"]))
 
 ## Arrastre del grosor: en vivo y UN paso de deshacer al soltar.
-func _on_width_scrub(v: float) -> void:
-	var ic := get_node_or_null("/root/InspectorCore")
-	if ic == null or not ic.has_method("_write"):
-		return
-	if _live_w_before.is_empty():
-		for s in ic.selection():
-			var b = ic._read(s, "stroke_width")
-			if b != null:
-				_live_w_before[s] = b
-	for s in _live_w_before:
-		if is_instance_valid(s):
-			ic._write(s, "stroke_width", v)
-	ic.post_write_live()
-
-func _on_width_scrub_end(_v: float) -> void:
-	var ic := get_node_or_null("/root/InspectorCore")
-	if ic and not _live_w_before.is_empty():
-		ic.commit_live("stroke_width", _live_w_before)
-	_live_w_before = {}
-
 # ── Eventos de UI hacia InspectorCore ────────────────────────────────────────
 
 func _apply_prop(prop: String, val: Variant) -> void:

@@ -69,7 +69,6 @@ tal cual lo pidió el usuario, para abrirlas una por iteración (§0).
 | USR-35 | Notificaciones de errores y bugs dentro de la app, con botón «Enviar a técnico» y reporte determinante (traza, `archivo:línea`, versión, SO, cola del log) | Pendiente |
 | USR-36 | Diálogo de Contacto con área de texto multilínea para escribir al técnico: motivo (bug/error/sugerencia), email opcional, abrible desde Ayuda y desde la notificación de error | Pendiente |
 | USR-37 | Action/servicio que RECIBA los reportes de bug (contrato de datos, almacenamiento y reintento, privacidad) | Pendiente |
-| USR-39 | Grosor de trazo tipo Affinity: arrastrar el número para cambiarlo, presets, vista previa en vivo, unidades y un solo paso de deshacer | Pendiente |
 
 Notas de arranque:
 
@@ -80,9 +79,6 @@ Notas de arranque:
   buzón: los reportes irían a `user://bug_reports/`.
 - USR-35: incluir también el manejador de fallos del build de release, no
   solo los `push_error` de depuración.
-- USR-39: el arrastre del deslizador debe registrar **un** paso de
-  `HistoryManager` al soltar, no uno por píxel. Respetar el grosor por lado
-  que ya existe (`VectorRectangle.stroke_sides`).
 
 ### Informe técnico de propuestas de mejora (2026-11-21)
 
@@ -119,7 +115,7 @@ geométricos.
 La edición debería permitir ajustar los parámetros y visualizar los cambios
 en tiempo real.
 
-> Relacionado: USR-39 (grosor, mismo panel) y el core Bézier de
+> Relacionado: el core Bézier de
 > `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 
 #### 2. Iluminación y efectos visuales 2D
@@ -260,8 +256,8 @@ Blend, layout automático, maquetación multipágina y selección por
 profundidad) acercaría a Vectopen a un estudio de diseño completo en una
 sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 
-> **Prioridad sugerida** (no acordada): 1) USR-39 (grosor), 2) esquinas
-> avanzadas, 3) layout, 4) Blend, 5) iluminación 2D, 6) maquetación editorial. Cada bloque grande merece su propio documento de
+> **Prioridad sugerida** (no acordada): 1) esquinas avanzadas, 2) layout,
+> 3) Blend, 4) iluminación 2D, 5) maquetación editorial. Cada bloque grande merece su propio documento de
 > diseño en `docs/roadmap/` antes de codear.
 
 ## 0 nonies. VTP Preview — visor de documentos (2026-11-21) — propuesta

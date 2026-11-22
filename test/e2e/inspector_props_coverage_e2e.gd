@@ -16,6 +16,7 @@ const EXCLUDED := {
 	"text": "el contenido se escribe en el lienzo",
 	"custom_shader": "lo pone la sección Shader al aplicar código",
 	"model_path": "se elige con un diálogo de archivo",
+	"blend_mode": "se elige en el panel Capas (desplegable de fusión; blend_modes_e2e)",
 }
 ## Alias: escribir una cuenta como la otra (el color plano es un «paint» sólido).
 const ALIAS := {"fill_paint": "fill_color", "stroke_paint": "stroke_color"}

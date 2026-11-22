@@ -46,6 +46,9 @@ var value: float = 0.0:
 		if changed:
 			value_changed.emit(value)
 
+## Opcional: convierte un texto con unidad («2pt», «0.5 mm») al valor del
+## campo; devuelve null si no lo entiende (sigue el análisis normal).
+var unit_parser: Callable = Callable()
 var _icon_path: String = ""
 var _glyph: String = ""
 var _lead: Control = null
@@ -187,7 +190,10 @@ func _commit_text() -> void:
 		_restyle()
 		return
 	var parsed := value
-	if t.is_valid_float():
+	var by_unit: Variant = unit_parser.call(t) if unit_parser.is_valid() else null
+	if by_unit != null:
+		parsed = float(by_unit)
+	elif t.is_valid_float():
 		parsed = t.to_float()
 	else:
 		var ex := Expression.new()

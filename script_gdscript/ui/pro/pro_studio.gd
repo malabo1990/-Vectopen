@@ -8,6 +8,7 @@
 # =============================================================================
 class_name ProStudio
 extends PanelContainer
+const _StrokeWidthField = preload("res://script_gdscript/ui/components/stroke_width_field.gd")
 
 signal closed()
 
@@ -128,7 +129,7 @@ var _pickr_instance: GestorColor
 var _lbl_color_target: Label
 
 # Stroke
-var _spin_stroke_w: NumericField
+var _spin_stroke_w: Control
 var _btn_stroke_solid: Button
 var _btn_stroke_dash: Button
 var _btn_cap_butt: Button
@@ -890,10 +891,9 @@ func _build_stroke_page() -> void:
 	var row_w := _hrow(4)
 	_sec_stroke.add_child(row_w)
 	row_w.add_child(_row_label("Ancho"))
-	_spin_stroke_w = _field("", " px", 0.0, 200.0, 0.5)
-	_spin_stroke_w.adaptive_step = true   # hasta 0,005 (mucho zoom)
-	_spin_stroke_w.value = 1.0
-	_spin_stroke_w.value_changed.connect(_on_stroke_width_changed)
+	# USR-39: campo común (antes un paso de deshacer por píxel arrastrado).
+	_spin_stroke_w = _StrokeWidthField.new("")
+	_spin_stroke_w.set_value_no_signal(1.0)
 	row_w.add_child(_spin_stroke_w)
 	var style := _segmented(row_w, [
 		["", "res://icon/UI/style_solid.svg", "Trazo sólido"],
@@ -1637,10 +1637,6 @@ func _on_rotation_changed(val: float) -> void:
 	_apply_inspector_prop("rotation", val)
 
 # ── STROKE ──
-func _on_stroke_width_changed(val: float) -> void:
-	if _sync_guard: return
-	_apply_inspector_prop("stroke_width", val)
-
 func _set_stroke_style(style_idx: int) -> void:
 	_stroke_style = style_idx
 	_set_segment([_btn_stroke_solid, _btn_stroke_dash], style_idx)
@@ -1777,7 +1773,7 @@ func _on_inspector_changed(props: Dictionary) -> void:
 		_spin_rot.value = v
 		_clock_rot.angle_degrees = v
 	v = _prop(props, "stroke_width")
-	if v != null: _spin_stroke_w.value = v
+	if v != null: _spin_stroke_w.set_value_no_signal(float(v))
 	v = _prop(props, "stroke_style")
 	if v != null: _set_stroke_style(int(v))
 	v = _prop(props, "stroke_cap_start")
