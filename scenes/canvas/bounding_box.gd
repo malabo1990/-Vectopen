@@ -881,6 +881,11 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 		if move_tool_reference._text_path_input(event, gm):
 			accept_event()
 			return
+	# Tiradores de tabla (ancho de columnas / alto de filas, VAL-56).
+	if event is InputEventMouse and move_tool_reference.has_method("_table_input"):
+		if move_tool_reference._table_input(event, gm):
+			accept_event()
+			return
 
 	# Puerto de enlace de párrafos (Text Threading)
 	if _is_paragraph_shape_selected():

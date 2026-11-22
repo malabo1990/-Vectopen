@@ -217,6 +217,8 @@ func handle_input(event: InputEvent) -> bool:
 	if (event is InputEventMouseButton or event is InputEventMouseMotion) and current_key_mode == KeyMode.NONE:
 		if _text_path_input(event, gm):
 			return true
+		if _table_input(event, gm):
+			return true
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:

@@ -256,6 +256,45 @@ const MAX_OUTLINED_SELECTION := 300
 ## Tiradores del texto en trazado (▶ inicio, ◀ final, ◆ deslizar).
 const TextPathHandles = preload("res://script_gdscript/tools/move/text_path_handles.gd")
 var _tph := TextPathHandles.new()
+## Tiradores de tabla (ancho de columnas / alto de filas, VAL-56).
+const TableHandles = preload("res://script_gdscript/tools/move/table_handles.gd")
+var _tbh := TableHandles.new()
+
+## Ratón sobre los tiradores de la tabla seleccionada. true si lo consume.
+func _table_input(event: InputEvent, gm: Vector2) -> bool:
+	_tbh.table = TableHandles.target(selected_shapes)
+	if _tbh.table == null:
+		if not _tbh.drag.is_empty():
+			_tbh.cancel()
+		_tbh.hover = {}
+		return false
+	var z := _view_zoom()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and not event.double_click:
+			var h := _tbh.hit(gm, z)
+			if not h.is_empty():
+				_tbh.begin(h, gm)
+				call("_bbox_pass", true)
+				canvas.queue_redraw()
+				return true
+		elif not event.pressed and not _tbh.drag.is_empty():
+			_tbh.finish(gm)
+			call("_bbox_pass", false)
+			_update_bounding_box()
+			canvas.queue_redraw()
+			return true
+	elif event is InputEventMouseMotion:
+		if not _tbh.drag.is_empty():
+			_tbh.update(gm)
+			_update_bounding_box()
+			canvas.queue_redraw()
+			return true
+		var hv := _tbh.hit(gm, z)
+		if hv != _tbh.hover:
+			_tbh.hover = hv
+			Input.set_default_cursor_shape(Input.CURSOR_HSIZE if String(hv.get("kind", "")) == "col" else (Input.CURSOR_VSIZE if not hv.is_empty() else Input.CURSOR_ARROW))
+			canvas.queue_redraw()
+	return false
 
 func _view_zoom() -> float:
 	var vp := canvas.get_viewport() if is_instance_valid(canvas) else null
@@ -313,6 +352,9 @@ func draw_preview(c: Node2D) -> void:
 
 	_draw_hover_shape(c)
 	_draw_group_context(c)
+	_tbh.table = TableHandles.target(selected_shapes)
+	if _tbh.table != null:
+		_tbh.draw(c, _view_zoom())
 
 	# Guías del imán inteligente (solo mientras se arrastra una figura)
 	if is_dragging_shape and (not _snap_guides.is_empty() or not _snap_spacing.is_empty()):

@@ -619,7 +619,7 @@ utilizarlo como base para el futuro visor web.
 | ID | Fallo | Estado |
 |---|---|---|
 | VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
-| VAL-56 | Tablas v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio (la v1 está hecha) | Pendiente |
+| VAL-56 | Tablas v2: panel propio de tabla (colores de cabecera / cebreado / bordes, tamaño de letra, alineación por columna con botones); los tiradores del lienzo ya están hechos | Pendiente |
 | — | Cierre: queda 1 objeto «leaked at exit» (un `RefCounted` con referencia 0, sin clase visible con `--verbose`). Antes 108 objetos + texturas + textos; diagnóstico con `test/run_e2e.sh clean_exit_e2e` (mismo camino que la X de la ventana) | Abierto (menor) |
 
 ---
