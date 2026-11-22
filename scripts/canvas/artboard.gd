@@ -344,6 +344,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			# Un TIRADOR de la herramienta (luz, tabla, texto en trazado) bajo el
+			# clic manda: la página no se lo queda (antes, al clicar el tirador
+			# del alcance de una luz sobre un hueco, la página se seleccionaba y
+			# la luz se deseleccionaba).
+			var ht = _current_tool()
+			if ht and ht.has_method("wants_click_at") and ht.wants_click_at(global_mouse):
+				return
 			# Si está seleccionado y se usan herramientas de selección, permitimos arrastre/redimensionado
 			if is_selected and _is_selection_tool():
 				if is_on_handle(local_mouse):

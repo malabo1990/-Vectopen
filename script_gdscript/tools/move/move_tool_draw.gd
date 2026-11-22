@@ -256,6 +256,54 @@ const MAX_OUTLINED_SELECTION := 300
 ## Tiradores del texto en trazado (▶ inicio, ◀ final, ◆ deslizar).
 const TextPathHandles = preload("res://script_gdscript/tools/move/text_path_handles.gd")
 var _tph := TextPathHandles.new()
+## ¿Hay un tirador de esta herramienta en `gm`? (la página no se queda el clic)
+func wants_click_at(gm: Vector2) -> bool:
+	var z := _view_zoom()
+	_lth.light = LightHandles.target(selected_shapes)
+	if _lth.light != null and _lth.hit(gm, z) != "":
+		return true
+	_tbh.table = TableHandles.target(selected_shapes)
+	if _tbh.table != null and not _tbh.hit(gm, z).is_empty():
+		return true
+	return false
+
+## Tiradores de la luz seleccionada (alcance, dirección, apertura).
+const LightHandles = preload("res://script_gdscript/tools/move/light_handles.gd")
+var _lth := LightHandles.new()
+
+func _light_input(event: InputEvent, gm: Vector2) -> bool:
+	_lth.light = LightHandles.target(selected_shapes)
+	if _lth.light == null:
+		if _lth.drag != "":
+			_lth.cancel()
+		_lth.hover = ""
+		return false
+	var z := _view_zoom()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and not event.double_click:
+			var h := _lth.hit(gm, z)
+			if h != "":
+				_lth.begin(h)
+				call("_bbox_pass", true)
+				canvas.queue_redraw()
+				return true
+		elif not event.pressed and _lth.drag != "":
+			_lth.finish()
+			call("_bbox_pass", false)
+			canvas.queue_redraw()
+			return true
+	elif event is InputEventMouseMotion:
+		if _lth.drag != "":
+			_lth.update(gm)
+			canvas.queue_redraw()
+			return true
+		var hv := _lth.hit(gm, z)
+		if hv != _lth.hover:
+			_lth.hover = hv
+			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if hv != "" else Input.CURSOR_ARROW)
+			canvas.queue_redraw()
+	return false
+
 ## Tiradores de tabla (ancho de columnas / alto de filas, VAL-56).
 const TableHandles = preload("res://script_gdscript/tools/move/table_handles.gd")
 var _tbh := TableHandles.new()
@@ -355,6 +403,9 @@ func draw_preview(c: Node2D) -> void:
 	_tbh.table = TableHandles.target(selected_shapes)
 	if _tbh.table != null:
 		_tbh.draw(c, _view_zoom())
+	_lth.light = LightHandles.target(selected_shapes)
+	if _lth.light != null:
+		_lth.draw(c, _view_zoom())
 
 	# Guías del imán inteligente (solo mientras se arrastra una figura)
 	if is_dragging_shape and (not _snap_guides.is_empty() or not _snap_spacing.is_empty()):

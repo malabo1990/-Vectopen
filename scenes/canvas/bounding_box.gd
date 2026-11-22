@@ -138,6 +138,12 @@ var _line_click_ratio: float = 0.5
 const GRAD_HIT_PX: float = 18.0
 
 func _ready() -> void:
+	# Las luces 2D del documento no deben teñir la caja ni sus tiradores
+	# (antes, con una luz cerca, el azul se veía cian).
+	light_mask = 0
+	(func() -> void:
+		for ci in find_children("*", "CanvasItem", true, false):
+			(ci as CanvasItem).light_mask = 0).call_deferred()
 	# Permitir que los eventos de ratón fluyan libremente a través de las capas de control
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	visibility_layer = 2   # solo editor: la vista previa no lo dibuja
@@ -879,6 +885,11 @@ func _on_drag_panel_gui_input(event: InputEvent) -> void:
 	# Tiradores del texto en trazado (▶ ◀ ◆): antes que mover el recuadro.
 	if event is InputEventMouse and move_tool_reference.has_method("_text_path_input"):
 		if move_tool_reference._text_path_input(event, gm):
+			accept_event()
+			return
+	# Tiradores de la luz (alcance / dirección / apertura).
+	if event is InputEventMouse and move_tool_reference.has_method("_light_input"):
+		if move_tool_reference._light_input(event, gm):
 			accept_event()
 			return
 	# Tiradores de tabla (ancho de columnas / alto de filas, VAL-56).

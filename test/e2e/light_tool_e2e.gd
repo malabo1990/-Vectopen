@@ -103,7 +103,8 @@ func run_mode(mode: String) -> void:
 			L = l
 	K.check("%s: es un foco, alcance ≈ 200 y apuntando a la derecha" % mode, L != null and String(L.lamp_type) == "spot" and absf(float(L.lamp_radius) - 200.0) < 8.0 and absf(float(L.lamp_angle)) < 5.0, "%s %s %s" % [L.lamp_type, L.lamp_radius, L.lamp_angle] if L else "-")
 	K.check("%s: queda seleccionada" % mode, api.selection() == [L])
-	K.check("%s: sombras por defecto (el muro tiene oclusor)" % mode, wall.get_node_or_null("_LightOccluder") != null)
+	await K.frames(3)
+	K.check("%s: sombras por defecto (el muro tiene sombra exterior)" % mode, wall.get_node_or_null("_LightShadow") != null)
 	await K.frames(3)
 	K.check("%s: el panel edita la luz seleccionada" % mode, String(p._hint.text).contains("seleccionada") and p.is_visible_in_tree())
 	var nf = p.find_child("Light_energy", true, false)
@@ -113,6 +114,45 @@ func run_mode(mode: String) -> void:
 	api.undo()
 	await K.frames(2)
 	K.check("%s: deshacer la intensidad" % mode, absf(float(L.lamp_energy) - 1.2) < 0.01, str(L.lamp_energy))
+	# La caja de selección y la luz no se iluminan (antes azul → cian)
+	var bb_ok := true
+	for bbn in root.find_children("*", "", true, false):
+		if bbn.get_script() and String(bbn.get_script().resource_path).ends_with("bounding_box.gd") and (bbn as CanvasItem).is_visible_in_tree():
+			bb_ok = bb_ok and (bbn as CanvasItem).light_mask == 0
+	K.check("%s: la caja de selección no la tiñe la luz (sin cian)" % mode, bb_ok and L.light_mask == 0)
+	await RenderingServer.frame_post_draw
+	var img_c := root.get_texture().get_image()
+	var cyan := 0
+	var blue := 0
+	for yy in range(0, img_c.get_height(), 2):
+		for xx in range(0, img_c.get_width(), 2):
+			var cc := img_c.get_pixel(xx, yy)
+			if cc.r < 0.25 and cc.g > 0.8 and cc.b > 0.8: cyan += 1
+			if cc.r < 0.15 and cc.g > 0.4 and cc.g < 0.67 and cc.b > 0.8: blue += 1
+	K.check("%s: la caja se ve AZUL como las demás (no cian)" % mode, cyan == 0 and blue > 50, "cian %d, azul %d" % [cyan, blue])
+	# Tirador del alcance: arrastrar con el ratón cambia alcance y dirección
+	var lh = load("res://script_gdscript/tools/move/light_handles.gd").new()
+	lh.light = L
+	var reach: Vector2 = lh.points()["reach"]
+	var r0 := float(L.lamp_radius)
+	await drag(reach, L.global_position + Vector2(0, 300) * ab.global_transform.get_scale().x)
+	K.check("%s: tirador ● del alcance: 300 y hacia abajo" % mode, absf(float(L.lamp_radius) - 300.0) < 6.0 and absf(float(L.lamp_angle) - 90.0) < 3.0, "%s %s" % [L.lamp_radius, L.lamp_angle])
+	api.undo()
+	await K.frames(3)
+	K.check("%s: UN Ctrl+Z deshace el arrastre" % mode, absf(float(L.lamp_radius) - r0) < 0.5 and absf(float(L.lamp_angle)) < 5.0, "%s %s" % [L.lamp_radius, L.lamp_angle])
+	var cone_p: Vector2 = lh.points()["cone"]
+	await drag(cone_p, L.global_position + Vector2.from_angle(deg_to_rad(40.0)) * 120.0)
+	K.check("%s: tirador ◆ de la apertura del foco (≈ 80°)" % mode, absf(float(L.lamp_cone) - 80.0) < 6.0, str(L.lamp_cone))
+	# Panel: Restablecer
+	api.select([L])
+	await K.frames(3)
+	(p.find_child("Reset", true, false) as Button).pressed.emit()
+	await K.frames(3)
+	K.check("%s: «Restablecer» vuelve a los valores de fábrica" % mode, absf(float(L.lamp_cone) - 45.0) < 0.5 and absf(float(L.lamp_energy) - 1.2) < 0.01)
+	api.undo()
+	await K.frames(3)
+	K.check("%s: y se puede deshacer" % mode, absf(float(L.lamp_cone) - 80.0) < 6.0, str(L.lamp_cone))
+	K.check("%s: panel con tarjetas (tipo, luz, sombra)" % mode, p.find_child("Card_TIPO_DE_LUZ", true, false) != null and p.find_child("Card_SOMBRA", true, false) != null)
 	# «Proyecta sombra» en una figura
 	api.select([deco])
 	await K.frames(3)
@@ -120,7 +160,7 @@ func run_mode(mode: String) -> void:
 	K.check("%s: las figuras ofrecen «Proyecta sombra»" % mode, ic.current_props().has("casts_shadow"))
 	ic.apply("casts_shadow", false)
 	await K.frames(4)
-	K.check("%s: sin sombra, el adorno pierde su oclusor" % mode, deco.get_node_or_null("_LightOccluder") == null and wall.get_node_or_null("_LightOccluder") != null)
+	K.check("%s: sin sombra, el adorno pierde su sombra" % mode, deco.get_node_or_null("_LightShadow") == null and wall.get_node_or_null("_LightShadow") != null)
 	# Ambiente y direccional desde el panel (luz seleccionada)
 	api.select([L])
 	await K.frames(3)
@@ -130,6 +170,9 @@ func run_mode(mode: String) -> void:
 	(p.find_child("Type_directional", true, false) as Button).pressed.emit()
 	await K.frames(4)
 	await K.shot("luz_" + mode)
+	api.delete([L])
+	await K.frames(6)
+	K.check("%s: borrar la luz quita las sombras" % mode, wall.get_node_or_null("_LightShadow") == null or lights().size() > 0)
 
 func _run() -> void:
 	K = load("res://test/e2e/lib/campaign_kit.gd").new(self, "user://light_tool")

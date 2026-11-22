@@ -29,8 +29,11 @@ const ROWS := [
 const SHADOW_ROWS := [
 	["shadows", "Proyectar sombras", "check"],
 	["shadow_color", "Color de sombra", "color"],
-	["shadow_soft", "Suavidad", "num", 0, 100, 1, "%", 100.0],
+	["shadow_length", "Longitud", "num", 0, 5000, 5, " px", 1.0],
+	["shadow_soft", "Difuminado", "num", 0, 100, 1, "%", 100.0],
 ]
+## Glifo de cada tipo en su botón.
+const TYPE_GLYPH := {"point": "●", "spot": "◣", "directional": "➚", "ambient": "◌"}
 
 var _title: Label
 var _hint: Label
@@ -41,6 +44,8 @@ var _labels: Array = []
 var _sections: Array = []
 var _shadow_box: VBoxContainer
 var _syncing := false
+var _cards: Array = []
+var _reset: Button
 
 func _ready() -> void:
 	name = "light"
@@ -72,51 +77,114 @@ func _build() -> void:
 		m.add_theme_constant_override(k, 10)
 	add_child(m)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 6)
+	vb.add_theme_constant_override("separation", 8)
 	m.add_child(vb)
+	# cabecera: título + Restablecer
+	var head := HBoxContainer.new()
+	vb.add_child(head)
 	_title = Label.new()
 	_title.text = tr("Iluminación")
-	vb.add_child(_title)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(_title)
+	_reset = Button.new()
+	_reset.name = "Reset"
+	_reset.text = "↺  " + tr("Restablecer")
+	_reset.tooltip_text = tr("Vuelve a los valores de fábrica (luz seleccionada o próxima luz)")
+	_reset.focus_mode = Control.FOCUS_NONE
+	_reset.add_theme_font_size_override("font_size", 11)
+	_reset.pressed.connect(reset_to_defaults)
+	head.add_child(_reset)
 	_hint = Label.new()
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint.add_theme_font_size_override("font_size", 10)
 	vb.add_child(_hint)
-	# tipos
-	var types := HFlowContainer.new()
+	# tarjeta Tipo
+	var tbox := _card(vb, tr("TIPO DE LUZ"))
+	var types := GridContainer.new()
 	types.name = "Types"
-	types.add_theme_constant_override("h_separation", 4)
-	types.add_theme_constant_override("v_separation", 4)
-	vb.add_child(types)
+	types.columns = 2
+	types.add_theme_constant_override("h_separation", 6)
+	types.add_theme_constant_override("v_separation", 6)
+	tbox.add_child(types)
 	for t in LightScript.TYPES:
 		var b := Button.new()
 		b.name = "Type_" + t
-		b.text = tr(String(LightScript.TYPE_INFO[t]["label"]))
+		b.text = "%s  %s" % [TYPE_GLYPH.get(t, "•"), tr(String(LightScript.TYPE_INFO[t]["label"]))]
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size = Vector2(0, 28)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 11)
 		b.pressed.connect(func() -> void: _put("type", t))
 		types.add_child(b)
 		_type_buttons[t] = b
-	# parámetros
+	# tarjeta Luz
+	var lbox := _card(vb, tr("LUZ"))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 6)
-	vb.add_child(grid)
+	lbox.add_child(grid)
 	for spec in ROWS:
 		_add_row(grid, spec)
-	# sombra
-	var sl := Label.new()
-	sl.text = tr("Sombra")
-	vb.add_child(sl)
-	_sections.append(sl)
+	# tarjeta Sombra
+	var sbox := _card(vb, tr("SOMBRA"))
 	var sg := GridContainer.new()
 	sg.name = "Shadow"
 	sg.columns = 2
 	sg.add_theme_constant_override("h_separation", 8)
 	sg.add_theme_constant_override("v_separation", 6)
-	vb.add_child(sg)
+	sbox.add_child(sg)
 	for spec in SHADOW_ROWS:
 		_add_row(sg, spec)
-	_rows["__shadow_title"] = [sl]
+	_rows["__shadow_title"] = [sbox.get_parent().get_parent()]
+
+## Tarjeta con título (devuelve su caja interior).
+func _card(parent: Control, title: String) -> VBoxContainer:
+	var pc := PanelContainer.new()
+	pc.name = "Card_" + title.replace(" ", "_")
+	parent.add_child(pc)
+	_cards.append(pc)
+	var inner := MarginContainer.new()
+	for k in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		inner.add_theme_constant_override(k, 6)
+	pc.add_child(inner)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	inner.add_child(v)
+	var l := Label.new()
+	l.text = title
+	v.add_child(l)
+	_sections.append(l)
+	return v
+
+## «Restablecer»: valores de fábrica (manteniendo el tipo).
+func reset_to_defaults() -> void:
+	var l := selected_light()
+	var d: Dictionary = LightScript.DEFAULTS
+	if l:
+		var ic := get_node_or_null("/root/InspectorCore")
+		var hm := get_node_or_null("/root/HistoryManager")
+		var before: Dictionary = l.params()
+		var after := before.duplicate()
+		after.merge(d, true)
+		var apply_p := func(p: Dictionary) -> void:
+			if is_instance_valid(l):
+				l.set_params(p)
+		if hm:
+			hm.register_action("Luz · restablecer")
+			hm.add_do(apply_p.bind(after))
+			hm.add_undo(apply_p.bind(before))
+			hm.commit()
+		apply_p.call(after)
+		if ic and ic.has_method("_sync_selection"):
+			ic.call_deferred("_sync_selection")
+	else:
+		var t := String(LightToolScript.settings.get("type", "point"))
+		LightToolScript.settings = d.duplicate()
+		LightToolScript.settings["type"] = t
+	sync()
 
 func _add_row(grid: GridContainer, spec: Array) -> void:
 	var key: String = spec[0]
@@ -241,3 +309,7 @@ func _apply_theme() -> void:
 		TPS.style_section_label(l)
 	for k in _type_buttons:
 		TPS.style_toggle(_type_buttons[k], (_type_buttons[k] as Button).button_pressed)
+	for pc in _cards:
+		TPS.style_card(pc)
+	if _reset:
+		TPS.style_action(_reset)

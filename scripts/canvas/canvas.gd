@@ -114,6 +114,7 @@ var _herramientas_registradas: Dictionary = {}
 # ── Ciclo de Vida del Canvas ─────────────────────────────────────────────────
 
 func _ready() -> void:
+	light_mask = 0   # guías, recuadros y vistas previas de herramienta sin iluminar
 	if not get_node_or_null("/root/MCPRuntime"):
 		var mcp_scr = load("res://addons/godot_mcp/runtime/mcp_runtime.gd")
 		if mcp_scr:

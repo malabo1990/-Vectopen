@@ -219,6 +219,8 @@ func handle_input(event: InputEvent) -> bool:
 			return true
 		if _table_input(event, gm):
 			return true
+		if _light_input(event, gm):
+			return true
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:

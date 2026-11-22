@@ -25,6 +25,10 @@ const TYPE_INFO := {
 	"ambient": {"label": "Ambiente", "radius": false, "angle": false, "cone": false, "shadows": false},
 }
 const CAST_META := "casts_shadow"   # false en un objeto = no proyecta sombra
+## Capa de iluminación del CONTENIDO del documento: las luces solo alumbran
+## lo que la tiene (la página y sus objetos). La caja de selección, los
+## tiradores y el resto del editor no → no se tiñen (antes el azul salía cian).
+const DOC_LIGHT_BIT := 2
 const MODES := {"add": Light2D.BLEND_MODE_ADD, "mix": Light2D.BLEND_MODE_MIX, "sub": Light2D.BLEND_MODE_SUB}
 
 var lamp_type := "point":
@@ -71,6 +75,10 @@ var lamp_shadow_soft := 0.3:  # 0 = sombra nítida · 1 = muy difuminada
 	set(v):
 		lamp_shadow_soft = clampf(v, 0.0, 1.0)
 		rebuild()
+var lamp_shadow_length := 150.0:   # px que se alarga la sombra
+	set(v):
+		lamp_shadow_length = clampf(v, 0.0, 20000.0)
+		rebuild()
 
 var _light: Light2D = null
 static var _tex_cache := {}
@@ -79,8 +87,14 @@ func _init() -> void:
 	name = "Luz"
 	set_meta("shape_type", "light")
 
+## Ajustes de fábrica (botón «Restablecer» del panel).
+const DEFAULTS := {"color": Color(1.0, 0.92, 0.75), "energy": 1.2, "radius": 300.0, "angle": 45.0,
+	"cone": 45.0, "falloff": 0.0, "mode": "add", "shadows": true, "shadow_color": Color(0, 0, 0, 0.6),
+	"shadow_soft": 0.3, "shadow_length": 150.0}
+
 func _ready() -> void:
 	add_to_group(GROUP)
+	light_mask = 0   # el símbolo y la caja de la luz no se iluminan a sí mismos
 	rebuild()
 	# al abrir un documento la luz puede cargarse antes que las figuras:
 	# los oclusores se calculan otra vez cuando la página ya está completa
@@ -92,7 +106,8 @@ func _ready() -> void:
 func params() -> Dictionary:
 	return {"type": lamp_type, "color": lamp_color, "energy": lamp_energy, "radius": lamp_radius,
 		"angle": lamp_angle, "falloff": lamp_falloff, "mode": lamp_mode, "shadows": lamp_shadows,
-		"cone": lamp_cone, "shadow_color": lamp_shadow_color, "shadow_soft": lamp_shadow_soft}
+		"cone": lamp_cone, "shadow_color": lamp_shadow_color, "shadow_soft": lamp_shadow_soft,
+		"shadow_length": lamp_shadow_length}
 
 func set_params(p: Dictionary) -> void:
 	for k in p:
@@ -123,6 +138,15 @@ static func _cone_tex(falloff: float, cone: float) -> Texture2D:
 	_tex_cache[key] = t
 	return t
 
+static func _flat_tex() -> Texture2D:
+	if _tex_cache.has("flat"):
+		return _tex_cache["flat"]
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	var t := ImageTexture.create_from_image(img)
+	_tex_cache["flat"] = t
+	return t
+
 static func _radial(falloff: float) -> Texture2D:
 	var key := snappedf(falloff, 0.05)
 	if _tex_cache.has(key):
@@ -145,43 +169,39 @@ static func _radial(falloff: float) -> Texture2D:
 func rebuild() -> void:
 	if not is_inside_tree():
 		return
-	var want_point := lamp_type in ["point", "spot"]
-	if _light and ((_light is PointLight2D) != want_point):
+	# TODAS las luces son PointLight2D: DirectionalLight2D ignora la máscara de
+	# capas en Godot 4.7 y teñía la caja de selección y los tiradores (azul →
+	# cian). La direccional / ambiente = textura plana enorme (igual en toda la
+	# página); su dirección solo cuenta para las sombras (las calculamos aquí).
+	if _light and not (_light is PointLight2D):
 		_light.queue_free()
 		_light = null
 	if _light == null:
-		_light = PointLight2D.new() if want_point else DirectionalLight2D.new()
+		_light = PointLight2D.new()
 		_light.name = "_Light"
 		_light.set_meta(&"_vectopen_internal", true)
 		add_child(_light, false, Node.INTERNAL_MODE_FRONT)
 	_light.color = lamp_color
 	_light.energy = lamp_energy
 	_light.blend_mode = MODES[lamp_mode]
-	var info: Dictionary = TYPE_INFO[lamp_type]
-	_light.shadow_enabled = lamp_shadows and bool(info["shadows"])
-	_light.shadow_color = lamp_shadow_color
-	_light.shadow_filter = Light2D.SHADOW_FILTER_PCF13 if lamp_shadow_soft > 0.01 else Light2D.SHADOW_FILTER_NONE
-	_light.shadow_filter_smooth = lamp_shadow_soft * 12.0
-	if _light is PointLight2D:
-		var pl := _light as PointLight2D
-		if lamp_type == "spot":
+	# La sombra la dibujamos nosotros (light_shadow_node.gd: sombra EXTERIOR
+	# detrás de cada figura); la de Godot dejaba la figura oscura por dentro.
+	_light.shadow_enabled = false
+	_light.range_item_cull_mask = DOC_LIGHT_BIT
+	var pl := _light as PointLight2D
+	match lamp_type:
+		"spot":
 			pl.texture = _cone_tex(lamp_falloff, lamp_cone)
 			pl.rotation = deg_to_rad(lamp_angle) - global_rotation
-		else:
+			pl.texture_scale = lamp_radius / 128.0
+		"directional", "ambient":
+			pl.texture = _flat_tex()
+			pl.rotation = 0.0
+			pl.texture_scale = 40000.0 / 4.0   # cubre de sobra cualquier página
+		_:
 			pl.texture = _radial(lamp_falloff)
 			pl.rotation = 0.0
-		pl.texture_scale = lamp_radius / 128.0
-	else:
-		var dl := _light as DirectionalLight2D
-		if lamp_type == "ambient":
-			# luz uniforme en toda la página: sin dirección ni sombras
-			dl.rotation = 0.0
-			dl.height = 1.0
-			dl.max_distance = 0.0
-		else:
-			dl.rotation = deg_to_rad(lamp_angle - 90.0) - global_rotation
-			dl.height = 0.0
-			dl.max_distance = maxf(lamp_radius * 4.0, 2000.0)
+			pl.texture_scale = lamp_radius / 128.0
 	refresh_occluders()
 	queue_redraw()
 
@@ -206,47 +226,76 @@ static func _shapes_under(root: Node) -> Array:
 			out.append_array(_shapes_under(c))
 	return out
 
-## Pone / quita los oclusores según haya luces con sombra en la página.
+## Sombras EXTERIORES de las figuras de la página (todas las luces con
+## sombra): un nodo interno «_LightShadow» detrás de cada figura.
+const _ShadowNode = preload("res://script_gdscript/shapes/light_shadow_node.gd")
+
 func refresh_occluders() -> void:
 	var page := _page()
 	if page == null:
 		return
-	var any_shadow := false
+	mark_content(page)
+	var lights: Array = []
 	for l in page.find_children("*", "Node2D", true, false):
-		if l.is_in_group(GROUP) and bool(l.get("lamp_shadows")) and bool(TYPE_INFO.get(String(l.get("lamp_type")), {}).get("shadows", false)):
-			any_shadow = true
+		if l.is_in_group(GROUP) and bool(l.get("lamp_shadows")) and bool(TYPE_INFO.get(String(l.get("lamp_type")), {}).get("shadows", false)) and (l as Node2D).visible:
+			lights.append(l)
 	for s in _shapes_under(page):
-		var occ: LightOccluder2D = s.get_node_or_null(OCC_NAME)
-		if not any_shadow or s.get_meta(CAST_META, true) == false:
-			if occ:
-				occ.queue_free()
+		var old_occ: Node = s.get_node_or_null(OCC_NAME)
+		if old_occ:
+			old_occ.queue_free()   # documentos de antes: oclusores de Godot fuera
+		var sh: Node2D = s.get_node_or_null("_LightShadow")
+		if lights.is_empty() or s.get_meta(CAST_META, true) == false:
+			if sh:
+				sh.queue_free()
 			continue
 		var pts: PackedVector2Array = s.get_effect_points()
 		if pts.size() < 3:
 			continue
-		if occ == null:
-			occ = LightOccluder2D.new()
-			occ.name = OCC_NAME
-			occ.set_meta(&"_vectopen_internal", true)
-			s.add_child(occ, false, Node.INTERNAL_MODE_BACK)
-		var poly := OccluderPolygon2D.new()
-		poly.polygon = pts
-		poly.closed = true
-		poly.cull_mode = OccluderPolygon2D.CULL_DISABLED
-		occ.occluder = poly
+		if sh == null:
+			sh = _ShadowNode.new()
+			s.add_child(sh, false, Node.INTERNAL_MODE_FRONT)
+		var list: Array = []
+		var sxf: Transform2D = (s as Node2D).global_transform
+		var inv := sxf.affine_inverse()
+		var scale_k := maxf(sxf.get_scale().x, 0.0001)
+		for l in lights:
+			var dir_mode := String(l.lamp_type) == "directional"
+			var src: Vector2
+			if dir_mode:
+				src = inv.basis_xform(Vector2.from_angle(deg_to_rad(float(l.lamp_angle))))
+			else:
+				src = inv * (l as Node2D).global_position
+			var polys := _ShadowNode.project(pts, src, float(l.lamp_shadow_length) / scale_k, dir_mode)
+			list.append({"polys": polys, "color": l.lamp_shadow_color, "soft": float(l.lamp_shadow_soft) * 24.0 / scale_k})
+		sh.shadows = list
+		sh.queue_redraw()
+
+## La página y lo suyo entran en la capa que alumbran las luces.
+static func mark_content(page: Node) -> void:
+	if page is CanvasItem:
+		(page as CanvasItem).light_mask |= DOC_LIGHT_BIT
+	for ci in page.find_children("*", "CanvasItem", true, false):
+		if ci.is_in_group(GROUP):
+			continue   # el símbolo de la luz no
+		(ci as CanvasItem).light_mask |= DOC_LIGHT_BIT
 
 ## Tras cada paso del historial: los oclusores siguen la forma de las figuras.
 static func on_history_step(tree: SceneTree) -> void:
 	if tree == null:
 		return
+	if tree.get_nodes_in_group(GROUP).is_empty():
+		# sin luces: fuera las sombras que quedaran (luz borrada)
+		for ab in tree.get_nodes_in_group("artboards"):
+			for sh in ab.find_children("_LightShadow", "", true, false):
+				sh.queue_free()
+		return
 	for l in tree.get_nodes_in_group(GROUP):
-		if bool(l.get("lamp_shadows")):
-			l.call_deferred("refresh_occluders")
+		l.call_deferred("refresh_occluders")
 
 # ── selección y símbolo en el lienzo ─────────────────────────────────────────
 ## Caja de selección: el símbolo (no el alcance de la luz).
 func get_effect_points() -> PackedVector2Array:
-	var r := 14.0
+	var r := 22.0   # zona cómoda para cogerla (el símbolo mide ~28 px)
 	return PackedVector2Array([Vector2(-r, -r), Vector2(r, -r), Vector2(r, r), Vector2(-r, r)])
 
 func _on_canvas() -> bool:

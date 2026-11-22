@@ -62,8 +62,10 @@ func _run() -> void:
 	var with_shadow: float = await shot_px(ab, behind_p)
 	api.select([])
 	print("SOMBRA sin=%.3f con=%.3f base=%.3f" % [no_shadow, with_shadow, base_near])
+	var wall_in: float = await shot_px(ab, Vector2(420, 300))
+	K.check("la figura NO se oscurece por dentro (solo sombra exterior)", wall_in > 0.09, "%.3f" % wall_in)
 	K.check("con sombras, detrás del muro queda oscuro", with_shadow < no_shadow - 0.05, "%.2f vs %.2f" % [with_shadow, no_shadow])
-	K.check("el muro tiene su oclusor interno", wall.get_node_or_null("_LightOccluder") != null)
+	K.check("el muro tiene su sombra exterior", wall.get_node_or_null("_LightShadow") != null)
 	api.undo()
 	await K.frames(3)
 	K.check("deshacer (sombras)", not bool(L.lamp_shadows))
@@ -79,8 +81,8 @@ func _run() -> void:
 	K.check("reabrir: la luz y sus ajustes", L2 != null and bool(L2.lamp_shadows) and absf(float(L2.lamp_radius) - 500.0) < 0.5)
 	await K.frames(4)
 	var wall2: Node = L2.get_parent().find_child("Muro", true, false) if L2 else null
-	K.check("reabrir: el muro vuelve a tener su oclusor", wall2 != null and wall2.get_node_or_null("_LightOccluder") != null)
-	K.check("reabrir: el oclusor no se guardó como figura", L2 != null and L2.get_parent().find_children("_LightOccluder*", "", true, false).size() <= 2)
+	K.check("reabrir: el muro vuelve a tener su sombra", wall2 != null and wall2.get_node_or_null("_LightShadow") != null)
+	K.check("reabrir: la sombra no se guardó como figura", L2 != null and L2.get_parent().find_children("_LightShadow*", "", true, false).size() <= 2)
 	# PNG
 	if L2:
 		var ab2: Node2D = L2.get_parent() as Node2D
