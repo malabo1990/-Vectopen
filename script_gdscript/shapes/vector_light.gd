@@ -323,9 +323,13 @@ func refresh_occluders() -> void:
 			var off: Vector2 = inv.basis_xform(info["offset"])
 			# cuanto más se separa la sombra, más difusa (penumbra)
 			var spread: float = (info["offset"] as Vector2).length() * 0.35
-			list.append({"poly": pts, "off": off, "color": info["color"],
+			var entry := {"poly": pts, "off": off, "color": info["color"],
 				"soft": float(l.lamp_shadow_soft) * (8.0 + spread) * float(info["soft_k"]) / scale_k,
-				"fade": float(l.lamp_shadow_fade)})
+				"fade": float(l.lamp_shadow_fade)}
+			if info.has("src"):
+				entry["src"] = inv * (info["src"] as Vector2)
+				entry["grow"] = float(info["grow"])
+			list.append(entry)
 		sh.shadows = list
 		sh.queue_redraw()
 
@@ -389,7 +393,16 @@ static func shadow_for(l: Node2D, gp: Vector2, fill: float = 0.0) -> Dictionary:
 		col.a = a0
 	col.a *= strength
 	var soft_k := 1.4 - float(l.get("lamp_falloff"))
-	return {"offset": dir * length * amount, "strength": strength, "soft_k": soft_k, "color": col}
+	var out := {"offset": dir * length * amount, "strength": strength, "soft_k": soft_k, "color": col}
+	if t != "directional":
+		# Luz puntual / foco: proyección CENTRAL desde la luz. Cada punto de la
+		# figura se aleja de la luz a lo largo de SU rayo, así que los bordes
+		# de la sombra siguen los rayos que pasan por las esquinas (como de
+		# verdad). La direccional (sol) son rayos paralelos: desplazamiento.
+		var dist := maxf((gp - l.global_position).length(), 1.0)
+		out["src"] = l.global_position
+		out["grow"] = 1.0 + length * amount / dist
+	return out
 
 ## Luz ambiente de la página (rellena las sombras): 0..0.9.
 static func ambient_fill(page: Node) -> float:

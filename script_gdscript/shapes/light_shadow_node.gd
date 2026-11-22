@@ -62,7 +62,13 @@ func _draw() -> void:
 			if a <= 0.002:
 				continue
 			var lv := clampi(int(t * BLUR_LEVELS - 0.001), 0, BLUR_LEVELS - 1)
-			draw_set_transform(off * t)
+			if s.has("src"):
+				# proyección desde la luz: escala centrada en la luz
+				var src: Vector2 = s["src"]
+				var f := 1.0 + (float(s["grow"]) - 1.0) * t
+				draw_set_transform_matrix(Transform2D(0.0, Vector2(f, f), 0.0, src * (1.0 - f)))
+			else:
+				draw_set_transform(off * t)
 			for m in levels[lv]:
 				RenderingServer.canvas_item_add_triangle_array(ci, m[1], m[0],
 					PackedColorArray([Color(col, clampf(a * float(m[2]), 0.0, 1.0))]))

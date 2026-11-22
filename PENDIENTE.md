@@ -96,7 +96,7 @@ figuras; la luz cae suave hasta su final); clic = colocar, arrastrar
 ◆ apertura del foco) con un paso de deshacer; panel con tarjetas y
 «↺ Restablecer»; la caja de selección ya no se tiñe (las luces solo alumbran
 el contenido). Cada figura: «Proyecta sombra». .vtp, PNG / JPEG / WEBP; API
-`add_light` (`lights_e2e` 15/0, `light_tool_e2e` 48/0, `light_matrix_e2e` 42/0). Falta (después, a
+`add_light` (`lights_e2e` 15/0, `light_tool_e2e` 48/0, `light_matrix_e2e` 46/0). Falta (después, a
 petición del usuario):
 
 - Luz y sombras en SVG / PDF.

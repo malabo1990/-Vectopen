@@ -341,5 +341,38 @@ func _run() -> void:
 	Amb.queue_free()
 	D.queue_free()
 	await K.frames(4)
+	# ── 8. Luz puntual: la sombra sigue los RAYOS que pasan por las esquinas ──
+	# (escena del usuario: luz abajo a la izquierda, rectángulo arriba a la
+	# derecha; los bordes de la sombra = rayos luz→esquinas extremas)
+	box.position = C + Vector2(40, -60)
+	var PL = api.add_light(C + Vector2(-130, 150), "point", {"energy": 1.5, "radius": 600.0,
+		"color": Color(1, 1, 1), "shadow_length": 150.0, "shadow_fade": 0.2, "shadow_soft": 0.0,
+		"shadow_color": Color(0, 0, 0, 0.8), "falloff": 1.0})
+	await settle()
+	var lp: Vector2 = PL.position
+	var corners: Array = []
+	for cx in [-30.0, 30.0]:
+		for cy in [-30.0, 30.0]:
+			corners.append(box.position + Vector2(cx, cy))
+	var base_dir := (box.position - lp).normalized()
+	var c_min: Vector2 = corners[0]
+	var c_max: Vector2 = corners[0]
+	for c in corners:
+		if base_dir.angle_to(c - lp) < base_dir.angle_to(c_min - lp): c_min = c
+		if base_dir.angle_to(c - lp) > base_dir.angle_to(c_max - lp): c_max = c
+	# orthogonal() gira −90°: hacia ángulos menores (fuera, en la esquina mínima)
+	for pair in [[c_min, 1.0], [c_max, -1.0]]:
+		var corner: Vector2 = pair[0]
+		var rd := (corner - lp).normalized()
+		var nrm := rd.orthogonal() * float(pair[1])   # hacia FUERA de la sombra
+		var probe := corner + rd * 45.0
+		var inside: float = await darkening(PL, probe - nrm * 7.0)
+		var outside: float = await darkening(PL, probe + nrm * 7.0)
+		K.check("puntual: dentro del rayo por la esquina hay sombra", inside > 0.04, "%.3f" % inside)
+		K.check("puntual: fuera del rayo por la esquina no hay sombra", outside < 0.015, "%.3f" % outside)
+	await K.shot("puntual_rayos")
+	PL.queue_free()
+	box.position = C
+	await K.frames(4)
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)
