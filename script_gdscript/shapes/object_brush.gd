@@ -31,6 +31,13 @@ const DEFAULTS := {
 	"offset": 0.0,      # una copia: desplazamiento a lo largo (en longitudes del trazado)
 	"flip": false,      # patrón: al otro lado de la curva (texto por debajo)
 	"baseline": false,  # patrón: la figura APOYADA en la curva (texto en trazado), no centrada
+	# Patrón con piezas propias (como el pincel de motivo de Illustrator): nº
+	# de figura (0..) para el inicio, el final y las esquinas del trazo; −1 =
+	# ninguna. El lateral repite las demás figuras.
+	"start_piece": -1,
+	"end_piece": -1,
+	"corner_piece": -1,
+	"corner_angle": 45.0, # grados de giro a partir de los que hay esquina
 	# "rigid": patrón: cada letra/pieza rígida, solo girada con la curva (sin
 	# deformarse). Si no se indica: sí en una sola copia (texto en trazado).
 	# Una copia (texto en trazado), opcionales:
@@ -518,7 +525,18 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 	for hh in half:
 		hmax = maxf(hmax, hh)
 	var gap := maxf(maxf(float(pr["spacing"]), 0.05) - 1.0, 0.0)   # 1,1 → 10 % de hueco
-	var nominal := float(aspects[0]) * 2.0 * hmax * (1.0 + gap)
+	var n_obj := aspects.size()
+	var sp := clampi(int(pr.get("start_piece", -1)), -1, n_obj - 1)
+	var ep := clampi(int(pr.get("end_piece", -1)), -1, n_obj - 1)
+	var cp := clampi(int(pr.get("corner_piece", -1)), -1, n_obj - 1)
+	# Lateral: las figuras que no son de inicio / final / esquina.
+	var sides := PackedInt32Array()
+	for k in n_obj:
+		if k != sp and k != ep and k != cp:
+			sides.append(k)
+	if sides.is_empty():
+		sides.append(0)
+	var nominal := float(aspects[sides[0]]) * 2.0 * hmax * (1.0 + gap)
 	var count := clampi(int(round(total / maxf(nominal, 0.0001))), 1, 4000)
 	var seg_len := total / float(count)
 	var start := 0.0
@@ -532,11 +550,69 @@ static func _pattern_ctx(pts: PackedVector2Array, half: PackedFloat32Array, aspe
 		start = r.x + (r.y - r.x - seg_len) * clampf(float(pr.get("align", 0.0)), 0.0, 1.0) + float(pr.get("offset", 0.0)) * total
 	var order := PackedInt32Array()
 	for ti in count:
-		order.append(_pick(aspects.size(), ti, int(pr["seed"]), pr))
+		order.append(sides[_pick(sides.size(), ti, int(pr["seed"]), pr)])
+	if count > 1 and bool(pr.get("repeat", true)):
+		if cp >= 0:
+			for s_c in _corners(pts, cum, seg_len / 3.0, float(pr.get("corner_angle", 45.0))):
+				var tc := clampi(int((s_c - start) / seg_len), 0, count - 1)
+				order[tc] = cp
+		if sp >= 0:
+			order[0] = sp
+		if ep >= 0:
+			order[count - 1] = ep
 	return {"pts": pts, "half": half, "cum": cum, "nrm": nrm, "total": total,
 		"count": count, "seg_len": seg_len, "gap": gap, "order": order, "start": start,
 		"flip": -1.0 if bool(pr.get("flip", false)) else 1.0,
 		"vshift": -0.5 if bool(pr.get("baseline", false)) else 0.0}
+
+## Distancias (a lo largo del trazado) de sus ESQUINAS: puntos donde la
+## dirección gira más de `deg` grados entre `w` antes y `w` después (así un
+## giro hecho en varias muestras cuenta como una sola esquina y una curva
+## suave no cuenta). Una por racha: la del giro máximo.
+static func _corners(pts: PackedVector2Array, cum: PackedFloat32Array, w: float, deg: float) -> Array:
+	var out: Array = []
+	var n := pts.size()
+	var total := cum[n - 1]
+	if n < 3 or w <= 0.0:
+		return out
+	var lim := deg_to_rad(deg)
+	var best_s := -1.0
+	var best_a := 0.0
+	for i in range(1, n - 1):
+		var s := cum[i]
+		if s < w or s > total - w:
+			continue
+		var d_in := pts[i] - _point_at(pts, cum, s - w)
+		var d_out := _point_at(pts, cum, s + w) - pts[i]
+		var a := absf(d_in.angle_to(d_out)) if d_in.length() > 0.0001 and d_out.length() > 0.0001 else 0.0
+		if a > lim:
+			if a > best_a:
+				best_a = a
+				best_s = s
+		elif best_s >= 0.0:
+			out.append(best_s)
+			best_s = -1.0
+			best_a = 0.0
+	if best_s >= 0.0:
+		out.append(best_s)
+	return out
+
+static func _point_at(pts: PackedVector2Array, cum: PackedFloat32Array, s: float) -> Vector2:
+	var n := pts.size()
+	if s <= 0.0:
+		return pts[0]
+	if s >= cum[n - 1]:
+		return pts[n - 1]
+	var lo := 0
+	var hi := n - 1
+	while hi - lo > 1:
+		var mid := (lo + hi) / 2
+		if cum[mid] <= s:
+			lo = mid
+		else:
+			hi = mid
+	var seg := cum[hi] - cum[lo]
+	return pts[lo].lerp(pts[hi], (s - cum[lo]) / seg if seg > 0.0 else 0.0)
 
 ## Tramo [inicio, final] del trazado (en distancia) que ocupa una copia.
 static func range_of(pr: Dictionary, total: float) -> Vector2:

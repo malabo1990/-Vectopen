@@ -336,3 +336,45 @@ func test_texto_en_trazado_debajo_invertir_espejo() -> void:
 	pf["flip"] = true
 	var mf: Dictionary = OB.build(line, half, src, pf)
 	assert_float(signf(_signed_area(mf, Color.RED))).is_equal(-signf(area0))
+
+# ── Piezas de inicio / esquina / final (como el pincel de motivo de Illustrator)
+func _sq_piece(c: Color) -> Array:
+	return [{"pts": PackedVector2Array([Vector2(0, 0), Vector2(2, 0), Vector2(2, 1), Vector2(0, 1)]), "col": c}]
+
+## Color de la tesela `ti` (las teselas salen en orden a lo largo del trazo).
+func _tile_colors(m: Dictionary) -> Array:
+	var out: Array = []
+	var cols: PackedColorArray = m["colors"]
+	var per := cols.size() / maxi(1, int(m["stamps"]))
+	for ti in int(m["stamps"]):
+		out.append(cols[ti * per])
+	return out
+
+func test_patron_con_pieza_inicial_y_final() -> void:
+	var src := OB._normalize_all([_sq_piece(Color.RED), _sq_piece(Color.GREEN), _sq_piece(Color.BLUE)])
+	var p := _line(2, 100.0)
+	var m: Dictionary = OB.build(p, _const(2, 5.0), src, {"mode": "pattern", "spacing": 1.0, "start_piece": 1, "end_piece": 2})
+	var tc := _tile_colors(m)
+	assert_int(tc.size()).is_equal(5)
+	assert_that(tc[0]).is_equal(Color.GREEN)
+	assert_that(tc[4]).is_equal(Color.BLUE)
+	for i in range(1, 4):
+		assert_that(tc[i]).is_equal(Color.RED)   # el lateral: solo las piezas que no son inicio/final
+
+func test_patron_pieza_de_esquina_en_un_giro() -> void:
+	var src := OB._normalize_all([_sq_piece(Color.RED), _sq_piece(Color.YELLOW)])
+	# «L»: 100 a la derecha y 100 hacia abajo (giro de 90° en el centro)
+	var p := PackedVector2Array()
+	for i in 51:
+		p.append(Vector2(i * 2.0, 0.0))
+	for i in range(1, 51):
+		p.append(Vector2(100.0, i * 2.0))
+	var m: Dictionary = OB.build(p, _const(p.size(), 5.0), src, {"mode": "pattern", "spacing": 1.0, "corner_piece": 1})
+	var tc := _tile_colors(m)
+	assert_int(tc.size()).is_equal(10)
+	assert_int(tc.count(Color.YELLOW)).is_equal(1)
+	var k := tc.find(Color.YELLOW)
+	assert_bool(k == 4 or k == 5).is_true()   # la tesela que contiene el giro
+	# en una recta no hay esquinas
+	var m2: Dictionary = OB.build(_line(2, 100.0), _const(2, 5.0), src, {"mode": "pattern", "spacing": 1.0, "corner_piece": 1})
+	assert_int(_tile_colors(m2).count(Color.YELLOW)).is_equal(0)

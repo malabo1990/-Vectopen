@@ -29,7 +29,7 @@ Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 
 | Fase | Punto | Estado |
 |---|---|---|
-| 2 | Pincel de patrón con piezas distintas de inicio / esquina / final (como Illustrator) | Pendiente |
+| 2 | Pincel de patrón: la pieza de esquina va en la tesela que empieza en el giro; centrarla exactamente en la esquina (recolocando las teselas, como Illustrator) y editar las piezas de un trazo ya dibujado desde el inspector | Pendiente (mejora) |
 | 6 | Trazos de 100 000 muestras al dibujar: rehacer solo la cola (incremental). Hoy: 79 ms (pluma) / 160 ms (lápiz) por trazo completo | Pendiente |
 
 ---
@@ -602,8 +602,8 @@ utilizarlo como base para el futuro visor web.
 ## 3. Publicación y actualizaciones
 
 - [ ] Antes de publicar: recompilar `vectopen_io` para Windows y macOS
-      (`rust/build_cross.sh`): trae `fill_mesh` (relleno nativo, VAL-66). Sin
-      ella esos sistemas usan el relleno GDScript (más lento, igual de correcto).
+	  (`rust/build_cross.sh`): trae `fill_mesh` (relleno nativo, VAL-66). Sin
+	  ella esos sistemas usan el relleno GDScript (más lento, igual de correcto).
 
 - [ ] **[decisión]** Mac Intel: el vectorizador IA no existe (ONNX Runtime no
 	  tiene binarios para `x86_64-apple-darwin`): compilarlo desde fuente o

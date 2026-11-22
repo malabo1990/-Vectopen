@@ -381,6 +381,8 @@ var _obj_rotate: CheckBox
 var _obj_random: CheckBox
 var _obj_each: CheckBox
 var _obj_pattern: CheckBox
+var _obj_pieces_grid: GridContainer
+var _obj_pieces: Dictionary = {}   # "start_piece" / "corner_piece" / "end_piece" → NumericField
 
 ## Opciones del pincel de objeto (solo con ese estilo): qué figura se
 ## estampa (la selección o una de serie), separación, dispersión, giro y,
@@ -455,9 +457,33 @@ func _build_object_ui(parent: VBoxContainer) -> void:
 	_obj_pattern.tooltip_text = tr("La figura se repite y se dobla siguiendo el trazo (cenefas, marcos); si no, copias rígidas")
 	_obj_pattern.focus_mode = Control.FOCUS_NONE
 	_obj_pattern.add_theme_font_size_override("font_size", 10)
-	_obj_pattern.toggled.connect(func(on: bool) -> void: _set_obj("mode", "pattern" if on else "stamp"))
+	_obj_pattern.toggled.connect(func(on: bool) -> void:
+		_set_obj("mode", "pattern" if on else "stamp")
+		if is_instance_valid(_obj_pieces_grid):
+			_obj_pieces_grid.visible = on)
 	_checks.append(_obj_pattern)
 	_object_box.add_child(_obj_pattern)
+	# Piezas propias del patrón (como el pincel de motivo de Illustrator): nº
+	# de figura de la selección («Una a una») para el inicio, las esquinas y
+	# el final; 0 = ninguna (todo el trazo repite el lateral).
+	_obj_pieces_grid = GridContainer.new()
+	_obj_pieces_grid.name = "ObjPieces"
+	_obj_pieces_grid.columns = 6
+	_obj_pieces_grid.add_theme_constant_override("h_separation", 4)
+	_object_box.add_child(_obj_pieces_grid)
+	for spec in [["start_piece", "Inicio", "Figura del principio del trazo"],
+			["corner_piece", "Esquina", "Figura que va en cada esquina (giro brusco) del trazo"],
+			["end_piece", "Final", "Figura del final del trazo"]]:
+		var key: String = spec[0]
+		var nf := NumericField.new("", "", 0.0, 20.0, 1.0)
+		nf.name = "Obj_" + key
+		nf.decimals = 0
+		nf.value = 0.0
+		nf.tooltip_text = tr(spec[2]) + "\n" + tr("Nº de figura de la selección (en orden, con «Una a una»); 0 = ninguna")
+		nf.custom_minimum_size = Vector2(38, 22)
+		nf.value_changed.connect(func(v: float) -> void: _set_obj(key, int(v) - 1))
+		_field_pair(_obj_pieces_grid, spec[1], nf)
+		_obj_pieces[key] = nf
 
 func _set_obj(key: String, value) -> void:
 	if _syncing:
@@ -673,6 +699,10 @@ func _sync_from_tool() -> void:
 				_obj_rotate.set_pressed_no_signal(bool(op.get("rotate", true)))
 				_obj_random.set_pressed_no_signal(String(op.get("multi", "sequence")) == "random")
 				_obj_pattern.set_pressed_no_signal(String(op.get("mode", "stamp")) == "pattern")
+				for key in _obj_pieces:
+					(_obj_pieces[key] as NumericField).set_value_silent(float(int(op.get(key, -1)) + 1))
+				if is_instance_valid(_obj_pieces_grid):
+					_obj_pieces_grid.visible = String(op.get("mode", "stamp")) == "pattern"
 		_sync_pressure_ui(tool)
 	_syncing = false
 
