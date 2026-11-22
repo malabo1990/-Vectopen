@@ -212,9 +212,13 @@ sola app, sin perder el control preciso del objeto ni la salida a imprenta.
 > (`vtp_preview_e2e` 14/0). **Fase 2 hecha**: explorador en la misma ventana
 > (carpeta, lista de documentos con fecha y tamaño, del más reciente al más
 > antiguo, filtro por nombre, un clic abre la vista previa; recuerda la
-> carpeta) (`vtp_preview_e2e` 19/0). **Quedan las fases 3–4** (miniaturas y
-> su caché, info de objetos y capas) y la separación «modelo de documento /
-> nodos» para el runtime web.
+> carpeta) (`vtp_preview_e2e` 19/0). **Fase 3 hecha**: miniaturas de la
+> primera página en segundo plano (una cada vez, modo seguro), en caché
+> `user://thumbnails/` con clave ruta + fecha + tamaño (si el documento
+> cambia, la antigua deja de usarse) (`vtp_preview_e2e` 23/0). **Queda la
+> fase 4** (info de objetos y capas, recursos, navegación avanzada), limpiar
+> miniaturas huérfanas y la separación «modelo de documento / nodos» para el
+> runtime web.
 
 > Informe conceptual aportado por el usuario. **No hay diseño ni código
 > hecho**: es una propuesta para evaluar. El texto se guarda completo abajo;

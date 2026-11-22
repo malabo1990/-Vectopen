@@ -39,6 +39,13 @@ var _filter: LineEdit
 var _lbl_folder: Label
 var _explorer: VBoxContainer
 const PREFS_PATH := "user://vectopen_files.cfg"
+# Miniaturas (fase 3): PNG en caché por ruta + fecha + tamaño.
+const THUMB_DIR := "user://thumbnails"
+const THUMB_PX := 160
+var thumbs := {}               # ruta → Texture2D
+var _thumb_queue: Array = []
+var _thumb_busy := false
+var thumbs_made := 0           # cuántas se renderizaron (no venían de caché)
 
 ## Abre el visor (una ventana nueva) con `p`. Devuelve la ventana.
 static func open(tree: SceneTree, p: String = "") -> Window:
@@ -215,6 +222,9 @@ func set_folder(d: String) -> void:
 				var sz := fa.get_length() if fa else 0
 				docs.append({"path": fp, "name": f, "mtime": FileAccess.get_modified_time(fp), "size": sz})
 	docs.sort_custom(func(a, b) -> bool: return int(a["mtime"]) > int(b["mtime"]))
+	_list.fixed_icon_size = Vector2i(THUMB_PX / 2, THUMB_PX / 2)
+	_thumb_queue = docs.map(func(x): return x)
+	_next_thumb.call_deferred()
 	_lbl_folder.text = d.get_file() if d.get_file() != "" else d
 	_lbl_folder.tooltip_text = d
 	var cfg := ConfigFile.new()
@@ -233,8 +243,88 @@ func _fill_list() -> void:
 		var i := _list.add_item("%s  ·  %s  ·  %.0f KB" % [d["name"], when, float(d["size"]) / 1024.0])
 		_list.set_item_metadata(i, d["path"])
 		_list.set_item_tooltip(i, String(d["path"]))
+		if thumbs.has(d["path"]):
+			_list.set_item_icon(i, thumbs[d["path"]])
 		if String(d["path"]) == path:
 			_list.select(i)
+
+# ── miniaturas ───────────────────────────────────────────────────────────────
+## Clave de caché: cambia si el documento cambia (fecha o tamaño) → la
+## miniatura antigua deja de usarse sola.
+static func thumb_key(d: Dictionary) -> String:
+	return "%s_%d_%d" % [String(d["path"]).md5_text().substr(0, 16), int(d["mtime"]), int(d["size"])]
+
+static func thumb_path(d: Dictionary) -> String:
+	return THUMB_DIR.path_join(thumb_key(d) + ".png")
+
+## Una miniatura cada vez (sin bloquear la ventana): de la caché o renderizada.
+func _next_thumb() -> void:
+	if _thumb_busy or _thumb_queue.is_empty() or not is_inside_tree():
+		return
+	_thumb_busy = true
+	var d: Dictionary = _thumb_queue.pop_front()
+	var tp := thumb_path(d)
+	var tex: Texture2D = null
+	if FileAccess.file_exists(tp):
+		var img := Image.load_from_file(ProjectSettings.globalize_path(tp))
+		if img and not img.is_empty():
+			tex = ImageTexture.create_from_image(img)
+	if tex == null:
+		tex = await _render_thumb(String(d["path"]))
+		if tex:
+			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(THUMB_DIR))
+			tex.get_image().save_png(ProjectSettings.globalize_path(tp))
+			thumbs_made += 1
+	if tex and is_inside_tree():
+		thumbs[d["path"]] = tex
+		for i in _list.item_count:
+			if String(_list.get_item_metadata(i)) == String(d["path"]):
+				_list.set_item_icon(i, tex)
+	_thumb_busy = false
+	if is_inside_tree():
+		_next_thumb.call_deferred()
+
+## Primera página del documento en un SubViewport propio (modo seguro).
+func _render_thumb(p: String) -> Texture2D:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(THUMB_PX, THUMB_PX)
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var holder := Node2D.new()
+	vp.add_child(holder)
+	CS.safe_mode = true
+	var manifest: Dictionary = CS.rebuild_from_vtc(holder, p)
+	var first: Node2D = null
+	for c in holder.get_children():
+		if c is ArtboardEditor:
+			if c.is_in_group("artboards"):
+				c.remove_from_group("artboards")
+			if first == null:
+				first = c
+				if c.is_dormant:
+					if c.has_method("wake_now"):
+						c.wake_now()
+					else:
+						c.wake()
+			else:
+				c.visible = false
+	CS.safe_mode = false
+	if manifest.is_empty() or first == null:
+		vp.queue_free()
+		return null
+	var cam := Camera2D.new()
+	vp.add_child(cam)
+	cam.make_current()
+	var sz: Vector2 = first.artboard_size
+	var z := minf(THUMB_PX / maxf(sz.x, 1.0), THUMB_PX / maxf(sz.y, 1.0)) * 0.94
+	cam.zoom = Vector2(z, z)
+	cam.position = first.position + sz / 2.0
+	for i in 3:
+		await RenderingServer.frame_post_draw
+	var img := vp.get_texture().get_image()
+	vp.queue_free()
+	return ImageTexture.create_from_image(img) if img else null
 
 func _last_folder() -> String:
 	var cfg := ConfigFile.new()

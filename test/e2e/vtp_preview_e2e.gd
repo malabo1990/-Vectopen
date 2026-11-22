@@ -76,6 +76,29 @@ func _run() -> void:
 	K.check("clic en la lista abre ese documento", w.path.ends_with("otro.vtc") and w.pages.size() == 2)
 	w._filter.text = ""
 	w._filter.text_changed.emit("")
+	# Miniaturas (fase 3): se generan en segundo plano y quedan en caché
+	for _i in 120:
+		if w.thumbs.size() >= 2:
+			break
+		await process_frame
+	K.check("miniaturas de los dos documentos", w.thumbs.size() == 2, str(w.thumbs.size()))
+	var d0: Dictionary = w.docs[0]
+	K.check("la miniatura queda en la caché", FileAccess.file_exists(w.thumb_path(d0)))
+	var timg: Image = (w.thumbs[d0["path"]] as Texture2D).get_image()
+	var ink := 0
+	for y in range(0, timg.get_height(), 4):
+		for x in range(0, timg.get_width(), 4):
+			if timg.get_pixel(x, y).a > 0.5:
+				ink += 1
+	K.check("la miniatura tiene contenido (la página)", ink > 50, str(ink))
+	var made0: int = w.thumbs_made
+	w.thumbs.clear()
+	w.set_folder(path.get_base_dir())
+	for _i in 120:
+		if w.thumbs.size() >= 2:
+			break
+		await process_frame
+	K.check("segunda vez: salen de la caché (no se renderizan)", w.thumbs.size() == 2 and w.thumbs_made == made0, "%d → %d" % [made0, w.thumbs_made])
 	# Un archivo que no es un documento
 	var bad := ProjectSettings.globalize_path("user://vtp_preview/malo.vtc")
 	var f := FileAccess.open(bad, FileAccess.WRITE)
