@@ -615,11 +615,10 @@ utilizarlo como base para el futuro visor web.
 
 | ID | Fallo | Estado |
 |---|---|---|
-| VAL-40 | Esc no sale de la edición de texto en `letter_fx_e2e` y la caja del texto cambia al salir. Escape llega a `_input` pero no al editor nativo ni a `_unhandled_key_input`: algo lo consume en `_input` (sospecha: un tooltip abierto de Godot) | Abierto |
 | VAL-66 | Foto vectorizada (1 650 trazados, ~75 000 nodos): 13 s en dibujarse al abrirla. ~15 formas con huecos «pellizcados» cuestan ~0,5 s cada una (la triangulación de Godot falla y se rehace con todos los puntos): otro triangulador (nativo en Rust) o teselar con tolerancia | Abierto |
 | VAL-43 | Máscaras anidadas: Godot ignora el recorte interior (`clip_children` no se anida). Hoy `make_mask` lo rechaza; el panel Capas aún permite crearlas. Solución real = recorte geométrico propio | **[decisión]** |
 | VAL-56 | Tablas v2: herramienta de tabla con tiradores para redimensionar columnas en el lienzo y panel propio (la v1 está hecha) | Pendiente |
-| — | e2e en rojo: `text_format_e2e` (3), `letter_fx_e2e` (3, = VAL-40), `text_render_e2e` (3: «la letra asoma por fuera del efecto»), `text_advanced_e2e` (sin resultado), `google_fonts_e2e` (red) | Abierto |
+| — | `google_fonts_e2e` necesita red (descarga fuentes de Google): comprobarla con conexión | Abierto |
 | — | `AdaptiveUI_test` (ancho mínimo de Pro 272/280) falla a veces solo en la batería completa: depende del orden de las pruebas | Abierto |
 | — | Avisos «leaked at exit» al cerrar las pruebas con `quit()`; comprobar que la app instalada cierra limpia | Abierto |
 

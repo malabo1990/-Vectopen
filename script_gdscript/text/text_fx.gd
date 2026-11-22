@@ -224,12 +224,34 @@ func _build_layers(fx: Array) -> void:
 				hide_label = true
 			"color_overlay":
 				_drawer(_front, "color_overlay", e)
+				hide_label = hide_label or covers_fill(e)
 			"gradient_overlay":
 				_drawer(_front, "gradient_overlay", e)
+				hide_label = hide_label or covers_fill(e)
 	if hide_label:
 		_hide_label()
 	else:
 		_restore_label()
+
+## ¿La superposición de color / degradado tapa POR COMPLETO el relleno de las
+## letras (opaca)? Entonces sustituye al relleno y se oculta el texto original:
+## sus bordes suavizados (otro render, el de la fuente) asomaban como un filo
+## negro en los trazos inclinados (text_render_e2e).
+static func covers_fill(e: Dictionary) -> bool:
+	if clampf(float(e.get("opacity", 1.0)), 0.0, 1.0) < 0.999:
+		return false
+	match canonical(String(e.get("type", ""))):
+		"color_overlay":
+			return _col(e.get("color"), Color.RED).a >= 0.999
+		"gradient_overlay":
+			var cols = e.get("colors", [])
+			if not (cols is Array) or cols.size() < 2:
+				return true   # degradado de serie: opaco
+			for c in cols:
+				if _col(c, Color.BLACK).a < 0.999:
+					return false
+			return true
+	return false
 
 func _group(parent: Node, shader_path: String, e: Dictionary) -> CanvasGroup:
 	var g := CanvasGroup.new()

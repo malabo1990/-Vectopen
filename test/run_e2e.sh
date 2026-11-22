@@ -34,7 +34,14 @@ for t in "$@"; do
 	# E2E_ARGS: argumentos extra para Godot (p. ej. «--rendering-method gl_compatibility»)
 	# shellcheck disable=SC2086
 	timeout "${E2E_TIMEOUT:-450}" flatpak run "${ENVARGS[@]}" --command=godot org.godotengine.Godot --path . --screen 1 ${E2E_ARGS:-} \
-		-s "res://test/e2e/$t.gd" 2>&1 | head -c 60000 > "$LOG_DIR/$t.log"
+		-s "res://test/e2e/$t.gd" > "$LOG_DIR/$t.log" 2>&1
+	# Antes «| head -c 60000»: al llegar a 60 KB la tubería se cerraba y Godot
+	# moría por SIGPIPE a mitad de la prueba (text_advanced_e2e salía «sin
+	# resultado»). Ahora el registro entero; si pasa de 5 MB, principio + final.
+	if [ "$(stat -c %s "$LOG_DIR/$t.log")" -gt 5000000 ]; then
+		{ head -c 1000000 "$LOG_DIR/$t.log"; echo; echo "…[registro recortado]…"; tail -c 4000000 "$LOG_DIR/$t.log"; } > "$LOG_DIR/$t.log.tmp"
+		mv "$LOG_DIR/$t.log.tmp" "$LOG_DIR/$t.log"
+	fi
 	grep -E '^BENCH' "$LOG_DIR/$t.log"
 	echo "== $t: $(grep -cE '^PASS' "$LOG_DIR/$t.log") PASS $(grep -E '^FAIL|RESULT|SCRIPT ERROR' "$LOG_DIR/$t.log" | head -4 | tr '\n' ' ')"
 	restore   # cada prueba parte de los ajustes del usuario, no de los de la anterior
