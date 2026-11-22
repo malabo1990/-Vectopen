@@ -30,7 +30,6 @@ Documento: `docs/roadmap/VGSE-informe-conceptual-y-propuesta-tecnica.md`.
 | Fase | Punto | Estado |
 |---|---|---|
 | 2 | Pincel de patrón con piezas distintas de inicio / esquina / final (como Illustrator) | Pendiente |
-| 4 | Textura desde imagen: hoy se guarda la RUTA (si la imagen se mueve o se comparte el .vtp, sale «papel»): incrustarla en el documento | Pendiente |
 | 6 | Trazos de 100 000 muestras al dibujar: rehacer solo la cola (incremental). Hoy: 79 ms (pluma) / 160 ms (lápiz) por trazo completo | Pendiente |
 
 ---

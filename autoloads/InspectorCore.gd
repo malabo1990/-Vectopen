@@ -1580,6 +1580,9 @@ func _write_prop(shape, prop, value) -> void:
 				var ti: Dictionary = (shape.get_meta("brush_texture", {}) if shape.has_meta("brush_texture") else {}).duplicate()
 				ti["name"] = "image"
 				ti["path"] = String(value)
+				# Incrustada en el documento: se ve aunque la imagen se mueva o
+				# se comparta el .vtp.
+				ti["png"] = load("res://script_gdscript/shapes/stroke_textures.gd").embed(String(value))
 				shape.set_meta("brush_texture", ti)
 				var bri = shape.get_node_or_null("StrokeRender")
 				if bri and bri.has_method("_update_material"):

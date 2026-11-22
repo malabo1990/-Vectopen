@@ -12,12 +12,35 @@ const SIZE := 128
 
 static var _cache: Dictionary = {}
 
-## Textura de una IMAGEN del usuario (ruta del disco), en caché por ruta. Si
-## no se puede leer (movida, borrada), la de papel.
-static func image_texture(path: String) -> Texture2D:
-	if _cache.has("img:" + path):
-		return _cache["img:" + path]
-	var img := Image.load_from_file(path) if path != "" else null
+## Lado máximo de la imagen incrustada en el documento (mosaico: no hace
+## falta más; un PNG de 512 px son unas decenas de KB).
+const EMBED_MAX := 512
+
+## PNG (base64) de la imagen del disco, reducida a EMBED_MAX: se guarda DENTRO
+## del documento («png» de la meta brush_texture). "" si no se puede leer.
+static func embed(path: String) -> String:
+	var img := Image.load_from_file(path) if path != "" and FileAccess.file_exists(path) else null
+	if img == null or img.is_empty():
+		return ""
+	if img.get_width() > EMBED_MAX or img.get_height() > EMBED_MAX:
+		var k := float(EMBED_MAX) / float(maxi(img.get_width(), img.get_height()))
+		img.resize(maxi(1, int(img.get_width() * k)), maxi(1, int(img.get_height() * k)), Image.INTERPOLATE_LANCZOS)
+	return Marshalls.raw_to_base64(img.save_png_to_buffer())
+
+## Textura de una IMAGEN del usuario: la copia incrustada en el documento
+## (`b64`) y, si no hay, la ruta del disco (documentos antiguos). En caché.
+## Si no hay ninguna, la de papel.
+static func image_texture(path: String, b64: String = "") -> Texture2D:
+	var key := ("emb:%d" % b64.hash()) if b64 != "" else ("img:" + path)
+	if _cache.has(key):
+		return _cache[key]
+	var img: Image = null
+	if b64 != "":
+		img = Image.new()
+		if img.load_png_from_buffer(Marshalls.base64_to_raw(b64)) != OK:
+			img = null
+	if img == null and path != "" and FileAccess.file_exists(path):
+		img = Image.load_from_file(path)
 	if img == null or img.is_empty():
 		return get_texture("paper")
 	if img.get_width() > 1024 or img.get_height() > 1024:
@@ -25,7 +48,7 @@ static func image_texture(path: String) -> Texture2D:
 		img.resize(int(img.get_width() * k), int(img.get_height() * k))
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	_cache["img:" + path] = tex
+	_cache[key] = tex
 	return tex
 
 static func get_texture(name: String) -> Texture2D:

@@ -245,5 +245,21 @@ func _run() -> void:
 	img5.save_png(OUT.path_join("5_textura_imagen.png"))
 	var reds := count_color(img5, area, Color(1, 0.1, 0.1))
 	check("textura desde una imagen del usuario (cuadros rojos: %d px)" % reds, reds > 100 and String(l.get_meta("brush_texture").get("name", "")) == "image")
+	# 6) la imagen va INCRUSTADA: se borra del disco, se reabre el trazo
+	# (sin caché) y sigue pintándose con ella, no con «papel»
+	var CS = load("res://scripts/canvas/canvas_serializer.gd")
+	var d: Dictionary = CS._serialize_element(l)
+	DirAccess.remove_absolute(tex_path)
+	load("res://script_gdscript/shapes/stroke_textures.gd")._cache.clear()
+	var parent := l.get_parent()
+	var l2: Node2D = CS._element_from(d)
+	CS._apply_transform(l2, d)
+	l.queue_free()
+	parent.add_child(l2)
+	await frames(10)
+	await RenderingServer.frame_post_draw
+	var img6 := root.get_texture().get_image()
+	var reds6 := count_color(img6, area, Color(1, 0.1, 0.1))
+	check("imagen borrada del disco: el trazo reabierto la conserva (%d px)" % reds6, reds6 > 100 and String((l2.get_meta("brush_texture") as Dictionary).get("png", "")) != "")
 	print("RESULT: %s" % ("OK" if fails == 0 else "%d FAIL" % fails))
 	quit(1 if fails else 0)

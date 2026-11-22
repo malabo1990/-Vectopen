@@ -694,7 +694,7 @@ func _update_material() -> void:
 	mat.set_shader_parameter("use_tex", not tex.is_empty())
 	if not tex.is_empty():
 		var tname := String(tex.get("name", "canvas"))
-		mat.set_shader_parameter("stroke_tex", StrokeTextures.image_texture(String(tex.get("path", ""))) if tname == "image" else StrokeTextures.get_texture(tname))
+		mat.set_shader_parameter("stroke_tex", StrokeTextures.image_texture(String(tex.get("path", "")), String(tex.get("png", ""))) if tname == "image" else StrokeTextures.get_texture(tname))
 		mat.set_shader_parameter("tex_mode", 1.0 if String(tex.get("mode", "along")) == "paper" else 0.0)
 		mat.set_shader_parameter("tex_scale", float(tex.get("scale", 1.0)))
 		mat.set_shader_parameter("tex_strength", float(tex.get("strength", 1.0)))

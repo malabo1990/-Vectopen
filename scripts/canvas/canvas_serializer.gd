@@ -427,7 +427,15 @@ static func _serialize_element(node: Node2D) -> Dictionary:
 			# Texto en trazado: de qué texto y trazado sale (rutas relativas).
 			base["brush_ref"] = node.get_meta("brush_ref")
 		if node.has_meta("brush_texture"):
-			base["brush_texture"] = node.get_meta("brush_texture")
+			var bt: Dictionary = (node.get_meta("brush_texture") as Dictionary).duplicate()
+			# Documentos antiguos: solo la ruta → se incrusta al guardar si
+			# la imagen sigue en el disco.
+			if String(bt.get("name", "")) == "image" and String(bt.get("png", "")) == "":
+				var emb: String = load("res://script_gdscript/shapes/stroke_textures.gd").embed(String(bt.get("path", "")))
+				if emb != "":
+					bt["png"] = emb
+					node.set_meta("brush_texture", bt)
+			base["brush_texture"] = bt
 		if node.has_meta("brush_geo"):
 			base["brush_geo"] = node.get_meta("brush_geo")
 		if node.has_meta("brush_color_jitter"):
