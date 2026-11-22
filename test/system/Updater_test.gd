@@ -40,3 +40,12 @@ func test_paquete_por_sistema() -> void:
 	assert_str(U.asset_for(assets, "tar")["name"]).ends_with(".tar.gz")
 	assert_str(U.asset_for(assets, "android")["name"]).ends_with(".apk")
 	assert_bool(U.asset_for([], "rpm").is_empty()).is_true()
+
+## Windows: el instalador (se instala en silencio) va antes que el .zip
+## portátil, esté donde esté en la lista; sin instalador, el .zip.
+func test_windows_prefiere_el_instalador() -> void:
+	var zip := {"name": "Vectopen-0.2.4-beta-windows-x64.zip", "url": "z", "size": 1}
+	var setup := {"name": "Vectopen-0.2.4-beta-windows-x64-setup.exe", "url": "s", "size": 1}
+	assert_str(U.asset_for([zip, setup], "windows")["name"]).ends_with("-setup.exe")
+	assert_str(U.asset_for([setup, zip], "windows")["name"]).ends_with("-setup.exe")
+	assert_str(U.asset_for([zip], "windows")["name"]).ends_with(".zip")

@@ -6,7 +6,7 @@
 #   build/macos/Vectopen.zip   (Vectopen.app universal: Intel + Apple Silicon)
 #   build/linux/vectopen.x86_64 (+ libvectopen_*.so)
 # Resultado en dist/<versión>/:
-#   Windows  .zip
+#   Windows  -setup.exe (instalador NSIS, si hay makensis) y .zip portátil
 #   macOS    .dmg (imagen híbrida, se abre en macOS) y .zip
 #   Linux    .deb · .rpm · .tar.gz · .AppImage (si hay appimagetool)
 #   Android  .apk (si existe build/android/Vectopen.apk)
@@ -55,6 +55,23 @@ En esta alfa la pestaña Vectorizar no está disponible en Windows.
 EOF
 (cd "$WORK" && zip -qr9 "$OLDPWD/$DIST/Vectopen-$VERSION-windows-x64.zip" "$(basename "$W")")
 echo "  ✓ Windows zip"
+# Instalador (por usuario, sin administrador; el actualizador lo usa en silencio)
+if command -v makensis >/dev/null; then
+	python3 - "$ICON_SRC" "$WORK/vectopen.ico" <<'PY'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGBA")
+im.thumbnail((240, 240), Image.LANCZOS)
+c = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+c.paste(im, ((256 - im.width) // 2, (256 - im.height) // 2), im)
+c.save(sys.argv[2], sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+PY
+	makensis -V2 -DVERSION="$VERSION" -DNUM="$NUM" -DSRC="$W" -DICON="$WORK/vectopen.ico" \
+		-DOUT="$PWD/$DIST/Vectopen-$VERSION-windows-x64-setup.exe" packaging/windows/vectopen.nsi
+	echo "  ✓ Windows instalador"
+else
+	echo "  · sin makensis: no se genera el instalador de Windows"
+fi
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 M="$WORK/mac"

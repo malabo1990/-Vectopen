@@ -155,7 +155,7 @@ static func install_kind() -> String:
 
 ## El archivo de la release que toca para `kind` (o {} si no hay).
 static func asset_for(assets: Array, kind: String) -> Dictionary:
-	var want := {"rpm": [".rpm"], "deb": [".deb"], "windows": ["windows", ".exe", ".zip"],
+	var want := {"rpm": [".rpm"], "deb": [".deb"], "windows": ["setup.exe", "windows"],
 		"macos": [".dmg", "macos"], "tar": ["linux", ".tar.gz"], "android": [".apk"]}
 	for pattern in want.get(kind, []):
 		for a in assets:
@@ -245,6 +245,16 @@ func _install(file: String, kind: String) -> void:
 			else:
 				OS.shell_show_in_file_manager(file)
 				install_finished.emit(false, tr("No se instaló (¿contraseña cancelada?). El paquete está en la carpeta que se ha abierto."))
+		"windows" when file.to_lower().ends_with("setup.exe"):
+			# Instalador por usuario: se instala en silencio encima de esta
+			# versión cuando Vectopen se cierra, y se vuelve a abrir solo.
+			if OS.create_process(file, ["/S", "/RELAUNCH"]) > 0:
+				install_finished.emit(true, tr("Instalando la actualización: Vectopen se cerrará y se volverá a abrir."))
+				await get_tree().create_timer(1.0).timeout
+				get_tree().quit()
+			else:
+				OS.shell_open(file)
+				install_finished.emit(true, tr("Descargado. Termina la instalación en la ventana que se ha abierto."))
 		_:
 			if kind == "tar":
 				OS.shell_show_in_file_manager(file)

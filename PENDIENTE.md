@@ -531,8 +531,6 @@ utilizarlo como base para el futuro visor web.
 
 ## 3. Publicación y actualizaciones
 
-- [ ] **Decidido: instalador NSIS** · Windows: el paquete es un `.zip`; el botón de actualizar
-	  solo lo abre. Un instalador (`.exe`/`.msi`) permitiría actualizar de verdad.
 - [ ] **[usuario]** (hace falta comprar un certificado) Firmar los binarios de Windows y macOS (avisos de
 	  «desarrollador desconocido»; hace falta certificado).
 
