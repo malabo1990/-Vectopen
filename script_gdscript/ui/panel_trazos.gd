@@ -551,10 +551,19 @@ func _on_inspector_changed(props: Dictionary) -> void:
 	# Ancho
 	if _spin_size and props.has("stroke_width") and not props["stroke_width"]["mixed"]:
 		var w: float = float(props["stroke_width"]["value"])
-		if _spin_size.has_method("set_value"):
+		# SIN señal: set_value() emitía el cambio y otro panel lo volvía a
+		# aplicar a la selección (recortado a su máximo, 100 px) creando un
+		# paso de deshacer de más: tras arrastrar el grosor a 500, quedaba 100.
+		if _spin_size.has_method("set_value_no_signal"):
+			_spin_size.set_value_no_signal(w)
+		elif _spin_size.has_method("set_value"):
+			_spin_size.set_block_signals(true)
 			_spin_size.set_value(w)
+			_spin_size.set_block_signals(false)
 		elif "value" in _spin_size:
+			_spin_size.set_block_signals(true)
 			_spin_size.value = w
+			_spin_size.set_block_signals(false)
 
 	# Alineación
 	if props.has("stroke_align") and not props["stroke_align"]["mixed"]:

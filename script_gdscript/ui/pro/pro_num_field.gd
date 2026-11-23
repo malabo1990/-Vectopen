@@ -4,7 +4,7 @@
 # [icono o letra][valor][unidad] en una sola caja de 24 px:
 #   · arrastrar sobre el icono O sobre el número ajusta el valor: en
 #     horizontal (derecha = más) o en vertical (arriba = más), según hacia
-#     dónde se mueva primero (Shift ×0.1, Ctrl ×10) → `scrub_changed` en vivo
+#     dónde se mueva primero (Mayús / Ctrl ×10, Alt ×0,1) → `scrub_changed` en vivo
 #     y `scrub_ended` al soltar; un clic sin arrastrar entra a escribir.
 #     Se mide con la posición ABSOLUTA, sin capturar ni ocultar el ratón:
 #     con un lápiz de tableta (modo absoluto) la captura hacía saltar o
@@ -229,7 +229,7 @@ func _gui_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
 			_scrub = {"active": true, "v0": value, "moved": false, "axis": -1,
-				"start": ev.global_position}
+				"start": ev.global_position, "mul": 1.0}
 		elif _scrub["active"]:
 			var moved: bool = _scrub["moved"]
 			_scrub["active"] = false
@@ -247,16 +247,27 @@ func _gui_input(ev: InputEvent) -> void:
 			_scrub["moved"] = true
 			# eje dominante del primer movimiento: horizontal o vertical
 			_scrub["axis"] = 0 if absf(d.x) >= absf(d.y) else 1
-		var acc: float = d.x if int(_scrub["axis"]) == 0 else -d.y
+		# Mayús = RÁPIDO ×10 (como Photoshop; antes Mayús frenaba ×0,1 y el
+		# grosor «iba lento»), Ctrl también ×10, Alt = fino ×0,1.
 		var mul := 1.0
-		if Input.is_key_pressed(KEY_SHIFT):
-			mul = 0.1
-		elif Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
+		if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META):
 			mul = 10.0
+		elif Input.is_key_pressed(KEY_ALT):
+			mul = 0.1
+		# Cambiar de tecla a mitad del arrastre NO hace saltar el valor: se
+		# toma el valor actual como nuevo punto de partida.
+		if float(_scrub.get("mul", 1.0)) != mul:
+			_scrub["mul"] = mul
+			_scrub["v0"] = value
+			_scrub["start"] = ev.global_position
+			d = Vector2.ZERO
+		var acc: float = d.x if int(_scrub["axis"]) == 0 else -d.y
 		var stp := maxf(step, 0.01)
 		var nv := _clamp(float(_scrub["v0"]) + roundf(acc / 2.0) * stp * mul)
 		if adaptive_step:
-			nv = _clamp(maxf(float(_scrub["v0"]), 0.005) * pow(1.02, acc * mul))
+			# proporcional: ×10 sería demasiado (2 → 500 px en 60 px); ×3 rápido
+			var mul_a := 3.0 if mul > 1.0 else mul
+			nv = _clamp(maxf(float(_scrub["v0"]), 0.005) * pow(1.02, acc * mul_a))
 		if not is_equal_approx(nv, value) or _mixed:
 			_mixed = false
 			_set_raw(nv)

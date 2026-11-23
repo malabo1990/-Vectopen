@@ -326,9 +326,10 @@ func _gui_input(event: InputEvent) -> void:
 				var delta_val: float = dx * step * factor * 0.5
 				var new_v := clampf(_drag_start_val + delta_val, min_value, max_value)
 				if adaptive_step:
-					# multiplicativo: ~2 % por píxel (×0,1 con Mayús, ×5 con Ctrl)
+					# multiplicativo: ~2 % por píxel (×10 con Mayús / Ctrl, ×0,1 con Alt)
 					var base := maxf(_drag_start_val, 0.005)
-					new_v = clampf(base * pow(1.02, dx * factor), min_value, max_value)
+					var fa := 3.0 if factor > 1.0 else factor   # proporcional: ×3 basta para «rápido»
+					new_v = clampf(base * pow(1.02, dx * fa), min_value, max_value)
 				if not is_equal_approx(value, new_v):
 					value = new_v
 					value_changed.emit(value)
@@ -347,11 +348,15 @@ func _notification(what: int) -> void:
 		if not _is_editing:
 			_update_theme_styles(false, false)
 
+## Mayús / Ctrl = rápido ×10 (como Photoshop), Alt = fino ×0,1. Antes Mayús
+## frenaba ×0,1 y los números «iban lentos» con Mayús.
 func _get_modifier_factor(event: InputEvent) -> float:
-	if event.is_shift_pressed():
-		return 0.1 # Precisión fina
-	if event.is_ctrl_pressed() or event.is_meta_pressed():
-		return 5.0 # Salto grande
+	if event is InputEventWithModifiers:
+		var e := event as InputEventWithModifiers
+		if e.shift_pressed or e.ctrl_pressed or e.meta_pressed:
+			return 10.0
+		if e.alt_pressed:
+			return 0.1
 	return 1.0
 
 ## Evaluador de expresiones matemáticas (+10, -5, *2, /2, fórmulas).

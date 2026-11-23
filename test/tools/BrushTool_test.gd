@@ -109,8 +109,10 @@ func test_arrastrar_a_la_derecha_agranda_el_pincel() -> void:
 	motion.position = Vector2(150, 100) # +50px derecha
 	tool.handle_input(motion)
 
-	var expected: float = start_width + 50.0 * tool.RESIZE_SENSITIVITY
+	# proporcional (~1,5 % por px): +50 px ≈ ×2,1
+	var expected: float = tool.resize_width(start_width, 50.0)
 	assert_float(tool.brush_width).is_equal_approx(expected, 0.01)
+	assert_float(tool.brush_width).is_greater(start_width * 1.9)
 
 func test_arrastrar_a_la_izquierda_reduce_y_respeta_el_minimo() -> void:
 	var tool := _make_tool_with_canvas()

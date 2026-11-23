@@ -3,7 +3,7 @@
 # Campo de GROSOR DE TRAZO al estilo Affinity (USR-39), común a los modos:
 #   · arrastrar el número (horizontal o vertical) cambia el grosor EN VIVO y
 #     al soltar queda UN solo paso de deshacer (antes, en Pro, uno por píxel);
-#     Mayús = fino, Ctrl = rápido; clic = escribir (admite «2pt», «0,5 mm»…);
+#     Mayús / Ctrl = rápido, Alt = fino; clic = escribir (admite «2pt», «0,5 mm»…);
 #   · menú ▾ con grosores predefinidos y la UNIDAD (px, pt, mm) en que se
 #     muestra; el documento sigue guardando px (96 ppp).
 # Habla con InspectorCore: no necesita manejadores en el panel que lo usa.
@@ -30,7 +30,7 @@ func _init(glyph: String = "≡") -> void:
 	name = "StrokeWidthField"
 	add_theme_constant_override("separation", 2)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	num = _NumField.new("", glyph, tr("Grosor del trazo: arrastra para ajustar (Mayús fino, Ctrl rápido) o escribe; ▾ grosores y unidad"))
+	num = _NumField.new("", glyph, tr("Grosor del trazo: arrastra para ajustar (Mayús rápido, Alt fino) o escribe; ▾ grosores y unidad"))
 	num.name = "WidthNum"
 	num.min_value = 0.0
 	num.max_value = MAX_PX * factor()
@@ -136,7 +136,9 @@ func _on_scrub(v: float) -> void:
 	for s in _before:
 		if is_instance_valid(s):
 			ic._write(s, "stroke_width", _px)
-	ic.post_write_live()
+	# Sin resincronizar TODOS los paneles en cada movimiento (con 500 trazos
+	# seleccionados eran ~200 ms por fotograma): lo hacen al soltar.
+	ic.post_write_live(false)
 
 func _on_scrub_end(_v: float) -> void:
 	var ic := _ic()

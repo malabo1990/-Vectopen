@@ -210,6 +210,15 @@ var _resize_start_width: float = 0.0
 const RESIZE_SENSITIVITY := 0.2
 const MIN_BRUSH_WIDTH := 0.005   # antes 0,5: con mucho zoom no se podía pintar más fino
 const MAX_BRUSH_WIDTH := 100.0
+## Mayús + arrastre: cambio PROPORCIONAL (~1,5 % por px de pantalla, como
+## Krita / Photoshop) más un pequeño término lineal para los grosores muy
+## finos. Antes era lineal (0,2 px por px): de 5 a 100 px había que arrastrar
+## ~475 px y se sentía lento; ahora ~200 px.
+const RESIZE_RATE := 1.015
+
+static func resize_width(start: float, delta_x: float) -> float:
+	var w := maxf(start, MIN_BRUSH_WIDTH) * pow(RESIZE_RATE, delta_x) + delta_x * 0.02
+	return clampf(w, MIN_BRUSH_WIDTH, MAX_BRUSH_WIDTH)
 
 var _cursor_world: Vector2 = Vector2.INF
 var _eraser_mode: bool = false
@@ -348,7 +357,7 @@ func handle_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseMotion and _is_resizing:
 		var delta_x: float = event.position.x - _resize_start_x
-		brush_width = clampf(_resize_start_width + delta_x * RESIZE_SENSITIVITY, MIN_BRUSH_WIDTH, MAX_BRUSH_WIDTH)
+		brush_width = resize_width(_resize_start_width, delta_x)
 		canvas.queue_redraw()
 		return true
 
@@ -566,7 +575,8 @@ func draw_preview(c: Node2D) -> void:
 
 	# HUD de grosor numérico al pulsar Shift o al redimensionar
 	if Input.is_key_pressed(KEY_SHIFT) or _is_resizing:
-		var txt := "%d px" % int(round(brush_width))
+		# con decimales en los grosores finos (antes 0,5 px salía «0 px»)
+		var txt := ("%d px" % int(round(brush_width))) if brush_width >= 10.0 else ("%s px" % String.num(brush_width, 1 if brush_width >= 1.0 else 2))
 		var font: Font = ThemeDB.fallback_font
 		var f_size: int = int(clampf(12.0 * px, 10.0, 24.0))
 		var str_sz := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, f_size)
