@@ -117,7 +117,7 @@ func _ready() -> void:
 	_apply_quality_settings()
 	_last_activity_ms = Time.get_ticks_msec()
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	set_process(idle_render_enabled)
+	set_process(true)   # también suelta el modo de arrastre rápido
 	_conectar_actividad()
 
 ## Señales del editor que cuentan como actividad aunque no haya input del ratón
@@ -134,12 +134,60 @@ func _conectar_actividad() -> void:
 		if ge.has_signal(s) and not ge.is_connected(s, mark_activity):
 			ge.connect(s, mark_activity)
 
+# ── Baja latencia al ARRASTRAR (como Inkscape) ───────────────────────
+## Con el botón pulsado (mover, grosor, dibujar…) se quitan los dos frenos
+## que dejaban la figura 2-3 fotogramas detrás del cursor (33-50 ms): el tope
+## de 60 FPS y la sincronización vertical. Un fotograma cuesta ~4 ms, así que
+## el último siempre está listo para el compositor (que ya evita el tearing).
+## Al soltar vuelve todo como estaba: en reposo no se gasta GPU.
+@export var low_latency_drag: bool = true
+const DRAG_FPS: int = 240
+const DRAG_RELEASE_MS: int = 250
+var _drag_fast := false
+var _drag_prev_vsync := -1
+var _drag_prev_fps := 0
+var _drag_release_at := 0
+
+func _enter_drag_fast() -> void:
+	if _drag_fast or not low_latency_drag:
+		return
+	_drag_fast = true
+	_drag_prev_fps = Engine.max_fps
+	_drag_prev_vsync = DisplayServer.window_get_vsync_mode()
+	if _drag_prev_vsync != DisplayServer.VSYNC_DISABLED:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	if _drag_prev_fps != 0:
+		Engine.max_fps = DRAG_FPS
+
+func _exit_drag_fast() -> void:
+	if not _drag_fast:
+		return
+	_drag_fast = false
+	if _drag_prev_vsync != DisplayServer.VSYNC_DISABLED and _drag_prev_vsync >= 0:
+		DisplayServer.window_set_vsync_mode(_drag_prev_vsync)
+	if _drag_prev_fps != 0 and Engine.max_fps == DRAG_FPS:
+		Engine.max_fps = _drag_prev_fps
+	_drag_release_at = 0
+
+## ¿Arrastre en curso? (pruebas)
+func is_drag_fast() -> bool:
+	return _drag_fast
+
 ## Cualquier entrada = actividad → volver a FPS pleno al instante.
-func _input(_event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	_last_activity_ms = Time.get_ticks_msec()
 	if _is_idle:
 		_is_idle = false
 		Engine.max_fps = target_fps
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
+			_drag_release_at = 0
+			_enter_drag_fast()
+		elif not event.pressed and _drag_fast:
+			_drag_release_at = Time.get_ticks_msec() + DRAG_RELEASE_MS
+	elif event is InputEventMouseMotion and event.button_mask != 0:
+		_drag_release_at = 0
+		_enter_drag_fast()
 
 ## Además del input, ciertas señales del editor cuentan como actividad
 ## (crear/mover/borrar figuras, cambiar de herramienta, deshacer…): así una
@@ -153,6 +201,8 @@ func mark_activity(_a: Variant = null, _b: Variant = null, _c: Variant = null) -
 		Engine.max_fps = target_fps
 
 func _process(_delta: float) -> void:
+	if _drag_fast and _drag_release_at > 0 and Time.get_ticks_msec() >= _drag_release_at:
+		_exit_drag_fast()
 	if not idle_render_enabled or _is_idle:
 		return
 	var now := Time.get_ticks_msec()
@@ -165,7 +215,7 @@ func _process(_delta: float) -> void:
 
 func set_idle_render(enabled: bool) -> void:
 	idle_render_enabled = enabled
-	set_process(enabled)
+	set_process(true)
 	if not enabled and _is_idle:
 		_is_idle = false
 		Engine.max_fps = target_fps
