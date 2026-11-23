@@ -204,6 +204,10 @@ func _find_path_at_global(gm: Vector2) -> Path2D:
 	return found
 
 func _collect_paths(node: Node, out: Array) -> void:
+	# Una TABLA no se edita por nodos: sus líneas y fondos se generan de sus
+	# datos (antes salían los tiradores Bézier de la rejilla).
+	if node.has_meta("table"):
+		return
 	if node is Path2D and node.curve is Curve2D:
 		out.append(node)
 	for child in node.get_children():
@@ -218,7 +222,15 @@ func _get_event_gm(event: InputEvent) -> Vector2:
 		return canvas.get_global_mouse_position()
 	return Vector2.ZERO
 
+## El trazado que se editaba ya no está (p. ej. se deshizo su creación):
+## soltarlo para no seguir dibujando ni tocando un nodo fuera de la escena.
+func _drop_stale_path() -> void:
+	if edit_path != null and (not is_instance_valid(edit_path) or not edit_path.is_inside_tree()):
+		edit_path = null
+		selected_nodes.clear()
+
 func handle_input(event: InputEvent) -> bool:
+	_drop_stale_path()
 	# Solo el ratón sobre un panel se ignora; el teclado (Esc, Supr, flechas…)
 	# funciona esté donde esté el puntero.
 	if event is InputEventMouse and "is_mouse_over_ui" in GlobalUI and GlobalUI.is_mouse_over_ui:
@@ -1186,6 +1198,7 @@ func set_selected_nodes_mode(mode: String) -> void:
 # ── Renderizado Overlays en Pantalla ──────────────────────────────────────────
 
 func draw_preview(c: Node2D) -> void:
+	_drop_stale_path()
 	if not is_instance_valid(c):
 		return
 

@@ -1336,6 +1336,10 @@ func _es_interno(n: Node) -> bool:
 func _es_capa(n: Node) -> bool:
 	if n.has_meta(&"_vectopen_internal") or String(n.name) in INTERNAL_NAMES:
 		return false
+	# Las piezas de una TABLA (filas, líneas, celdas) se generan de sus datos:
+	# en Capas la tabla es UN objeto.
+	if n.get_parent() and n.get_parent().has_meta("table"):
+		return false
 	if n is VectorShape or n is Line2D or n is Polygon2D or n is Sprite2D or n is Path2D:
 		return true
 	if n.has_meta("shape_type"):

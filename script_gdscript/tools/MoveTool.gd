@@ -9,6 +9,7 @@
 class_name MoveTool
 extends "res://script_gdscript/tools/move/move_tool_draw.gd"
 const _SelectPrefs = preload("res://script_gdscript/tools/move/select_prefs.gd")
+const _TableEditRef = preload("res://script_gdscript/shapes/table.gd")
 # Herramienta Mover. Dividida en módulos (script_gdscript/tools/move/):
 #   move_tool_core → transform → ops → threading → keyboard → 3d → draw → MoveTool
 # Aquí quedan el ciclo de vida, la entrada (ratón/teclado) y el doble clic.
@@ -315,6 +316,23 @@ func _on_double_click(gm: Vector2) -> bool:
 	# Usamos is_instance_valid para mayor seguridad de memoria en Godot 4
 	if not is_instance_valid(hit): 
 		return false
+
+	# TEXTO CONVERTIDO A CURVAS: doble clic = nodos Bézier de la letra bajo el
+	# cursor, directamente (antes: un doble clic para entrar al grupo y otro
+	# para los nodos).
+	if hit.has_meta("from_text"):
+		var letra: Node2D = hit
+		while true:
+			var h2: Node2D = _hijo_bajo_punto(letra, gm)
+			if not is_instance_valid(h2) or h2 == letra:
+				break
+			letra = h2
+		if letra is Path2D:
+			hit = letra
+	# TABLA: doble clic = escribir en la celda bajo el cursor (también vacía)
+	var tbl = _TableEditRef.table_of(hit)
+	if tbl != null:
+		return _TableEditRef.edit_cell_at(tbl, gm, self)
 	
 	# Soporte para Modo Edición 3D (rotación y zoom orbital)
 	if hit.has_method("set_3d_editing"):
@@ -396,8 +414,10 @@ func _on_double_click(gm: Vector2) -> bool:
 			else:
 				herramienta_nodos.selected_nodes.clear()
 				
-		canvas.change_tool(herramienta_nodos)
+		# GlobalEvents ANTES de cambiar de herramienta: después Mover ya no
+		# está en la escena y get_node con ruta absoluta daba error.
 		var ge = get_node_or_null("/root/GlobalEvents")
+		canvas.change_tool(herramienta_nodos)
 		if ge and ge.has_signal("request_bezier_panel"):
 			ge.emit_safe("request_bezier_panel")
 		return true
@@ -509,6 +529,8 @@ func _on_press(gm: Vector2) -> bool:
 		var ctrl_k: bool = Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META)
 		if _SelectPrefs.deep_select() and ctrl_k:
 			pass   # grupo de primer nivel tal cual
+		elif hit.has_meta("table"):
+			pass   # una TABLA se selecciona entera (sus piezas se generan de sus datos)
 		elif (ctrl_k or _SelectPrefs.deep_select()) and _es_grupo_movetool(hit):
 			var actual: Node2D = hit
 			while true:

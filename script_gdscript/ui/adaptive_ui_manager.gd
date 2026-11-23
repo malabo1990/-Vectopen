@@ -35,7 +35,7 @@ const EDGE_GAP := 10.0
 
 # Paneles flotantes de herramienta (hijos de Herramientas) que en Modern se
 # acoplan al DockedInspector en lugar de flotar junto al lienzo.
-const TOOL_PANEL_NAMES := ["polygon", "text", "Selector", "bezier", "brush", "light", "blend", "layout"]
+const TOOL_PANEL_NAMES := ["polygon", "text", "Selector", "bezier", "brush", "light", "blend", "layout", "table"]
 
 # Elementos existentes de main.tscn a armonizar
 @export var barra_visual_panel: Control
@@ -910,7 +910,7 @@ func _update_toolbar_subpanels_direction(is_pro: bool, is_modern: bool = false) 
 			bez.offset_left = -325.0
 			bez.offset_right = -15.0
 
-	for pname in ["brush", "light", "blend", "layout"]:
+	for pname in ["brush", "light", "blend", "layout", "table"]:
 		var bru = tools.get_node_or_null(pname) as Control
 		if is_instance_valid(bru):
 			bru.z_index = 100
@@ -924,7 +924,7 @@ func _update_toolbar_subpanels_direction(is_pro: bool, is_modern: bool = false) 
 	# Ajuste final con la geometría REAL: cada subpanel queda a EDGE_GAP del
 	# borde exterior del panel de capas (antes: polígonos pegado, texto a 4
 	# px, selector a 27…), también cada vez que se abre.
-	for sub_name in ["polygon", "text", "Selector", "bezier", "brush", "light", "blend", "layout"]:
+	for sub_name in ["polygon", "text", "Selector", "bezier", "brush", "light", "blend", "layout", "table"]:
 		var sp = tools.get_node_or_null(sub_name) as Control
 		if is_instance_valid(sp):
 			if not sp.visibility_changed.is_connected(_align_subpanel):
@@ -1189,6 +1189,18 @@ func _get_tool_panel(panel_name: String) -> Control:
 ## Solo en Modern/Pro; en Smart los paneles los abren sus propios botones.
 func _on_request_tool_panel(panel_name: String) -> void:
 	if _tool_panel_host() == null:
+		# Smart: los paneles viven en la columna «Herramientas»; el pedido deja
+		# visible SOLO el pedido (antes no hacía nada y, p. ej., «Bézier y
+		# nodos» se quedaba encima del panel Tabla).
+		var tools: Control = layout_node.find_child("Herramientas", true, false) as Control if is_instance_valid(layout_node) else null
+		if tools:
+			for n in TOOL_PANEL_NAMES:
+				var p := tools.get_node_or_null(n) as Control
+				if is_instance_valid(p) and n != panel_name:
+					p.visible = false
+			var want := tools.get_node_or_null(panel_name) as Control
+			if is_instance_valid(want):
+				want.visible = true
 		return
 	_ensure_tool_panels_hosted()
 	for n in TOOL_PANEL_NAMES:

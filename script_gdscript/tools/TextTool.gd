@@ -223,9 +223,11 @@ func handle_input(event: InputEvent) -> bool:
 
 # ── Métodos para Edición y Creación ──────────────────────────────────────────
 
-func _check_and_trigger_edit_at(local_pos: Vector2) -> void:
+## `forced`: editar ESE texto (p. ej. la celda de una tabla, que está dentro
+## de su grupo y no la encontraría el clic).
+func _check_and_trigger_edit_at(local_pos: Vector2, forced: Node2D = null) -> void:
 	var gm = target_artboard.to_global(local_pos)
-	var hit: Node2D = _shape_at(gm)
+	var hit: Node2D = forced if is_instance_valid(forced) else _shape_at(gm)
 	
 	if hit and hit.has_meta("shape_type") and hit.get_meta("shape_type") == "text_title":
 		if is_editing:
@@ -360,7 +362,8 @@ func commit_text_edit(switch_tool: bool = true) -> void:
 			final_text = vrt.get_text().strip_edges()
 		elif title_edit:
 			final_text = title_edit.text.strip_edges()
-		if final_text == "": final_text = "Título Nuevo"
+		# Una CELDA de tabla vacía se queda vacía (antes salía «Título Nuevo»)
+		if final_text == "" and not shape.has_meta("table_cell"): final_text = "Título Nuevo"
 		
 		var pre: String = title_edit.text if title_edit and vrt == null else str(shape.get_meta("text", final_text))
 		TextRuns.apply_text_edit(shape, pre, final_text)
