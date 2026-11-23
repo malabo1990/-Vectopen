@@ -1,7 +1,7 @@
 ## E2E RENDIMIENTO: Mayús + arrastrar en el lienzo (herramienta Pincel)
 ## cambia el grosor del pincel. Con un documento PESADO (2000 trazos):
 ## cada fotograma del gesto debe ir fluido y el grosor debe cambiar rápido
-## (proporcional: ~200 px de arrastre de 5 a 100 px).
+## (proporcional: ~100 px de arrastre de 5 a más de 50 px).
 extends SceneTree
 
 var K
@@ -214,7 +214,10 @@ func _run() -> void:
 	dv.button_mask = MOUSE_BUTTON_MASK_LEFT
 	_send(dv)
 	await K.frames(2)
+	var w_100 := 0.0
 	for i in range(1, 41):
+		if i == 21:
+			w_100 = bt.brush_width
 		var mv := InputEventMouseMotion.new()
 		mv.position = c + Vector2(0, -i * 5)
 		mv.global_position = mv.position
@@ -230,7 +233,8 @@ func _run() -> void:
 	uv.pressed = false
 	_send(uv)
 	await K.frames(3)
-	print("BENCH pincel_vertical_grosor=%.1f" % w_v)
+	print("BENCH pincel_vertical_grosor=%.1f a_100px=%.1f" % [w_v, w_100])
+	K.check("INSTANTÁNEO: 100 px hacia arriba ya llevan el pincel de 5 a más de 50 px", w_100 > 50.0, "%.1f px" % w_100)
 	K.check("Mayús + arrastrar en VERTICAL también cambia el grosor (arriba = más)", w_v > 80.0, "%.1f px" % w_v)
 	K.check("no se ha dibujado ningún trazo con el gesto", ab.get_children().filter(func(n) -> bool: return n is Line2D).size() == 2000)
 	await K.frames(4)

@@ -8,7 +8,7 @@
 # =============================================================================
 extends RefCounted
 
-const RATE := 1.015
+const RATE := 1.03
 const MAX_W := 500.0
 ## Herramientas en las que vale el gesto (Mover usa Mayús para restringir).
 const TOOLS := ["CircleTool.gd", "PentagonTool.gd", "StarTool.gd", "Star4Tool.gd", "Star5Tool.gd",
@@ -24,7 +24,7 @@ func _init(cv: Node2D) -> void:
 	canvas = cv
 
 static func width_for(start: float, d: float) -> float:
-	return clampf(maxf(start, 0.5) * pow(RATE, d) + d * 0.02, 0.0, MAX_W)
+	return clampf(maxf(start, 0.5) * pow(RATE, d) + d * 0.05, 0.0, MAX_W)
 
 func _ic() -> Node:
 	return canvas.get_node_or_null("/root/InspectorCore")

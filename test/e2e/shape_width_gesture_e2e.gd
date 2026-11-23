@@ -82,7 +82,7 @@ func _run() -> void:
 		var n0: int = ab.get_child_count()
 		await drag(tf.call(case[2]), Vector2(0, -150), 30)   # VERTICAL hacia arriba
 		var w_up := float(case[1].stroke_width)
-		K.check("%s: Mayús + arrastrar en VERTICAL engorda el trazo en vivo" % case[0], w_up > 12.0, "%.2f" % w_up)
+		K.check("%s: Mayús + arrastrar en VERTICAL engorda el trazo en vivo" % case[0], w_up > 40.0, "%.2f" % w_up)
 		K.check("%s: no dibuja una figura nueva" % case[0], ab.get_child_count() == n0)
 		await drag(tf.call(case[2]), Vector2(-120, 0), 24)   # horizontal izquierda = más fino
 		K.check("%s: hacia la izquierda adelgaza" % case[0], float(case[1].stroke_width) < w_up, "%.2f" % float(case[1].stroke_width))

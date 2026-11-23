@@ -215,7 +215,7 @@ const MAX_BRUSH_WIDTH := 100.0
 ## Krita / Photoshop) más un pequeño término lineal para los grosores muy
 ## finos. Antes era lineal (0,2 px por px): de 5 a 100 px había que arrastrar
 ## ~475 px y se sentía lento; ahora ~200 px.
-const RESIZE_RATE := 1.015
+const RESIZE_RATE := 1.025
 
 static func resize_width(start: float, delta_x: float) -> float:
 	var w := maxf(start, MIN_BRUSH_WIDTH) * pow(RESIZE_RATE, delta_x) + delta_x * 0.02

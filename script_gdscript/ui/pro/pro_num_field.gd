@@ -266,8 +266,8 @@ func _gui_input(ev: InputEvent) -> void:
 		var nv := _clamp(float(_scrub["v0"]) + roundf(acc / 2.0) * stp * mul)
 		if adaptive_step:
 			# proporcional: ×10 sería demasiado (2 → 500 px en 60 px); ×3 rápido
-			var mul_a := 3.0 if mul > 1.0 else mul
-			nv = _clamp(maxf(float(_scrub["v0"]), 0.005) * pow(1.02, acc * mul_a))
+			var mul_a := 2.0 if mul > 1.0 else mul
+			nv = _clamp(maxf(float(_scrub["v0"]), 0.005) * pow(1.03, acc * mul_a))
 		if not is_equal_approx(nv, value) or _mixed:
 			_mixed = false
 			_set_raw(nv)

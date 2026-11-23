@@ -328,8 +328,8 @@ func _gui_input(event: InputEvent) -> void:
 				if adaptive_step:
 					# multiplicativo: ~2 % por píxel (×10 con Mayús / Ctrl, ×0,1 con Alt)
 					var base := maxf(_drag_start_val, 0.005)
-					var fa := 3.0 if factor > 1.0 else factor   # proporcional: ×3 basta para «rápido»
-					new_v = clampf(base * pow(1.02, dx * fa), min_value, max_value)
+					var fa := 2.0 if factor > 1.0 else factor   # proporcional: ×3 basta para «rápido»
+					new_v = clampf(base * pow(1.03, dx * fa), min_value, max_value)
 				if not is_equal_approx(value, new_v):
 					value = new_v
 					value_changed.emit(value)
