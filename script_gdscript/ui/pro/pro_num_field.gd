@@ -174,12 +174,14 @@ func _fmt(v: float) -> String:
 func _refresh_text() -> void:
 	if not is_instance_valid(_edit) or _edit.has_focus():
 		return
-	if _mixed:
-		_edit.text = ""
-		_edit.placeholder_text = tr(_placeholder)
-	else:
-		_edit.placeholder_text = ""
-		_edit.text = _fmt(value)
+	# Solo si cambia: reasignar el MISMO texto re-maquetaba el LineEdit y
+	# recolocaba el inspector entero en cada clic.
+	var want_text := "" if _mixed else _fmt(value)
+	var want_ph := tr(_placeholder) if _mixed else ""
+	if _edit.placeholder_text != want_ph:
+		_edit.placeholder_text = want_ph
+	if _edit.text != want_text:
+		_edit.text = want_text
 
 func _commit_text() -> void:
 	if not is_instance_valid(_edit):

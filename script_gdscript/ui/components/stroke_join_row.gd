@@ -98,9 +98,21 @@ func _apply(prop: String, v: Variant) -> void:
 	if ic and ic.has_method("apply"):
 		ic.apply(prop, v)
 
+var _pending := false
+
 func _on_props(props: Dictionary) -> void:
 	if not is_instance_valid(self):
 		return
+	# Rendimiento: con su panel oculto no se toca (1,3 ms por clic); al
+	# mostrarse el panel se pone al día.
+	var par := get_parent() as CanvasItem
+	if par and not par.is_visible_in_tree():
+		if not _pending:
+			_pending = true
+			if not par.visibility_changed.is_connected(_flush):
+				par.visibility_changed.connect(_flush)
+		return
+	_pending = false
 	visible = props.has("stroke_join")
 	if not visible:
 		return
@@ -126,3 +138,11 @@ class _JoinGlyph extends Control:
 		var m := StrokeGeom.build(pts, false, 0, w, 0, 0, PackedVector2Array(), 1.0, 1.0, join, 10.0)
 		if not (m["indices"] as PackedInt32Array).is_empty():
 			RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), m["indices"], m["points"], PackedColorArray([c]))
+
+func _flush() -> void:
+	var par := get_parent() as CanvasItem
+	if _pending and par and par.is_visible_in_tree():
+		_pending = false
+		var ic := get_node_or_null("/root/InspectorCore")
+		if ic and ic.has_method("current_props"):
+			_on_props(ic.current_props())

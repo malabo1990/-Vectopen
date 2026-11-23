@@ -1048,7 +1048,11 @@ func text_on_path(text: Node2D, path: Node2D, params: Dictionary = {}) -> Line2D
 	prm.merge(params, true)
 	l.set_meta("brush_obj", {"src": OB.to_data(so["src"]), "params": prm})
 	l.set_meta("brush_ref", {"source": String(parent.get_path_to(text)), "path": String(parent.get_path_to(path))})
+	# ENCIMA del texto y de su guía (como Inkscape / Affinity / Illustrator):
+	# antes quedaba debajo de la guía y un clic cogía la guía, no el texto.
 	var idx := text.get_index() + 1
+	if path.get_parent() == parent:
+		idx = maxi(idx, path.get_index() + 1)
 	var was_visible := text.visible
 	var do_fn := func() -> void:
 		if l.get_parent() == null:

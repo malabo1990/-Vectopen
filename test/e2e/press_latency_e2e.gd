@@ -24,6 +24,15 @@ func _run() -> void:
 		quit(1)
 		return
 	api = K.api
+	if OS.get_environment("NOVSYNC") == "1":
+		# coste PURO (sin esperar al refresco): clic + fotograma siguiente
+		var pm := root.get_node_or_null("PerformanceManager")
+		if pm:
+			pm.set_idle_render(false)
+			if "low_latency_drag" in pm:
+				pm.low_latency_drag = false
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		Engine.max_fps = 0
 	var ab: Node2D = await K.artboard(Vector2(1200, 800), "Arranque", Color.WHITE)
 	await K.look_at(ab)
 	for i in 200:
@@ -34,6 +43,45 @@ func _run() -> void:
 	await K.frames(10)
 	K.canvas.switch_tool("move")
 	await K.frames(3)
+	var hide := OS.get_environment("HIDEUI")
+	if hide != "":
+		for nm in hide.split(","):
+			for c in root.find_children(nm if not nm.ends_with(".gd") else "*", "Control", true, false):
+				if nm.ends_with(".gd") and not (c.get_script() and String(c.get_script().resource_path).ends_with(nm)):
+					continue
+				if not (c as Control).is_visible_in_tree():
+					continue
+				(c as Control).visible = false
+				print("OCULTO ", c.get_path())
+		await K.frames(4)
+	var di0 := root.find_children("DockedInspector", "Control", true, false)
+	if not di0.is_empty() and OS.get_environment("SECTIONS") == "1":
+		var lst: Array = []
+		for c in di0[0].find_children("*", "Control", true, false):
+			if (c as Control).is_visible_in_tree() and c.get_child_count() > 3 and (c is VBoxContainer or c is PanelContainer or c is GridContainer):
+				lst.append("%s(%d)" % [c.name, c.find_children("*", "Control", true, false).size()])
+		print("SECCIONES ", lst)
+		var big: Control = null
+		for c in di0[0].find_children("*", "VBoxContainer", true, false):
+			if big == null or c.find_children("*", "Control", true, false).size() > big.find_children("*", "Control", true, false).size():
+				big = c
+		var kids: Array = []
+		var sc: Node = big.find_children("*", "ScrollContainer", false, false)[0] if not big.find_children("*", "ScrollContainer", false, false).is_empty() else big
+		var inner: Node = sc.get_child(0) if sc.get_child_count() > 0 else sc
+		for k in inner.get_children():
+			if k is Control and (k as Control).visible:
+				kids.append("%s:%s(%d)%s" % [k.name, k.get_class(), k.find_children("*", "Control", true, false).size(), String(k.get_script().resource_path.get_file()) if k.get_script() else ""])
+		print("HIJOS ", kids)
+	var sorts := {}
+	var resz := {}
+	if not di0.is_empty() and OS.get_environment("SORTS") == "1":
+		for c in di0[0].find_children("*", "Control", true, false):
+			var path := String(di0[0].get_path_to(c))
+			if c is Container:
+				c.sort_children.connect(func() -> void: sorts[path] = int(sorts.get(path, 0)) + 1)
+			c.resized.connect(func() -> void: resz[path] = int(resz.get(path, 0)) + 1)
+	var vp := root.get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(vp, true)
 	for i in 4:
 		var p: Node2D = polys[i]
 		var at: Vector2 = K.canvas.get_viewport().get_canvas_transform() * p.global_position
@@ -48,10 +96,33 @@ func _run() -> void:
 		b.button_index = MOUSE_BUTTON_LEFT
 		b.pressed = true
 		b.button_mask = MOUSE_BUTTON_MASK_LEFT
+		var di := root.find_children("DockedInspector", "Control", true, false)
+		var n_before := get_node_count()
+		var ids_before := {}
+		if not di.is_empty():
+			for c in di[0].find_children("*", "", true, false):
+				ids_before[c.get_instance_id()] = true
+		sorts.clear()
+		resz.clear()
 		var press_ms := _send(b)
 		var t := Time.get_ticks_usec()
 		await process_frame
 		var f1 := (Time.get_ticks_usec() - t) / 1000.0
+		await RenderingServer.frame_post_draw
+		if OS.get_environment("SORTS") == "1" and i == 2:
+			print("SORTS n=%d resized=%d" % [sorts.size(), resz.size()])
+			var ks: Array = resz.keys()
+			ks.sort()
+			for k in ks.slice(0, 60):
+				print("  RESIZED ", k)
+		if not di.is_empty():
+			var nuevos := {}
+			for c in di[0].find_children("*", "", true, false):
+				if not ids_before.has(c.get_instance_id()):
+					var k := String(c.get_parent().name) + "/" + c.get_class()
+					nuevos[k] = int(nuevos.get(k, 0)) + 1
+			print("NODOS clic%d total %d → %d; nuevos en inspector: %s" % [i, n_before, get_node_count(), str(nuevos).left(600)])
+		print("RENDER clic%d cpu=%.2f gpu=%.2f" % [i, RenderingServer.viewport_get_measured_render_time_cpu(vp) + RenderingServer.get_frame_setup_time_cpu(), RenderingServer.viewport_get_measured_render_time_gpu(vp)])
 		t = Time.get_ticks_usec()
 		await process_frame
 		var f2 := (Time.get_ticks_usec() - t) / 1000.0

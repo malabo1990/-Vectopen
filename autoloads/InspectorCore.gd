@@ -106,6 +106,8 @@ var _event_pending := false
 ## fotograma: con cientos de trazos, calcular las propiedades dos veces
 ## seguidas (selección + estilo) bloqueaba la interfaz (UX-07).
 const COALESCE_FROM := 50
+var _last_emit_frame := -1
+var _last_emit_props: Dictionary = {}
 
 func _on_event(_a = null, _b = null) -> void:
 	if not is_inside_tree():
@@ -118,7 +120,16 @@ func _on_event(_a = null, _b = null) -> void:
 			_event_pending = true
 			_emit_coalesced.call_deferred()
 		return
-	changed.emit(current_props())
+	# Al soltar una figura llegan selección + transformación + estilo seguidos:
+	# si en el MISMO fotograma las propiedades son idénticas a las ya
+	# enviadas, no se reconstruyen otra vez todos los paneles.
+	var props := current_props()
+	var f := Engine.get_process_frames()
+	if f == _last_emit_frame and props == _last_emit_props:
+		return
+	_last_emit_frame = f
+	_last_emit_props = props
+	changed.emit(props)
 
 func _emit_coalesced() -> void:
 	_event_pending = false

@@ -62,12 +62,14 @@ static func line_hit(line: Line2D, gpos: Vector2, tol: float) -> bool:
 			for t in range(0, idx.size(), 3):
 				if Geometry2D.point_is_inside_triangle(q, v[idx[t]], v[idx[t + 1]], v[idx[t + 2]]):
 					return true
-			# cerca de una letra (margen de pantalla)
-			if tl > 0.0:
-				for t in range(0, idx.size(), 3):
-					var a := v[idx[t]]
-					if a.distance_to(q) <= tl * 2.0:
-						return true
+			# DENTRO DE LA CELDA de una letra (huecos de la «o», entre los
+			# trazos de la «H»…), como Inkscape / Affinity / Illustrator: antes
+			# solo contaba el píxel exacto del glifo y el clic se perdía.
+			var reach := maxf(line.width * 0.3, tl * 2.0)
+			var r2 := reach * reach
+			for a in v:
+				if a.distance_squared_to(q) <= r2:
+					return true
 			return false
 	return dist_to_polyline(q, line.points, false) <= half + tl
 

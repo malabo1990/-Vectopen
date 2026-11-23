@@ -612,6 +612,11 @@ func _update_style_visibility(st: int) -> void:
 			_style_toggle_button(_btn_toggle_curve, true)
 
 func _actualizar_interfaz_completa() -> void:
+	# repintado completo (tema nuevo…): olvidar el estado guardado
+	for grp in [_align_buttons, _cap_start_buttons, _cap_end_buttons, _style_buttons, _pointer_start_buttons, _pointer_end_buttons]:
+		for bt in grp:
+			if bt:
+				bt.remove_meta(&"_tg_sel")
 	_update_button_group_ui(_align_buttons, _current_align)
 	_update_button_group_ui(_cap_start_buttons, _current_cap_start)
 	_update_button_group_ui(_cap_end_buttons, _current_cap_end)
@@ -628,6 +633,11 @@ func _update_button_group_ui(buttons: Array[Button], selected_index: int) -> voi
 		if b == null:
 			continue
 		var is_sel: bool = (i == selected_index)
+		# Solo si cambia: crear estilos nuevos en CADA clic obligaba a
+		# recolocar el inspector entero (varios ms por clic).
+		if b.get_meta(&"_tg_sel", -1) == int(is_sel):
+			continue
+		b.set_meta(&"_tg_sel", int(is_sel))
 		_style_toggle_button(b, is_sel)
 
 func _style_toggle_button(b: Button, active: bool) -> void:
