@@ -290,7 +290,7 @@ func _on_theme_changed(_mode: String) -> void:
 func _style_pages_extras() -> void:
 	if not is_instance_valid(_paginas_panel):
 		return
-	for n in _paginas_panel.get_children():
+	for n in _paginas_panel.find_children("*", "HBoxContainer", true, false):
 		if not (n is HBoxContainer):
 			continue
 		for c in n.get_children():
@@ -626,8 +626,24 @@ func _build_paginas_panel_content() -> void:
 
 	# VAL-06: retícula de la página (antes «Sangrado» y «Márgenes» sueltos que
 	# no estaban conectados a nada).
-	_paginas_panel.add_child(PageLayoutSection.new())
-	_paginas_panel.add_child(load("res://script_gdscript/ui/components/master_pages_section.gd").new())
+	# Retícula y página maestra en una zona con DESPLAZAMIENTO propio que
+	# comparte el alto con las miniaturas: antes, en un panel bajo, la sección
+	# de maestra se salía por debajo (encima del pie «N capas»).
+	_pages_panel.size_flags_stretch_ratio = 1.4
+	var extras_scroll := ScrollContainer.new()
+	extras_scroll.name = "PageExtrasScroll"
+	extras_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	extras_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	extras_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	extras_scroll.size_flags_stretch_ratio = 1.0
+	_paginas_panel.add_child(extras_scroll)
+	var extras := VBoxContainer.new()
+	extras.name = "PageExtras"
+	extras.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	extras.add_theme_constant_override("separation", 8)
+	extras_scroll.add_child(extras)
+	extras.add_child(PageLayoutSection.new())
+	extras.add_child(load("res://script_gdscript/ui/components/master_pages_section.gd").new())
 	_style_pages_extras()
 
 func _switch_left_tab(tab: String) -> void:

@@ -70,6 +70,8 @@ func _restyle() -> void:
 	_title.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
 	for lb in _labels:
 		(lb as Label).add_theme_color_override("font_color", ProUIStyle.col("PANEL_TEXT"))
+	ProUIStyle.style_option(opt_use)   # como el resto de desplegables (antes gris oscuro y grande)
+	opt_use.add_theme_font_size_override("font_size", 11)
 	for cb in [chk_master, chk_all]:
 		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
 			(cb as CheckBox).add_theme_color_override(k, ProUIStyle.col("PANEL_TEXT"))
