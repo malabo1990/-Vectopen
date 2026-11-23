@@ -8,6 +8,7 @@ const _ITEMS := [
 	["TextOnPath", "text_on_path", "Texto en trazado"],
 	["ReleaseTextOnPath", "release_text_on_path", "Separar texto del trazado"],
 	["EditShape", "edit_shape", "Forma de la figura…"],
+	["ToBezier", "to_bezier", "Convertir en trazado Bézier"],
 	["InsertTable", "insert_table", "Insertar tabla"],
 	["TableAddRow", "table_add_row", "Tabla: añadir fila"],
 	["TableAddCol", "table_add_col", "Tabla: añadir columna"],
@@ -70,6 +71,8 @@ func _applies(action: String) -> bool:
 		return sel.is_empty()
 	if action.begins_with("table_"):
 		return sel.size() == 1 and _Table.table_of(sel[0]) != null
+	if action == "to_bezier":
+		return ContextMenuActions.can_to_bezier(_menu)
 	if action == "edit_shape":
 		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
 	if action == "data_merge":

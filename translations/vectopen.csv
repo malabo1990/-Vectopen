@@ -1293,3 +1293,19 @@ Tabla: borrar fila,Table: delete row,Tabla: borrar fila,Tableau : supprimer la l
 Tabla: borrar columna,Table: delete column,Tabla: borrar columna,Tableau : supprimer la colonne,Tabelle: Spalte löschen,Tabela: apagar coluna,Таблица: удалить столбец,表格：删除列,表：列を削除,الجدول: حذف عمود,तालिका: स्तंभ हटाएँ
 Simplificar trazado,Simplify path,Simplificar trazado,Simplifier le tracé,Pfad vereinfachen,Simplificar traçado,Упростить контур,简化路径,パスを単純化,تبسيط المسار,पथ सरल करें
 HERRAMIENTA,TOOL,HERRAMIENTA,OUTIL,WERKZEUG,FERRAMENTA,ИНСТРУМЕНТ,工具,ツール,الأداة,टूल
+Convertir en trazado Bézier,Convert to Bézier path,Convertir en trazado Bézier,Convertir en tracé Bézier,In Bézierpfad umwandeln,Converter em traçado Bézier,Преобразовать в кривую Безье,转换为贝塞尔路径,ベジェパスに変換,تحويل إلى مسار بيزييه,बेज़ियर पथ में बदलें
+Convertir a curvas (Bézier),Convert to curves (Bézier),Convertir a curvas (Bézier),Convertir en courbes (Bézier),In Kurven umwandeln (Bézier),Converter em curvas (Bézier),Преобразовать в кривые (Безье),转换为曲线（贝塞尔）,アウトライン化（ベジェ）,تحويل إلى منحنيات (بيزييه),वक्रों में बदलें (बेज़ियर)
+Tabla,Table,Tabla,Tableau,Tabelle,Tabela,Таблица,表格,表,جدول,तालिका
+ESTRUCTURA,STRUCTURE,ESTRUCTURA,STRUCTURE,STRUKTUR,ESTRUTURA,СТРУКТУРА,结构,構造,البنية,संरचना
+Filas,Rows,Filas,Lignes,Zeilen,Linhas,Строки,行数,行数,الصفوف,पंक्तियाँ
+Fila arriba,Row above,Fila arriba,Ligne au-dessus,Zeile darüber,Linha acima,Строка выше,在上方插入行,上に行,صف أعلى,ऊपर पंक्ति
+Fila abajo,Row below,Fila abajo,Ligne en dessous,Zeile darunter,Linha abaixo,Строка ниже,在下方插入行,下に行,صف أسفل,नीचे पंक्ति
+Col. izquierda,Column left,Col. izquierda,Colonne à gauche,Spalte links,Coluna à esquerda,Столбец слева,在左侧插入列,左に列,عمود يسار,बाएँ स्तंभ
+Col. derecha,Column right,Col. derecha,Colonne à droite,Spalte rechts,Coluna à direita,Столбец справа,在右侧插入列,右に列,عمود يمين,दाएँ स्तंभ
+Borrar fila,Delete row,Borrar fila,Supprimer la ligne,Zeile löschen,Apagar linha,Удалить строку,删除行,行を削除,حذف الصف,पंक्ति हटाएँ
+Borrar columna,Delete column,Borrar columna,Supprimer la colonne,Spalte löschen,Apagar coluna,Удалить столбец,删除列,列を削除,حذف العمود,स्तंभ हटाएँ
+TAMAÑO,SIZE,TAMAÑO,TAILLE,GRÖSSE,TAMANHO,РАЗМЕР,尺寸,サイズ,الحجم,आकार
+Ancho de columna,Column width,Ancho de columna,Largeur de colonne,Spaltenbreite,Largura da coluna,Ширина столбца,列宽,列の幅,عرض العمود,स्तंभ चौड़ाई
+Igualar columnas,Equal columns,Igualar columnas,Égaliser les colonnes,Spalten angleichen,Igualar colunas,Выровнять столбцы,列宽相等,列幅を揃える,مساواة الأعمدة,स्तंभ बराबर करें
+ESTILO,STYLE,ESTILO,STYLE,STIL,ESTILO,СТИЛЬ,样式,スタイル,النمط,शैली
+Cabecera,Header,Cabecera,En-tête,Kopfzeile,Cabeçalho,Заголовок,表头,ヘッダー,الترويسة,हेडर

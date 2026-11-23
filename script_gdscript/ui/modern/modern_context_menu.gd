@@ -199,6 +199,7 @@ func _build_level_2_contextual_items(kind: String) -> void:
 	match kind:
 		"shape":
 			_add_menu_item("invert_fill_stroke", "Invertir trazo / relleno", "Shift+X")
+			_add_menu_item("to_bezier", "Convertir en trazado Bézier", "")
 			if ContextMenuActions.can_make_layout(self):
 				_add_menu_item("make_layout", "Convertir en contenedor (Auto Layout)", "")
 			_add_separator()
@@ -208,7 +209,7 @@ func _build_level_2_contextual_items(kind: String) -> void:
 			_add_menu_item("align_text_left", "Alinear texto izquierda", "")
 			_add_menu_item("align_text_center", "Centrar texto", "")
 			_add_menu_item("align_text_right", "Alinear texto derecha", "")
-			_add_menu_item("text_to_curves", "Convertir a curvas", "Ctrl+Shift+O")
+			_add_menu_item("text_to_curves", "Convertir a curvas (Bézier)", "Ctrl+Shift+O")
 			_add_separator()
 		"brush":
 			_add_menu_item("text_to_curves", "Convertir trazo en contorno", "Ctrl+Shift+O")

@@ -86,6 +86,7 @@ const REFERENCE := [
 	["Componentes", "symbol_of(objeto) -> String", "Id del componente al que pertenece el objeto (\"\" si ninguno)"],
 	["Componentes", "detach_symbol(objeto) -> bool", "Desvincula una copia: queda como grupo normal"],
 	["Fusión", "make_blend_chain([a, b, c…], opciones = {}, guia = null) -> Node2D", "Fusión de varios objetos en cadena (A → B → C …): intermedios entre cada par; la guía recorre toda la cadena"],
+	["Objetos", "shape_to_path(figura) -> Node2D", "Convierte una figura (polígono, rectángulo, elipse, estrella…) en un trazado Bézier editable con la misma forma y estilo; un paso de deshacer"],
 	["Fusión", "reverse_blend(fusion)", "Invierte el orden de la cadena de una fusión (C → B → A), con deshacer"],
 	["Fusión", "release_blend(fusion)", "Suelta una fusión: quita los pasos y deja los objetos sueltos, con deshacer"],
 	["Fusión", "make_blend(a, b, opciones = {}, guia = null) -> Node2D", "Fusión (Blend) entre dos figuras: intermedios de forma, color, trazo y opacidad. Opciones: mode \"steps\"|\"distance\", steps, spacing, orient; guia = trazado por el que se reparten. Se rehace sola al cambiar A, B o la guía"],
@@ -779,6 +780,7 @@ func text_to_curves(node: Node2D) -> Node2D:
 	var g := Node2D.new()
 	g.name = NameUtils.unique_child_name(parent, String(node.name) + " (curvas)")
 	g.set_meta("shape_type", "group")
+	g.set_meta("from_text", true)   # doble clic → nodos de la letra directamente
 	g.transform = node.transform
 	g.modulate = node.modulate
 	# Coordenadas locales del editor nativo → coordenadas del texto.
@@ -836,6 +838,66 @@ func text_to_curves(node: Node2D) -> Node2D:
 ## «Convertir trazo en contorno» (VGSE fase 1): el trazo de pincel pasa a
 ## una figura RELLENA editable (Bézier) con la forma exacta que se ve —
 ## anchura por presión, remates, uniones, cruces—. Con deshacer.
+## Figura (polígono, rectángulo, elipse, estrella, gota…) → TRAZADO BÉZIER
+## editable con la misma forma, relleno, borde y posición (un paso de
+## deshacer). Lados rectos: un nodo por esquina, exactos; curvas (elipse,
+## esquinas redondeadas): cúbicas ajustadas que respetan las esquinas.
+func shape_to_path(shape: Node2D) -> Node2D:
+	if not (shape is VectorShape) or not shape.has_method("get_effect_points") or shape.get_parent() == null:
+		return null
+	var pts: PackedVector2Array = shape.get_effect_points()
+	if pts.size() < 3:
+		return null
+	var CF := load("res://script_gdscript/shapes/curve_fit.gd")
+	var c := Curve2D.new()
+	if pts.size() <= 12:
+		for q in pts:
+			c.add_point(q)
+	else:
+		var bb := Rect2(pts[0], Vector2.ZERO)
+		for q in pts:
+			bb = bb.expand(q)
+		var err := clampf(maxf(bb.size.x, bb.size.y) * 0.002, 0.05, 0.5)
+		c = CF.fit_closed(pts, err)
+		if c == null or c.point_count < 3:
+			c = Curve2D.new()
+			for q in pts:
+				c.add_point(q)
+	var parent := shape.get_parent()
+	var idx := shape.get_index()
+	var p := Path2D.new()
+	p.set_script(load("res://script_gdscript/shapes/VectorPath.gd"))
+	p.name = NameUtils.unique_child_name(parent, String(shape.name) + " (Bézier)")
+	p.transform = shape.transform
+	p.modulate = shape.modulate
+	p.curve = c
+	p.closed = true
+	for k in ["fill_color", "stroke_color", "stroke_width", "stroke_align", "stroke_style", "fill_gradient",
+			"fill_gradient_type", "fill_gradient_angle", "fill_gradient_p0", "fill_gradient_p1", "effects", "blend_mode"]:
+		if k in shape and k in p:
+			p.set(k, shape.get(k))
+	for m in ["casts_shadow", "locked"]:
+		if shape.has_meta(m):
+			p.set_meta(m, shape.get_meta(m))
+	var do_fn := func() -> void:
+		if shape.get_parent() == parent:
+			parent.remove_child(shape)
+		if p.get_parent() == null:
+			parent.add_child(p)
+			parent.move_child(p, mini(idx, parent.get_child_count() - 1))
+	var undo_fn := func() -> void:
+		if p.get_parent() == parent:
+			parent.remove_child(p)
+		if shape.get_parent() == null:
+			parent.add_child(shape)
+			parent.move_child(shape, mini(idx, parent.get_child_count() - 1))
+	do_fn.call()
+	_record("Convertir en trazado Bézier", do_fn, undo_fn, false)
+	var sm := _n("SelectionManager")
+	if sm and sm.has_method("select"):
+		sm.select(p)
+	return p
+
 func stroke_to_outline(line: Node2D) -> Node2D:
 	if not (line is Line2D) or line.get_parent() == null or (line as Line2D).points.size() < 1:
 		return null

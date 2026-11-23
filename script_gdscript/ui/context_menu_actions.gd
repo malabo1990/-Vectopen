@@ -67,7 +67,7 @@ const NEEDS_SELECTION: Array[String] = [
 	"toggle_visibility", "toggle_lock", "invert_fill_stroke",
 	"align_left", "align_center_h", "align_right", "align_top", "align_middle", "align_bottom",
 	"align_text_left", "align_text_center", "align_text_right",
-	"boolean_flatten", "boolean_release", "text_to_curves",
+	"boolean_flatten", "boolean_release", "text_to_curves", "to_bezier",
 ]
 ## Actions that need two or more selected shapes.
 const NEEDS_MULTI: Array[String] = [
@@ -113,6 +113,8 @@ static func execute(id: String, host: Node) -> void:
 			rename_active_item(host)
 		"text_to_curves":
 			text_to_curves(host)
+		"to_bezier":
+			to_bezier(host)
 		"text_on_path":
 			text_on_path(host)
 		"release_text_on_path":
@@ -523,6 +525,47 @@ static func text_on_path(host: Node) -> void:
 	pm.api.text_on_path(pair[0], pair[1])
 
 ## «Convertir a curvas» de los textos seleccionados (cada uno, un grupo de letras).
+## Figuras → trazado Bézier; textos → curvas (Bézier); trazos de pincel →
+## contorno. Lo que haya seleccionado, en un solo gesto.
+static func can_to_bezier(host: Node) -> bool:
+	return selection(host).any(func(n) -> bool:
+		return n is VectorShape or String(n.get_meta("shape_type", "")).begins_with("text_"))
+
+static func to_bezier(host: Node) -> void:
+	var pm := host.get_node_or_null("/root/PluginManager")
+	var api = pm.api if pm else null
+	if api == null:
+		return
+	var out: Array = []
+	for n in selection(host):
+		if n is VectorShape:
+			var p = api.shape_to_path(n)
+			if p:
+				out.append(p)
+		elif n is Node2D and String(n.get_meta("shape_type", "")).begins_with("text_"):
+			var g = api.text_to_curves(n)
+			if g:
+				out.append(g)
+	if not out.is_empty():
+		api.select(out)
+		# Una figura convertida: el editor de nodos se abre YA sobre ella
+		# (antes había que buscarla y hacer doble clic).
+		if out.size() == 1 and out[0] is Path2D:
+			open_node_editor(host, out[0])
+
+## Abre el editor de nodos Bézier sobre `path` (y su panel).
+static func open_node_editor(host: Node, path: Path2D) -> void:
+	var cv = host.get_tree().get_first_node_in_group("_vectopen_canvas")
+	if cv == null or not cv.has_method("_new_tool"):
+		return
+	var nt = cv._new_tool(load("res://script_gdscript/tools/NodeSelectionTool.gd"))
+	cv.change_tool(nt)
+	nt.edit_path = path   # DESPUÉS de activarla (al activarse reinicia su trazado)
+	nt.selected_nodes.clear()
+	var ge := host.get_node_or_null("/root/GlobalEvents")
+	if ge and ge.has_signal("request_bezier_panel"):
+		ge.emit_safe("request_bezier_panel")
+
 static func text_to_curves(host: Node) -> void:
 	var pm := host.get_node_or_null("/root/PluginManager")
 	var api = pm.api if pm else null

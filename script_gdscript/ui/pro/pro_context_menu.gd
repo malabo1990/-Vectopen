@@ -65,10 +65,11 @@ func rebuild() -> void:
 			_add(self, "align_text_left", "Alinear texto a la izquierda")
 			_add(self, "align_text_center", "Centrar texto")
 			_add(self, "align_text_right", "Alinear texto a la derecha")
-			_add(self, "text_to_curves", "Convertir a curvas", KEY_O | KEY_MASK_CTRL | KEY_MASK_SHIFT)
+			_add(self, "text_to_curves", "Convertir a curvas (Bézier)", KEY_O | KEY_MASK_CTRL | KEY_MASK_SHIFT)
 			add_separator()
 		"shape":
 			_add(self, "invert_fill_stroke", "Intercambiar relleno y trazo", KEY_X | KEY_MASK_SHIFT)
+			_add(self, "to_bezier", "Convertir en trazado Bézier")
 			add_separator()
 		"brush":
 			_add(self, "text_to_curves", "Convertir trazo en contorno", KEY_O | KEY_MASK_CTRL | KEY_MASK_SHIFT)
