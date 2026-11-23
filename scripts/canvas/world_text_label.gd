@@ -1084,6 +1084,21 @@ func _get_outline() -> Node2D:
 	_polys_baked = false
 	return _cached_outline
 
+## Polígonos de las letras en coordenadas de ESTE label (tamaño real), para
+## la sombra de la iluminación 2D. Se calculan una vez y quedan en caché
+## hasta que cambia el texto.
+func shadow_polygons() -> Array:
+	_get_outline()
+	if not _polys_baked:
+		_bake_glyph_data()
+	var k := float(maxi(1, get_theme_font_size("font_size"))) / float(maxi(1, _outline_fs))
+	var out: Array = []
+	for e in _cached_polys:
+		var p: PackedVector2Array = e["poly"]
+		if p.size() >= 3:
+			out.append(Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO) * p)
+	return out
+
 func _get_stroke_polys() -> Array:
 	if not _polys_baked:
 		_bake_glyph_data()

@@ -104,6 +104,7 @@ const DEFAULTS := {"color": Color(1.0, 0.92, 0.75), "energy": 1.2, "radius": 300
 ## si cambia —arrastrar la luz o una figura, el panel, los tiradores— las
 ## sombras se rehacen en ese mismo fotograma (tiempo real).
 var _light_sig := 0
+var _hq_pending := false
 var _shapes_sig := 0
 var _sig_tick := 0
 
@@ -116,10 +117,21 @@ func _process(_d: float) -> void:
 	var changed := false
 	var ls := hash([global_transform, params(), visible])
 	if ls != _light_sig:
+		if _light_sig != 0:
+			# se está moviendo / girando: calidad rápida hasta que pare
+			_ShadowNode.fast_until = Time.get_ticks_msec() + 250
+			_hq_pending = true
 		_light_sig = ls
 		changed = true
+	elif _hq_pending and Time.get_ticks_msec() >= _ShadowNode.fast_until:
+		# ya paró: redibujar todas las sombras en calidad completa
+		_hq_pending = false
+		for sh in page.find_children("_LightShadow", "", true, false):
+			sh.queue_redraw()
 	_sig_tick += 1
-	if changed or _sig_tick % 2 == 0:   # figuras: cada 2 fotogramas basta
+	# Las figuras las vigila UNA sola luz por página (antes cada luz recorría
+	# todas las figuras: con 6 luces y 500 figuras, 3000 por fotograma)
+	if (changed or _sig_tick % 2 == 0) and _is_leader(page):
 		var parts: Array = []
 		for sh in _shapes_under(page):
 			parts.append((sh as Node2D).global_transform)
@@ -275,9 +287,99 @@ static func _shapes_under(root: Node) -> Array:
 		if c is Node2D and not String(c.name).begins_with("_") and not c.has_meta(&"_vectopen_internal"):
 			if c.get_script() and String(c.get_script().resource_path).ends_with("vector_light.gd"):
 				continue
-			if c.has_method("get_effect_points"):
+			if casts(c):
 				out.append(c)
-			out.append_array(_shapes_under(c))
+			if not _is_text(c):
+				out.append_array(_shapes_under(c))
+	return out
+
+static func _is_text(n: Node) -> bool:
+	return String(n.get_meta("shape_type", "")).begins_with("text")
+
+## ¿Este objeto puede dar sombra? Figuras, trazados Bézier, trazos de pincel
+## y textos / párrafos.
+static func casts(n: Node) -> bool:
+	return n.has_method("get_effect_points") or n is Line2D or (_is_text(n) and n.get_node_or_null("DisplayLabel") != null)
+
+static var _poly_cache := {}   # instance_id → [firma, polígonos]
+
+## Contorno(s) que hacen sombra, en coordenadas locales de `n`:
+##   · figura: su contorno;
+##   · Bézier cerrado con relleno: su contorno (con el borde); abierto o sin
+##     relleno: la BANDA del trazo;
+##   · trazo de pincel: la banda del trazo;
+##   · texto / párrafo: las letras.
+static func shadow_polys(n: Node2D) -> Array:
+	var sig := 0
+	if n is Line2D:
+		sig = hash([(n as Line2D).points, (n as Line2D).width])
+	elif n is VectorPath:
+		var vp := n as VectorPath
+		sig = hash([vp.curve.get_baked_points() if vp.curve else PackedVector2Array(), vp.closed, vp.stroke_width, vp.fill_color.a])
+	elif _is_text(n):
+		var lb: Node = n.get_node_or_null("DisplayLabel")
+		sig = hash([lb.get("text"), lb.get("base_font_size"), (lb as Control).size, (lb as Control).position, n.get_meta("runs", [])]) if lb else 0
+	else:
+		sig = _geom_sig(n)
+	var c = _poly_cache.get(n.get_instance_id())
+	if c and int(c[0]) == sig:
+		return c[1]
+	var out: Array = []
+	if n is Line2D:
+		out = _band((n as Line2D).points, (n as Line2D).width * 0.5)
+	elif n is VectorPath:
+		var vp := n as VectorPath
+		if vp.closed and vp.fill_color.a > 0.01:
+			var pts := VectorPath.closed_points(vp.curve)
+			if vp.stroke_width > 0.0:
+				for g in Geometry2D.offset_polygon(pts, vp.stroke_width * 0.5, Geometry2D.JOIN_ROUND):
+					if not Geometry2D.is_polygon_clockwise(g):
+						out.append(g)
+			if out.is_empty() and pts.size() >= 3:
+				out = [pts]
+		elif vp.curve:
+			out = _band(vp.curve.get_baked_points(), maxf(vp.stroke_width, 1.0) * 0.5)
+	elif _is_text(n):
+		var lb = n.get_node_or_null("DisplayLabel")
+		if lb and lb.has_method("shadow_polygons"):
+			var xf: Transform2D = (lb as Control).get_transform()
+			for p in lb.shadow_polygons():
+				out.append(xf * (p as PackedVector2Array))
+	else:
+		var pts2: PackedVector2Array = n.get_effect_points()
+		if pts2.size() >= 3:
+			out = [pts2]
+	if _poly_cache.size() > 4000:
+		_poly_cache.clear()
+	_poly_cache[n.get_instance_id()] = [sig, out]
+	return out
+
+## Firma BARATA de la forma de una figura (sin generar su contorno, que en
+## un rectángulo redondeado o una estrella cuesta): sus propiedades de forma.
+const _GEOM_PROPS := ["size", "corner_radius", "corner_styles", "sides", "points_count", "inner_radius_ratio",
+	"poly_angle", "poly_aspect", "shape_mode", "start_angle_deg", "end_angle_deg", "vertices", "base_vertices",
+	"inner_corner_radius", "star_angle", "is_regular", "radius", "radius_x", "radius_y"]
+static func _geom_sig(n: Node) -> int:
+	var parts: Array = []
+	var any := false
+	for k in _GEOM_PROPS:
+		if k in n:
+			parts.append(n.get(k))
+			any = true
+	if n.has_method("get_corner_radii"):
+		parts.append(n.get_corner_radii())
+	if n.has_meta("drop_curvature"):
+		parts.append(n.get_meta("drop_curvature"))
+	return hash(parts) if any else hash(n.get_effect_points())
+
+## Banda de un trazo abierto de medio grosor `h` (uniones y puntas redondas).
+static func _band(pts: PackedVector2Array, h: float) -> Array:
+	var out: Array = []
+	if pts.size() < 2 or h <= 0.0:
+		return out
+	for g in Geometry2D.offset_polyline(pts, h, Geometry2D.JOIN_ROUND, Geometry2D.END_ROUND):
+		if not Geometry2D.is_polygon_clockwise(g) and g.size() >= 3:
+			out.append(g)
 	return out
 
 ## Sombras EXTERIORES de las figuras de la página (todas las luces con
@@ -293,6 +395,7 @@ func refresh_occluders() -> void:
 		if l.is_in_group(GROUP) and bool(l.get("lamp_shadows")) and bool(TYPE_INFO.get(String(l.get("lamp_type")), {}).get("shadows", false)) and (l as Node2D).visible:
 			lights.append(l)
 	var fill := ambient_fill(page)
+	var shadowed := 0
 	for s in _shapes_under(page):
 		var old_occ: Node = s.get_node_or_null(OCC_NAME)
 		if old_occ:
@@ -302,9 +405,12 @@ func refresh_occluders() -> void:
 			if sh:
 				sh.queue_free()
 			continue
-		var pts: PackedVector2Array = s.get_effect_points()
-		if pts.size() < 3:
+		var polys: Array = shadow_polys(s)
+		if polys.is_empty():
+			if sh:
+				sh.queue_free()
 			continue
+		shadowed += 1
 		if sh == null:
 			sh = _ShadowNode.new()
 			s.add_child(sh, false, Node.INTERNAL_MODE_FRONT)
@@ -312,10 +418,11 @@ func refresh_occluders() -> void:
 		var sxf: Transform2D = (s as Node2D).global_transform
 		var inv := sxf.affine_inverse()
 		var scale_k := maxf(sxf.get_scale().x, 0.0001)
-		var center := Vector2.ZERO
-		for q in pts:
-			center += q
-		var gcenter: Vector2 = sxf * (center / pts.size())
+		var bb := Rect2((polys[0] as PackedVector2Array)[0], Vector2.ZERO)
+		for pl in polys:
+			for q in pl:
+				bb = bb.expand(q)
+		var gcenter: Vector2 = sxf * bb.get_center()
 		for l in lights:
 			var info := shadow_for(l, gcenter, fill)
 			if info.is_empty():
@@ -323,15 +430,26 @@ func refresh_occluders() -> void:
 			var off: Vector2 = inv.basis_xform(info["offset"])
 			# cuanto más se separa la sombra, más difusa (penumbra)
 			var spread: float = (info["offset"] as Vector2).length() * 0.35
-			var entry := {"poly": pts, "off": off, "color": info["color"],
+			var entry := {"polys": polys, "psig": int(_poly_cache.get(s.get_instance_id(), [0])[0]), "off": off, "color": info["color"],
 				"soft": float(l.lamp_shadow_soft) * (8.0 + spread) * float(info["soft_k"]) / scale_k,
 				"fade": float(l.lamp_shadow_fade)}
 			if info.has("src"):
 				entry["src"] = inv * (info["src"] as Vector2)
 				entry["grow"] = float(info["grow"])
 			list.append(entry)
-		sh.shadows = list
-		sh.queue_redraw()
+		# Solo se redibuja si SU sombra cambió (al girar un foco, las figuras
+		# fuera de su cono no se tocan: antes se redibujaban las 500).
+		var parts: Array = []
+		for e in list:
+			parts.append([e["psig"], e["off"], e["color"], e["soft"], e["fade"], e.get("src", 0), e.get("grow", 0)])
+		var ssig := hash(parts)
+		if int(sh.get_meta("_ssig", 0)) != ssig:
+			sh.set_meta("_ssig", ssig)
+			sh.shadows = list
+			sh.queue_redraw()
+	# Calidad según la cantidad: con muchas figuras con sombra, menos copias
+	# por sombra (la vista sigue fluida).
+	_ShadowNode.budget = clampi(int(6000.0 / maxf(float(shadowed), 1.0)), 6, 48)
 
 ## Cuánto alumbra la luz `l` el punto global `gp` (0 = nada, 1 = de lleno).
 ## Puntual: cae con la distancia hasta el alcance. Foco: además, solo dentro
@@ -403,6 +521,16 @@ static func shadow_for(l: Node2D, gp: Vector2, fill: float = 0.0) -> Dictionary:
 		out["src"] = l.global_position
 		out["grow"] = 1.0 + length * amount / dist
 	return out
+
+static func _shadowed_count(page: Node) -> int:
+	return page.find_children("_LightShadow", "", true, false).size()
+
+## ¿Es esta la luz que vigila las figuras de su página? (la primera del grupo)
+func _is_leader(page: Node) -> bool:
+	for l in get_tree().get_nodes_in_group(GROUP):
+		if is_instance_valid(l) and l._page() == page:
+			return l == self
+	return true
 
 ## Luz ambiente de la página (rellena las sombras): 0..0.9.
 static func ambient_fill(page: Node) -> float:

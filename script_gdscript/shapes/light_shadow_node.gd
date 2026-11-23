@@ -32,6 +32,12 @@ func _init() -> void:
 ## difuminado (4 niveles) y cada copia solo se desplaza (draw_set_transform);
 ## antes cada copia recalculaba su geometría (hasta 144 cálculos por figura).
 const BLUR_LEVELS := 4
+## Máximo de copias por sombra (lo ajusta la luz según cuántas figuras tienen
+## sombra: con cientos, menos copias para seguir fluido).
+static var budget := MAX_LAYERS
+## Mientras se mueve / gira una luz (hasta este instante, en ms): sombras en
+## calidad RÁPIDA (pocas copias, un anillo); al parar, calidad completa.
+static var fast_until := 0
 ## Caché de contornos difuminados YA triangulados: al girar o mover la luz la
 ## forma de la figura no cambia, solo el desplazamiento → no se recalcula ni
 ## se vuelve a triangular nada (antes ~70 ms/fotograma con 30 figuras).
@@ -41,20 +47,36 @@ func _draw() -> void:
 	var ci := get_canvas_item()
 	var used := {}
 	for s in shadows:
-		var poly: PackedVector2Array = s["poly"]
+		# varios polígonos (letras de un texto, piezas de un trazo) o uno solo
+		var polys: Array = s["polys"] if s.has("polys") else [s["poly"]]
+		var psig: int = int(s.get("psig", 0))
+		if psig == 0:
+			psig = hash(polys)
 		var off: Vector2 = s["off"]
 		var col: Color = s["color"]
 		var soft: float = float(s["soft"])
 		var fade: float = float(s.get("fade", 0.7))
 		var n := clampi(int(off.length() / 2.5), MIN_LAYERS, MAX_LAYERS)
-		var rings := 2 if n > 24 else RINGS
+		# muchos polígonos (texto): menos copias y un solo anillo (rápido)
+		if polys.size() > 8:
+			n = clampi(int(off.length() / 1.5), MIN_LAYERS, MAX_LAYERS)   # letras finas: copias más juntas (sin rayas)
+		n = mini(n, budget)
+		var fast := Time.get_ticks_msec() < fast_until
+		if fast:
+			n = mini(n, 5)
+		var rings := 2 if (polys.size() > 8 or n > 24) else RINGS
+		if fast:
+			rings = 1
 		var levels: Array = []
 		for lv in BLUR_LEVELS:
-			var sft := snappedf(soft * (0.25 + float(lv + 1) / BLUR_LEVELS), 0.25)
-			var key := hash([poly, sft, rings])
+			# difuminado en una escala de pocos valores (×1,5): al mover una luz
+			# la geometría difuminada se REUTILIZA (antes cada fotograma era
+			# un valor nuevo → recalcular cientos de sombras)
+			var sft := _quant(soft * (0.25 + float(lv + 1) / BLUR_LEVELS))
+			var key := hash([psig, polys.size(), sft, rings])
 			used[key] = true
 			if not _cache.has(key):
-				_cache[key] = _tris(_rings(poly, sft, rings))
+				_cache[key] = _merged(polys, sft, rings)
 			levels.append(_cache[key])
 		for i in range(n, 0, -1):
 			var t := float(i) / n
@@ -63,7 +85,6 @@ func _draw() -> void:
 				continue
 			var lv := clampi(int(t * BLUR_LEVELS - 0.001), 0, BLUR_LEVELS - 1)
 			if s.has("src"):
-				# proyección desde la luz: escala centrada en la luz
 				var src: Vector2 = s["src"]
 				var f := 1.0 + (float(s["grow"]) - 1.0) * t
 				draw_set_transform_matrix(Transform2D(0.0, Vector2(f, f), 0.0, src * (1.0 - f)))
@@ -76,6 +97,33 @@ func _draw() -> void:
 	for k in _cache.keys():
 		if not used.has(k):
 			_cache.erase(k)
+
+## Malla combinada de todos los polígonos, una por anillo de difuminado:
+## [[puntos, índices, fracción de alfa], …].
+static func _quant(v: float) -> float:
+	if v < 0.5:
+		return 0.0
+	return pow(1.5, roundf(log(v) / log(1.5)))
+
+static func _merged(polys: Array, soft: float, rings: int) -> Array:
+	var by_ring := {}   # fracción → [puntos, índices]
+	for p in polys:
+		for r in _rings(p, soft, rings):
+			var idx := Geometry2D.triangulate_polygon(r[0])
+			if idx.size() < 3:
+				continue
+			var frac: float = r[1]
+			var pts: PackedVector2Array = by_ring[frac][0] if by_ring.has(frac) else PackedVector2Array()
+			var ids: PackedInt32Array = by_ring[frac][1] if by_ring.has(frac) else PackedInt32Array()
+			var base := pts.size()
+			pts.append_array(r[0])
+			for i in idx:
+				ids.append(base + i)
+			by_ring[frac] = [pts, ids]
+	var out: Array = []
+	for frac in by_ring:
+		out.append([by_ring[frac][0], by_ring[frac][1], frac])
+	return out
 
 static func _tris(rings: Array) -> Array:
 	var out: Array = []
