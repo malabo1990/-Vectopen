@@ -739,7 +739,13 @@ func _input(event: InputEvent) -> void:
 	if not _vscroll:
 		_buscar_vscroll_nativo()
 
-	var sobre_arbol : bool = get_global_rect().has_point(get_global_mouse_position())
+	# Solo si el árbol se VE y el puntero está de verdad sobre él (no sobre otro
+	# panel encima ni con el árbol oculto en otra pestaña): antes se quedaba el
+	# botón central de cualquier panel que cayera dentro de su rectángulo.
+	var sobre_arbol : bool = is_visible_in_tree() and get_global_rect().has_point(get_global_mouse_position())
+	if sobre_arbol:
+		var hv := get_viewport().gui_get_hovered_control()
+		sobre_arbol = hv == null or hv == self or is_ancestor_of(hv)
 
 	# Desplazamiento rápido con botón central del mouse (MMB)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
