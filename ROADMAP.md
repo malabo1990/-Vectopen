@@ -13,16 +13,54 @@ This file consolidates the planning that until now lived only inside
 | Zoom-limit comparison vs other editors | [`docs/es/reports/COMPARATIVA_ZOOM_EDITORES.md`](docs/es/reports/COMPARATIVA_ZOOM_EDITORES.md) |
 | UI systems / theming | [`docs/es/guides/MEJORAS_UI_Y_SISTEMAS_2026.md`](docs/es/guides/MEJORAS_UI_Y_SISTEMAS_2026.md) |
 
-**Status (2026-10-28):** **0.2.0-alpha** is released — the first downloadable
-build for Windows, macOS and Linux
-([release](https://github.com/malabo1990/-Vectopen/releases/tag/v0.2.0-alpha) ·
-[user manual](https://malabo1990.github.io/vectopen-web/docs/)). Sections 0 and 0b
-summarise what shipped and what comes next; the sections below keep the detailed history.
+**Status (2026-11-23):** **0.2.4-beta** is released for Windows (installer and
+.zip), macOS universal, Linux and Android (preview)
+([release](https://github.com/malabo1990/-Vectopen/releases/tag/v0.2.4-beta) ·
+[user manual](https://malabo1990.github.io/vectopen-web/docs/)). Section 00
+summarises what shipped and what comes next; the sections below keep the
+detailed history.
 
 **Legend:** ✅ done · 🟡 partial · ⬜ planned, not started · ❌ evaluated and
 deliberately dropped
 
 ---
+
+## 00. Released — 0.2.4-beta (2026-11-23) and next steps
+
+**Shipped in 0.2.4-beta** (99 changes since 0.2.3-beta):
+
+- ✅ **2D lighting** — Light tool (point, spot, directional, ambient), on-canvas handles, real-time 2D shadows for shapes, text, brush strokes and Bézier paths.
+- ✅ **Blend** between two or more objects (shape, colour, gradients, stroke, opacity), along a guide, with its own panel; works with shapes, brush strokes, open paths and text.
+- ✅ **Advanced corners** (round, inverted round, chamfer, notch, zigzag, saw-tooth; Shift + click cycles them).
+- ✅ **Real tables** with a Table panel; **Auto Layout containers** (flex / grid) with a Container panel; **components** in Resources; **master pages**; CSV data merge; table of contents.
+- ✅ **Convert to Bézier path** (shapes and text); text on a path selectable with one click.
+- ✅ **Live Shift + drag stroke width** (brush in both axes; over a selected shape or path).
+- ✅ **Nested clipping masks**, layer **blend modes** (also in SVG / PDF), pattern brush with start / corner / end pieces.
+- ✅ **AI vectorize on Windows and Apple Silicon Macs**; **Windows installer** (per user) and in-app updates; native text and import libraries on Android.
+- ✅ **Performance**: click on a shape 11 → ~6 ms, release 28 → ~5 ms; vectorized photo opens in 0.7 s (was 25 s); select-all with 50 000 elements 5 s → 0.9 s.
+
+**In progress — next version:**
+
+- ⬜ Performance up to **100 000 elements**.
+- ⬜ **Printing**.
+- ⬜ New **Bézier node types** (smooth, symmetric, corner…).
+- ⬜ **Better 3D**.
+- ⬜ **2D lighting for groups**.
+- ⬜ **More advanced plugins**.
+- ⬜ General **UI polish**.
+
+**Planned:**
+
+- ⬜ **Web version** in the browser.
+- ⬜ **iPad (iOS)** build — looking for an iOS developer.
+- ⬜ AI vectorize on **Intel Macs**.
+- ⬜ Skew handles; resizing rotated shapes along their own axes.
+- ⬜ Signed installers for Windows and macOS; AppImage.
+- ⬜ `.vtp` manifest paging (100k+ pages); parallel save / import on worker threads.
+
+**Help wanted:** testers on Windows and macOS for the vectorizer, an iOS
+developer, and donations — contact on [Telegram](https://t.me/vectopen) or
+[Reddit](https://www.reddit.com/r/Vectopen_editor/).
 
 ## 0. Released — 0.2.0-alpha (2026-10-28)
 
@@ -55,7 +93,7 @@ deliberately dropped
 | N-9 | Vectorize + AI tools on Windows and macOS (ONNX Runtime builds for those targets) | ⬜ |
 | N-10 | Signed installers (Windows code signing, Apple notarisation) · AppImage · test on a real Mac | ⬜ |
 
-## 0c. Ready for the next release (after 0.2.3-beta, not yet published — 2026-11-21)
+## 0c. Shipped in 0.2.4-beta (prepared 2026-11-21)
 
 Phase B (30 real-world projects, `test/e2e/proyecto_NN_e2e.gd`) is **complete**:
 all 30 pass, and projects 11–30 also pass in the two other interfaces.
@@ -561,8 +599,15 @@ Hierarchy Editor*, single source of truth with Canvas / Artboard / Bounding Box.
 
 ## Open GitHub issues
 
-| # | Title | Maps to |
+| # | Title | Status |
 |---|---|---|
+| [#1](https://github.com/malabo1990/-Vectopen/issues/1) | Interactive gradient tool (tablet-optimized) | 🟡 Gradient mode (G) exists; full tool pending |
+| [#3](https://github.com/malabo1990/-Vectopen/issues/3) | Warn about damaged `.vtc` pages | 🟡 Unreadable pages are no longer saved empty |
+| [#6](https://github.com/malabo1990/-Vectopen/issues/6) | Exported build tries to save `project.godot` | 🟡 Likely fixed (test add-ons are not exported) |
+| [#9](https://github.com/malabo1990/-Vectopen/issues/9) | Signed installers, AppImage, real-Mac test | ⬜ Planned |
+| [#10](https://github.com/malabo1990/-Vectopen/issues/10) | Traditional Chinese localization (contribution) | 🟡 Answered; to be merged for the next version |
+
+---|---|---|
 | [#1](https://github.com/malabo1990/-Vectopen/issues/1) | Interactive Gradient Tool (editor profesional-style, tablet-optimized) | New tool — not yet in any doc. Suggest a `tools` label + a "Tools" milestone. |
 
 ---
