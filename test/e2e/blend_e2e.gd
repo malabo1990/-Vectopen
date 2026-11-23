@@ -146,6 +146,59 @@ func gradient_test() -> void:
 	var mid2: Node = steps(g)[1]
 	K.check("degradado: cambiar el de A rehace los pasos", (mid2.fill_gradient as Gradient).sample(0.0).g > 0.4, str((mid2.fill_gradient as Gradient).sample(0.0)))
 
+## Fusión de pinceles, Bézier abiertos y textos (no solo figuras).
+func kinds_test() -> void:
+	var ab6: Node2D = await K.artboard(Vector2(1000, 700), "Fusión de todo", Color.WHITE)
+	await K.look_at(ab6)
+	var BL = load("res://script_gdscript/shapes/blend.gd")
+	# pincel → pincel
+	var mk := func(pts: PackedVector2Array, w: float, col: Color) -> Line2D:
+		var l := Line2D.new()
+		l.points = pts
+		l.width = w
+		l.default_color = col
+		l.set_meta("brush_style", "pen")
+		ab6.add_child(l)
+		load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(l)
+		return l
+	var l1: Line2D = mk.call(PackedVector2Array([Vector2(50, 80), Vector2(150, 40), Vector2(250, 80)]), 6.0, Color(0.9, 0.1, 0.1))
+	var l2: Line2D = mk.call(PackedVector2Array([Vector2(650, 80), Vector2(750, 140), Vector2(850, 80)]), 26.0, Color(0.1, 0.1, 0.9))
+	var gl: Node2D = api.make_blend(l1, l2, {"steps": 3})
+	await K.frames(4)
+	var sl: Array = steps(gl)
+	K.check("pincel: 3 pasos que son trazos de pincel", sl.size() == 3 and sl.all(func(x) -> bool: return x is Line2D), str(sl.map(func(x): return x.get_class())))
+	if sl.size() == 3:
+		var mid: Line2D = sl[1]
+		K.check("pincel: grosor y color interpolados", absf(mid.width - 16.0) < 0.5 and mid.default_color.r > 0.4 and mid.default_color.b > 0.4, "%s %s" % [mid.width, mid.default_color])
+		K.check("pincel: mismo estilo de pincel (se dibuja con su render)", String(mid.get_meta("brush_style", "")) == "pen" and mid.get_node_or_null("BrushRender") != null or mid.get_child_count() > 0)
+	# Bézier abierto → Bézier abierto
+	var p1 = api.add_path(PackedVector2Array([Vector2(50, 300), Vector2(150, 250), Vector2(250, 300)]), false, "P1")
+	api.set_props(p1, {"stroke_width": 4.0, "stroke_color": Color(0, 0.6, 0)})
+	var p2 = api.add_path(PackedVector2Array([Vector2(650, 300), Vector2(750, 350), Vector2(850, 300)]), false, "P2")
+	api.set_props(p2, {"stroke_width": 12.0, "stroke_color": Color(0.6, 0, 0.6)})
+	var gp: Node2D = api.make_blend(p1, p2, {"steps": 3})
+	await K.frames(4)
+	var sp: Array = steps(gp)
+	K.check("Bézier abierto: los pasos son trazados ABIERTOS", sp.size() == 3 and sp.all(func(x) -> bool: return x is VectorPath and not x.closed))
+	if sp.size() == 3:
+		K.check("Bézier abierto: grosor interpolado", absf(float(sp[1].stroke_width) - 8.0) < 0.5, str(sp[1].stroke_width))
+	# texto → texto
+	var t1 = api.add_text(Vector2(50, 450), "Hola", 20, Color(0.9, 0.1, 0.1))
+	var t2 = api.add_text(Vector2(700, 520), "Mundo", 60, Color(0.1, 0.1, 0.9))
+	var gt: Node2D = api.make_blend(t1, t2, {"steps": 3})
+	await K.frames(6)
+	var st: Array = steps(gt)
+	K.check("texto: 3 pasos que son textos", st.size() == 3 and st.all(func(x) -> bool: return String(x.get_meta("shape_type", "")).begins_with("text")), str(st.size()))
+	if st.size() == 3:
+		var ic = root.get_node("InspectorCore")
+		var fs: float = float(ic._read(st[1], "font_size"))
+		var col: Color = ic._read(st[1], "fill_color")
+		K.check("texto: tamaño de letra interpolado (20 → 60, mitad 40)", absf(fs - 40.0) < 1.0, str(fs))
+		K.check("texto: color interpolado", col.r > 0.3 and col.b > 0.3, str(col))
+		K.check("texto: posición interpolada", st[1].position.x > t1.position.x + 50 and st[1].position.x < t2.position.x - 50, str(st[1].position))
+		K.check("texto: primera mitad con el texto de A, después el de B", String(st[0].get_meta("text", "")) == "Hola" and String(st[2].get_meta("text", "")) == "Mundo")
+	await K.shot("fusion_de_todo")
+
 func _run() -> void:
 	K = load("res://test/e2e/lib/campaign_kit.gd").new(self, "user://blend")
 	if not await K.boot("modern"):
@@ -214,5 +267,6 @@ func _run() -> void:
 		K.check("expandir: figuras independientes", not g2.has_meta("blend") and steps(g2).is_empty() and g2.get_child_count() >= 8)
 	await chain_test()
 	await gradient_test()
+	await kinds_test()
 	print("RESULT: %s" % ("OK" if K.fails == 0 else "%d FAIL" % K.fails))
 	quit(1 if K.fails else 0)

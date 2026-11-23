@@ -48,12 +48,28 @@ static func outline(n: Node2D) -> PackedVector2Array:
 	if n is VectorPath:
 		pts = VectorPath.closed_points((n as VectorPath).curve) if (n as VectorPath).closed \
 			else _SG.curve_points((n as VectorPath).curve)
+	elif n is Line2D:
+		pts = (n as Line2D).points   # trazo de pincel: abierto
+	elif _is_text(n):
+		# texto: su caja (para el centro y la guía; los pasos copian el texto)
+		var w := float(n.get_meta("width", 100.0))
+		var h := float(n.get_meta("height", 30.0))
+		var lb: Node = n.get_node_or_null("DisplayLabel")
+		if lb is Control:
+			w = (lb as Control).size.x
+			h = (lb as Control).size.y
+		pts = PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
 	elif n.has_method("get_effect_points"):
 		pts = n.get_effect_points()
 	return n.transform * pts
 
 static func _closed(n: Node) -> bool:
+	if n is Line2D:
+		return false
 	return not (n is VectorPath) or (n as VectorPath).closed
+
+static func _is_text(n: Node) -> bool:
+	return String(n.get_meta("shape_type", "")).begins_with("text")
 
 static func _cum(p: PackedVector2Array, closed: bool) -> PackedFloat32Array:
 	var c := PackedFloat32Array([0.0])
@@ -186,6 +202,10 @@ static func signature(g: Node2D) -> int:
 		parts.append(outline(n))
 		for k in ["fill_color", "stroke_color", "stroke_width"]:
 			parts.append(n.get(k))
+		if n is Line2D:
+			parts.append([(n as Line2D).width, (n as Line2D).default_color])
+		if _is_text(n):
+			parts.append([n.get_meta("text", ""), n.get_meta("font_size", 0), n.get_meta("fill_color") if n.has_meta("fill_color") else 0, n.position, n.rotation])
 		if _has_grad(n):
 			var gg: Gradient = n.get("fill_gradient")
 			parts.append([gg.offsets, gg.colors, n.get("fill_gradient_type"), n.get("fill_gradient_angle"), n.get("fill_gradient_p0"), n.get("fill_gradient_p1")])
@@ -221,12 +241,31 @@ static func rebuild(g: Node2D) -> void:
 	for si in segs:
 		var A: Node2D = K[si]
 		var Bn: Node2D = K[si + 1]
-		var pa := prev
-		var pb := align(pa, resample(outline(Bn), SAMPLES, closed), closed)
+		var seg_closed := closed and _closed(A) and _closed(Bn)
+		var pa := prev if prev.size() > 0 else resample(outline(A), SAMPLES, seg_closed)
+		var pb := align(pa, resample(outline(Bn), SAMPLES, seg_closed), seg_closed)
 		prev = pb
 		var n := _count(g, pa, pb, spine_len / segs if spine_len > 0.0 else 0.0)
 		var ca := _centroid(pa)
 		var cb := _centroid(pb)
+		# Textos: cada paso es una COPIA del texto con posición, giro, escala,
+		# tamaño de letra y color interpolados (el texto de A hasta la mitad;
+		# después el de B).
+		if _is_text(A) and _is_text(Bn):
+			for i in n:
+				var lt2 := float(i + 1) / float(n + 1)
+				var ts := _text_step(A, Bn, lt2)
+				if ts == null:
+					continue
+				if spine.size() >= 2:
+					var at2: Array = _at(spine, scum, (float(si) + lt2) / float(segs))
+					ts.position += (at2[0] as Vector2) - ca.lerp(cb, lt2)
+				ts.name = "Paso %d-%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
+				ts.set_meta(STEP_META, si * 1000 + i)
+				g.add_child(ts)
+				g.move_child(ts, Bn.get_index())
+			continue
+		var as_line := A is Line2D and Bn is Line2D
 		for i in n:
 			var lt := float(i + 1) / float(n + 1)
 			var pts := _lerp_pts(pa, pb, lt)
@@ -237,8 +276,32 @@ static func rebuild(g: Node2D) -> void:
 				if orient:
 					xf = Transform2D((at[1] as Vector2).angle(), at[0])
 				pts = xf * (Transform2D(0.0, -c_now) * pts)
-			var grad := closed and (_has_grad(A) or _has_grad(Bn))
+			var grad := seg_closed and (_has_grad(A) or _has_grad(Bn))
 			var s: Node2D
+			if as_line:
+				# Pincel → pincel: trazos de pincel con puntos, grosor y color
+				# interpolados y el mismo estilo de pincel que A.
+				var la := A as Line2D
+				var lb2 := Bn as Line2D
+				var ln := Line2D.new()
+				ln.points = pts
+				ln.width = lerpf(la.width, lb2.width, lt)
+				ln.default_color = la.default_color.lerp(lb2.default_color, lt)
+				ln.width_curve = la.width_curve
+				ln.joint_mode = la.joint_mode
+				ln.begin_cap_mode = la.begin_cap_mode
+				ln.end_cap_mode = la.end_cap_mode
+				ln.modulate.a = lerpf(la.modulate.a, lb2.modulate.a, lt)
+				for mk in ["brush_style", "nib_angle", "brush_obj", "brush_texture", "brush_geo"]:
+					if la.has_meta(mk):
+						ln.set_meta(mk, la.get_meta(mk))
+				ln.name = "Paso %d-%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
+				ln.set_meta(STEP_META, si * 1000 + i)
+				g.add_child(ln)
+				g.move_child(ln, Bn.get_index())
+				if ln.has_meta("brush_style"):
+					load("res://script_gdscript/shapes/brush_stroke_render.gd").attach(ln)
+				continue
 			if grad:
 				# Con DEGRADADO: polígono (VectorShape, que sí lo dibuja) con el
 				# degradado interpolado entre las dos claves.
@@ -253,7 +316,7 @@ static func rebuild(g: Node2D) -> void:
 					curve.add_point(v)
 				var vp := VectorPath.new()
 				vp.curve = curve
-				vp.closed = closed
+				vp.closed = seg_closed
 				s = vp
 			s.name = "Paso %d-%d" % [si + 1, i + 1] if segs > 1 else "Paso %d" % (i + 1)
 			s.fill_color = _get_col(A, "fill_color").lerp(_get_col(Bn, "fill_color"), lt)
@@ -264,6 +327,35 @@ static func rebuild(g: Node2D) -> void:
 			g.add_child(s)
 			g.move_child(s, Bn.get_index())   # justo debajo de la clave siguiente
 	g.set_meta("_blend_sig", signature(g))
+
+## Paso de TEXTO entre A y B en `t` (copia por el serializador del proyecto).
+static func _text_step(a: Node2D, b: Node2D, t: float) -> Node2D:
+	var CS = load("res://scripts/canvas/canvas_serializer.gd")
+	var src: Node2D = a if t < 0.5 else b
+	var d: Dictionary = CS._serialize_element(src)
+	var holder := Node2D.new()
+	CS.instantiate_elements(holder, [d])
+	if holder.get_child_count() == 0:
+		holder.free()
+		return null
+	var n: Node2D = holder.get_child(0)
+	holder.remove_child(n)
+	holder.free()
+	n.position = a.position.lerp(b.position, t)
+	n.rotation = lerp_angle(a.rotation, b.rotation, t)
+	n.scale = a.scale.lerp(b.scale, t)
+	n.modulate.a = lerpf(a.modulate.a, b.modulate.a, t)
+	var ic: Node = _tree().root.get_node_or_null("InspectorCore") if _tree() else null
+	if ic and ic.has_method("_read") and ic.has_method("_write_prop"):
+		var fa = ic._read(a, "font_size")
+		var fb = ic._read(b, "font_size")
+		if fa != null and fb != null:
+			ic._write_prop(n, "font_size", lerpf(float(fa), float(fb), t))
+		var ca = ic._read(a, "fill_color")
+		var cb = ic._read(b, "fill_color")
+		if ca is Color and cb is Color:
+			ic._write_prop(n, "fill_color", (ca as Color).lerp(cb, t))
+	return n
 
 static func _has_grad(n: Node) -> bool:
 	return "fill_gradient" in n and n.get("fill_gradient") is Gradient and (n.get("fill_gradient") as Gradient).get_point_count() >= 2
