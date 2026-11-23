@@ -83,9 +83,9 @@ func _run() -> void:
 			n.get_parent().visible = true
 			await K.frames(2)
 			var b := n.get_parent().find_child("MakeMask", true, false) as Control
-			host_ok = b != null and b.visible
+			host_ok = b == null or not b.visible   # ya no está en el clic derecho
 			n.get_parent().visible = false
-	K.check("el menú contextual ofrece «Crear máscara de recorte» con 3 objetos", host_ok)
+	K.check("la máscara ya NO se repite en el clic derecho (está en Capas)", host_ok)
 	await context("make_mask")
 	K.check("la silueta (arriba) recorta foto y sombra", photo.get_parent() == face and shade.get_parent() == face and face.clip_children != 0)
 	await K.look_at(ab)

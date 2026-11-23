@@ -14,8 +14,8 @@ const _ITEMS := [
 	["TableDeleteRow", "table_delete_row", "Tabla: borrar fila"],
 	["TableDeleteCol", "table_delete_col", "Tabla: borrar columna"],
 	["SimplifyPath", "simplify_path", "Simplificar trazado"],
-	["MakeMask", "make_mask", "Crear máscara de recorte"],
-	["ReleaseMask", "release_mask", "Soltar máscara"],
+	# La máscara de recorte va en el botón de Capas (pedido del usuario: no
+	# repetirla en el clic derecho).
 	["MakeSymbol", "make_symbol", "Crear componente vinculado"],
 	["DetachSymbol", "detach_symbol", "Desvincular componente"],
 	["MakeBlend", "make_blend", "Crear fusión (Blend)"],
@@ -70,16 +70,6 @@ func _applies(action: String) -> bool:
 		return sel.is_empty()
 	if action.begins_with("table_"):
 		return sel.size() == 1 and _Table.table_of(sel[0]) != null
-	if action == "make_mask":
-		if sel.size() < 2:
-			return false
-		var top: Node = sel[0]
-		for n in sel:
-			if n.get_parent() == top.get_parent() and n.get_index() > top.get_index():
-				top = n
-		return VectopenAPI._can_mask(top)
-	if action == "release_mask":
-		return sel.any(func(n) -> bool: return int(n.get("clip_children")) != 0)
 	if action == "edit_shape":
 		return sel.size() == 1 and ("shape_mode" in sel[0] or "sides" in sel[0] or "points_count" in sel[0] or "drop_curvature" in sel[0])
 	if action == "data_merge":
