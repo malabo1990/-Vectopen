@@ -30,6 +30,7 @@ var _sub_menu: PopupMenu
 var _move_cat_menu: PopupMenu
 var _search: LineEdit
 var _sections: VBoxContainer
+var _components: VBoxContainer
 var _add_btn: Button
 var _status: Label
 var _menu_item_id := ""
@@ -83,6 +84,9 @@ func _init() -> void:
 	srow.add_child(_zoom)
 	# Colores globales del documento (encargo 25: manual de marca)
 	add_child(preload("res://script_gdscript/ui/components/doc_colors_row.gd").new())
+	# Componentes del documento (miniatura, copias, colocar, seleccionar…)
+	_components = preload("res://script_gdscript/ui/components/components_section.gd").new()
+	add_child(_components)
 	var scroll := ScrollContainer.new()
 	scroll.name = "Scroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -563,6 +567,8 @@ func _small_button(parent: Control, text: String, tip: String) -> Button:
 	return b
 
 func restyle() -> void:
+	if is_instance_valid(_components) and _components.has_method("restyle"):
+		_components.restyle(FxUI.c("TEXT_SECONDARY"), FxUI.c("PANEL_TEXT"))
 	ProUIStyle.style_option(_cat)
 	ProUIStyle.style_line_edit(_search)
 	ProUIStyle.style_slider(_zoom)

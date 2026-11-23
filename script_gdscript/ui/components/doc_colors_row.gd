@@ -18,13 +18,29 @@ var _menu_id := ""
 var _picker_popup: PopupPanel
 var _picker: ColorPicker
 
+var _head: Label
+
+func _on_theme_changed(_m = null) -> void:
+	_paint_head()
+
+func _paint_head() -> void:
+	if is_instance_valid(_head):
+		_head.add_theme_color_override("font_color", ProUIStyle.col("TEXT_SECONDARY"))
+
 func _init() -> void:
 	name = "DocColorsRow"
 	add_theme_constant_override("separation", 3)
 	var head := Label.new()
 	head.text = tr("Colores del documento")
 	head.add_theme_font_size_override("font_size", 11)
-	head.modulate.a = 0.75
+	head.name = "Head"
+	# colores del tema (antes blanco fijo: ilegible en el tema claro); método
+	# propio → Godot lo desconecta solo al borrar la fila
+	_head = head
+	_paint_head()
+	var tm: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ThemeManager") if Engine.get_main_loop() is SceneTree else null
+	if tm and tm.has_signal("theme_changed"):
+		tm.theme_changed.connect(_on_theme_changed)
 	head.tooltip_text = tr("Colores globales: al cambiar uno cambian todos los objetos que lo usan. Clic = relleno, Mayús + clic = trazo, clic derecho = editar")
 	head.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(head)
