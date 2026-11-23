@@ -92,6 +92,42 @@ func field_scrub_perf(ab: Node2D) -> void:
 	key(KEY_SHIFT, false)
 	await K.frames(4)
 	print("BENCH campo_grosor_500_trazos=%.2f ms_medio=%.1f ms_peor=%.1f" % [w_mid, avg, worst])
+	# VERTICAL en el campo (arriba = más), también con Mayús
+	api.undo()
+	await K.frames(4)
+	key(KEY_SHIFT, true)
+	await K.frames(1)
+	var dn2 := InputEventMouseButton.new()
+	dn2.position = a
+	dn2.global_position = a
+	dn2.button_index = MOUSE_BUTTON_LEFT
+	dn2.pressed = true
+	dn2.shift_pressed = true
+	dn2.button_mask = MOUSE_BUTTON_MASK_LEFT
+	_send(dn2)
+	await K.frames(2)
+	var t_v := Time.get_ticks_usec()
+	for i in range(1, 31):
+		var m3 := InputEventMouseMotion.new()
+		m3.position = a + Vector2(0, -i * 2)
+		m3.global_position = m3.position
+		m3.button_mask = MOUSE_BUTTON_MASK_LEFT
+		m3.shift_pressed = true
+		_send(m3)
+		await process_frame
+	var avg_v := (Time.get_ticks_usec() - t_v) / 1000.0 / 30.0
+	var w_v2: float = float(paths[499].stroke_width)
+	var up2 := InputEventMouseButton.new()
+	up2.position = a + Vector2(0, -60)
+	up2.global_position = up2.position
+	up2.button_index = MOUSE_BUTTON_LEFT
+	up2.pressed = false
+	_send(up2)
+	key(KEY_SHIFT, false)
+	await K.frames(4)
+	print("BENCH campo_grosor_vertical=%.2f ms_medio=%.1f" % [w_v2, avg_v])
+	K.check("campo en VERTICAL con Mayús: rápido (60 px: 2 → más de 20 px)", w_v2 > 20.0, "%.2f px" % w_v2)
+	K.check("campo en VERTICAL: fluido con 500 trazos (≤ 34 ms)", avg_v <= 34.0, "%.1f ms" % avg_v)
 	K.check("Mayús + arrastrar el grosor es RÁPIDO (60 px: 2 → más de 20 px, sin dispararse al máximo)", w_mid > 20.0 and w_mid < 400.0, "%.2f px" % w_mid)
 	K.check("con 500 trazos seleccionados va fluido (medio ≤ 34 ms)", avg <= 34.0, "%.1f ms" % avg)
 	api.undo()
@@ -167,6 +203,35 @@ func _run() -> void:
 	K.check("200 px de arrastre llevan el grosor de 5 a ~100 px (rápido)", w_end > 80.0, "%.1f px" % w_end)
 	K.check("cada fotograma del gesto es fluido (medio ≤ 20 ms)", avg <= 20.0, "%.1f ms" % avg)
 	K.check("ningún fotograma se atasca (peor ≤ 50 ms)", worst <= 50.0, "%.1f ms" % worst)
+	# VERTICAL (hacia arriba = más grueso): antes no hacía nada
+	bt.brush_width = 5.0
+	var dv := InputEventMouseButton.new()
+	dv.position = c
+	dv.global_position = c
+	dv.button_index = MOUSE_BUTTON_LEFT
+	dv.pressed = true
+	dv.shift_pressed = true
+	dv.button_mask = MOUSE_BUTTON_MASK_LEFT
+	_send(dv)
+	await K.frames(2)
+	for i in range(1, 41):
+		var mv := InputEventMouseMotion.new()
+		mv.position = c + Vector2(0, -i * 5)
+		mv.global_position = mv.position
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.shift_pressed = true
+		_send(mv)
+		await process_frame
+	var w_v: float = bt.brush_width
+	var uv := InputEventMouseButton.new()
+	uv.position = c + Vector2(0, -200)
+	uv.global_position = uv.position
+	uv.button_index = MOUSE_BUTTON_LEFT
+	uv.pressed = false
+	_send(uv)
+	await K.frames(3)
+	print("BENCH pincel_vertical_grosor=%.1f" % w_v)
+	K.check("Mayús + arrastrar en VERTICAL también cambia el grosor (arriba = más)", w_v > 80.0, "%.1f px" % w_v)
 	K.check("no se ha dibujado ningún trazo con el gesto", ab.get_children().filter(func(n) -> bool: return n is Line2D).size() == 2000)
 	await K.frames(4)
 	await field_scrub_perf(ab)

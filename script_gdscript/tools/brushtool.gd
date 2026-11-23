@@ -203,6 +203,7 @@ var brush_width: float = BRUSH_STROKE_WIDTH:
 var _settings_dirty := false
 var _is_resizing: bool = false
 var _resize_start_x: float = 0.0
+var _resize_start_y: float = 0.0
 var _resize_start_width: float = 0.0
 # px de viewport arrastrados horizontalmente por unidad de ancho — en espacio
 # de pantalla, no del artboard, para que el gesto se sienta igual sin importar
@@ -356,8 +357,10 @@ func handle_input(event: InputEvent) -> bool:
 			canvas.queue_redraw()
 
 	if event is InputEventMouseMotion and _is_resizing:
-		var delta_x: float = event.position.x - _resize_start_x
-		brush_width = resize_width(_resize_start_width, delta_x)
+		# Los DOS ejes: derecha / arriba = más grueso, izquierda / abajo = más
+		# fino (antes solo el horizontal: en vertical «no hacía nada»).
+		var d: float = (event.position.x - _resize_start_x) + (_resize_start_y - event.position.y)
+		brush_width = resize_width(_resize_start_width, d)
 		canvas.queue_redraw()
 		return true
 
@@ -402,6 +405,7 @@ func handle_input(event: InputEvent) -> bool:
 				# gesto de arrastre horizontal que cambia brush_width.
 				_is_resizing = true
 				_resize_start_x = event.position.x
+				_resize_start_y = event.position.y
 				_resize_start_width = brush_width
 				Input.set_default_cursor_shape(Input.CURSOR_HSIZE)
 				canvas.queue_redraw()

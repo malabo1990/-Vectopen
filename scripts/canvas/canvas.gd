@@ -330,6 +330,8 @@ func _route_key_to_3d(event: InputEventKey) -> bool:
 			return true
 	return false
 
+var _width_gesture = null
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		print("[CanvasEditor] _unhandled_input MB pos=%s current_tool=%s" % [event.position, current_tool.get_script().resource_path if current_tool else "null"])
@@ -378,6 +380,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			if current_tool.is_3d_focused(gm3):
 				en_modo_navegacion_forzada = false
 	
+	# Mayús + arrastrar sobre una figura / Bézier seleccionado = su grosor de
+	# trazo en tiempo real (herramientas de figura, Bézier, pluma y nodos).
+	if not en_modo_navegacion_forzada and (event is InputEventMouseButton or event is InputEventMouseMotion):
+		if _width_gesture == null:
+			_width_gesture = load("res://script_gdscript/tools/stroke_width_gesture.gd").new(self)
+		if _width_gesture.handle(event):
+			get_viewport().set_input_as_handled()
+			return
+
 	if current_tool and not en_modo_navegacion_forzada:
 		if current_tool.has_method("handle_input"):
 			if current_tool.handle_input(event):

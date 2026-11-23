@@ -224,9 +224,21 @@ func _get_event_gm(event: InputEvent) -> Vector2:
 
 ## El trazado que se editaba ya no está (p. ej. se deshizo su creación):
 ## soltarlo para no seguir dibujando ni tocando un nodo fuera de la escena.
+var _path_seen_in_tree: Path2D = null
+
 func _drop_stale_path() -> void:
-	if edit_path != null and (not is_instance_valid(edit_path) or not edit_path.is_inside_tree()):
+	if edit_path == null:
+		return
+	if not is_instance_valid(edit_path):
 		edit_path = null
+		selected_nodes.clear()
+		return
+	if edit_path.is_inside_tree():
+		_path_seen_in_tree = edit_path
+	elif _path_seen_in_tree == edit_path:
+		# estaba en la escena y ya no (se deshizo su creación)
+		edit_path = null
+		_path_seen_in_tree = null
 		selected_nodes.clear()
 
 func handle_input(event: InputEvent) -> bool:
