@@ -51,7 +51,7 @@ func _ready() -> void:
 				visible = false
 				_auto_opened = false
 			_last_table = t
-			sync())
+			_sync_soon())
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m) -> void: _apply_theme())
@@ -376,6 +376,21 @@ func _equalize() -> void:
 	sync()
 
 # ── sincronizar ──────────────────────────────────────────────────────────────
+## Rendimiento (clic / soltar sobre figuras): sincronizar SOLO si el panel se
+## ve, y como mucho UNA vez por fotograma. Antes cada cambio de selección
+## reconstruía los cuatro paneles nuevos aunque estuvieran ocultos (~170 ms
+## por clic). Oculto, se sincroniza al mostrarse (visibility_changed).
+var _sync_pending := false
+
+func _sync_soon() -> void:
+	if _sync_pending or not is_visible_in_tree():
+		return
+	_sync_pending = true
+	(func() -> void:
+		_sync_pending = false
+		if is_inside_tree() and is_visible_in_tree():
+			sync()).call_deferred()
+
 func sync() -> void:
 	if not is_inside_tree():
 		return

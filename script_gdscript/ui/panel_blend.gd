@@ -46,7 +46,7 @@ func _ready() -> void:
 			elif g == null and visible and _auto_opened:
 				visible = false   # se abrió por la selección: se cierra con ella
 				_auto_opened = false
-			sync())
+			_sync_soon())
 	var tm := get_node_or_null("/root/ThemeManager")
 	if tm and tm.has_signal("theme_changed"):
 		tm.theme_changed.connect(func(_m) -> void: _apply_theme())
@@ -237,6 +237,21 @@ func _summary(g: Node2D) -> String:
 			n += 1
 	var guide := tr(" · con guía") if BlendScript.spine_of(g) != null else ""
 	return tr("%d objetos · %d pasos%s") % [k.size(), n, guide]
+
+## Rendimiento (clic / soltar sobre figuras): sincronizar SOLO si el panel se
+## ve, y como mucho UNA vez por fotograma. Antes cada cambio de selección
+## reconstruía los cuatro paneles nuevos aunque estuvieran ocultos (~170 ms
+## por clic). Oculto, se sincroniza al mostrarse (visibility_changed).
+var _sync_pending := false
+
+func _sync_soon() -> void:
+	if _sync_pending or not is_visible_in_tree():
+		return
+	_sync_pending = true
+	(func() -> void:
+		_sync_pending = false
+		if is_inside_tree() and is_visible_in_tree():
+			sync()).call_deferred()
 
 func sync() -> void:
 	if not is_inside_tree():
