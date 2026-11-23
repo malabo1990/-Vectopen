@@ -44,7 +44,29 @@ func _run() -> void:
 		for i in 4:
 			var r = api.add_rect(Vector2(100 + i * 120, 150), Vector2(80, 60 + i * 10), 0.0, "E%d" % i)
 			items.append(r)
+		var AL0 = load("res://script_gdscript/shapes/auto_layout.gd")
+		var union := func(list: Array) -> Rect2:
+			var u := Rect2()
+			for i in list.size():
+				var r: Rect2 = AL0.box(list[i])
+				var pxf: Transform2D = (list[i].get_parent() as Node2D).global_transform   # box() va en coords del padre
+				var gr := Rect2(pxf * r.position, r.size * pxf.get_scale())
+				u = gr if i == 0 else u.merge(gr)
+			return u
+		var u0: Rect2 = union.call(items)
 		var g: Node2D = api.make_layout(items, {"mode": "row", "gap": 16.0})
+		await K.frames(3)
+		var u1: Rect2 = union.call(items)
+		K.check("%s: al crear el contenedor NO cambia de sitio (misma esquina del conjunto)" % mode, u1.position.distance_to(u0.position) < 1.0, "%s → %s" % [u0.position, u1.position])
+		# objetos creados en orden INVERSO a como se ven: se respeta lo que se ve
+		var rev: Array = []
+		for i in 3:
+			rev.append(api.add_ellipse(Vector2(700 - i * 90, 380), Vector2(60, 60), "R%d" % i))
+		var r0: Rect2 = union.call(rev)
+		var g2: Node2D = api.make_layout(rev, {"mode": "row", "gap": 10.0})
+		await K.frames(3)
+		K.check("%s: respeta el orden en que se ven (izquierda → derecha)" % mode, rev[2].global_position.x < rev[1].global_position.x and rev[1].global_position.x < rev[0].global_position.x, "%s" % [rev.map(func(n): return n.global_position.x)])
+		K.check("%s: y tampoco salta de sitio" % mode, (union.call(rev) as Rect2).position.distance_to(r0.position) < 1.0, "%s → %s" % [r0.position, (union.call(rev) as Rect2).position])
 		api.select([])
 		await K.frames(4)
 		K.check("%s: sin contenedor seleccionado no hay panel" % mode, panel() == null)

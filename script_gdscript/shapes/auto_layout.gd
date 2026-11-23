@@ -101,7 +101,9 @@ static func apply(g: Node2D) -> void:
 	var pad := float(p["padding"])
 	var gap := float(p["gap"])
 	var mode := String(p["mode"])
-	var origin := Vector2.ZERO
+	# Sin fondo: se coloca a partir de donde estaban los objetos al crear el
+	# contenedor (antes desde el origen del grupo → «saltaban» de sitio).
+	var origin: Vector2 = p.get("origin", Vector2.ZERO) if p.get("origin") is Vector2 else Vector2.ZERO
 	var fixed := Vector2.ZERO   # interior disponible si el tamaño NO es automático
 	if bg:
 		var bb := box(bg)
@@ -211,7 +213,34 @@ static func make(g: Node2D, opts: Dictionary = {}, bg_rect: Node2D = null) -> vo
 	var p := DEFAULTS.duplicate()
 	p.merge(opts, true)
 	var snap := _snapshot(g)
+	# Que NO cambie de sitio: el contenedor empieza donde estaban los objetos
+	# (su esquina superior izquierda) y los coloca en el orden en que se ven
+	# (izquierda → derecha en fila; arriba → abajo en columna / rejilla).
+	if bg_rect == null and not p.has("origin"):
+		var its0 := items(g)
+		if not its0.is_empty():
+			var u: Rect2 = box(its0[0])
+			for it in its0:
+				u = u.merge(box(it))
+			p["origin"] = u.position - Vector2(float(p["padding"]), float(p["padding"]))
+	var visual: Array = items(g)
+	var m := String(p["mode"])
+	visual.sort_custom(func(a, b) -> bool:
+		var ra: Rect2 = box(a)
+		var rb: Rect2 = box(b)
+		if m == "column":
+			return ra.position.y < rb.position.y
+		if m == "row":
+			return ra.position.x < rb.position.x
+		# rejilla / salto: por filas
+		if absf(ra.position.y - rb.position.y) > minf(ra.size.y, rb.size.y) * 0.5:
+			return ra.position.y < rb.position.y
+		return ra.position.x < rb.position.x)
 	var do_fn := func() -> void:
+		var first_free := 1 if bg_rect else 0
+		for i in visual.size():
+			if is_instance_valid(visual[i]) and visual[i].get_parent() == g:
+				g.move_child(visual[i], mini(first_free + i, g.get_child_count() - 1))
 		g.set_meta(META, p.duplicate())
 		if bg_rect:
 			bg_rect.set_meta(BG_META, true)

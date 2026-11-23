@@ -32,10 +32,11 @@ func test_fila_con_separacion_y_margen() -> void:
 	bg.move_to_front()
 	_g.move_child(bg, 0)
 	AL.make(_g, {"mode": "row", "gap": 10.0, "padding": 20.0, "cross": "center"}, bg)
-	# fondo en (0,0) tras el ajuste: a a 20 del borde, b tras a + 10
+	# orden en que SE VEN (b está a la izquierda de a): b a 20 del borde,
+	# a tras b + 10
 	var o := AL.box(bg).position
-	assert_float(_left(a) - o.x).is_equal_approx(20.0, 0.01)
-	assert_float(_left(b) - o.x).is_equal_approx(20.0 + 100.0 + 10.0, 0.01)
+	assert_float(_left(b) - o.x).is_equal_approx(20.0, 0.01)
+	assert_float(_left(a) - o.x).is_equal_approx(20.0 + 60.0 + 10.0, 0.01)
 	# fondo a la medida: 20 + 100 + 10 + 60 + 20 = 210 × (20 + 80 + 20) = 120
 	assert_vector(AL.box(bg).size).is_equal_approx(Vector2(210, 120), Vector2(0.01, 0.01))
 	# centrado en vertical: a (50 de alto) a 15 del borde interior
