@@ -66,8 +66,8 @@ func drag(label: String, from: Vector2, delta: Vector2, steps: int, shift := fal
 	await K.frames(3)
 	await create_timer(0.4).timeout
 	await K.frames(2)
-	K.check("%s: arrastrando, modo baja latencia (sin vsync ni tope de 60)" % label, during_fast and during_vs == DisplayServer.VSYNC_DISABLED and during_fps != 60, "fast=%s vsync=%d fps=%d" % [during_fast, during_vs, during_fps])
-	K.check("%s: fotograma arrastrando ≤ 8 ms (antes 16)" % label, f_avg / steps <= 8.0, "%.2f ms" % (f_avg / steps))
+	K.check("%s: arrastrando, sin tope de 60 FPS y CON vsync (no satura el compositor)" % label, during_fast and during_vs != DisplayServer.VSYNC_DISABLED and during_fps != 60, "fast=%s vsync=%d fps=%d" % [during_fast, during_vs, during_fps])
+	K.check("%s: un fotograma por refresco (≤ 17,5 ms, sin saltos)" % label, f_avg / steps <= 17.5, "%.2f ms" % (f_avg / steps))
 	K.check("%s: cada movimiento se procesa en ≤ 1 ms" % label, e_avg / steps <= 1.0, "%.2f ms" % (e_avg / steps))
 	K.check("%s: al soltar vuelve la vsync y los 60 FPS" % label, not pm.is_drag_fast() and DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED and Engine.max_fps == 60, "vsync=%d fps=%d" % [DisplayServer.window_get_vsync_mode(), Engine.max_fps])
 	print("DIAG max_fps=%d vsync=%d process_ms=%.2f physics_ms=%.2f draw_calls=%d objetos=%d fps=%d" % [Engine.max_fps, DisplayServer.window_get_vsync_mode(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Engine.get_frames_per_second()])

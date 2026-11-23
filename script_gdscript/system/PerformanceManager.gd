@@ -135,11 +135,9 @@ func _conectar_actividad() -> void:
 			ge.connect(s, mark_activity)
 
 # ── Baja latencia al ARRASTRAR (como Inkscape) ───────────────────────
-## Con el botón pulsado (mover, grosor, dibujar…) se quitan los dos frenos
-## que dejaban la figura 2-3 fotogramas detrás del cursor (33-50 ms): el tope
-## de 60 FPS y la sincronización vertical. Un fotograma cuesta ~4 ms, así que
-## el último siempre está listo para el compositor (que ya evita el tearing).
-## Al soltar vuelve todo como estaba: en reposo no se gasta GPU.
+## Con el botón pulsado (mover, grosor, dibujar…) se quita el tope de FPS del
+## limitador (que sumaba retraso encima de la vsync); la vsync sigue. Al
+## soltar vuelve todo como estaba.
 @export var low_latency_drag: bool = true
 const DRAG_FPS: int = 240
 const DRAG_RELEASE_MS: int = 250
@@ -153,11 +151,12 @@ func _enter_drag_fast() -> void:
 		return
 	_drag_fast = true
 	_drag_prev_fps = Engine.max_fps
-	_drag_prev_vsync = DisplayServer.window_get_vsync_mode()
-	if _drag_prev_vsync != DisplayServer.VSYNC_DISABLED:
-		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	# La VSYNC se queda: sin ella (XWayland + NVIDIA) el compositor de KDE se
+	# saturaba a 240 FPS y TODO el escritorio iba a tirones. Solo se quita el
+	# tope de FPS, que sumaba retraso encima de la vsync.
+	_drag_prev_vsync = -1
 	if _drag_prev_fps != 0:
-		Engine.max_fps = DRAG_FPS
+		Engine.max_fps = 0 if DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED else DRAG_FPS
 
 func _exit_drag_fast() -> void:
 	if not _drag_fast:
@@ -165,7 +164,7 @@ func _exit_drag_fast() -> void:
 	_drag_fast = false
 	if _drag_prev_vsync != DisplayServer.VSYNC_DISABLED and _drag_prev_vsync >= 0:
 		DisplayServer.window_set_vsync_mode(_drag_prev_vsync)
-	if _drag_prev_fps != 0 and Engine.max_fps == DRAG_FPS:
+	if _drag_prev_fps != 0 and (Engine.max_fps == DRAG_FPS or Engine.max_fps == 0):
 		Engine.max_fps = _drag_prev_fps
 	_drag_release_at = 0
 
